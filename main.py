@@ -1,3 +1,5 @@
+import time
+
 from semantic_text_splitter import MarkdownSplitter
 from telebot.formatting import escape_markdown
 
@@ -88,6 +90,7 @@ def handle_text(message):
             chunks = splitter.chunks(answer)
             for text in chunks:
                 bot.reply_to(message, text)
+                time.sleep(1)
 
         bot.reply_to(message, answer)
 
