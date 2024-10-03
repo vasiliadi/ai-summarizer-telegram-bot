@@ -3,8 +3,6 @@
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
 
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/vasiliadi/ai-summarizer-telegram-bot)
-
 ## Usage
 
 1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), and [Replicate](https://replicate.com/account/api-tokens)
