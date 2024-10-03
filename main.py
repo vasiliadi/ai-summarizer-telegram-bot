@@ -83,7 +83,7 @@ def handle_text(message):
         answer = summarize(file=file, use_transcription=user.use_transcription)
 
         if len(answer) > 4096:
-            splitter = MarkdownSplitter(4000)
+            splitter = MarkdownSplitter(3500)
             chunks = splitter.chunks(answer)
             for text in chunks:
                 bot.reply_to(message, escape_markdown(text))
