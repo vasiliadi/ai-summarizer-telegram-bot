@@ -28,7 +28,6 @@ After completing these steps, you are ready to send youtube.com and castro.fm li
 ## Deploy
 
 - Using `Dockerfile` on any cloud hosting
-- Using [Vercel](https://vercel.com/)
 - Using [Dokploy](https://dokploy.com/) or a similar tool and a cost-efficient cloud service like [Hetzner](https://www.hetzner.com/cloud/)
 
 ## Docs
