@@ -81,14 +81,15 @@ def handle_text(message):
             raise ValueError("No file to proceed.")
 
         answer = summarize(file=file, use_transcription=user.use_transcription)
+        answer = escape_markdown(answer)
 
         if len(answer) > 4096:
-            splitter = MarkdownSplitter(3500)
+            splitter = MarkdownSplitter(4096)
             chunks = splitter.chunks(answer)
             for text in chunks:
-                bot.reply_to(message, escape_markdown(text))
+                bot.reply_to(message, text)
 
-        bot.reply_to(message, escape_markdown(answer))
+        bot.reply_to(message, answer)
 
     except Exception as e:
         bot.reply_to(message, f"Unexpected: {e}")
