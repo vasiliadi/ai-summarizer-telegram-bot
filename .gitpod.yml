@@ -10,7 +10,7 @@ image:
   context: .
 
 tasks:
-  # - name: Init project and run bot
+  - name: Init project
     before: pip install -r requirements-dev.txt --upgrade
     # command: python main.py
 
