@@ -1,6 +1,4 @@
-import time
-
-from semantic_text_splitter import MarkdownSplitter
+from telebot.util import smart_split
 from telebot.formatting import escape_markdown
 
 from config import bot
@@ -85,14 +83,12 @@ def handle_text(message):
         answer = summarize(file=file, use_transcription=user.use_transcription)
         answer = escape_markdown(answer)
 
-        if len(answer) > 4096:
-            splitter = MarkdownSplitter(4096)
-            chunks = splitter.chunks(answer)
+        if len(answer) > 3500:  # 4096 limit
+            chunks = smart_split(answer, 3500)
             for text in chunks:
                 bot.reply_to(message, text)
-                time.sleep(1)
-
-        bot.reply_to(message, answer)
+        else:
+            bot.reply_to(message, answer)
 
     except Exception as e:
         bot.reply_to(message, f"Unexpected: {e}")
