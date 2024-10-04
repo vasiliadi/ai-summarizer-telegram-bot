@@ -1,10 +1,11 @@
+import os
 import time
 
 import google.generativeai as genai
 from google.api_core import retry, exceptions
 
 from config import gemini_pro_model
-from transcription import transcribe
+from transcription import transcribe, get_yt_transcript
 from utils import generate_temprorary_name, compress_audio, clean_up
 
 
@@ -34,14 +35,20 @@ def summarize_with_transcription(transcription):
     return response.text
 
 
-def summarize(file, use_transcription):
+def summarize(file, use_transcription, url):
     try:
         return summarize_with_file(file)
     except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded):
         if use_transcription:
-            new_file = f"{generate_temprorary_name().split('.')[0]}.ogg"
-            compress_audio(input_file=file, output_file=new_file)
-            transcription = transcribe(new_file)
-            clean_up(new_file)
-            return summarize_with_transcription(transcription)
-        raise Exception("Something went wrong, try again.")
+            if os.path.isfile(file):
+                new_file = f"{generate_temprorary_name().split('.')[0]}.ogg"
+                compress_audio(input_file=file, output_file=new_file)
+                transcription = transcribe(new_file)
+                clean_up(new_file)
+                return f"Summarized with whisper:\n\n\n{summarize_with_transcription(transcription)}"
+            
+            if url is not None:
+                transcription = get_yt_transcript(url)
+                return f"Summarized with YouTube transcript:\n\n\n{summarize_with_transcription(transcription)}"
+            
+        raise Exception("The use of transcription is limited")

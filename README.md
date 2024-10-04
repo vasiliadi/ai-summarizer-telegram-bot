@@ -60,10 +60,7 @@ After completing these steps, you are ready to send youtube.com and castro.fm li
 
 - Markdown
 
-> As solution use [pydentic](https://pydantic.dev/articles/llm-intro) or [structured output](https://ai.google.dev/gemini-api/docs/structured-output?lang=python) for llm respoonse. Or even use LangChain or [aiogram](https://docs.aiogram.dev/en/dev-3.x/).
-
-[langchain-google-genai](https://python.langchain.com/docs/integrations/chat/google_generative_ai/) \
-[LangChain Audio extraction](https://js.langchain.com/v0.1/docs/use_cases/media/#audio)
+> Maybe [aiogram's](https://docs.aiogram.dev/en/dev-3.x/) built-in parsers are better.
 
 - File object not in class
 - Weak error handling

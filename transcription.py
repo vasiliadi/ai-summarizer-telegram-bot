@@ -1,5 +1,9 @@
 import time
 
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api.formatters import TextFormatter
+from youtube_transcript_api._errors import NoTranscriptFound
+
 from config import replicate_client
 
 
@@ -12,7 +16,24 @@ def transcribe(file, sleep_time=10):
         )
     while prediction.status != "succeeded":
         if prediction.status == "failed" or prediction.status == "canceled":
-            raise Exception("File can't be transcribed.")
+            raise Exception("File can't be transcribed")
         prediction.reload()
         time.sleep(sleep_time)
     return prediction.output["text"]
+
+
+def get_yt_transcript(url):
+    if url.startswith("https://www.youtube.com/"):
+        video_id = url.replace("https://www.youtube.com/watch?v=", "")
+    elif url.startswith("https://youtu.be/"):
+        video_id = url.replace("https://youtu.be/", "")
+    else:
+        raise ValueError("Unknown URL")
+
+    try:
+        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript = TextFormatter().format_transcript(transcript)
+    except NoTranscriptFound:
+        raise Exception("NoTranscriptFound")
+
+    return transcript

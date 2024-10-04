@@ -42,7 +42,7 @@ def handle_info(message):
     user = select_user(message.from_user.id)
     if not user.approved:
         bot.send_message(message.chat.id, "You are not approved.")
-        raise ValueError("User is not approved.")
+        raise ValueError("User is not approved")
 
     enable_transcription(message.from_user.id)
     bot.send_message(message.chat.id, "Transcription enabled.")
@@ -53,7 +53,7 @@ def handle_info(message):
     user = select_user(message.from_user.id)
     if not user.approved:
         bot.send_message(message.chat.id, "You are not approved.")
-        raise ValueError("User is not approved.")
+        raise ValueError("User is not approved")
 
     disable_transcription(message.from_user.id)
     bot.send_message(message.chat.id, "Transcription disabled.")
@@ -65,22 +65,24 @@ def handle_text(message):
         user = select_user(message.from_user.id)
         if not user.approved:
             bot.send_message(message.chat.id, "You are not approved.")
-            raise ValueError("User is not approved.")
+            raise ValueError("User is not approved")
 
         if message.text.strip().startswith(
             "https://www.youtube.com/"
         ) or message.text.strip().startswith("https://youtu.be/"):
-            file = download_yt(input=message.text.strip())
+            try:
+                file = download_yt(input=message.text.strip())
+            except:
+                pass
+            url = message.text.strip()
         elif message.text.strip().startswith("https://castro.fm/episode/"):
             file = download_castro(input=message.text.strip())
+            url = None
         else:
-            file = None
-
-        if file is None:
             bot.reply_to(message, "I don't find anything useful here.")
-            raise ValueError("No file to proceed.")
+            raise ValueError("No file to proceed")
 
-        answer = summarize(file=file, use_transcription=user.use_transcription)
+        answer = summarize(file=file, use_transcription=user.use_transcription, url=url)
         answer = escape_markdown(answer)
 
         if len(answer) > 3500:  # 4096 limit
