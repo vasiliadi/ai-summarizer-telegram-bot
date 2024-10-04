@@ -43,7 +43,7 @@ def summarize(file, use_transcription, url):
             raise RuntimeError("file is None")
     except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded, RuntimeError):
         if use_transcription:
-            if os.path.isfile(file) and file is not None:
+            if  file is not None and os.path.isfile(file):
                 new_file = f"{generate_temprorary_name().split('.')[0]}.ogg"
                 compress_audio(input_file=file, output_file=new_file)
                 transcription = transcribe(new_file)
