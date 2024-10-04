@@ -1,26 +1,50 @@
 import time
+from pathlib import Path
 
 import google.generativeai as genai
 from google.api_core import retry, exceptions
+from langchain_google_genai import (
+    ChatGoogleGenerativeAI,
+    HarmCategory,
+    HarmBlockThreshold,
+)
+from langchain_core.messages import HumanMessage
 
-from config import gemini_pro_model
+from config import gemini_pro_model, gemini_client
 from transcription import transcribe
 from utils import generate_temprorary_name, compress_audio, clean_up
 
 
-@retry.Retry(predicate=retry.if_transient_error)
+# @retry.Retry(predicate=retry.if_transient_error)
+# def summarize_with_file(file, sleep_time=10):
+#     prompt = "Listen carefully to the following audio file. Provide a detailed summary."
+#     audio_file = genai.upload_file(path=file)
+#     while audio_file.state.name == "PROCESSING":
+#         time.sleep(sleep_time)
+#     if audio_file.state.name == "FAILED":
+#         raise ValueError(audio_file.state.name)
+#     response = gemini_pro_model.generate_content(
+#         [prompt, audio_file], stream=False, request_options={"timeout": 120}
+#     )
+#     audio_file.delete()
+#     return response.text
+
+
+# WIP
 def summarize_with_file(file, sleep_time=10):
     prompt = "Listen carefully to the following audio file. Provide a detailed summary."
-    audio_file = genai.upload_file(path=file)
-    while audio_file.state.name == "PROCESSING":
-        time.sleep(sleep_time)
-    if audio_file.state.name == "FAILED":
-        raise ValueError(audio_file.state.name)
-    response = gemini_pro_model.generate_content(
-        [prompt, audio_file], stream=False, request_options={"timeout": 120}
+    audio_data = Path(file).read_bytes()  # payload size limit: 20971520 bytes
+    message = HumanMessage(
+        content=[
+            {
+                "type": "text",
+                "text": prompt,
+            },
+            {"type": "media", "mime_type": "audio/mpeg", "data": audio_data},
+        ]
     )
-    audio_file.delete()
-    return response.text
+    response = gemini_client.invoke([message])
+    return response.content
 
 
 @retry.Retry(predicate=retry.if_transient_error)

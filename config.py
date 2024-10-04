@@ -2,6 +2,11 @@ import os
 
 import telebot
 import google.generativeai as genai
+from langchain_google_genai import (
+    ChatGoogleGenerativeAI,
+    HarmCategory,
+    HarmBlockThreshold,
+)
 import replicate
 
 
@@ -25,9 +30,28 @@ TG_API_TOKEN = os.environ["TG_API_TOKEN"]
 bot = telebot.TeleBot(token=TG_API_TOKEN, parse_mode="Markdown")
 
 
-# Gemini config
+# Gemini config via LangChain
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-gemini_client = genai.configure(api_key=GEMINI_API_KEY)
+gemini_client = ChatGoogleGenerativeAI(
+    api_key=GEMINI_API_KEY,
+    model="models/gemini-1.5-pro-latest",
+    temperature=1,
+    max_output_tokens=8192,
+    timeout=120,
+    max_retries=3,
+    disable_streaming=True,
+    safety_settings=[
+        {HarmCategory.HARM_CATEGORY_HARASSMENT, HarmBlockThreshold.BLOCK_NONE},
+        {HarmCategory.HARM_CATEGORY_HATE_SPEECH, HarmBlockThreshold.BLOCK_NONE},
+        {HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, HarmBlockThreshold.BLOCK_NONE},
+        {HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, HarmBlockThreshold.BLOCK_NONE},
+    ],
+)
+
+
+# Gemini config
+# GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+genai.configure(api_key=GEMINI_API_KEY)
 gemini_pro_model = genai.GenerativeModel(
     "models/gemini-1.5-pro-latest",
     generation_config={"max_output_tokens": 8192},
