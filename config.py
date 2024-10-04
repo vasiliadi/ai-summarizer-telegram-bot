@@ -3,6 +3,7 @@ import os
 import telebot
 import google.generativeai as genai
 import replicate
+import instructor
 
 
 if os.getenv("ENV") != "PROD":
@@ -26,17 +27,33 @@ bot = telebot.TeleBot(token=TG_API_TOKEN, parse_mode="Markdown")
 
 
 # Gemini config
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-gemini_client = genai.configure(api_key=GEMINI_API_KEY)
-gemini_pro_model = genai.GenerativeModel(
-    "models/gemini-1.5-pro-latest",
-    generation_config={"max_output_tokens": 8192},
-    safety_settings=[
-        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-    ],
+# GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+# genai.configure(api_key=GEMINI_API_KEY)
+# gemini_pro_model = genai.GenerativeModel(
+#     "models/gemini-1.5-pro-latest",
+#     generation_config={"max_output_tokens": 8192},
+#     safety_settings=[
+#         {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+#         {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+#         {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+#         {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+#     ],
+# )
+
+
+# Gemini config via Instructor
+gemini_client = instructor.from_gemini(
+    client=genai.GenerativeModel(
+        model_name="models/gemini-1.5-pro-latest",
+        generation_config={"max_output_tokens": 8192},
+        safety_settings=[
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ],
+    ),
+    mode=instructor.Mode.GEMINI_JSON,  
 )
 
 

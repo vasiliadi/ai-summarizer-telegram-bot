@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.orm import DeclarativeBase
+from pydantic import BaseModel
 
 
 class Base(DeclarativeBase):
@@ -15,3 +16,7 @@ class UsersOrm(Base):
     username: Mapped[str | None]
     approved: Mapped[bool]
     use_transcription: Mapped[bool]
+
+
+class Summary(BaseModel):
+    summary: str
