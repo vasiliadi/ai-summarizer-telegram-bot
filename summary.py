@@ -37,8 +37,11 @@ def summarize_with_transcription(transcription):
 
 def summarize(file, use_transcription, url):
     try:
-        return summarize_with_file(file)
-    except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded):
+        if file is not None:
+            return summarize_with_file(file)
+        else:
+            raise RuntimeError("file is None")
+    except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded, RuntimeError):
         if use_transcription:
             if os.path.isfile(file):
                 new_file = f"{generate_temprorary_name().split('.')[0]}.ogg"

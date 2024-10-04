@@ -73,7 +73,7 @@ def handle_text(message):
             try:
                 file = download_yt(input=message.text.strip())
             except:
-                pass
+                file = None
             url = message.text.strip()
         elif message.text.strip().startswith("https://castro.fm/episode/"):
             file = download_castro(input=message.text.strip())
