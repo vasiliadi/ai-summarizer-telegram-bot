@@ -15,13 +15,16 @@ After `/start`, you need to set approved to `True` for wanted user IDs. Dependin
 Example of `.env` file:
 
 ```text
-TG_API_TOKEN = your_api_key
-GEMINI_API_KEY = your_api_key
-REPLICATE_API_TOKEN = your_api_key
-DB_URL = postgresql+driver://user:password@host:port/database
+TG_API_TOKEN = "your_api_key"
+GEMINI_API_KEY = "your_api_key"
+REPLICATE_API_TOKEN = "your_api_key"
+DB_URL = "postgresql+driver://user:password@host:port/database"
+PROXY = ""
 ```
 
-Don't forget to enabble `RLS` if you use [Supabase x Postgres](https://supabase.com/database)
+Pass in an empty string to `PROXY` for direct connection.
+
+Don't forget to enabble `RLS` if you use [Supabase x Postgres](https://supabase.com/database).
 
 After completing these steps, you are ready to send youtube.com and castro.fm links to the bot and receive summary.
 
