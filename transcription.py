@@ -12,7 +12,7 @@ def transcribe(file, sleep_time=10):
         )
     while prediction.status != "succeeded":
         if prediction.status == "failed" or prediction.status == "canceled":
-            raise Exception("File can't be transcribed.")
+            raise Exception("File can't be transcribed")
         prediction.reload()
         time.sleep(sleep_time)
     return prediction.output["text"]
