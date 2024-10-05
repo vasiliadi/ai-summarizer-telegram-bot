@@ -6,3 +6,4 @@ pyTelegramBotAPI==4.23.0
 replicate==0.34.1
 SQLAlchemy==2.0.35
 psycopg2-binary==2.9.9
+pysocks==1.7.1
