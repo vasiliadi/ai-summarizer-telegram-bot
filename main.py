@@ -65,7 +65,7 @@ def handle_text(message):
         user = select_user(message.from_user.id)
         if not user.approved:
             bot.send_message(message.chat.id, "You are not approved.")
-            raise ValueError("User is not approved.")
+            raise ValueError("User is not approved")
 
         if message.text.strip().startswith(
             "https://www.youtube.com/"
@@ -74,11 +74,8 @@ def handle_text(message):
         elif message.text.strip().startswith("https://castro.fm/episode/"):
             file = download_castro(input=message.text.strip())
         else:
-            file = None
-
-        if file is None:
             bot.reply_to(message, "I don't find anything useful here.")
-            raise ValueError("No file to proceed.")
+            raise ValueError("No file to proceed")
 
         answer = summarize(file=file, use_transcription=user.use_transcription)
         answer = escape_markdown(answer)

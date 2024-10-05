@@ -27,7 +27,7 @@ bot = telebot.TeleBot(token=TG_API_TOKEN, parse_mode="Markdown")
 
 # Gemini config
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-gemini_client = genai.configure(api_key=GEMINI_API_KEY)
+genai.configure(api_key=GEMINI_API_KEY)
 gemini_pro_model = genai.GenerativeModel(
     "models/gemini-1.5-pro-latest",
     generation_config={"max_output_tokens": 8192},
