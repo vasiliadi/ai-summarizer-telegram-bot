@@ -25,6 +25,10 @@ if os.getenv("ENV") != "PROD":
 DSN = os.getenv("DSN")
 
 
+# Proxy
+PROXY = os.getenv("PROXY")
+
+
 # Telegram bot config
 TG_API_TOKEN = os.environ["TG_API_TOKEN"]
 bot = telebot.TeleBot(token=TG_API_TOKEN, parse_mode="Markdown")

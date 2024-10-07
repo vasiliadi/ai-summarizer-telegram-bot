@@ -6,3 +6,4 @@ replicate==0.34.1
 SQLAlchemy==2.0.35
 psycopg2-binary==2.9.9
 langchain-google-genai==2.0.0
+pysocks==1.7.1

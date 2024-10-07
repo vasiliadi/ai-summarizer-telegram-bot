@@ -5,6 +5,7 @@ from yt_dlp import YoutubeDL
 from bs4 import BeautifulSoup
 
 from utils import generate_temprorary_name
+from config import PROXY
 
 
 def download_yt(input):
@@ -12,6 +13,7 @@ def download_yt(input):
     ydl_opts = {
         "format": "worstaudio",
         "outtmpl": temprorary_file_name.split(".")[0],
+        "proxy": PROXY,
         "postprocessors": [
             {  # Extract audio using ffmpeg
                 "key": "FFmpegExtractAudio",
