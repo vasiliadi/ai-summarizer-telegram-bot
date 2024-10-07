@@ -63,7 +63,7 @@ After completing these steps, you are ready to send youtube.com and castro.fm li
 
 - Markdown
 
-> Maybe [aiogram's](https://docs.aiogram.dev/en/dev-3.x/) built-in parsers are better.
+> Maybe [aiogram's](https://docs.aiogram.dev/en/dev-3.x/) built-in parsers are better. Or try [langchain](https://python.langchain.com/docs/integrations/llms/google_vertex_ai_palm/#using-audio-with-gemini-15-pro) when Gemini API will be updated with Vertex AI capability for file uploads.
 
 - File object not in class
 - Weak error handling
