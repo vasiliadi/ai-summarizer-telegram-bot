@@ -1,6 +1,7 @@
 from telebot.util import smart_split
 from telebot.formatting import escape_html
 from markdown import markdown
+from bs4 import BeautifulSoup
 
 from config import bot
 from download import download_yt, download_castro
@@ -80,7 +81,8 @@ def handle_text(message):
 
         answer = summarize(file=file, use_transcription=user.use_transcription)
         answer = markdown(answer)
-        answer = escape_html(answer)
+        soup = BeautifulSoup(answer, 'html.parser')
+        answer = soup.prettify(formatter="html5")
 
         if len(answer) > 3500:  # 4096 limit
             chunks = smart_split(answer, 3500)
