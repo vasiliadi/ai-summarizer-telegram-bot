@@ -1,8 +1,4 @@
 from telebot.util import smart_split
-from telebot.formatting import escape_html, escape_markdown
-from markdown import markdown
-from bs4 import BeautifulSoup
-from markdownify import markdownify as md
 import telegramify_markdown
 
 from config import bot
@@ -83,11 +79,6 @@ def handle_text(message):
 
         answer = summarize(file=file, use_transcription=user.use_transcription)
         answer = telegramify_markdown.markdownify(answer)
-        # answer = markdown(answer)
-        # answer = md(answer)
-        # soup = BeautifulSoup(answer, 'html.parser')
-        # answer = soup.prettify(formatter="html")
-        # answer = soup.get_text()
 
         if len(answer) > 3500:  # 4096 limit
             chunks = smart_split(answer, 3500)
