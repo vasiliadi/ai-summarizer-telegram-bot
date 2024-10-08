@@ -1,5 +1,5 @@
 from telebot.util import smart_split
-from telebot.formatting import escape_html
+from telebot.formatting import escape_html, escape_markdown
 from markdown import markdown
 from bs4 import BeautifulSoup
 
@@ -80,9 +80,10 @@ def handle_text(message):
             raise ValueError("No file to proceed")
 
         answer = summarize(file=file, use_transcription=user.use_transcription)
-        answer = markdown(answer)
-        soup = BeautifulSoup(answer, 'html.parser')
-        answer = soup.prettify(formatter="html5")
+        answer = escape_markdown(answer)
+        # answer = markdown(answer)
+        # soup = BeautifulSoup(answer, 'html.parser')
+        # answer = soup.prettify(formatter="html5")
 
         if len(answer) > 3500:  # 4096 limit
             chunks = smart_split(answer, 3500)
