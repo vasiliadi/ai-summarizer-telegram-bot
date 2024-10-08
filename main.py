@@ -82,9 +82,10 @@ def handle_text(message):
 
         answer = summarize(file=file, use_transcription=user.use_transcription)
         answer = markdown(answer)
-        answer = md(answer)
-        # soup = BeautifulSoup(answer, 'html.parser')
+        # answer = md(answer)
+        soup = BeautifulSoup(answer, 'html.parser')
         # answer = soup.prettify(formatter="html")
+        answer = soup.get_text()
 
         if len(answer) > 3500:  # 4096 limit
             chunks = smart_split(answer, 3500)
