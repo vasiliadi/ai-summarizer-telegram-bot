@@ -1,6 +1,6 @@
 # AI Summarizer - telegram bot
 
-![Python](https://img.shields.io/badge/Python-3.11-blue)
+![Python](https://img.shields.io/badge/Python-3.11_|_3.12-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
 
 ## Usage
