@@ -26,7 +26,7 @@ PROXY = os.getenv("PROXY")
 
 # Telegram bot config
 TG_API_TOKEN = os.environ["TG_API_TOKEN"]
-bot = telebot.TeleBot(token=TG_API_TOKEN, parse_mode="html")
+bot = telebot.TeleBot(token=TG_API_TOKEN, parse_mode="Markdown")
 
 
 # Gemini config

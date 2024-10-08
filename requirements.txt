@@ -7,3 +7,4 @@ replicate==0.34.2
 SQLAlchemy==2.0.35
 psycopg2-binary==2.9.9
 Markdown==3.7
+markdownify==0.13.1
