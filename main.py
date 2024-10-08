@@ -1,5 +1,5 @@
 from telebot.util import smart_split
-from telebot.formatting import escape_markdown
+import telegramify_markdown
 
 from config import bot
 from download import download_yt, download_castro
@@ -78,7 +78,7 @@ def handle_text(message):
             raise ValueError("No file to proceed")
 
         answer = summarize(file=file, use_transcription=user.use_transcription)
-        answer = escape_markdown(answer)
+        answer = telegramify_markdown.markdownify(answer)
 
         if len(answer) > 3500:  # 4096 limit
             chunks = smart_split(answer, 3500)
