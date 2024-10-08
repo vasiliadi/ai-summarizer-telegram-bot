@@ -43,5 +43,6 @@ def summarize(file, use_transcription):
             compress_audio(input_file=file, output_file=new_file)
             transcription = transcribe(new_file)
             clean_up(new_file)
-            return summarize_with_transcription(transcription)
+            # return summarize_with_transcription(transcription)
+            return f"**Summarized with transcription:**<br /> {summarize_with_transcription(transcription)}"
         raise Exception("Something went wrong, try again.")
