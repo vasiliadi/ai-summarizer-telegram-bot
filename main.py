@@ -1,6 +1,12 @@
 from telebot.util import smart_split
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
-import telegramify_markdown
+from telebot.types import (
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardRemove,
+    LinkPreviewOptions,
+)
+from markdown import markdown
+from sulguk import transform_html
 
 from config import bot, SUPPORTED_LANGUAGES
 from download import download_yt, download_castro
@@ -132,24 +138,28 @@ def handle_text(message):
             raise ValueError("No file to proceed")
 
         answer = summarize(file=file, use_transcription=user.use_transcription)
-        answer = telegramify_markdown.markdownify(answer)
+        answer = markdown(answer)
+        answer = transform_html(answer)
 
-        if len(answer) > 4000:  # 4096 limit
-            chunks = smart_split(answer, 4000)
+        if len(answer.text) > 4000:  # 4096 limit
+            chunks = smart_split(answer.text, 4000)
             for text in chunks:
                 bot.reply_to(message, text)
         else:
-            bot.reply_to(message, answer)
+            bot.reply_to(message, answer.text, entities=answer.entities)
 
         if user.use_translator:
+
             translation = translate(answer, target_language=user.target_language)
-            translation = telegramify_markdown.markdownify(translation)
-            if len(translation) > 4096:
-                chunks = smart_split(translation, 4096)
+            translation = markdown(translation)
+            translation = transform_html(translation)
+            
+            if len(translation.text) > 4096:
+                chunks = smart_split(translation.text, 4096)
                 for text in chunks:
                     bot.reply_to(message, text)
             else:
-                bot.reply_to(message, translation)
+                bot.reply_to(message, translation.text, entities=translation.entities)
 
     except Exception as e:
         bot.reply_to(message, f"Unexpected: {e}")

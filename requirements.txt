@@ -6,4 +6,5 @@ pyTelegramBotAPI==4.23.0
 replicate==0.34.2
 SQLAlchemy==2.0.35
 psycopg2-binary==2.9.9
-telegramify_markdown==0.1.13
+Markdown==3.7
+sulguk==0.8.0
