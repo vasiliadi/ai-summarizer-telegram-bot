@@ -1,5 +1,5 @@
 from telebot.util import smart_split
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 import telegramify_markdown
 
 from config import bot, SUPPORTED_LANGUAGES
@@ -105,7 +105,12 @@ def proceed_set_target_language(message):
     set_lang = set_target_language(message.from_user.id, message.text)
     if not set_lang:
         raise ValueError("Unknown language")
-    bot.send_message(message.chat.id, f"The target language is set to {message.text}.")
+    markup = ReplyKeyboardRemove()
+    bot.send_message(
+        message.chat.id,
+        f"The target language is set to {message.text}.",
+        reply_markup=markup,
+    )
 
 
 @bot.message_handler(content_types=["text"])
