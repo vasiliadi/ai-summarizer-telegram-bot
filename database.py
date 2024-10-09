@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import NullPool
 
-from config import DSN
+from config import DSN, DEFAULT_LANG, SUPPORTED_LANGUAGES
 from models import Base, UsersOrm
 
 
@@ -13,7 +13,14 @@ Base.metadata.create_all(engine, checkfirst=True)
 
 
 def register_user(
-    user_id, first_name, last_name, username, approved=False, use_transcription=False
+    user_id,
+    first_name,
+    last_name,
+    username,
+    approved=False,
+    use_transcription=False,
+    use_translator=False,
+    target_language=DEFAULT_LANG,
 ):
     with Session() as session:
         try:
@@ -24,6 +31,8 @@ def register_user(
                 username=username,
                 approved=approved,
                 use_transcription=use_transcription,
+                use_translator=use_translator,
+                target_language=target_language,
             )
             session.add(stmt)
             session.commit()
@@ -46,7 +55,31 @@ def enable_transcription(user_id):
 
 
 def disable_transcription(user_id):
-        with Session() as session:
-            user = session.get(UsersOrm, user_id)
-            user.use_transcription = False
-            session.commit()
+    with Session() as session:
+        user = session.get(UsersOrm, user_id)
+        user.use_transcription = False
+        session.commit()
+
+
+def enable_translation(user_id):
+    with Session() as session:
+        user = session.get(UsersOrm, user_id)
+        user.use_translator = True
+        session.commit()
+
+
+def disable_translation(user_id):
+    with Session() as session:
+        user = session.get(UsersOrm, user_id)
+        user.use_translator = False
+        session.commit()
+
+
+def set_target_language(user_id, target_language):
+    if target_language.title() not in SUPPORTED_LANGUAGES:
+        return False  # language not supported
+    with Session() as session:
+        user = session.get(UsersOrm, user_id)
+        user.target_language = target_language
+        session.commit()
+        return True

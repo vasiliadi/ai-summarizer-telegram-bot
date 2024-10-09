@@ -15,3 +15,5 @@ class UsersOrm(Base):
     username: Mapped[str | None]
     approved: Mapped[bool]
     use_transcription: Mapped[bool]
+    use_translator: Mapped[bool]
+    target_language: Mapped[str]
