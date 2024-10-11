@@ -2,10 +2,16 @@ import time
 
 import google.generativeai as genai
 from google.api_core import retry, exceptions
+from youtube_transcript_api._errors import (
+    NoTranscriptFound,
+    TranscriptsDisabled,
+    NoTranscriptAvailable,
+)
 
 from config import gemini_pro_model
-from transcription import transcribe
-from utils import generate_temprorary_name, compress_audio, clean_up
+from transcription import transcribe, get_yt_transcript
+from utils import generate_temprorary_name, compress_audio
+from download import download_castro, download_yt
 
 
 @retry.Retry(predicate=retry.if_transient_error)
@@ -34,15 +40,27 @@ def summarize_with_transcription(transcription):
     return response.text
 
 
-def summarize(file, use_transcription):
+def summarize(data, use_transcription):
+
+    if data.startswith("https://castro.fm/episode/"):
+        data = download_castro(data)
+
+    if data.startswith("https://youtu.be/") or data.startswith(
+        "https://www.youtube.com/"
+    ):
+        if use_transcription:
+            try:
+                transcription = get_yt_transcript(data)
+                return f"**Summarized with YT transcription:** {summarize_with_transcription(transcription)}"
+            except (NoTranscriptFound, TranscriptsDisabled, NoTranscriptAvailable):
+                data = download_yt(data)
+
     try:
-        return summarize_with_file(file)
+        return summarize_with_file(data)
     except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded):
         if use_transcription:
             new_file = f"{generate_temprorary_name().split('.')[0]}.ogg"
-            compress_audio(input_file=file, output_file=new_file)
+            compress_audio(input_file=data, output_file=new_file)
             transcription = transcribe(new_file)
-            clean_up(new_file)
-            # return summarize_with_transcription(transcription)
             return f"**Summarized with transcription:** {summarize_with_transcription(transcription)}"
-        raise Exception("Something went wrong, try again.")
+        # raise Exception("Something went wrong, try again")

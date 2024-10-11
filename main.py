@@ -118,20 +118,18 @@ def handle_text(message):
     try:
         user = select_user(message.from_user.id)
         if not user.approved:
-            bot.send_message(message.chat.id, "You are not approved.")
+            # bot.send_message(message.chat.id, "You are not approved.")
             raise ValueError("User is not approved")
 
-        if message.text.strip().startswith(
-            "https://www.youtube.com/"
-        ) or message.text.strip().startswith("https://youtu.be/"):
-            file = download_yt(input=message.text.strip())
-        elif message.text.strip().startswith("https://castro.fm/episode/"):
-            file = download_castro(input=message.text.strip())
-        else:
-            bot.reply_to(message, "I don't find anything useful here.")
-            raise ValueError("No file to proceed")
+        if (
+            not message.text.strip().startswith("https://www.youtube.com/")
+            or not message.text.strip().startswith("https://youtu.be/")
+            or not message.text.strip().startswith("https://castro.fm/episode/")
+        ):
+            # bot.reply_to(message, "I don't find anything useful here.")
+            raise ValueError("No data to proceed")
 
-        answer = summarize(file=file, use_transcription=user.use_transcription)
+        answer = summarize(data=message.text.strip(), use_transcription=user.use_transcription)
         answer = telegramify_markdown.markdownify(answer)
 
         if len(answer) > 4000:  # 4096 limit
@@ -154,10 +152,7 @@ def handle_text(message):
     except Exception as e:
         bot.reply_to(message, f"Unexpected: {e}")
     finally:
-        try:
-            clean_up(file)
-        except:
-            pass
+        clean_up()
 
 
 if __name__ == "__main__":

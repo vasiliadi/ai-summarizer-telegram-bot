@@ -26,7 +26,9 @@ PROXY = os.getenv("PROXY")
 
 # Telegram bot config
 TG_API_TOKEN = os.environ["TG_API_TOKEN"]
-bot = telebot.TeleBot(token=TG_API_TOKEN, parse_mode="Markdown", disable_web_page_preview=True)
+bot = telebot.TeleBot(
+    token=TG_API_TOKEN, parse_mode="Markdown", disable_web_page_preview=True
+)
 
 
 # Gemini config
@@ -60,17 +62,22 @@ replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
 
 
 # For clean up
-PROTECTED_FILES = [
-    "main.py",
-    "config.py",
-    "database.py",
-    "download.py",
-    "models.py",
-    "summary.py",
-    "transcription.py",
-    "utils.py",
-    "requirements.txt",
-]
+PROTECTED_FILES = (
+    os.listdir(os.getcwd())
+    if os.getenv("ENV") != "PROD"
+    else [
+        "config.py",
+        "database.py",
+        "download.py",
+        "main.py",
+        "models.py",
+        "summary.py",
+        "transcription.py",
+        "translate.py",
+        "utils.py",
+        # "requirements.txt",
+    ]
+)
 
 
 DEFAULT_LANG = "English"

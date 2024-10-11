@@ -7,3 +7,4 @@ replicate==0.34.2
 SQLAlchemy==2.0.35
 psycopg2-binary==2.9.9
 telegramify_markdown==0.1.13
+youtube-transcript-api==0.6.2
