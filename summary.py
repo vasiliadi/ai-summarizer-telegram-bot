@@ -53,7 +53,8 @@ def summarize(data, use_transcription):
                 transcription = get_yt_transcript(data)
                 return f"**Summarized with YT transcription:** {summarize_with_transcription(transcription)}"
             except (NoTranscriptFound, TranscriptsDisabled, NoTranscriptAvailable):
-                data = download_yt(data)
+                pass
+        data = download_yt(data)
 
     try:
         return summarize_with_file(data)
@@ -63,4 +64,3 @@ def summarize(data, use_transcription):
             compress_audio(input_file=data, output_file=new_file)
             transcription = transcribe(new_file)
             return f"**Summarized with transcription:** {summarize_with_transcription(transcription)}"
-        # raise Exception("Something went wrong, try again")

@@ -118,18 +118,18 @@ def handle_text(message):
     try:
         user = select_user(message.from_user.id)
         if not user.approved:
-            # bot.send_message(message.chat.id, "You are not approved.")
             raise ValueError("User is not approved")
 
-        if (
-            not message.text.strip().startswith("https://www.youtube.com/")
-            or not message.text.strip().startswith("https://youtu.be/")
-            or not message.text.strip().startswith("https://castro.fm/episode/")
-        ):
-            # bot.reply_to(message, "I don't find anything useful here.")
+        if message.text.strip().startswith(
+            "https://www.youtube.com/"
+        ) or message.text.strip().startswith("https://youtu.be/"):
+            data = message.text.strip()
+        elif message.text.strip().startswith("https://castro.fm/episode/"):
+            data = message.text.strip()
+        else:
             raise ValueError("No data to proceed")
 
-        answer = summarize(data=message.text.strip(), use_transcription=user.use_transcription)
+        answer = summarize(data=data, use_transcription=user.use_transcription)
         answer = telegramify_markdown.markdownify(answer)
 
         if len(answer) > 4000:  # 4096 limit
