@@ -53,7 +53,7 @@ def summarize(data, use_transcription):
                 transcription = get_yt_transcript(data)
                 return f"**Summarized with YT transcription:** {summarize_with_transcription(transcription)}"
             except (NoTranscriptFound, TranscriptsDisabled, NoTranscriptAvailable):
-                pass
+                print("NoTranscriptFound, TranscriptsDisabled, NoTranscriptAvailable")
         data = download_yt(data)
 
     try:
