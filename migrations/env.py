@@ -5,7 +5,7 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from src.config import DSN
+from src.database import DSN
 from src.models import Base
 
 # this is the Alembic Config object, which provides
