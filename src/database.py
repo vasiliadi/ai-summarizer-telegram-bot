@@ -21,6 +21,7 @@ def register_user(
     use_transcription=False,
     use_translator=False,
     target_language=DEFAULT_LANG,
+    use_yt_transcription=False,
 ):
     with Session() as session:
         try:
@@ -33,6 +34,7 @@ def register_user(
                 use_transcription=use_transcription,
                 use_translator=use_translator,
                 target_language=target_language,
+                use_yt_transcription=use_yt_transcription,
             )
             session.add(stmt)
             session.commit()
@@ -47,31 +49,23 @@ def select_user(user_id):
         return session.get(UsersOrm, user_id)
 
 
-def enable_transcription(user_id):
+def toggle_transcription(user_id):
     with Session() as session:
         user = session.get(UsersOrm, user_id)
-        user.use_transcription = True
+        if user.use_transcription == False:
+            user.use_transcription = True
+        if user.use_transcription == True:
+            user.use_transcription = False
         session.commit()
 
 
-def disable_transcription(user_id):
+def toggle_translation(user_id):
     with Session() as session:
         user = session.get(UsersOrm, user_id)
-        user.use_transcription = False
-        session.commit()
-
-
-def enable_translation(user_id):
-    with Session() as session:
-        user = session.get(UsersOrm, user_id)
-        user.use_translator = True
-        session.commit()
-
-
-def disable_translation(user_id):
-    with Session() as session:
-        user = session.get(UsersOrm, user_id)
-        user.use_translator = False
+        if user.use_translator == False:
+            user.use_translator = True
+        if user.use_translator == True:
+            user.use_translator = False
         session.commit()
 
 
@@ -83,3 +77,13 @@ def set_target_language(user_id, target_language):
         user.target_language = target_language
         session.commit()
         return True
+
+
+def toggle_yt_transcription(user_id):
+    with Session() as session:
+        user = session.get(UsersOrm, user_id)
+        if user.use_yt_transcription == False:
+            user.use_yt_transcription = True
+        if user.use_yt_transcription == True:
+            user.use_yt_transcription = False
+        session.commit()

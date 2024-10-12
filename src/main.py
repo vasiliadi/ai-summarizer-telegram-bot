@@ -3,15 +3,13 @@ from telebot.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemo
 import telegramify_markdown
 
 from config import bot, SUPPORTED_LANGUAGES
-from download import download_yt, download_castro
 from database import (
     register_user,
     select_user,
-    enable_transcription,
-    disable_transcription,
-    enable_translation,
-    disable_translation,
+    toggle_transcription,
+    toggle_translation,
     set_target_language,
+    toggle_yt_transcription,
 )
 from summary import summarize
 from utils import clean_up
@@ -42,48 +40,58 @@ def handle_info(message):
     bot.send_message(message.chat.id, f"{message.from_user.id}")
 
 
-@bot.message_handler(commands=["enable_transcription"])
-def handle_enable_transcription(message):
+@bot.message_handler(commands=["toggle_transcription"])
+def handle_toggle_transcription(message):
     user = select_user(message.from_user.id)
     if not user.approved:
         bot.send_message(message.chat.id, "You are not approved.")
         raise ValueError("User is not approved")
 
-    enable_transcription(message.from_user.id)
-    bot.send_message(message.chat.id, "Transcription enabled.")
+    toggle_transcription(message.from_user.id)
+    bot.send_message(
+        message.chat.id,
+        (
+            "Transcription enabled."
+            if user.use_transcription == True
+            else "Transcription disabled."
+        ),
+    )
 
 
-@bot.message_handler(commands=["disable_transcription"])
-def handle_disable_transcription(message):
+@bot.message_handler(commands=["toggle_translation"])
+def handle_toggle_translation(message):
     user = select_user(message.from_user.id)
     if not user.approved:
         bot.send_message(message.chat.id, "You are not approved.")
         raise ValueError("User is not approved")
 
-    disable_transcription(message.from_user.id)
-    bot.send_message(message.chat.id, "Transcription disabled.")
+    toggle_translation(message.from_user.id)
+    bot.send_message(
+        message.chat.id,
+        (
+            "Translation enabled."
+            if user.use_translator == True
+            else "Translation disabled."
+        ),
+    )
 
 
-@bot.message_handler(commands=["enable_translation"])
-def handle_enable_translation(message):
+@bot.message_handler(commands=["toggle_yt_transcription"])
+def handle_toggle_yt_transcription(message):
     user = select_user(message.from_user.id)
     if not user.approved:
         bot.send_message(message.chat.id, "You are not approved.")
         raise ValueError("User is not approved")
 
-    enable_translation(message.from_user.id)
-    bot.send_message(message.chat.id, "Translation enabled.")
-
-
-@bot.message_handler(commands=["disable_translation"])
-def handle_disable_translation(message):
-    user = select_user(message.from_user.id)
-    if not user.approved:
-        bot.send_message(message.chat.id, "You are not approved.")
-        raise ValueError("User is not approved")
-
-    disable_translation(message.from_user.id)
-    bot.send_message(message.chat.id, "Translation disabled.")
+    toggle_yt_transcription(message.from_user.id)
+    bot.send_message(
+        message.chat.id,
+        (
+            "YT transcription enabled."
+            if user.use_transcription == True
+            else "YT transcription disabled."
+        ),
+    )
 
 
 @bot.message_handler(commands=["set_target_language"])
