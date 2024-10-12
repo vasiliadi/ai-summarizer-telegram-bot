@@ -2,11 +2,6 @@ import time
 
 import google.generativeai as genai
 from google.api_core import retry, exceptions
-from youtube_transcript_api._errors import (
-    NoTranscriptFound,
-    TranscriptsDisabled,
-    NoTranscriptAvailable,
-)
 
 from config import gemini_pro_model
 from transcription import transcribe, get_yt_transcript
@@ -52,8 +47,8 @@ def summarize(data, use_transcription):
             try:
                 transcription = get_yt_transcript(data)
                 return f"**Summarized with YT transcription:** {summarize_with_transcription(transcription)}"
-            except (NoTranscriptFound, TranscriptsDisabled, NoTranscriptAvailable) as e:
-                print(e)
+            except:
+                pass
         data = download_yt(data)
 
     try:
