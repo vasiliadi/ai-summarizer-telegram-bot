@@ -3,7 +3,7 @@ import time
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import TextFormatter
 
-from config import replicate_client
+from config import replicate_client, PROXY
 
 
 def transcribe(file, sleep_time=10):
@@ -29,6 +29,6 @@ def get_yt_transcript(url):
     else:
         raise ValueError("Unknown URL")
 
-    transcript = YouTubeTranscriptApi.get_transcript(video_id)
+    transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies={"https": PROXY})
     transcript = TextFormatter().format_transcript(transcript)
     return transcript
