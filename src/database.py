@@ -5,12 +5,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import NullPool
 
-from config import DEFAULT_LANG, SUPPORTED_LANGUAGES
+from config import DSN, DEFAULT_LANG, SUPPORTED_LANGUAGES
 from models import Base, UsersOrm
 
-
-# DB
-DSN = os.getenv("DSN")
 
 engine = create_engine(DSN, echo=True, pool_pre_ping=True, poolclass=NullPool)
 Session = sessionmaker(engine)

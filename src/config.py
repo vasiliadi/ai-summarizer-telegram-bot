@@ -16,8 +16,8 @@ if os.getenv("ENV") != "PROD":
     logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 
-# # DB
-# DSN = os.getenv("DSN")
+# DB
+DSN = os.getenv("DSN")
 
 
 # Proxy
