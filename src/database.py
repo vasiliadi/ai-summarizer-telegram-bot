@@ -86,6 +86,6 @@ def toggle_yt_transcription(user_id):
         user = session.get(UsersOrm, user_id)
         if user.use_yt_transcription == False:
             user.use_yt_transcription = True
-        if user.use_yt_transcription == True:
+        else:
             user.use_yt_transcription = False
         session.commit()
