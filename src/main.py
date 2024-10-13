@@ -52,7 +52,7 @@ def handle_toggle_transcription(message):
         message.chat.id,
         (
             "Transcription enabled."
-            if user.use_transcription
+            if not user.use_transcription
             else "Transcription disabled."
         ),
     )
@@ -70,7 +70,7 @@ def handle_toggle_translation(message):
         message.chat.id,
         (
             "Translation enabled."
-            if user.use_translator
+            if not user.use_translator
             else "Translation disabled."
         ),
     )
@@ -88,7 +88,7 @@ def handle_toggle_yt_transcription(message):
         message.chat.id,
         (
             "YT transcription enabled."
-            if user.use_yt_transcription
+            if not user.use_yt_transcription
             else "YT transcription disabled."
         ),
     )
