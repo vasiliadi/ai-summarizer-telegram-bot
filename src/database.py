@@ -54,20 +54,14 @@ def select_user(user_id):
 def toggle_transcription(user_id):
     with Session() as session:
         user = session.get(UsersOrm, user_id)
-        if user.use_transcription == False:
-            user.use_transcription = True
-        if user.use_transcription == True:
-            user.use_transcription = False
+        user.use_transcription = not user.use_transcription
         session.commit()
 
 
 def toggle_translation(user_id):
     with Session() as session:
         user = session.get(UsersOrm, user_id)
-        if user.use_translator == False:
-            user.use_translator = True
-        if user.use_translator == True:
-            user.use_translator = False
+        user.use_translator = not user.use_translator
         session.commit()
 
 
