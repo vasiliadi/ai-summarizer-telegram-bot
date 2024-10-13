@@ -4,10 +4,10 @@ services:
   ai-summarizer-telegram-bot:
     build: 
       context: .
+      args:
+        - DSN
       dockerfile: Dockerfile
     container_name: bot
-    volumes:
-      - ./:/app
     env_file:
       - path: ./.env
         required: true

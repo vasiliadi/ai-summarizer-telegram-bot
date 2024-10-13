@@ -5,8 +5,6 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-
-# from src.config import DSN
 from src.models import Base
 
 # this is the Alembic Config object, which provides
@@ -19,7 +17,6 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 DSN = os.getenv("DSN")
-print(DSN)
 config.set_main_option("sqlalchemy.url", DSN)
 
 # add your model's MetaData object here
