@@ -88,7 +88,7 @@ def handle_toggle_yt_transcription(message):
         message.chat.id,
         (
             "YT transcription enabled."
-            if user.use_transcription == True
+            if user.use_transcription
             else "YT transcription disabled."
         ),
     )
