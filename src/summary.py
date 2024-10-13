@@ -35,7 +35,7 @@ def summarize_with_transcription(transcription):
     return response.text
 
 
-def summarize(data, use_transcription):
+def summarize(data, use_transcription, use_yt_transcription):
 
     if data.startswith("https://castro.fm/episode/"):
         data = download_castro(data)
@@ -43,7 +43,7 @@ def summarize(data, use_transcription):
     if data.startswith("https://youtu.be/") or data.startswith(
         "https://www.youtube.com/"
     ):
-        if use_transcription:
+        if use_yt_transcription:
             try:
                 transcription = get_yt_transcript(data)
                 return f"**Summarized with YT transcription:** {summarize_with_transcription(transcription)}"

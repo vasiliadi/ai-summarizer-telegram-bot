@@ -137,7 +137,11 @@ def handle_text(message):
         else:
             raise ValueError("No data to proceed")
 
-        answer = summarize(data=data, use_transcription=user.use_transcription)
+        answer = summarize(
+            data=data,
+            use_transcription=user.use_transcription,
+            use_yt_transcription=user.use_yt_transcription,
+        )
         answer = telegramify_markdown.markdownify(answer)
 
         if len(answer) > 4000:  # 4096 limit
