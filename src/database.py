@@ -84,8 +84,8 @@ def set_target_language(user_id, target_language):
 def toggle_yt_transcription(user_id):
     with Session() as session:
         user = session.get(UsersOrm, user_id)
-        if user.use_yt_transcription == False:
-            user.use_yt_transcription = True
-        else:
+        if user.use_yt_transcription:
             user.use_yt_transcription = False
+        else:
+            user.use_yt_transcription = True
         session.commit()
