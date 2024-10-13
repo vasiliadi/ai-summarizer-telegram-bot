@@ -1,6 +1,7 @@
 import os
 from uuid import uuid4
 import subprocess
+from pathlib import Path
 
 from config import PROTECTED_FILES
 
@@ -34,15 +35,11 @@ def compress_audio(input_file, output_file):
         raise Exception(f"{e}")
 
 
-def clean_up(file):
-    if os.getenv("ENV") == "PROD":
-        for file_name in os.listdir(os.getcwd()):
-            file_path = os.path.join(os.getcwd(), file_name)
-            if os.path.isfile(file_path) and file_name not in PROTECTED_FILES:
-                try:
-                    os.remove(file_path)
-                except OSError as e:
-                    print(f"Error deleting {file_path}: {e}")
-    else:
-        if os.path.isfile(file):
-            os.remove(file)
+def clean_up():
+    for file_name in os.listdir(os.getcwd()):
+        file_path = Path(file_name)
+        if file_path.is_file() and file_name not in PROTECTED_FILES:
+            try:
+                os.remove(file_path)
+            except OSError as e:
+                print(f"Error deleting {file_path}: {e}")

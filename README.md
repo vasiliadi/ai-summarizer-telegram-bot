@@ -40,7 +40,8 @@ After completing these steps, you are ready to send youtube.com and castro.fm li
 [pyTelegramBotAPI](https://pytba.readthedocs.io/en/latest/) \
 [SQLAlchemy 2.0](https://docs.sqlalchemy.org/en/20/contents.html)
 
-[Telegram Bot API](https://core.telegram.org/bots/api)
+[Telegram Bot API](https://core.telegram.org/bots/api) \
+[Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg)
 
 ## Cloud DBs
 

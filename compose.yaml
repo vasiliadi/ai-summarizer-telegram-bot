@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  ai-summarizer-telegram-bot:
+    build: 
+      context: .
+      args:
+        - DSN
+      dockerfile: Dockerfile
+    container_name: bot
+    env_file:
+      - path: ./.env
+        required: true
+    entrypoint: ["python", "main.py"]
+    restart: always

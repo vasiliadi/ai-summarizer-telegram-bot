@@ -17,3 +17,4 @@ class UsersOrm(Base):
     use_transcription: Mapped[bool]
     use_translator: Mapped[bool]
     target_language: Mapped[str]
+    use_yt_transcription: Mapped[bool] = mapped_column(server_default="False")

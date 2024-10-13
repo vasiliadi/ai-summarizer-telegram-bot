@@ -1,3 +1,5 @@
+import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
@@ -21,6 +23,7 @@ def register_user(
     use_transcription=False,
     use_translator=False,
     target_language=DEFAULT_LANG,
+    use_yt_transcription=False,
 ):
     with Session() as session:
         try:
@@ -33,6 +36,7 @@ def register_user(
                 use_transcription=use_transcription,
                 use_translator=use_translator,
                 target_language=target_language,
+                use_yt_transcription=use_yt_transcription,
             )
             session.add(stmt)
             session.commit()
@@ -47,31 +51,17 @@ def select_user(user_id):
         return session.get(UsersOrm, user_id)
 
 
-def enable_transcription(user_id):
+def toggle_transcription(user_id):
     with Session() as session:
         user = session.get(UsersOrm, user_id)
-        user.use_transcription = True
+        user.use_transcription = not user.use_transcription
         session.commit()
 
 
-def disable_transcription(user_id):
+def toggle_translation(user_id):
     with Session() as session:
         user = session.get(UsersOrm, user_id)
-        user.use_transcription = False
-        session.commit()
-
-
-def enable_translation(user_id):
-    with Session() as session:
-        user = session.get(UsersOrm, user_id)
-        user.use_translator = True
-        session.commit()
-
-
-def disable_translation(user_id):
-    with Session() as session:
-        user = session.get(UsersOrm, user_id)
-        user.use_translator = False
+        user.use_translator = not user.use_translator
         session.commit()
 
 
@@ -83,3 +73,10 @@ def set_target_language(user_id, target_language):
         user.target_language = target_language
         session.commit()
         return True
+
+
+def toggle_yt_transcription(user_id):
+    with Session() as session:
+        user = session.get(UsersOrm, user_id)
+        user.use_yt_transcription = not user.use_yt_transcription
+        session.commit()
