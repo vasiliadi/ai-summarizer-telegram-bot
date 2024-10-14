@@ -167,3 +167,8 @@ temp
 
 # Zed
 .zed/
+
+.env*
+.flaskenv*
+!.env.project
+!.env.vault
