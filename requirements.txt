@@ -3,7 +3,7 @@ requests[socks]==2.32.3
 yt-dlp==2024.10.7
 beautifulsoup4==4.12.3
 pyTelegramBotAPI==4.23.0
-replicate==0.34.2
+replicate==1.0.1
 SQLAlchemy==2.0.35
 psycopg2-binary==2.9.9
 telegramify_markdown==0.1.13
