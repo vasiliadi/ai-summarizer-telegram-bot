@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1
 COPY . .
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
 RUN pip install --no-cache-dir -r requirements-dev.txt
-RUN python src/database.py
+RUN python db.py
 RUN alembic upgrade head
 
 FROM python:3.12-slim
