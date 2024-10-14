@@ -18,3 +18,8 @@ temp/
 **/*.py[cod]
 .zed/**/*
 .zed/
+
+.env*
+.flaskenv*
+!.env.project
+!.env.vault

@@ -2,6 +2,7 @@ import time
 
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import TextFormatter
+from youtube_transcript_api._errors import NoTranscriptFound
 
 from config import replicate_client, PROXY
 
@@ -29,6 +30,15 @@ def get_yt_transcript(url):
     else:
         raise ValueError("Unknown URL")
 
-    transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies={"https": PROXY})
+    try:
+        transcript = YouTubeTranscriptApi.get_transcript(
+            video_id, proxies={"https": PROXY}
+        )
+    except NoTranscriptFound:
+        transcript_list = YouTubeTranscriptApi.list_transcripts(
+            video_id, proxies={"https": PROXY}
+        )
+        language_codes = [transcript.language_code for transcript in transcript_list]
+        transcript = transcript_list.find_transcript(language_codes).fetch()
     transcript = TextFormatter().format_transcript(transcript)
     return transcript

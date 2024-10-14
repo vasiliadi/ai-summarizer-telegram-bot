@@ -16,6 +16,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+if os.getenv("ENV") != "PROD":
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
 DSN = os.getenv("DSN")
 config.set_main_option("sqlalchemy.url", DSN)
 
