@@ -13,8 +13,8 @@ class UsersOrm(Base):
     first_name: Mapped[str | None]
     last_name: Mapped[str | None]
     username: Mapped[str | None]
-    approved: Mapped[bool]
-    use_transcription: Mapped[bool]
-    use_translator: Mapped[bool]
+    approved: Mapped[bool] = mapped_column(server_default="False")
+    use_transcription: Mapped[bool] = mapped_column(server_default="False")
+    use_translator: Mapped[bool] = mapped_column(server_default="False")
     target_language: Mapped[str]
     use_yt_transcription: Mapped[bool] = mapped_column(server_default="False")
