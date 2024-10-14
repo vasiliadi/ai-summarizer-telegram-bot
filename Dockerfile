@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS builder
+FROM python:3.13-slim AS builder
 ARG DSN
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements-dev.txt
 RUN python db.py
 RUN alembic upgrade head
 
-FROM python:3.12-slim
+FROM python:3.13-slim
 ENV ENV=PROD
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
