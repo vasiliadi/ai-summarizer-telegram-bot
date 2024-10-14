@@ -31,9 +31,13 @@ def get_yt_transcript(url):
         raise ValueError("Unknown URL")
 
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies={"https": PROXY})
+        transcript = YouTubeTranscriptApi.get_transcript(
+            video_id, proxies={"https": PROXY}
+        )
     except NoTranscriptFound:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies={"https": PROXY})
+        transcript_list = YouTubeTranscriptApi.list_transcripts(
+            video_id, proxies={"https": PROXY}
+        )
         language_codes = [transcript.language_code for transcript in transcript_list]
         transcript = transcript_list.find_transcript(language_codes).fetch()
     transcript = TextFormatter().format_transcript(transcript)
