@@ -1,5 +1,19 @@
+import os
+
+from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.orm import DeclarativeBase
+
+
+if os.getenv("ENV") != "PROD":
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+
+DSN = os.getenv("DSN")
+engine = create_engine(DSN, echo=True, poolclass=NullPool)
 
 
 class Base(DeclarativeBase):
@@ -14,7 +28,6 @@ class UsersOrm(Base):
     last_name: Mapped[str | None]
     username: Mapped[str | None]
     approved: Mapped[bool] = mapped_column(server_default="False")
-    use_transcription: Mapped[bool] = mapped_column(server_default="False")
-    use_translator: Mapped[bool] = mapped_column(server_default="False")
-    target_language: Mapped[str] =  mapped_column(server_default="English")
-    use_yt_transcription: Mapped[bool] = mapped_column(server_default="False")
+
+
+Base.metadata.create_all(engine, checkfirst=True)
