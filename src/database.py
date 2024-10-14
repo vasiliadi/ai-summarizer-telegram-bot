@@ -5,10 +5,15 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import NullPool
 
-from config import DSN, DEFAULT_LANG, SUPPORTED_LANGUAGES
+from config import DEFAULT_LANG, SUPPORTED_LANGUAGES
 from models import Base, UsersOrm
 
+if os.getenv("ENV") != "PROD":
+    from dotenv import load_dotenv
 
+    load_dotenv()
+
+DSN = os.getenv("DSN")
 engine = create_engine(DSN, echo=True, pool_pre_ping=True, poolclass=NullPool)
 Session = sessionmaker(engine)
 Base.metadata.create_all(engine, checkfirst=True)
