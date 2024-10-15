@@ -6,11 +6,11 @@ from pathlib import Path
 from config import PROTECTED_FILES
 
 
-def generate_temprorary_name():
+def generate_temprorary_name() -> str:
     return f"{str(uuid4())}.mp3"
 
 
-def compress_audio(input_file, output_file):
+def compress_audio(input_file: str, output_file: str) -> None:
     try:
         subprocess.run(
             [
@@ -35,7 +35,7 @@ def compress_audio(input_file, output_file):
         raise Exception(f"{e}")
 
 
-def clean_up():
+def clean_up() -> None:
     for file_name in os.listdir(os.getcwd()):
         file_path = Path(file_name)
         if file_path.is_file() and file_name not in PROTECTED_FILES:

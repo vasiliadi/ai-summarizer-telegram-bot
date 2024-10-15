@@ -59,7 +59,7 @@ This step is only necessary the first time.
 [replicate](https://github.com/replicate/replicate-python) \
 [telegramify_markdown](https://github.com/sudoskys/telegramify-markdown) \
 [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
-[tenacity](https://tenacity.readthedocs.io/en/latest/)
+~~[tenacity](https://tenacity.readthedocs.io/en/latest/)~~
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg)

@@ -11,15 +11,16 @@
 temp/**/*
 temp/
 **/.DS_Store
-# **/requirements-dev.txt
 **/.gitpod.Dockerfile
 **/.gitpod.yml
 **/__pycache__/
 **/*.py[cod]
 .zed/**/*
 .zed/
-
 .env*
 .flaskenv*
 !.env.project
 !.env.vault
+**/.mypy_cache
+.mypy_cache/**/*
+mypy.ini
