@@ -16,5 +16,5 @@ class UsersOrm(Base):
     approved: Mapped[bool] = mapped_column(server_default="False")
     use_transcription: Mapped[bool] = mapped_column(server_default="False")
     use_translator: Mapped[bool] = mapped_column(server_default="False")
-    target_language: Mapped[str] =  mapped_column(server_default="English")
+    target_language: Mapped[str] = mapped_column(server_default="English")
     use_yt_transcription: Mapped[bool] = mapped_column(server_default="False")
