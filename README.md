@@ -1,7 +1,8 @@
 # AI Summarizer - telegram bot
 
-![Python](https://img.shields.io/badge/Python-3.11_|_3.12-blue)
+![Python](https://img.shields.io/badge/Python-3.12-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ## Usage
 
@@ -88,5 +89,4 @@ This step is only necessary the first time.
 
 > Maybe [aiogram's](https://docs.aiogram.dev/en/dev-3.x/) built-in parsers are better.
 
-- File object not in class
-- Weak error handling
+- Another model, [claude-3-5-sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8192 tokens but with only 200k inputs.
