@@ -7,7 +7,7 @@ from youtube_transcript_api._errors import NoTranscriptFound
 from config import replicate_client, PROXY
 
 
-def transcribe(file, sleep_time=10):
+def transcribe(file: str, sleep_time: int = 10) -> str:
     model = replicate_client.models.get("vaibhavs10/incredibly-fast-whisper")
     version = model.versions.get(model.versions.list()[0].id)
     with open(file, "rb") as audio:
@@ -22,7 +22,7 @@ def transcribe(file, sleep_time=10):
     return prediction.output["text"]
 
 
-def get_yt_transcript(url):
+def get_yt_transcript(url: str) -> str:
     if url.startswith("https://www.youtube.com/"):
         video_id = url.replace("https://www.youtube.com/watch?v=", "")
     elif url.startswith("https://youtu.be/"):

@@ -1,5 +1,11 @@
+from collections.abc import Callable
 from telebot.util import smart_split
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from telebot.types import (
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardRemove,
+    Message,
+)
 import telegramify_markdown
 
 from config import bot, SUPPORTED_LANGUAGES
@@ -17,7 +23,7 @@ from translate import translate
 
 
 @bot.message_handler(commands=["start"])
-def handle_start(message):
+def handle_start(message: Message) -> Message:
     if register_user(
         message.from_user.id,
         message.from_user.first_name,
@@ -36,13 +42,15 @@ def handle_start(message):
 
 
 @bot.message_handler(commands=["info"])
-def handle_info(message):
+def handle_info(message: Message) -> Message:
     bot.send_message(message.chat.id, f"{message.from_user.id}")
 
 
 @bot.message_handler(commands=["toggle_transcription"])
-def handle_toggle_transcription(message):
+def handle_toggle_transcription(message: Message) -> Message:
     user = select_user(message.from_user.id)
+    if user is None:
+        raise ValueError("User not found")
     if not user.approved:
         bot.send_message(message.chat.id, "You are not approved.")
         raise ValueError("User is not approved")
@@ -59,8 +67,10 @@ def handle_toggle_transcription(message):
 
 
 @bot.message_handler(commands=["toggle_translation"])
-def handle_toggle_translation(message):
+def handle_toggle_translation(message: Message) -> Message:
     user = select_user(message.from_user.id)
+    if user is None:
+        raise ValueError("User not found")
     if not user.approved:
         bot.send_message(message.chat.id, "You are not approved.")
         raise ValueError("User is not approved")
@@ -77,8 +87,10 @@ def handle_toggle_translation(message):
 
 
 @bot.message_handler(commands=["toggle_yt_transcription"])
-def handle_toggle_yt_transcription(message):
+def handle_toggle_yt_transcription(message: Message) -> Message:
     user = select_user(message.from_user.id)
+    if user is None:
+        raise ValueError("User not found")
     if not user.approved:
         bot.send_message(message.chat.id, "You are not approved.")
         raise ValueError("User is not approved")
@@ -95,8 +107,10 @@ def handle_toggle_yt_transcription(message):
 
 
 @bot.message_handler(commands=["set_target_language"])
-def handle_set_target_language(message):
+def handle_set_target_language(message: Message) -> None:
     user = select_user(message.from_user.id)
+    if user is None:
+        raise ValueError("User not found")
     if not user.approved:
         bot.send_message(message.chat.id, "You are not approved.")
         raise ValueError("User is not approved")
@@ -109,7 +123,7 @@ def handle_set_target_language(message):
     bot.register_next_step_handler(message, proceed_set_target_language)
 
 
-def proceed_set_target_language(message):
+def proceed_set_target_language(message: Message) -> Message:
     set_lang = set_target_language(message.from_user.id, message.text)
     if not set_lang:
         raise ValueError("Unknown language")
@@ -122,9 +136,11 @@ def proceed_set_target_language(message):
 
 
 @bot.message_handler(content_types=["text"])
-def handle_text(message):
+def handle_text(message: Message) -> Message:
     try:
         user = select_user(message.from_user.id)
+        if user is None:
+            raise ValueError("User not found")
         if not user.approved:
             raise ValueError("User is not approved")
 

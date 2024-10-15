@@ -13,7 +13,7 @@ if os.getenv("ENV") != "PROD":
 
 
 DSN = os.getenv("DSN")
-engine = create_engine(DSN, echo=True, poolclass=NullPool)
+engine = create_engine(DSN, echo=True, poolclass=NullPool)  # type: ignore
 
 
 class Base(DeclarativeBase):

@@ -3,18 +3,12 @@ import os
 import requests
 from yt_dlp import YoutubeDL
 from bs4 import BeautifulSoup
-from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception
 
 from utils import generate_temprorary_name
 from config import PROXY
 
 
-@retry(
-    stop=stop_after_attempt(2),
-    wait=wait_fixed(5),
-    reraise=True,
-)
-def download_yt(input):
+def download_yt(input: str) -> str:
     temprorary_file_name = generate_temprorary_name()
     ydl_opts = {
         "format": "worstaudio",
@@ -30,11 +24,11 @@ def download_yt(input):
     with YoutubeDL(ydl_opts) as ydl:
         ydl.download(input)
     if not os.path.isfile(temprorary_file_name):
-        return None
+        raise Exception("Problem with downloading the file")
     return temprorary_file_name
 
 
-def download_castro(input):
+def download_castro(input: str) -> str:
     temprorary_file_name = generate_temprorary_name()
     input = BeautifulSoup(
         requests.get(requests.utils.requote_uri(input), verify=True).content,
@@ -44,5 +38,5 @@ def download_castro(input):
     with open(temprorary_file_name, "wb") as f:
         f.write(downloaded_file.content)
     if not os.path.isfile(temprorary_file_name):
-        return None
+        raise Exception("Problem with downloading the file")
     return temprorary_file_name

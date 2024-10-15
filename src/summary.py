@@ -10,7 +10,7 @@ from download import download_castro, download_yt
 
 
 @retry.Retry(predicate=retry.if_transient_error)
-def summarize_with_file(file, sleep_time=10):
+def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     prompt = "Listen carefully to the following audio file. Provide a detailed summary."
     audio_file = genai.upload_file(path=file)
     while audio_file.state.name == "PROCESSING":
@@ -25,7 +25,7 @@ def summarize_with_file(file, sleep_time=10):
 
 
 @retry.Retry(predicate=retry.if_transient_error)
-def summarize_with_transcription(transcription):
+def summarize_with_transcription(transcription: str) -> str:
     prompt = (
         f"Read carefully transcription and provide a detailed summary: {transcription}"
     )
@@ -35,7 +35,7 @@ def summarize_with_transcription(transcription):
     return response.text
 
 
-def summarize(data, use_transcription, use_yt_transcription):
+def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) -> str:
 
     if data.startswith("https://castro.fm/episode/"):
         data = download_castro(data)
@@ -59,3 +59,5 @@ def summarize(data, use_transcription, use_yt_transcription):
             compress_audio(input_file=data, output_file=new_file)
             transcription = transcribe(new_file)
             return f"**Summarized with transcription:** {summarize_with_transcription(transcription)}"
+        else:
+            raise Exception()
