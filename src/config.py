@@ -27,7 +27,7 @@ PROXY = os.getenv("PROXY")
 # Telegram bot config
 TG_API_TOKEN = os.environ["TG_API_TOKEN"]
 bot = telebot.TeleBot(
-    token=TG_API_TOKEN, parse_mode="Markdown", disable_web_page_preview=True
+    token=TG_API_TOKEN, parse_mode="MarkdownV2", disable_web_page_preview=True
 )
 
 
