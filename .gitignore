@@ -165,10 +165,13 @@ cython_debug/
 # Local
 temp
 .DS_Store
+setup.cfg
+pyproject.toml
 
 # Zed
 .zed/
 
+# dotenv.com
 .env*
 .flaskenv*
 !.env.project
