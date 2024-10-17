@@ -57,9 +57,10 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
 
     try:
         return summarize_with_file(data)
-    except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded):
+    except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded) as e:
         if use_transcription:
             new_file = f"{generate_temprorary_name().split('.')[0]}.ogg"
             compress_audio(input_file=data, output_file=new_file)
             transcription = transcribe(new_file)
             return f"**Transcript used:** {summarize_with_transcript(transcription)}"
+        raise Exception from e
