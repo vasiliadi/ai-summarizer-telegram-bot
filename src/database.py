@@ -1,14 +1,12 @@
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
 
 from config import DEFAULT_LANG, DSN, SUPPORTED_LANGUAGES
-from models import Base, UsersOrm
+from models import UsersOrm
 
-engine = create_engine(DSN, echo=False, pool_pre_ping=True, poolclass=NullPool)  # type: ignore
+engine = create_engine(DSN, echo=False, pool_pre_ping=True)  # type: ignore
 Session = sessionmaker(engine)
-Base.metadata.create_all(engine, checkfirst=True)
 
 
 def register_user(  # noqa
