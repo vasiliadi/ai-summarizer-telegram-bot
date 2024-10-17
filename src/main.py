@@ -123,7 +123,7 @@ def proceed_set_target_language(message: Message) -> Message:
 
 
 @bot.message_handler(
-    regexp=r"^https:\/\/[\S]*$ ?",
+    regexp=r"^https:\/\/[\S]*",
     func=lambda message: check_auth(message.from_user.id),
 )
 def handle_regexp(message: Message) -> Message:
