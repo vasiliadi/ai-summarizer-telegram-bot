@@ -1,18 +1,17 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
-from config import DSN, DEFAULT_LANG, SUPPORTED_LANGUAGES
+from config import DEFAULT_LANG, DSN, SUPPORTED_LANGUAGES
 from models import Base, UsersOrm
-
 
 engine = create_engine(DSN, echo=True, pool_pre_ping=True, poolclass=NullPool)  # type: ignore
 Session = sessionmaker(engine)
 Base.metadata.create_all(engine, checkfirst=True)
 
 
-def register_user(
+def register_user(  # noqa
     user_id: int,
     first_name: str,
     last_name: str,
@@ -44,17 +43,25 @@ def register_user(
             return False  # already registered user
 
 
-def select_user(user_id: int) -> UsersOrm | None:
+def select_user(user_id: int) -> UsersOrm:
     with Session() as session:
-        return session.get(UsersOrm, user_id)
+        user = session.get(UsersOrm, user_id)
+        if user is None:
+            raise ValueError("User not found")
+        return user
+
+
+def check_auth(user_id: int) -> bool:
+    user = select_user(user_id)
+    return user.approved
 
 
 def toggle_transcription(user_id: int) -> None:
     with Session() as session:
-        user = session.get(UsersOrm, user_id)
-        if user is not None:
-            user.use_transcription = not user.use_transcription
-            session.commit()
+        user = select_user(user_id)
+        user.use_transcription = not user.use_transcription
+        session.add(user)
+        session.commit()
 
 
 def toggle_translation(user_id: int) -> None:

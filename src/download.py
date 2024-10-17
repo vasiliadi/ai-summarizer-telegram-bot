@@ -1,14 +1,14 @@
-import os
+from pathlib import Path
 
 import requests
-from yt_dlp import YoutubeDL
 from bs4 import BeautifulSoup
+from yt_dlp import YoutubeDL
 
-from utils import generate_temprorary_name
 from config import PROXY
+from utils import generate_temprorary_name
 
 
-def download_yt(input: str) -> str:
+def download_yt(url: str) -> str:
     temprorary_file_name = generate_temprorary_name()
     ydl_opts = {
         "format": "worstaudio",
@@ -18,25 +18,29 @@ def download_yt(input: str) -> str:
             {  # Extract audio using ffmpeg
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
-            }
+            },
         ],
     }
     with YoutubeDL(ydl_opts) as ydl:
-        ydl.download(input)
-    if not os.path.isfile(temprorary_file_name):
+        ydl.download(url)
+    if not Path.is_file(temprorary_file_name):
         raise Exception("Problem with downloading the file")
     return temprorary_file_name
 
 
-def download_castro(input: str) -> str:
+def download_castro(url: str) -> str:
     temprorary_file_name = generate_temprorary_name()
-    input = BeautifulSoup(
-        requests.get(requests.utils.requote_uri(input), verify=True).content,
+    url = BeautifulSoup(
+        requests.get(requests.utils.requote_uri(url), verify=True, timeout=30).content,
         "html.parser",
     ).source.get("src")
-    downloaded_file = requests.get(requests.utils.requote_uri(input), verify=True)
-    with open(temprorary_file_name, "wb") as f:
+    downloaded_file = requests.get(
+        requests.utils.requote_uri(url),
+        verify=True,
+        timeout=30,
+    )
+    with Path(temprorary_file_name).open("wb") as f:
         f.write(downloaded_file.content)
-    if not os.path.isfile(temprorary_file_name):
+    if not Path.is_file(temprorary_file_name):
         raise Exception("Problem with downloading the file")
     return temprorary_file_name

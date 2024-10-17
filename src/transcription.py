@@ -1,21 +1,23 @@
 import time
+from pathlib import Path
 
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api.formatters import TextFormatter
 from youtube_transcript_api._errors import NoTranscriptFound
+from youtube_transcript_api.formatters import TextFormatter
 
-from config import replicate_client, PROXY
+from config import PROXY, replicate_client
 
 
 def transcribe(file: str, sleep_time: int = 10) -> str:
     model = replicate_client.models.get("vaibhavs10/incredibly-fast-whisper")
     version = model.versions.get(model.versions.list()[0].id)
-    with open(file, "rb") as audio:
+    with Path(file).open("rb") as audio:
         prediction = replicate_client.predictions.create(
-            version=version, input={"audio": audio}
+            version=version,
+            input={"audio": audio},
         )
     while prediction.status != "succeeded":
-        if prediction.status == "failed" or prediction.status == "canceled":
+        if prediction.status in ("failed", "canceled"):
             raise Exception("File can't be transcribed")
         prediction.reload()
         time.sleep(sleep_time)
@@ -32,13 +34,14 @@ def get_yt_transcript(url: str) -> str:
 
     try:
         transcript = YouTubeTranscriptApi.get_transcript(
-            video_id, proxies={"https": PROXY}
+            video_id,
+            proxies={"https": PROXY},
         )
     except NoTranscriptFound:
         transcript_list = YouTubeTranscriptApi.list_transcripts(
-            video_id, proxies={"https": PROXY}
+            video_id,
+            proxies={"https": PROXY},
         )
         language_codes = [transcript.language_code for transcript in transcript_list]
         transcript = transcript_list.find_transcript(language_codes).fetch()
-    transcript = TextFormatter().format_transcript(transcript)
-    return transcript
+    return TextFormatter().format_transcript(transcript)

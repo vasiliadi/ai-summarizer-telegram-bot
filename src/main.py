@@ -1,25 +1,25 @@
-from collections.abc import Callable
-from telebot.util import smart_split
 from telebot.types import (
-    ReplyKeyboardMarkup,
     KeyboardButton,
-    ReplyKeyboardRemove,
     Message,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
 )
-import telegramify_markdown
+from telebot.util import smart_split
+from telegramify_markdown import markdownify
 
-from config import bot, SUPPORTED_LANGUAGES
+from config import SUPPORTED_LANGUAGES, bot
 from database import (
+    check_auth,
     register_user,
     select_user,
+    set_target_language,
     toggle_transcription,
     toggle_translation,
-    set_target_language,
     toggle_yt_transcription,
 )
 from summary import summarize
-from utils import clean_up
 from translate import translate
+from utils import clean_up
 
 
 @bot.message_handler(commands=["start"])
@@ -46,15 +46,12 @@ def handle_info(message: Message) -> Message:
     bot.send_message(message.chat.id, f"{message.from_user.id}")
 
 
-@bot.message_handler(commands=["toggle_transcription"])
+@bot.message_handler(
+    commands=["toggle_transcription"],
+    func=lambda message: check_auth(message.from_user.id),
+)
 def handle_toggle_transcription(message: Message) -> Message:
     user = select_user(message.from_user.id)
-    if user is None:
-        raise ValueError("User not found")
-    if not user.approved:
-        bot.send_message(message.chat.id, "You are not approved.")
-        raise ValueError("User is not approved")
-
     toggle_transcription(message.from_user.id)
     bot.send_message(
         message.chat.id,
@@ -66,15 +63,12 @@ def handle_toggle_transcription(message: Message) -> Message:
     )
 
 
-@bot.message_handler(commands=["toggle_translation"])
+@bot.message_handler(
+    commands=["toggle_translation"],
+    func=lambda message: check_auth(message.from_user.id),
+)
 def handle_toggle_translation(message: Message) -> Message:
     user = select_user(message.from_user.id)
-    if user is None:
-        raise ValueError("User not found")
-    if not user.approved:
-        bot.send_message(message.chat.id, "You are not approved.")
-        raise ValueError("User is not approved")
-
     toggle_translation(message.from_user.id)
     bot.send_message(
         message.chat.id,
@@ -86,15 +80,12 @@ def handle_toggle_translation(message: Message) -> Message:
     )
 
 
-@bot.message_handler(commands=["toggle_yt_transcription"])
+@bot.message_handler(
+    commands=["toggle_yt_transcription"],
+    func=lambda message: check_auth(message.from_user.id),
+)
 def handle_toggle_yt_transcription(message: Message) -> Message:
     user = select_user(message.from_user.id)
-    if user is None:
-        raise ValueError("User not found")
-    if not user.approved:
-        bot.send_message(message.chat.id, "You are not approved.")
-        raise ValueError("User is not approved")
-
     toggle_yt_transcription(message.from_user.id)
     bot.send_message(
         message.chat.id,
@@ -106,15 +97,11 @@ def handle_toggle_yt_transcription(message: Message) -> Message:
     )
 
 
-@bot.message_handler(commands=["set_target_language"])
+@bot.message_handler(
+    commands=["set_target_language"],
+    func=lambda message: check_auth(message.from_user.id),
+)
 def handle_set_target_language(message: Message) -> None:
-    user = select_user(message.from_user.id)
-    if user is None:
-        raise ValueError("User not found")
-    if not user.approved:
-        bot.send_message(message.chat.id, "You are not approved.")
-        raise ValueError("User is not approved")
-
     markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     languages = [KeyboardButton(lang.title()) for lang in SUPPORTED_LANGUAGES]
     markup.add(*languages)
@@ -135,52 +122,50 @@ def proceed_set_target_language(message: Message) -> Message:
     )
 
 
-@bot.message_handler(content_types=["text"])
-def handle_text(message: Message) -> Message:
+@bot.message_handler(
+    regexp=r"^https:\/\/[\S]*",
+    func=lambda message: check_auth(message.from_user.id),
+)
+def handle_regexp(message: Message) -> Message:
     try:
         user = select_user(message.from_user.id)
-        if user is None:
-            raise ValueError("User not found")
-        if not user.approved:
-            raise ValueError("User is not approved")
-
-        if message.text.strip().startswith(
-            "https://www.youtube.com/"
-        ) or message.text.strip().startswith("https://youtu.be/"):
-            data = message.text.strip()
-        elif message.text.strip().startswith("https://castro.fm/episode/"):
-            data = message.text.strip()
-        else:
-            raise ValueError("No data to proceed")
-
         answer = summarize(
-            data=data,
+            data=message.text.strip(),
             use_transcription=user.use_transcription,
             use_yt_transcription=user.use_yt_transcription,
         )
-        answer = telegramify_markdown.markdownify(answer)
+        answer = markdownify(answer)
 
-        if len(answer) > 4000:  # 4096 limit
+        if len(answer) > 4000:  # 4096 limit # noqa
             chunks = smart_split(answer, 4000)
             for text in chunks:
-                bot.reply_to(message, text)
+                bot.reply_to(message, text, parse_mode="MarkdownV2")
         else:
-            bot.reply_to(message, answer)
+            bot.reply_to(message, answer, parse_mode="MarkdownV2")
 
         if user.use_translator:
             translation = translate(answer, target_language=user.target_language)
-            translation = telegramify_markdown.markdownify(translation)
-            if len(translation) > 4096:
+            translation = markdownify(translation)
+            if len(translation) > 4096:  # noqa
                 chunks = smart_split(translation, 4096)
                 for text in chunks:
-                    bot.reply_to(message, text)
+                    bot.reply_to(message, text, parse_mode="MarkdownV2")
             else:
-                bot.reply_to(message, translation)
+                bot.reply_to(message, translation, parse_mode="MarkdownV2")
 
     except Exception as e:
         bot.reply_to(message, f"Unexpected: {e}")
     finally:
         clean_up()
+
+
+@bot.message_handler(content_types=["text"])
+def handle_text(message: Message) -> Message:
+    user = select_user(message.from_user.id)
+    if not user.approved:
+        bot.send_message(message.chat.id, "You are not approved.")
+    else:
+        bot.send_message(message.chat.id, "No data to proceed.")
 
 
 if __name__ == "__main__":
