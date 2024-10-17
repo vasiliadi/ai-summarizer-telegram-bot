@@ -1,13 +1,14 @@
 import os
+from pathlib import Path
 
-import telebot
 import google.generativeai as genai
 import replicate
-
+import telebot
 
 if os.getenv("ENV") != "PROD":
-    from dotenv import load_dotenv
     import logging
+
+    from dotenv import load_dotenv
 
     load_dotenv()
 
@@ -26,9 +27,7 @@ PROXY = os.getenv("PROXY")
 
 # Telegram bot config
 TG_API_TOKEN = os.environ["TG_API_TOKEN"]
-bot = telebot.TeleBot(
-    token=TG_API_TOKEN, parse_mode="MarkdownV2", disable_web_page_preview=True
-)
+bot = telebot.TeleBot(token=TG_API_TOKEN, disable_web_page_preview=True)
 
 
 # Gemini config
@@ -63,7 +62,7 @@ replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
 
 # For clean up
 PROTECTED_FILES = (
-    os.listdir(os.getcwd())
+    os.listdir(Path.cwd())
     if os.getenv("ENV") != "PROD"
     else [
         "config.py",
@@ -75,7 +74,6 @@ PROTECTED_FILES = (
         "transcription.py",
         "translate.py",
         "utils.py",
-        # "requirements.txt",
     ]
 )
 
