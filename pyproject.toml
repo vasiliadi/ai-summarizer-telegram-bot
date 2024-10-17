@@ -1,0 +1,95 @@
+[tool.mypy]
+
+ignore_missing_imports = true
+follow_imports = "silent"
+disallow_untyped_defs = true
+python_version = "3.12"
+exclude = [
+    "temp.*",
+    "migrations.*"
+]
+
+[tool.pylint]
+disable = [
+    "C0114",
+    "C0115",
+    "C0116",
+    "C0301",
+    "W0718",
+    "W0719",
+]
+
+[tool.isort]
+py_version=312
+skip = [
+    "temp",
+    "migrations",
+    ]
+
+[tool.ruff]
+exclude = [
+    "temp",
+    "migrations",
+]
+line-length = 88
+indent-width = 4
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle
+    "F", # Pyflakes
+    "B", # flake8-bugbear
+    "I", # isort
+    "W", # pycodestyle
+    "SIM", # flake8-simplify
+    "UP", # pyupgrade
+    "LOG", # flake8-logging
+    "G", # flake8-logging-format
+    "PT", # flake8-pytest-style
+    "S", # flake8-bandit
+    "DTZ", # flake8-datetimez
+    "Q", # flake8-quotes
+    "RET", # flake8-return
+    "TID", # flake8-tidy-imports 
+    "PTH", # flake8-use-pathlib,
+    "PERF", # Perflint
+    "FURB", # refurb
+    "RUF", # Ruff-specific rules
+    "C90", # mccabe
+    "N", # pep8-naming
+    "A", # flake8-builtins
+    "COM", # flake8-commas
+    "CPY", # flake8-copyright
+    "C4", # flake8-comprehensions
+    "ICN", # flake8-import-conventions
+    "T20", # flake8-print
+    "RSE", # flake8-raise
+    "TCH", # flake8-type-checking
+    "ARG", # flake8-unused-arguments
+    "FIX", # flake8-fixme
+    "ERA", # eradicate
+    "PL", # Pylint
+    "FLY", # flynt
+    ]
+ignore = ["S603", "S607"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# Enable auto-formatting of code examples in docstrings. Markdown,
+# reStructuredText code/literal blocks and doctests are all supported.
+#
+# This is currently disabled by default, but it is planned for this
+# to be opt-out in the future.
+docstring-code-format = false
+
+# Set the line length limit used when formatting code snippets in
+# docstrings.
+#
+# This only has an effect when the `docstring-code-format` setting is
+# enabled.
+docstring-code-line-length = "dynamic"
