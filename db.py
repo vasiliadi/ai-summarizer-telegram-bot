@@ -1,10 +1,8 @@
 import os
 
 from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.pool import NullPool
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.orm import DeclarativeBase
-
 
 if os.getenv("ENV") != "PROD":
     from dotenv import load_dotenv
