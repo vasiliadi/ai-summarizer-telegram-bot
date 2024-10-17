@@ -166,7 +166,6 @@ cython_debug/
 temp
 .DS_Store
 setup.cfg
-pyproject.toml
 
 # Zed
 .zed/

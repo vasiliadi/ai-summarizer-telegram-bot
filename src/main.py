@@ -129,8 +129,9 @@ def proceed_set_target_language(message: Message) -> Message:
 def handle_regexp(message: Message) -> Message:
     try:
         user = select_user(message.from_user.id)
+        data = message.text.strip().split(" ")[0]
         answer = summarize(
-            data=message.text.strip(),
+            data=data,
             use_transcription=user.use_transcription,
             use_yt_transcription=user.use_yt_transcription,
         )

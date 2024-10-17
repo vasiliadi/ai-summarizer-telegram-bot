@@ -6,7 +6,7 @@ from sqlalchemy.pool import NullPool
 from config import DEFAULT_LANG, DSN, SUPPORTED_LANGUAGES
 from models import Base, UsersOrm
 
-engine = create_engine(DSN, echo=True, pool_pre_ping=True, poolclass=NullPool)  # type: ignore
+engine = create_engine(DSN, echo=False, pool_pre_ping=True, poolclass=NullPool)  # type: ignore
 Session = sessionmaker(engine)
 Base.metadata.create_all(engine, checkfirst=True)
 
