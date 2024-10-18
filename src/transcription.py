@@ -25,10 +25,12 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
 
 
 def get_yt_transcript(url: str) -> str:
-    if url.startswith("https://www.youtube.com/"):
+    if url.startswith("https://www.youtube.com/watch"):
         video_id = url.replace("https://www.youtube.com/watch?v=", "")
     elif url.startswith("https://youtu.be/"):
         video_id = url.replace("https://youtu.be/", "")
+    elif url.startswith("https://www.youtube.com/live/"):
+        video_id = url.replace("https://www.youtube.com/live/", "")
     else:
         raise ValueError("Unknown URL")
 
