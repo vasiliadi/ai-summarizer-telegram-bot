@@ -175,3 +175,6 @@ setup.cfg
 .flaskenv*
 !.env.project
 !.env.vault
+
+# Ruff
+.ruff_cache
