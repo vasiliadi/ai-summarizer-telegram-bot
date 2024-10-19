@@ -13,7 +13,7 @@ def generate_temprorary_name() -> str:
 def compress_audio(input_file: str, output_file: str) -> None:
     subprocess.run(
         [
-            "ffmpeg",
+            "ffmpeg",  # /usr/bin/ffmpeg
             "-y",
             "-i",
             input_file,

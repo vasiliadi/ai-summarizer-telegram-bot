@@ -12,7 +12,7 @@ def download_yt(url: str) -> str:
     temprorary_file_name = generate_temprorary_name()
     ydl_opts = {
         "format": "worstaudio",
-        "outtmpl": temprorary_file_name.split(".")[0],
+        "outtmpl": temprorary_file_name.split(".", maxsplit=1)[0],
         "proxy": PROXY,
         "postprocessors": [
             {  # Extract audio using ffmpeg
