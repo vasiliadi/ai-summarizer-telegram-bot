@@ -6,7 +6,7 @@ from uuid import uuid4
 from config import PROTECTED_FILES
 
 
-def generate_temprorary_name() -> str:
+def generate_temporary_name() -> str:
     return f"{str(uuid4())}.mp3"  # noqa
 
 

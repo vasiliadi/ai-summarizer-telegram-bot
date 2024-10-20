@@ -5,11 +5,11 @@ from bs4 import BeautifulSoup
 from yt_dlp import YoutubeDL
 
 from config import PROXY
-from utils import generate_temprorary_name
+from utils import generate_temporary_name
 
 
 def download_yt(url: str) -> str:
-    temprorary_file_name = generate_temprorary_name()
+    temprorary_file_name = generate_temporary_name()
     ydl_opts = {
         "format": "worstaudio",
         "outtmpl": temprorary_file_name.split(".", maxsplit=1)[0],
@@ -29,7 +29,7 @@ def download_yt(url: str) -> str:
 
 
 def download_castro(url: str) -> str:
-    temprorary_file_name = generate_temprorary_name()
+    temprorary_file_name = generate_temporary_name()
     url = BeautifulSoup(
         requests.get(requests.utils.requote_uri(url), verify=True, timeout=30).content,
         "html.parser",
