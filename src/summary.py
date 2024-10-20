@@ -7,7 +7,7 @@ from youtube_transcript_api._errors import NoTranscriptAvailable, TranscriptsDis
 from config import gemini_pro_model
 from download import download_castro, download_yt
 from transcription import get_yt_transcript, transcribe
-from utils import compress_audio, generate_temprorary_name
+from utils import compress_audio, generate_temporary_name
 
 
 @retry.Retry(predicate=retry.if_transient_error)
@@ -48,9 +48,7 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
         if use_yt_transcription:
             try:
                 transcript = get_yt_transcript(data)
-                return (
-                    f"**YT transcript used:** {summarize_with_transcript(transcript)}"
-                )
+                return f"📹**:** {summarize_with_transcript(transcript)}"
             except (TranscriptsDisabled, NoTranscriptAvailable):
                 pass
         data = download_yt(data)
@@ -59,8 +57,8 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
         return summarize_with_file(data)
     except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded) as e:
         if use_transcription:
-            new_file = f"{generate_temprorary_name().split('.')[0]}.ogg"
+            new_file = f"{generate_temporary_name().split('.', maxsplit=1)[0]}.ogg"
             compress_audio(input_file=data, output_file=new_file)
             transcription = transcribe(new_file)
-            return f"**Transcript used:** {summarize_with_transcript(transcription)}"
+            return f"📝**:** {summarize_with_transcript(transcription)}"
         raise Exception from e

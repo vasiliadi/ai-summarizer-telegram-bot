@@ -24,3 +24,4 @@ temp/
 **/.mypy_cache
 .mypy_cache/**/*
 mypy.ini
+.ruff_cache
