@@ -57,8 +57,7 @@ This step is only necessary the first time.
 [beautifulsoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) \
 [replicate](https://github.com/replicate/replicate-python) \
 [telegramify_markdown](https://github.com/sudoskys/telegramify-markdown) \
-[youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
-~~[tenacity](https://tenacity.readthedocs.io/en/latest/)~~
+[youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg)
@@ -75,6 +74,10 @@ This step is only necessary the first time.
 [DBeaver Community](https://dbeaver.io/) \
 [Valentina Studio](https://www.valentina-db.com/en/valentina-studio-overview)
 
+## Linters and Checkers
+
+[isort](https://pycqa.github.io/isort/), [black](https://github.com/psf/black), [mypy](https://mypy-lang.org/), [pylint](https://pylint.readthedocs.io/en/latest/), [ruff](https://github.com/astral-sh/ruff)
+
 ## Easy deploy
 
 [Coolify](https://coolify.io/) \
@@ -82,10 +85,14 @@ This step is only necessary the first time.
 [CapRover](https://caprover.com/) \
 [Dokku](https://dokku.com/)
 
-## Known issues
+## Conventional Commits
 
-- Markdown
+[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) \
+[Conventional Commits cheatsheet](https://cheatsheets.zip/conventional-commits) \
+[gitmoji](https://gitmoji.dev/)
 
-> Maybe [aiogram's](https://docs.aiogram.dev/en/dev-3.x/) built-in parsers are better.
+## Possible improvements
 
 - Another model, [claude-3-5-sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8192 tokens but with only 200k inputs.
+- Retry for some functions. With [tenacity](https://tenacity.readthedocs.io/en/latest/).
+- Integrate webpage summarization using [Trafilatura](https://trafilatura.readthedocs.io/en/latest/).
