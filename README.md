@@ -95,3 +95,4 @@ This step is only necessary the first time.
 
 - Another model, [claude-3-5-sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8192 tokens but with only 200k inputs.
 - Retry for some functions. With [tenacity](https://tenacity.readthedocs.io/en/latest/).
+- Integrate webpage summarization using [Trafilatura](https://trafilatura.readthedocs.io/en/latest/).
