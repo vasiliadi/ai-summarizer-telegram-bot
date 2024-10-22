@@ -26,8 +26,8 @@ enabled = true
 
 [[transformers]]
 name = "ruff"
-enabled = true
+enabled = false
 
 [[transformers]]
 name = "prettier"
-enabled = true
+enabled = false
