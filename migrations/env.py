@@ -7,7 +7,7 @@ from sqlalchemy import pool
 from alembic import context
 from src.models import Base
 
-if os.getenv("ENV") != "PROD":
+if os.getenv("ENV") != "BUILD":
     from dotenv import load_dotenv
 
     load_dotenv()
