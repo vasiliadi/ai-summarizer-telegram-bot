@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.pool import NullPool
 
-if os.getenv("ENV") != "PROD":
+if os.getenv("ENV") != "BUILD":
     from dotenv import load_dotenv
 
     load_dotenv()
