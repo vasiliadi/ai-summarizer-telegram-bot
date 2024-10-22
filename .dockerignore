@@ -25,3 +25,4 @@ temp/
 .mypy_cache/**/*
 mypy.ini
 .ruff_cache
+.deepsource.toml
