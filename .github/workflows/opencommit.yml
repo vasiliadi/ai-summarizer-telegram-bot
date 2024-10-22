@@ -2,7 +2,7 @@ name: "OpenCommit Action"
 
 on:
   push:
-    branches-ignore: [main master dev development release]
+    branches-ignore: [main]
 
 jobs:
   opencommit:
@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: di-sukharev/opencommit@github-action-v1.0.4
+      - uses: di-sukharev/opencommit@4e25f1460af4747fba99415afec991f3dfe8444f # github-action-v1.0.4
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
