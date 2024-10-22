@@ -33,25 +33,22 @@ bot = telebot.TeleBot(token=TG_API_TOKEN, disable_web_page_preview=True)
 # Gemini config
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 genai.configure(api_key=GEMINI_API_KEY)
-gemini_pro_model = genai.GenerativeModel(
-    "models/gemini-1.5-pro-latest",
-    generation_config={"max_output_tokens": 8192},
-    safety_settings=[
+GEMINI_COMMON_CONFIG = {
+    "generation_config": {"max_output_tokens": 8192},
+    "safety_settings": [
         {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
         {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
         {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
         {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
     ],
+}
+gemini_pro_model = genai.GenerativeModel(
+    "models/gemini-1.5-pro-latest",
+    **GEMINI_COMMON_CONFIG,
 )
 gemini_flash_model = genai.GenerativeModel(
     "models/gemini-1.5-flash-latest",
-    generation_config={"max_output_tokens": 8192},
-    safety_settings=[
-        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-    ],
+    **GEMINI_COMMON_CONFIG,
 )
 
 
