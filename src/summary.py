@@ -2,6 +2,7 @@ import time
 
 import google.generativeai as genai
 from google.api_core import exceptions, retry
+from sentry_sdk import capture_exception
 from youtube_transcript_api._errors import NoTranscriptAvailable, TranscriptsDisabled
 
 from config import gemini_pro_model
@@ -48,7 +49,7 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
         if use_yt_transcription:
             try:
                 transcript = get_yt_transcript(data)
-                return f"📹: {summarize_with_transcript(transcript)}"
+                return f"📹 {summarize_with_transcript(transcript)}"
             except (TranscriptsDisabled, NoTranscriptAvailable):
                 pass
         data = download_yt(data)
@@ -60,5 +61,6 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
             new_file = f"{generate_temporary_name().split('.', maxsplit=1)[0]}.ogg"
             compress_audio(input_file=data, output_file=new_file)
             transcription = transcribe(new_file)
-            return f"📝: {summarize_with_transcript(transcription)}"
+            return f"📝 {summarize_with_transcript(transcription)}"
+        capture_exception(e)
         raise Exception from e

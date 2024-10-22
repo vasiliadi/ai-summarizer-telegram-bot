@@ -1,3 +1,4 @@
+from sentry_sdk import capture_exception
 from telebot.types import (
     KeyboardButton,
     Message,
@@ -155,6 +156,7 @@ def handle_regexp(message: Message) -> Message:
                 bot.reply_to(message, translation, parse_mode="MarkdownV2")
 
     except Exception as e:
+        capture_exception(e)
         bot.reply_to(message, f"Unexpected: {e}")
     finally:
         clean_up()

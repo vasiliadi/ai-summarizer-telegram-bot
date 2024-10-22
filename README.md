@@ -6,7 +6,7 @@
 
 ## Usage
 
-1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), and [Replicate](https://replicate.com/account/api-tokens)
+1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/)
 2. Setup DB, for example [Supabase x Postgres](https://supabase.com/database)
 3. Edit `.env`
 4. Run `python main.py`
@@ -20,6 +20,7 @@ TG_API_TOKEN = "your_api_key"
 GEMINI_API_KEY = "your_api_key"
 REPLICATE_API_TOKEN = "your_api_key"
 DB_URL = "postgresql+driver://user:password@host:port/database"
+SENTRY_DSN = "your_sentry_dsn"
 PROXY = ""
 ```
 
@@ -56,9 +57,10 @@ This step is only necessary the first time.
 [Requests](https://requests.readthedocs.io/en/latest/) \
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) \
 [beautifulsoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) \
-[replicate](https://github.com/replicate/replicate-python) \
+[Replicate](https://github.com/replicate/replicate-python) \
 [telegramify_markdown](https://github.com/sudoskys/telegramify-markdown) \
-[youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api)
+[youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
+[Sentry](https://docs.sentry.io/platforms/python/)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg)
@@ -91,6 +93,11 @@ This step is only necessary the first time.
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) \
 [Conventional Commits cheatsheet](https://cheatsheets.zip/conventional-commits) \
 [gitmoji](https://gitmoji.dev/)
+
+## Logs
+
+[Logtail](https://logs.betterstack.com/)
+[Papertrail](https://papertrailapp.com/)
 
 ## Possible improvements
 
