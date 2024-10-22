@@ -94,6 +94,11 @@ This step is only necessary the first time.
 [Conventional Commits cheatsheet](https://cheatsheets.zip/conventional-commits) \
 [gitmoji](https://gitmoji.dev/)
 
+## Logs
+
+[Logtail](https://logs.betterstack.com/)
+[Papertrail](https://papertrailapp.com/)
+
 ## Possible improvements
 
 - Another model, [claude-3-5-sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8192 tokens but with only 200k inputs.
