@@ -3,7 +3,16 @@ from pathlib import Path
 
 import google.generativeai as genai
 import replicate
+import sentry_sdk
 import telebot
+
+# Sentry.io config
+sentry_sdk.init(
+    dsn=os.environ["SENTRY_DSN"],
+    traces_sample_rate=1.0,
+    profiles_sample_rate=1.0,
+)
+
 
 if os.getenv("ENV") != "PROD":
     import logging
