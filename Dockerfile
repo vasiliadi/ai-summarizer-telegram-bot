@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements-build.txt \
 
 FROM python:3.12-slim
 ENV ENV=PROD
+ENV SENTRY_ENVIRONMENT=${ENV}
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY --from=builder /app/wheels /wheels
