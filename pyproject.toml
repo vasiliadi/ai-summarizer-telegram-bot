@@ -6,7 +6,7 @@ python_version = "3.12"
 exclude = ["temp.*", "migrations.*"]
 
 [tool.pylint]
-disable = ["C0114", "C0115", "C0116", "C0301", "W0718", "W0719"]
+disable = ["C0114", "C0115", "C0116", "C0301"]
 
 [tool.isort]
 py_version = 312
