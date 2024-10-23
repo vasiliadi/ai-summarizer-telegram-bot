@@ -63,4 +63,4 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
             transcription = transcribe(new_file)
             return f"📝 {summarize_with_transcript(transcription)}"
         capture_exception(e)
-        raise Exception from e
+        raise

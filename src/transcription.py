@@ -1,6 +1,7 @@
 import time
 from pathlib import Path
 
+from replicate.exceptions import ModelError
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound
 from youtube_transcript_api.formatters import TextFormatter
@@ -18,7 +19,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
         )
     while prediction.status != "succeeded":
         if prediction.status in ("failed", "canceled"):
-            raise Exception("File can't be transcribed")
+            raise ModelError("File can't be transcribed")
         prediction.reload()
         time.sleep(sleep_time)
     return prediction.output["text"]
