@@ -28,7 +28,7 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     return response.text
 
 
-@retry.Retry(predicate=retry.if_transient_error)
+# @retry.Retry(predicate=retry.if_transient_error)
 def summarize_with_transcript(transcript: str) -> str:
     prompt = (
         f"Read carefully transcription and provide a detailed summary: {transcript}"
