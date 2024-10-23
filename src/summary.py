@@ -50,7 +50,11 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
             try:
                 transcript = get_yt_transcript(data)
                 return f"📹 {summarize_with_transcript(transcript)}"
-            except (TranscriptsDisabled, NoTranscriptAvailable):
+            except (
+                TranscriptsDisabled,
+                NoTranscriptAvailable,
+                exceptions.ResourceExhausted,
+            ):
                 pass
         data = download_yt(data)
 
