@@ -3,7 +3,6 @@ import time
 import google.generativeai as genai
 from google.api_core import exceptions, retry
 from sentry_sdk import capture_exception
-from telebot.formatting import escape_html
 from youtube_transcript_api._errors import NoTranscriptAvailable, TranscriptsDisabled
 
 from config import gemini_pro_model
@@ -49,7 +48,7 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
     if data.startswith(("https://youtu.be/", "https://www.youtube.com/")):
         if use_yt_transcription:
             try:
-                transcript = escape_html(get_yt_transcript(data))
+                transcript = get_yt_transcript(data)
                 return f"📹 {summarize_with_transcript(transcript)}"
             except (TranscriptsDisabled, NoTranscriptAvailable):
                 pass
