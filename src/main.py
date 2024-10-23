@@ -1,3 +1,5 @@
+from textwrap import dedent
+
 from sentry_sdk import capture_exception
 from telebot.types import (
     KeyboardButton,
@@ -45,6 +47,23 @@ def handle_start(message: Message) -> Message:
 @bot.message_handler(commands=["info"])
 def handle_info(message: Message) -> Message:
     bot.send_message(message.chat.id, f"{message.from_user.id}")
+
+
+@bot.message_handler(
+    commands=["myinfo"],
+    func=lambda message: check_auth(message.from_user.id),
+)
+def handle_myinfo(message: Message) -> Message:
+    user = select_user(message.from_user.id)
+    msg = dedent(f"""
+                UserId: {user.user_id}
+                Approved: {user.approved}
+                YouTube transcript: {user.use_yt_transcription}
+                Audio transcript: {user.use_transcription}
+                Translator: {user.use_translator}
+                Target language: {user.target_language}
+                """).strip()
+    bot.send_message(message.chat.id, msg)
 
 
 @bot.message_handler(
@@ -155,7 +174,7 @@ def handle_regexp(message: Message) -> Message:
             else:
                 bot.reply_to(message, translation, parse_mode="MarkdownV2")
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
         bot.reply_to(message, f"Unexpected: {e}")
     finally:

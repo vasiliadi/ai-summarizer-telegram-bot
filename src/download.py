@@ -24,7 +24,7 @@ def download_yt(url: str) -> str:
     with YoutubeDL(ydl_opts) as ydl:
         ydl.download(url)
     if not Path(temprorary_file_name).is_file():
-        raise Exception("Problem with downloading the file")
+        raise OSError("Problem with downloading the file")
     return temprorary_file_name
 
 
@@ -42,5 +42,5 @@ def download_castro(url: str) -> str:
     with Path(temprorary_file_name).open("wb") as f:
         f.write(downloaded_file.content)
     if not Path(temprorary_file_name).is_file():
-        raise Exception("Problem with downloading the file")
+        raise OSError("Problem with downloading the file")
     return temprorary_file_name

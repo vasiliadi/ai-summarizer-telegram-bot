@@ -46,8 +46,6 @@ python db.py
 alembic upgrade head
 ```
 
-This step is only necessary the first time.
-
 ## Docs
 
 [pyTelegramBotAPI](https://pytba.readthedocs.io/en/latest/) \
@@ -67,15 +65,11 @@ This step is only necessary the first time.
 
 ## Cloud DBs
 
-[PostgreSQL on Render](https://docs.render.com/databases) \
-[Supabase x Postgres](https://supabase.com/database) \
-[EdgeDB Cloud](https://www.edgedb.com/)
+[PostgreSQL on Render](https://docs.render.com/databases), [Supabase x Postgres](https://supabase.com/database), [EdgeDB Cloud](https://www.edgedb.com/)
 
 ## SQL Clients
 
-[TablePlus](https://tableplus.com/) \
-[DBeaver Community](https://dbeaver.io/) \
-[Valentina Studio](https://www.valentina-db.com/en/valentina-studio-overview)
+[TablePlus](https://tableplus.com/), [DBeaver Community](https://dbeaver.io/), [Valentina Studio](https://www.valentina-db.com/en/valentina-studio-overview)
 
 ## Linters and Checkers
 
@@ -83,10 +77,7 @@ This step is only necessary the first time.
 
 ## Easy deploy
 
-[Coolify](https://coolify.io/) \
-[Appliku](https://appliku.com/) \
-[CapRover](https://caprover.com/) \
-[Dokku](https://dokku.com/)
+[Coolify](https://coolify.io/), [Appliku](https://appliku.com/), [CapRover](https://caprover.com/), [Dokku](https://dokku.com/)
 
 ## Conventional Commits
 
@@ -96,8 +87,7 @@ This step is only necessary the first time.
 
 ## Logs
 
-[Logtail](https://logs.betterstack.com/)
-[Papertrail](https://papertrailapp.com/)
+[Logtail](https://logs.betterstack.com/), [Papertrail](https://papertrailapp.com/)
 
 ## Possible improvements
 
