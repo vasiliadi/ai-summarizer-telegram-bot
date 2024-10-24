@@ -2,6 +2,8 @@ import time
 from pathlib import Path
 
 from replicate.exceptions import ModelError
+from requests.exceptions import ProxyError
+from tenacity import retry, retry_if_exception_type, stop_after_attempt
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound
 from youtube_transcript_api.formatters import TextFormatter
@@ -25,6 +27,12 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
     return prediction.output["text"]
 
 
+@retry(
+    sleep=10,
+    retry=retry_if_exception_type(ProxyError),
+    reraise=True,
+    stop=stop_after_attempt(3),
+)
 def get_yt_transcript(url: str) -> str:
     if url.startswith("https://www.youtube.com/watch"):
         video_id = url.replace("https://www.youtube.com/watch?v=", "")

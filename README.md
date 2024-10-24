@@ -16,12 +16,12 @@ After `/start`, you need to set approved to `True` for wanted user IDs. Dependin
 Example of `.env` file:
 
 ```text
-TG_API_TOKEN = "your_api_key"
-GEMINI_API_KEY = "your_api_key"
-REPLICATE_API_TOKEN = "your_api_key"
-DB_URL = "postgresql+driver://user:password@host:port/database"
-SENTRY_DSN = "your_sentry_dsn"
-PROXY = ""
+TG_API_TOKEN="your_api_key"
+GEMINI_API_KEY="your_api_key"
+REPLICATE_API_TOKEN="your_api_key"
+DB_URL="postgresql+driver://user:password@host:port/database"
+SENTRY_DSN="your_sentry_dsn"
+PROXY=""
 ```
 
 Pass in an empty string to `PROXY` for direct connection. \
@@ -92,5 +92,4 @@ alembic upgrade head
 ## Possible improvements
 
 - Another model, [claude-3-5-sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8192 tokens but with only 200k inputs.
-- Retry for some functions. With [tenacity](https://tenacity.readthedocs.io/en/latest/).
 - Integrate webpage summarization using [Trafilatura](https://trafilatura.readthedocs.io/en/latest/).
