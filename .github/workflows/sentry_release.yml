@@ -15,6 +15,8 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          version: ${{ github.sha }}
 
 # jobs:
 #   push_release:
