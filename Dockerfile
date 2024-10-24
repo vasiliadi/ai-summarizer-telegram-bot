@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS builder
+FROM python:3.13-slim AS builder
 ENV ENV=BUILD
 ARG DSN
 WORKDIR /app
@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r requirements-build.txt \
     && python db.py \
     && alembic upgrade head
 
-FROM python:3.12-slim
+FROM python:3.13-slim
 ENV ENV=PROD
 ENV SENTRY_ENVIRONMENT=${ENV}
 ENV PYTHONUNBUFFERED=1
