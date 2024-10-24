@@ -3,6 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/e215a12081084eed95c60e5e80480218)](https://app.codacy.com/gh/vasiliadi/ai-summarizer-telegram-bot/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ## Usage
 
@@ -58,6 +59,7 @@ alembic upgrade head
 [Replicate](https://github.com/replicate/replicate-python) \
 [telegramify_markdown](https://github.com/sudoskys/telegramify-markdown) \
 [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
+[Tenacity](https://tenacity.readthedocs.io/en/latest/) \
 [Sentry](https://docs.sentry.io/platforms/python/)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \

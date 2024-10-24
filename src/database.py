@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from config import DEFAULT_LANG, DSN, SUPPORTED_LANGUAGES
 from models import UsersOrm
 
-engine = create_engine(DSN, echo=False, pool_pre_ping=True)  # type: ignore
+engine = create_engine(DSN, echo=False, pool_pre_ping=True)  # type: ignore[arg-type]
 Session = sessionmaker(engine)
 
 
