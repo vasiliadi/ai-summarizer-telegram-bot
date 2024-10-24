@@ -1,6 +1,5 @@
 import time
 from pathlib import Path
-from xml.etree.ElementTree import ParseError
 
 from replicate.exceptions import ModelError
 from requests.exceptions import ProxyError
@@ -30,7 +29,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
 
 @retry(
     wait=wait_fixed(10),
-    retry=retry_if_exception_type((ProxyError, ParseError)),
+    retry=retry_if_exception_type(ProxyError),
     reraise=True,
     stop=stop_after_attempt(3),
 )  # type: ignore[call-overload]
