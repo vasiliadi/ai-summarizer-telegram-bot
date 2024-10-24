@@ -9,7 +9,7 @@ engine = create_engine(DSN, echo=False, pool_pre_ping=True)  # type: ignore[arg-
 Session = sessionmaker(engine)
 
 
-def register_user(  # noqa
+def register_user(  # noqa: PLR0913
     user_id: int,
     first_name: str,
     last_name: str,
