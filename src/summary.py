@@ -42,6 +42,16 @@ def summarize_with_transcript(transcript: str) -> str:
     return response.text
 
 
+def summarize_webpage(content: str) -> str:
+    prompt = f"Read carefully webpage content and provide a detailed summary: {content}"
+    response = gemini_pro_model.generate_content(
+        prompt,
+        stream=False,
+        request_options={"timeout": 120},
+    )
+    return response.text
+
+
 def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) -> str:
     if data.startswith("https://castro.fm/episode/"):
         data = download_castro(data)

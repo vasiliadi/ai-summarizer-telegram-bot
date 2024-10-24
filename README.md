@@ -94,4 +94,3 @@ alembic upgrade head
 ## Possible improvements
 
 - Another model, [claude-3-5-sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8192 tokens but with only 200k inputs.
-- Integrate webpage summarization using [Trafilatura](https://trafilatura.readthedocs.io/en/latest/).
