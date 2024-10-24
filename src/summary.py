@@ -1,4 +1,5 @@
 import time
+from textwrap import dedent
 
 import google.generativeai as genai
 from google.api_core import exceptions, retry
@@ -49,7 +50,8 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
         if use_yt_transcription:
             try:
                 transcript = get_yt_transcript(data)
-                return f"📹 {summarize_with_transcript(transcript)}"
+                return dedent(f"""📹
+                              {summarize_with_transcript(transcript)}""").strip()
             except (
                 TranscriptsDisabled,
                 NoTranscriptAvailable,
@@ -65,6 +67,7 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
             new_file = f"{generate_temporary_name().split('.', maxsplit=1)[0]}.ogg"
             compress_audio(input_file=data, output_file=new_file)
             transcription = transcribe(new_file)
-            return f"📝 {summarize_with_transcript(transcription)}"
+            return dedent(f"""📝
+                          {summarize_with_transcript(transcription)}""").strip()
         capture_exception(e)
         raise
