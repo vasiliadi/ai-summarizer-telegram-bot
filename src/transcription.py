@@ -1,6 +1,5 @@
 import time
 from pathlib import Path
-from xml.etree.ElementTree import ParseError
 
 from replicate.exceptions import ModelError
 from requests.exceptions import ProxyError
