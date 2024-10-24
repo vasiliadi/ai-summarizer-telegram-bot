@@ -157,7 +157,7 @@ def handle_regexp(message: Message) -> Message:
         )
         answer = markdownify(answer)
 
-        if len(answer) > 4000:  # 4096 limit # noqa
+        if len(answer) > 4000:  # 4096 limit # noqa: PLR2004
             chunks = smart_split(answer, 4000)
             for text in chunks:
                 bot.reply_to(message, text, parse_mode="MarkdownV2")
@@ -167,7 +167,7 @@ def handle_regexp(message: Message) -> Message:
         if user.use_translator:
             translation = translate(answer, target_language=user.target_language)
             translation = markdownify(translation)
-            if len(translation) > 4096:  # noqa
+            if len(translation) > 4096:  # noqa: PLR2004
                 chunks = smart_split(translation, 4096)
                 for text in chunks:
                     bot.reply_to(message, text, parse_mode="MarkdownV2")
@@ -176,7 +176,10 @@ def handle_regexp(message: Message) -> Message:
 
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
-        bot.reply_to(message, f"Unexpected: {e}")
+        bot.reply_to(
+            message,
+            "An Unexpected Error Has Occurred. Please try again in a few minutes.",
+        )
     finally:
         clean_up()
 
