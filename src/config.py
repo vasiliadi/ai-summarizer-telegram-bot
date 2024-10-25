@@ -32,7 +32,7 @@ DSN = os.environ["DSN"]
 
 
 # Proxy
-PROXY = os.getenv("PROXY")
+PROXY = os.environ.get("PROXY", "")
 
 
 # Telegram bot config

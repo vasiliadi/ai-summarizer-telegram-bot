@@ -38,9 +38,6 @@ def download_yt(url: str) -> str:
 def download_castro(url: str) -> str:
     temprorary_file_name = generate_temporary_name()
     logger.debug("Parsing url...")
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",  # noqa: E501
-    }
     url = BeautifulSoup(
         requests.get(requests.utils.requote_uri(url), verify=True, timeout=30).content,
         "html.parser",
@@ -48,7 +45,7 @@ def download_castro(url: str) -> str:
     logger.debug("Url parsed! Starting download...")
     downloaded_file = requests.get(
         requests.utils.requote_uri(url),
-        headers=headers,
+        proxies={"https": PROXY},
         verify=True,
         timeout=120,
     )
