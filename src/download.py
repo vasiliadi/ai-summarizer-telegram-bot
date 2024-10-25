@@ -40,24 +40,22 @@ def download_yt(url: str) -> str:
 
 def download_castro(url: str) -> str:
     temprorary_file_name = generate_temporary_name()
-
     logger.debug("Parsing url...")
-
     url = BeautifulSoup(
         requests.get(requests.utils.requote_uri(url), verify=True, timeout=30).content,
         "html.parser",
     ).source.get("src")
-
     logger.debug("Url parsed! Starting download...")
-
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",  # noqa: E501
+    }
     downloaded_file = requests.get(
         requests.utils.requote_uri(url),
+        headers=headers,
         verify=True,
         timeout=120,
     )
-
     logger.debug("File downloaded...")
-
     with Path(temprorary_file_name).open("wb") as f:
         f.write(downloaded_file.content)
     if not Path(temprorary_file_name).is_file():
