@@ -10,8 +10,8 @@ if os.getenv("ENV") != "BUILD":
     load_dotenv()
 
 
-DSN = os.getenv("DSN")
-engine = create_engine(DSN, echo=True, poolclass=NullPool)  # type: ignore
+DSN = os.environ["DSN"]
+engine = create_engine(DSN, echo=True, poolclass=NullPool)
 
 
 class Base(DeclarativeBase):

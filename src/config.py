@@ -23,12 +23,12 @@ sentry_sdk.init(
 
 # Logging
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "ERROR").upper()
-NUMERIC_LOG_LEVEL = getattr(logging, LOG_LEVEL, None)  # type: ignore[assignment]
+NUMERIC_LOG_LEVEL = getattr(logging, LOG_LEVEL, None)
 telebot.logger.setLevel(NUMERIC_LOG_LEVEL)
 
 
 # DB
-DSN = os.getenv("DSN")
+DSN = os.environ["DSN"]
 
 
 # Proxy
