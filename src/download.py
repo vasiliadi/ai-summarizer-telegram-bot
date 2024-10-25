@@ -43,15 +43,12 @@ def download_castro(url: str) -> str:
         "html.parser",
     ).source.get("src")
     logger.debug("Url parsed! Starting download...")
-    downloaded_file = requests.get(
-        requests.utils.requote_uri(url),
-        proxies={"https": PROXY},
-        verify=True,
-        timeout=120,
-    )
+    with requests.get(url, stream=True, timeout=120) as r:
+        r.raise_for_status()
+        with Path(temprorary_file_name).open("wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
     logger.debug("File downloaded...")
-    with Path(temprorary_file_name).open("wb") as f:
-        f.write(downloaded_file.content)
     if not Path(temprorary_file_name).is_file():
         raise OSError("Problem with downloading the file")
     return temprorary_file_name
