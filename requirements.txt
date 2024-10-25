@@ -11,3 +11,4 @@ youtube-transcript-api==0.6.2
 sentry-sdk==2.17.0
 tenacity==8.5.0
 trafilatura==1.12.2
+loguru==0.7.2
