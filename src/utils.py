@@ -46,7 +46,6 @@ def clean_up() -> None:
             Path.unlink(file_path)
 
 
-# @logger.catch(reraise=True)
 def parse_webpage(url: str) -> str:
     # trafilatura.downloads.PROXY_URL = PROXY  # noqa: ERA001
     downloaded = trafilatura.fetch_url(url)

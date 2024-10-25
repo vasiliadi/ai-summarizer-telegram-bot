@@ -61,8 +61,7 @@ alembic upgrade head
 [telegramify_markdown](https://github.com/sudoskys/telegramify-markdown) \
 [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \
-[Sentry](https://docs.sentry.io/platforms/python/) \
-[Loguru](https://loguru.readthedocs.io/en/stable/index.html)
+[Sentry](https://docs.sentry.io/platforms/python/)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg)
@@ -96,3 +95,4 @@ alembic upgrade head
 ## Possible improvements
 
 - Another model, [claude-3-5-sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8192 tokens but with only 200k inputs.
+- Use [Loguru](https://loguru.readthedocs.io/en/stable/index.html) for some cases.
