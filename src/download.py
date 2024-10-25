@@ -7,13 +7,13 @@ from bs4 import BeautifulSoup
 from loguru import logger
 from yt_dlp import YoutubeDL
 
-from config import LOG_LEVEL, LOG_LVL, PROXY
+from config import LOG_LEVEL, NUMERIC_LOG_LEVEL, PROXY
 from utils import generate_temporary_name
 
 logger.remove()
-logger.add(sys.stderr, level=LOG_LVL)
+logger.add(sys.stderr, level=LOG_LEVEL)
 logging.basicConfig(
-    level=LOG_LEVEL,
+    level=NUMERIC_LOG_LEVEL,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
