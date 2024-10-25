@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -7,15 +8,9 @@ import sentry_sdk
 import telebot
 
 if os.getenv("ENV") != "PROD":
-    import logging
-
     from dotenv import load_dotenv
 
     load_dotenv()
-
-    logger = telebot.logger
-    telebot.logger.setLevel(logging.ERROR)
-    logging.getLogger("requests").setLevel(logging.CRITICAL)
 
 
 # Sentry.io config
@@ -23,7 +18,13 @@ sentry_sdk.init(
     dsn=os.environ["SENTRY_DSN"],
     traces_sample_rate=1.0,
     profiles_sample_rate=1.0,
+    enable_tracing=True,
 )
+
+# Logging
+LOG_LVL = os.environ.get("LOG_LEVEL", "ERROR").upper()
+LOG_LEVEL = getattr(logging, LOG_LVL, None)  # type: ignore[assignment]
+telebot.logger.setLevel(LOG_LEVEL)
 
 
 # DB

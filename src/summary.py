@@ -1,4 +1,5 @@
 import time
+from textwrap import dedent
 
 import google.generativeai as genai
 from google.api_core import exceptions, retry
@@ -41,6 +42,16 @@ def summarize_with_transcript(transcript: str) -> str:
     return response.text
 
 
+def summarize_webpage(content: str) -> str:
+    prompt = f"Read carefully webpage content and provide a detailed summary: {content}"
+    response = gemini_pro_model.generate_content(
+        prompt,
+        stream=False,
+        request_options={"timeout": 120},
+    )
+    return response.text
+
+
 def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) -> str:
     if data.startswith("https://castro.fm/episode/"):
         data = download_castro(data)
@@ -49,7 +60,8 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
         if use_yt_transcription:
             try:
                 transcript = get_yt_transcript(data)
-                return f"📹 {summarize_with_transcript(transcript)}"
+                return dedent(f"""📹
+                              {summarize_with_transcript(transcript)}""").strip()
             except (
                 TranscriptsDisabled,
                 NoTranscriptAvailable,
@@ -65,6 +77,7 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
             new_file = f"{generate_temporary_name().split('.', maxsplit=1)[0]}.ogg"
             compress_audio(input_file=data, output_file=new_file)
             transcription = transcribe(new_file)
-            return f"📝 {summarize_with_transcript(transcription)}"
+            return dedent(f"""📝
+                          {summarize_with_transcript(transcription)}""").strip()
         capture_exception(e)
         raise

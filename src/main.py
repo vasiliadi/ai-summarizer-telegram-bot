@@ -7,8 +7,6 @@ from telebot.types import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
-from telebot.util import smart_split
-from telegramify_markdown import markdownify
 
 from config import SUPPORTED_LANGUAGES, bot
 from database import (
@@ -20,9 +18,8 @@ from database import (
     toggle_translation,
     toggle_yt_transcription,
 )
-from summary import summarize
-from translate import translate
-from utils import clean_up
+from summary import summarize, summarize_webpage
+from utils import clean_up, parse_webpage, send_answer
 
 
 @bot.message_handler(commands=["start"])
@@ -143,45 +140,42 @@ def proceed_set_target_language(message: Message) -> Message:
 
 
 @bot.message_handler(
-    regexp=r"^https:\/\/[\S]*",
+    regexp=r"^https:\/\/(www\.youtube\.com\/*|youtu\.be\/|castro\.fm\/episode\/)[\S]*",
     func=lambda message: check_auth(message.from_user.id),
 )
 def handle_regexp(message: Message) -> Message:
     try:
         user = select_user(message.from_user.id)
-        data = message.text.strip().split(" ")[0]
+        data = message.text.strip().split(" ", maxsplit=1)[0]
         answer = summarize(
             data=data,
             use_transcription=user.use_transcription,
             use_yt_transcription=user.use_yt_transcription,
         )
-        answer = markdownify(answer)
-
-        if len(answer) > 4000:  # 4096 limit # noqa: PLR2004
-            chunks = smart_split(answer, 4000)
-            for text in chunks:
-                bot.reply_to(message, text, parse_mode="MarkdownV2")
-        else:
-            bot.reply_to(message, answer, parse_mode="MarkdownV2")
-
-        if user.use_translator:
-            translation = translate(answer, target_language=user.target_language)
-            translation = markdownify(translation)
-            if len(translation) > 4096:  # noqa: PLR2004
-                chunks = smart_split(translation, 4096)
-                for text in chunks:
-                    bot.reply_to(message, text, parse_mode="MarkdownV2")
-            else:
-                bot.reply_to(message, translation, parse_mode="MarkdownV2")
+        send_answer(message, user, answer)
 
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
-        bot.reply_to(
-            message,
-            "An Unexpected Error Has Occurred. Please try again in a few minutes.",
-        )
+        bot.reply_to(message, "An Unexpected Error Has Occurred.")
     finally:
         clean_up()
+
+
+@bot.message_handler(
+    regexp=r"^(?!https:\/\/(www\.youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*)https?[\S]*",
+    func=lambda message: check_auth(message.from_user.id),
+)
+def handle_webpages(message: Message) -> Message:
+    try:
+        user = select_user(message.from_user.id)
+        url = message.text.strip().split(" ", maxsplit=1)[0]
+        content = parse_webpage(url)
+        answer = summarize_webpage(content)
+        send_answer(message, user, answer)
+
+    except Exception as e:  # pylint: disable=W0718
+        capture_exception(e)
+        bot.reply_to(message, "An Unexpected Error Has Occurred.")
 
 
 @bot.message_handler(content_types=["text"])
