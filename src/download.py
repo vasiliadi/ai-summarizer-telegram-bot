@@ -1,21 +1,18 @@
 import logging
-import sys
 from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
-from loguru import logger
 from yt_dlp import YoutubeDL
 
-from config import LOG_LEVEL, NUMERIC_LOG_LEVEL, PROXY
+from config import NUMERIC_LOG_LEVEL, PROXY
 from utils import generate_temporary_name
 
-logger.remove()
-logger.add(sys.stderr, level=LOG_LEVEL)
 logging.basicConfig(
     level=NUMERIC_LOG_LEVEL,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+logger = logging.getLogger(__name__)
 
 
 def download_yt(url: str) -> str:
