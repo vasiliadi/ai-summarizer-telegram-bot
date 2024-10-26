@@ -8,12 +8,12 @@ exclude = ["temp.*", "migrations.*"]
 [tool.pylint]
 disable = ["C0114", "C0115", "C0116", "C0301"]
 
-[tool.isort]
-py_version = 312
-skip_glob = ["temp/*", "migrations/*"]
-multi_line_output = 3
-include_trailing_comma = true
-line_length = 88
+# [tool.isort]
+# py_version = 312
+# skip_glob = ["temp/*", "migrations/*"]
+# multi_line_output = 3
+# include_trailing_comma = true
+# line_length = 88
 
 [tool.ruff]
 extend-exclude = ["temp", "migrations"]
