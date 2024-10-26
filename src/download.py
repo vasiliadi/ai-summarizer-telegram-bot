@@ -20,6 +20,7 @@ def download_yt(url: str) -> str:
     ydl_opts = {
         "format": "worstaudio",
         "outtmpl": temprorary_file_name.split(".", maxsplit=1)[0],
+        "nocheckcertificate": False,
         "proxy": PROXY,
         "postprocessors": [
             {  # Extract audio using ffmpeg
@@ -43,7 +44,12 @@ def download_castro(url: str) -> str:
         "html.parser",
     ).source.get("src")
     logger.debug("Url parsed! Starting download...")
-    with requests.get(requests.utils.requote_uri(url), stream=True, timeout=120) as r:
+    with requests.get(
+        requests.utils.requote_uri(url),
+        stream=True,
+        verify=True,
+        timeout=120,
+    ) as r:
         r.raise_for_status()
         with Path(temprorary_file_name).open("wb") as f:
             for chunk in r.iter_content(chunk_size=8192):

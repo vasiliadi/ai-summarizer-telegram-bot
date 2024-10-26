@@ -10,10 +10,13 @@ disable = ["C0114", "C0115", "C0116", "C0301"]
 
 [tool.isort]
 py_version = 312
-skip = ["temp", "migrations"]
+skip_glob = ["temp/*", "migrations/*"]
+multi_line_output = 3
+include_trailing_comma = true
+line_length = 88
 
 [tool.ruff]
-exclude = ["temp", "migrations"]
+extend-exclude = ["temp", "migrations"]
 line-length = 88
 indent-width = 4
 target-version = "py312"
