@@ -7,7 +7,7 @@ import replicate
 import sentry_sdk
 import telebot
 
-if os.getenv("ENV") != "PROD":
+if os.environ.get("ENV") != "PROD":
     from dotenv import load_dotenv
 
     load_dotenv()
@@ -33,6 +33,7 @@ DSN = os.environ["DSN"]
 
 # Proxy
 PROXY = os.environ.get("PROXY", "")
+WEB_SCRAPE_PROXY = os.environ.get("WEB_SCRAPE_PROXY", PROXY)
 
 
 # Telegram bot config
