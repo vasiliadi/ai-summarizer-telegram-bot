@@ -8,13 +8,13 @@ from telebot.types import Message
 from telebot.util import smart_split
 from telegramify_markdown import markdownify
 
-from config import PROTECTED_FILES, bot
+from config import PROTECTED_FILES, WEB_SCRAPE_PROXY, bot
 from models import UsersOrm
 from translate import translate
 
 
 def generate_temporary_name() -> str:
-    return f"{str(uuid4())}.mp3"  # noqa
+    return f"{uuid4()!s}.mp3"
 
 
 def compress_audio(input_file: str, output_file: str) -> None:
@@ -47,8 +47,8 @@ def clean_up() -> None:
 
 
 def parse_webpage(url: str) -> str:
-    # trafilatura.downloads.PROXY_URL = PROXY  # noqa: ERA001
-    downloaded = trafilatura.fetch_url(url)
+    trafilatura.downloads.PROXY_URL = WEB_SCRAPE_PROXY
+    downloaded = trafilatura.fetch_url(url, no_ssl=True)
     if downloaded is None:
         raise ValueError("No content to proceed")
     return trafilatura.extract(downloaded)
