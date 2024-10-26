@@ -5,7 +5,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 COPY . .
-RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+RUN pip wheel --wheel-dir /app/wheels -r requirements.txt
 RUN pip install --no-cache-dir -r requirements-build.txt \
     && python db.py \
     && alembic upgrade head
