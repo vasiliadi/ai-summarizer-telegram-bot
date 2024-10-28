@@ -174,8 +174,11 @@ def handle_webpages(message: "Message") -> None:
         user = select_user(message.from_user.id)
         url = message.text.strip().split(" ", maxsplit=1)[0]
         content = parse_webpage(url)
-        answer = summarize_webpage(content)
-        send_answer(message, user, answer)
+        if content is None:
+            bot.reply_to(message, "No content to summarize")
+        else:
+            answer = summarize_webpage(content)
+            send_answer(message, user, answer)
 
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
