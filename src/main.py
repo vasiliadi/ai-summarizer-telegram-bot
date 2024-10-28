@@ -1,9 +1,9 @@
 from textwrap import dedent
+from typing import TYPE_CHECKING
 
 from sentry_sdk import capture_exception
 from telebot.types import (
     KeyboardButton,
-    Message,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
@@ -18,12 +18,16 @@ from database import (
     toggle_translation,
     toggle_yt_transcription,
 )
+from parse import parse_webpage
 from summary import summarize, summarize_webpage
-from utils import clean_up, parse_webpage, send_answer
+from utils import clean_up, send_answer
+
+if TYPE_CHECKING:
+    from telebot.types import Message
 
 
 @bot.message_handler(commands=["start"])
-def handle_start(message: Message) -> Message:
+def handle_start(message: "Message") -> None:
     if register_user(
         message.from_user.id,
         message.from_user.first_name,
@@ -42,7 +46,7 @@ def handle_start(message: Message) -> Message:
 
 
 @bot.message_handler(commands=["info"])
-def handle_info(message: Message) -> Message:
+def handle_info(message: "Message") -> None:
     bot.send_message(message.chat.id, f"{message.from_user.id}")
 
 
@@ -50,7 +54,7 @@ def handle_info(message: Message) -> Message:
     commands=["myinfo"],
     func=lambda message: check_auth(message.from_user.id),
 )
-def handle_myinfo(message: Message) -> Message:
+def handle_myinfo(message: "Message") -> None:
     user = select_user(message.from_user.id)
     msg = dedent(f"""
                 UserId: {user.user_id}
@@ -67,7 +71,7 @@ def handle_myinfo(message: Message) -> Message:
     commands=["toggle_transcription"],
     func=lambda message: check_auth(message.from_user.id),
 )
-def handle_toggle_transcription(message: Message) -> Message:
+def handle_toggle_transcription(message: "Message") -> None:
     user = select_user(message.from_user.id)
     toggle_transcription(message.from_user.id)
     bot.send_message(
@@ -84,7 +88,7 @@ def handle_toggle_transcription(message: Message) -> Message:
     commands=["toggle_translation"],
     func=lambda message: check_auth(message.from_user.id),
 )
-def handle_toggle_translation(message: Message) -> Message:
+def handle_toggle_translation(message: "Message") -> None:
     user = select_user(message.from_user.id)
     toggle_translation(message.from_user.id)
     bot.send_message(
@@ -101,7 +105,7 @@ def handle_toggle_translation(message: Message) -> Message:
     commands=["toggle_yt_transcription"],
     func=lambda message: check_auth(message.from_user.id),
 )
-def handle_toggle_yt_transcription(message: Message) -> Message:
+def handle_toggle_yt_transcription(message: "Message") -> None:
     user = select_user(message.from_user.id)
     toggle_yt_transcription(message.from_user.id)
     bot.send_message(
@@ -118,7 +122,7 @@ def handle_toggle_yt_transcription(message: Message) -> Message:
     commands=["set_target_language"],
     func=lambda message: check_auth(message.from_user.id),
 )
-def handle_set_target_language(message: Message) -> None:
+def handle_set_target_language(message: "Message") -> None:
     markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     languages = [KeyboardButton(lang.title()) for lang in SUPPORTED_LANGUAGES]
     markup.add(*languages)
@@ -127,7 +131,7 @@ def handle_set_target_language(message: Message) -> None:
     bot.register_next_step_handler(message, proceed_set_target_language)
 
 
-def proceed_set_target_language(message: Message) -> Message:
+def proceed_set_target_language(message: "Message") -> None:
     set_lang = set_target_language(message.from_user.id, message.text)
     if not set_lang:
         raise ValueError("Unknown language")
@@ -143,7 +147,7 @@ def proceed_set_target_language(message: Message) -> Message:
     regexp=r"^https:\/\/(www\.youtube\.com\/*|youtu\.be\/|castro\.fm\/episode\/)[\S]*",
     func=lambda message: check_auth(message.from_user.id),
 )
-def handle_regexp(message: Message) -> Message:
+def handle_regexp(message: "Message") -> None:
     try:
         user = select_user(message.from_user.id)
         data = message.text.strip().split(" ", maxsplit=1)[0]
@@ -165,7 +169,7 @@ def handle_regexp(message: Message) -> Message:
     regexp=r"^(?!https:\/\/(www\.youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*)https?[\S]*",
     func=lambda message: check_auth(message.from_user.id),
 )
-def handle_webpages(message: Message) -> Message:
+def handle_webpages(message: "Message") -> None:
     try:
         user = select_user(message.from_user.id)
         url = message.text.strip().split(" ", maxsplit=1)[0]
@@ -179,7 +183,7 @@ def handle_webpages(message: Message) -> Message:
 
 
 @bot.message_handler(content_types=["text"])
-def handle_text(message: Message) -> Message:
+def handle_text(message: "Message") -> None:
     user = select_user(message.from_user.id)
     if not user.approved:
         bot.send_message(message.chat.id, "You are not approved.")
