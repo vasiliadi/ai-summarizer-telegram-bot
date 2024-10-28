@@ -1,16 +1,19 @@
 import os
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
-import trafilatura
-from telebot.types import Message
 from telebot.util import smart_split
 from telegramify_markdown import markdownify
 
-from config import PROTECTED_FILES, WEB_SCRAPE_PROXY, bot
-from models import UsersOrm
+from config import PROTECTED_FILES, bot
 from translate import translate
+
+if TYPE_CHECKING:
+    from telebot.types import Message
+
+    from models import UsersOrm
 
 
 def generate_temporary_name() -> str:
@@ -46,15 +49,7 @@ def clean_up() -> None:
             Path.unlink(file_path)
 
 
-def parse_webpage(url: str) -> str:
-    trafilatura.downloads.PROXY_URL = WEB_SCRAPE_PROXY
-    downloaded = trafilatura.fetch_url(url, no_ssl=True)
-    if downloaded is None:
-        raise ValueError("No content to proceed")
-    return trafilatura.extract(downloaded)
-
-
-def send_answer(message: Message, user: UsersOrm, answer: str) -> None:
+def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
     answer = markdownify(answer)
     if len(answer) > 4000:  # 4096 limit # noqa: PLR2004
         chunks = smart_split(answer, 4000)
