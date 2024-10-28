@@ -11,7 +11,8 @@
 1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/)
 2. Setup DB, for example [Supabase x Postgres](https://supabase.com/database)
 3. Edit `.env`
-4. Run `python main.py`
+4. Apply [migrations](#migrations). Or run `Dockerfile` or `compose.yaml`.
+5. Run `python main.py` if you don't use Docker.
 
 After `/start`, you need to set approved to `True` for wanted user IDs. Depending on your database, you can use [SQL Editor](https://supabase.com/docs/guides/database/overview) for [Supabase x Postgres](https://supabase.com/database) or any other SQL client for another database.
 
@@ -32,6 +33,8 @@ Pass in an empty string to `PROXY` for direct connection. \
 Or use `schema`://`username`:`password`@`proxy_address`:`port` \
 For example `http://user:password@proxy.com:1234`
 
+Only SOCKS proxies are supported for `WEB_SCRAPE_PROXY`.
+
 Don't forget to enabble `RLS` if you use [Supabase x Postgres](https://supabase.com/database).
 
 After completing these steps, you are ready to send youtube.com and castro.fm links to the bot and receive summary.
@@ -43,7 +46,9 @@ After completing these steps, you are ready to send youtube.com and castro.fm li
 
 ### For development
 
-Edit the `.env` file and then run the following commands:
+## Migrations
+
+Apply migrations before first run. Or use `Dockerfile`.
 
 ```text
 python db.py
@@ -70,7 +75,8 @@ alembic upgrade head
 
 ## Cloud DBs
 
-[PostgreSQL on Render](https://docs.render.com/databases), [Supabase x Postgres](https://supabase.com/database), [EdgeDB Cloud](https://www.edgedb.com/)
+PostgreSQL: [PostgreSQL on Render](https://docs.render.com/databases), [Supabase x Postgres](https://supabase.com/database), [EdgeDB Cloud](https://www.edgedb.com/)
+<!-- Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/) -->
 
 ## SQL Clients
 
