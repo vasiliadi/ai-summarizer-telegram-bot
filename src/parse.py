@@ -8,4 +8,7 @@ def parse_webpage(url: str) -> str:
     downloaded = trafilatura.fetch_url(url, no_ssl=True)
     if downloaded is None:
         raise ValueError("No content to proceed")
-    return trafilatura.extract(downloaded)
+    content = trafilatura.extract(downloaded)
+    if content is None:
+        raise ValueError("No content to summarize")
+    return content
