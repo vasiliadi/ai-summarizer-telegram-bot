@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -55,6 +56,7 @@ def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
         chunks = smart_split(answer, 4000)
         for text in chunks:
             bot.reply_to(message, text, parse_mode="MarkdownV2")
+            time.sleep(1)
     else:
         bot.reply_to(message, answer, parse_mode="MarkdownV2")
 
@@ -65,5 +67,6 @@ def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
             chunks = smart_split(translation, 4096)
             for text in chunks:
                 bot.reply_to(message, text, parse_mode="MarkdownV2")
+                time.sleep(1)
         else:
             bot.reply_to(message, translation, parse_mode="MarkdownV2")
