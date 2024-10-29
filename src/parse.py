@@ -1,19 +1,19 @@
+import requests
 import trafilatura
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random
-from urllib3.exceptions import MaxRetryError
 
 from config import WEB_SCRAPE_PROXY
 
 
-@retry(
-    wait=wait_random(min=10, max=20),
-    retry=retry_if_exception_type(MaxRetryError),
-    reraise=True,
-    stop=stop_after_attempt(3),
-)  # type: ignore[call-overload]
 def parse_webpage(url: str) -> str:
-    trafilatura.downloads.PROXY_URL = WEB_SCRAPE_PROXY
-    downloaded = trafilatura.fetch_url(url, no_ssl=True)
-    if downloaded is None:
-        raise ValueError("No content to proceed")
-    return trafilatura.extract(downloaded)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",  # noqa: E501
+    }  # https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
+    downloaded = requests.get(
+        requests.utils.requote_uri(url),
+        verify=False,  # noqa: S501
+        headers=headers,
+        timeout=30,
+        proxies={"https": WEB_SCRAPE_PROXY},
+    )
+    downloaded.raise_for_status()
+    return trafilatura.extract(downloaded.text)
