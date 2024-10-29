@@ -71,13 +71,14 @@ replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
 # For clean up
 PROTECTED_FILES = (
     os.listdir(Path.cwd())
-    if os.getenv("ENV") != "PROD"
+    if os.environ.get("ENV") != "PROD"
     else [
         "config.py",
         "database.py",
         "download.py",
         "main.py",
         "models.py",
+        "parse.py",
         "summary.py",
         "transcription.py",
         "translate.py",
