@@ -10,7 +10,7 @@ def parse_webpage(url: str) -> str:
     }  # https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
     downloaded = requests.get(
         requests.utils.requote_uri(url),
-        verify=False,  # noqa: S501
+        verify=True,
         headers=headers,
         timeout=30,
         proxies={"https": WEB_SCRAPE_PROXY},
