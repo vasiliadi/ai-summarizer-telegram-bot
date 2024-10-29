@@ -33,7 +33,7 @@ Pass in an empty string to `PROXY` for direct connection. \
 Or use `schema`://`username`:`password`@`proxy_address`:`port` \
 For example `http://user:password@proxy.com:1234`
 
-Only SOCKS proxies are supported for `WEB_SCRAPE_PROXY`.
+Many websites have protections against bots, requiring special proxy (`WEB_SCRAPE_PROXY`) solutions for web scraping, such as [ScrapingAnt](https://scrapingant.com/), [ScrapingBee](https://www.scrapingbee.com/), [WebScrapingAPI](https://www.webscrapingapi.com/), [scraperapi](https://www.scraperapi.com/), and others.
 
 Don't forget to enabble `RLS` if you use [Supabase x Postgres](https://supabase.com/database).
 
