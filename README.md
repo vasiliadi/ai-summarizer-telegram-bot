@@ -86,6 +86,10 @@ PostgreSQL: [PostgreSQL on Render](https://docs.render.com/databases), [Supabase
 
 [isort](https://pycqa.github.io/isort/), [black](https://github.com/psf/black), [mypy](https://mypy-lang.org/), [pylint](https://pylint.readthedocs.io/en/latest/), [ruff](https://github.com/astral-sh/ruff)
 
+### Error suppression
+
+[ruff](https://docs.astral.sh/ruff/linter/#error-suppression), [pylint](https://pylint.pycqa.org/en/latest/user_guide/messages/message_control.html#block-disables)
+
 ## Easy deploy
 
 [Coolify](https://coolify.io/), [Appliku](https://appliku.com/), [CapRover](https://caprover.com/), [Dokku](https://dokku.com/)

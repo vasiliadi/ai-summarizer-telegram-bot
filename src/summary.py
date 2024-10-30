@@ -2,7 +2,7 @@ import time
 from textwrap import dedent
 
 import google.generativeai as genai
-from google.api_core import exceptions
+from google.api_core import exceptions, retry
 from sentry_sdk import capture_exception
 from youtube_transcript_api._errors import NoTranscriptAvailable, TranscriptsDisabled
 
@@ -12,7 +12,7 @@ from transcription import get_yt_transcript, transcribe
 from utils import compress_audio, generate_temporary_name
 
 
-# @retry.Retry(predicate=retry.if_transient_error)
+@retry.Retry(predicate=retry.if_transient_error, initial=10, timeout=120)
 def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     prompt = "Listen carefully to the following audio file. Provide a detailed summary."
     audio_file = genai.upload_file(path=file)
