@@ -16,7 +16,7 @@ def parse_webpage(url: str) -> str:
         requests.utils.requote_uri(url),
         verify=False,  # noqa: S501
         headers=headers,
-        timeout=30,
+        timeout=60,
         proxies=proxies,
     )
     downloaded.raise_for_status()
