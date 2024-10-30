@@ -33,8 +33,6 @@ Pass in an empty string to `PROXY` for direct connection. \
 Or use `schema`://`username`:`password`@`proxy_address`:`port` \
 For example `http://user:password@proxy.com:1234`
 
-Many websites have protections against bots, requiring special proxy (`WEB_SCRAPE_PROXY`) solutions for web scraping, such as [ScrapingAnt](https://scrapingant.com/), [ScrapingBee](https://www.scrapingbee.com/), [WebScrapingAPI](https://www.webscrapingapi.com/), [scraperapi](https://www.scraperapi.com/), and others.
-
 Don't forget to enabble `RLS` if you use [Supabase x Postgres](https://supabase.com/database).
 
 After completing these steps, you are ready to send youtube.com and castro.fm links to the bot and receive summary.
@@ -46,7 +44,7 @@ After completing these steps, you are ready to send youtube.com and castro.fm li
 
 ### For development
 
-## Migrations
+#### Migrations
 
 Apply migrations before first run. Or use `Dockerfile`.
 
@@ -54,6 +52,34 @@ Apply migrations before first run. Or use `Dockerfile`.
 python db.py
 alembic upgrade head
 ```
+
+#### JavaScript rendering
+
+Many websites have protections against bots, and some content requires JavaScript to be rendered for visibility. To enable JavaScript rendering, I am using [Selenium WebDriver](https://www.selenium.dev/documentation/webdriver/), which requires the Chrome browser and ChromeDriver to be installed on the operating system.
+
+Another approach is to use a special proxy.
+
+```python
+def parse_webpage(url: str) -> str:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",  # noqa: E501
+    }  # https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
+    proxies = {
+        "http": WEB_SCRAPE_PROXY,
+        "https": WEB_SCRAPE_PROXY,
+    }
+    downloaded = requests.get(
+        requests.utils.requote_uri(url),
+        verify=False,  # noqa: S501
+        headers=headers,
+        timeout=60,
+        proxies=proxies,
+    )
+    downloaded.raise_for_status()
+    return trafilatura.extract(downloaded.text)
+```
+
+This approach requiring special proxy (`WEB_SCRAPE_PROXY`) solutions for web scraping, such as [ScrapingBee](https://www.scrapingbee.com/), [ScrapingAnt](https://scrapingant.com/), [WebScrapingAPI](https://www.webscrapingapi.com/), [scraperapi](https://www.scraperapi.com/), or others.
 
 ## Docs
 
@@ -68,7 +94,8 @@ alembic upgrade head
 [telegramify_markdown](https://github.com/sudoskys/telegramify-markdown) \
 [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \
-[Sentry](https://docs.sentry.io/platforms/python/)
+[Sentry](https://docs.sentry.io/platforms/python/) \
+[Selenium](https://www.selenium.dev/documentation/overview/)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg)
