@@ -13,6 +13,7 @@ def parse_webpage(url: str) -> str:
         {"proxyType": ProxyType.MANUAL, "httpProxy": WEB_SCRAPE_PROXY},
     )
     options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
 
     with webdriver.Chrome(options=options) as driver:
         driver.get(requote_uri(url))
