@@ -5,10 +5,17 @@ import trafilatura
 from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.proxy import Proxy, ProxyType
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from config import WEB_SCRAPE_PROXY
 
 
+@retry(
+    wait=wait_fixed(10),
+    retry=retry_if_exception_type(WebDriverException),
+    reraise=True,
+    stop=stop_after_attempt(3),
+)  # type: ignore[call-overload]
 def parse_webpage(url: str) -> str:
     options = webdriver.ChromeOptions()
     options.accept_insecure_certs = False
