@@ -57,29 +57,7 @@ alembic upgrade head
 
 Many websites have protections against bots, and some content requires JavaScript to be rendered for visibility. To enable JavaScript rendering, I am using [Selenium WebDriver](https://www.selenium.dev/documentation/webdriver/), which requires the Chrome browser and ChromeDriver to be installed on the operating system.
 
-Another approach is to use a special proxy.
-
-```python
-def parse_webpage(url: str) -> str:
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",  # noqa: E501
-    }  # https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
-    proxies = {
-        "http": WEB_SCRAPE_PROXY,
-        "https": WEB_SCRAPE_PROXY,
-    }
-    downloaded = requests.get(
-        requests.utils.requote_uri(url),
-        verify=False,  # noqa: S501
-        headers=headers,
-        timeout=60,
-        proxies=proxies,
-    )
-    downloaded.raise_for_status()
-    return trafilatura.extract(downloaded.text)
-```
-
-This approach requiring special proxy (`WEB_SCRAPE_PROXY`) solutions for web scraping, such as [ScrapingBee](https://www.scrapingbee.com/), [ScrapingAnt](https://scrapingant.com/), [WebScrapingAPI](https://www.webscrapingapi.com/), [scraperapi](https://www.scraperapi.com/), or others.
+Another approach (by default) is to use a special proxy. This approach requiring special proxy (`WEB_SCRAPE_PROXY`) solutions for web scraping, such as [ScrapingBee](https://www.scrapingbee.com/), [ScrapingAnt](https://scrapingant.com/), [WebScrapingAPI](https://www.webscrapingapi.com/), [scraperapi](https://www.scraperapi.com/), or others.
 
 ## Docs
 
