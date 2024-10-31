@@ -173,7 +173,7 @@ def handle_webpages(message: "Message") -> None:
     try:
         user = select_user(message.from_user.id)
         url = message.text.strip().split(" ", maxsplit=1)[0]
-        content = parse_webpage(url)
+        content = parse_webpage(url, strategy="request")
         if content is None:
             bot.reply_to(message, "No content to summarize.")
         else:
