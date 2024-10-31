@@ -18,7 +18,8 @@ WORKDIR /app
 COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/src .
 RUN pip install --no-cache-dir /wheels/*
-RUN apt-get update && apt-get install --no-install-recommends -y ffmpeg chromium chromium-chromedriver \
+RUN apk update && apk add gcompat glib nss libxcb libgcc chromium
+RUN apt-get update && apt-get install --no-install-recommends -y ffmpeg chromium-chromedriver \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 ENTRYPOINT ["python", "main.py"]
