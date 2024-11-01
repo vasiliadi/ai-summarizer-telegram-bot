@@ -31,48 +31,63 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
 
 def summarize_with_transcript(transcript: str) -> str:
     prompt = dedent(f"""
-                    I need you to analyze and summarize a YouTube video transcript using the Pyramid Method.
+                    I need you to analyze and summarize a YouTube video transcript using the SOAP method.
                     Please note that this transcript may contain speech recognition errors, inconsistent punctuation, non-verbal markers [music], [laughing], etc., and informal spoken language.
-                    Please provide a structured summary following this hierarchy:
+                    Please analyze and summarize the content following this structure:
 
-                    Core Message (Top of Pyramid)
+                    Subjective (S)
 
-                    Provide the single most important takeaway or main conclusion (1-2 sentences)
-                    What's the fundamental message or purpose of this video?
+                    Presenter's stated opinions and beliefs
+                    Personal experiences shared
+                    Emotional responses or reactions described
+                    Attitudes expressed towards the topic
+                    Hypothetical scenarios presented
+                    Arguments based on personal perspective
+                    User/customer testimonials mentioned
+                    Perceived challenges or opportunities discussed
 
-                    Primary Arguments (Second Layer)
+                    Objective (O)
 
-                    List 5-10 key arguments or major points that support the core message
-                    Present these in order of importance
-                    Connect each point to the core message
-                    Clean up any obvious speech recognition errors
+                    Factual information presented (5-10 key points)
+                    Verifiable data and statistics
+                    Research findings or studies cited
+                    Historical events referenced
+                    Technical specifications or processes explained
+                    Industry standards mentioned
+                    Market data or trends presented
+                    Expert quotes or citations (cleaned up from transcript errors)
+                    Measurable outcomes discussed
 
-                    Supporting Evidence (Third Layer)
+                    Assessment (A)
+                    Analyze the relationship between subjective and objective elements:
 
-                    For each primary argument, provide:
+                    How does the presenter use data to support their opinions?
+                    What connections are made between personal experience and factual evidence?
+                    Which arguments are supported by strong evidence vs. personal belief?
+                    What patterns emerge from combining subjective and objective information?
+                    How do examples and case studies reinforce the main points?
+                    What gaps exist between opinions and available data?
+                    How do different perspectives contribute to the overall message?
 
-                    Relevant data or statistics
-                    Notable quotes (cleaned up for clarity)
-                    Specific examples or case studies
-                    Expert opinions or references cited
-                    Real-world applications mentioned
+                    Plan (P)
+                    Organize the information into a coherent narrative:
 
-                    Contextual Details (Base Layer)
-
-                    Background information provided
-                    Definitions or explanations of key terms
-                    Historical context or industry trends mentioned
-                    Related concepts or parallel examples
-                    Tools, resources, or recommendations shared
+                    Main conclusion or key takeaway
+                    Primary supporting arguments (minimum 5)
+                    Practical applications or recommendations
+                    Next steps or action items suggested
+                    Resources or tools recommended
+                    Future implications discussed
+                    Call-to-action or key learnings emphasized
 
                     Notes on handling transcript issues:
 
-                    Ignore non-verbal markers ([music], [applause], etc.) unless content-relevant
                     Clean up obvious speech recognition errors when meaning is clear from context
+                    Ignore non-verbal markers unless relevant to content meaning
                     If a section is unclear due to transcript quality, note "Potential transcript gap" and continue with next clear segment
-                    Convert casual spoken language into clear, professional writing while preserving original meaning
+                    Convert casual spoken language into professional writing while maintaining original meaning
 
-                    Present all information in professional language, maintaining accuracy while improving clarity and readability.
+                    Present all information in clear, professional language, organizing complex ideas into digestible segments while preserving important details and relationships.
 
                     Here is transcript: {transcript}
                     """).strip()  # noqa: E501
