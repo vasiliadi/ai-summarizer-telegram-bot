@@ -31,44 +31,48 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
 
 def summarize_with_transcript(transcript: str) -> str:
     prompt = dedent(f"""
-                    I need you to analyze and summarize a YouTube video transcript that I'll provide. Please note that this transcript may have several challenges:
+                    I need you to analyze and summarize a YouTube video transcript using the Pyramid Method.
+                    Please note that this transcript may contain speech recognition errors, inconsistent punctuation, non-verbal markers [music], [laughing], etc., and informal spoken language.
+                    Please provide a structured summary following this hierarchy:
 
-                    1. Speech recognition errors and misheard words
-                    2. Limited or inconsistent punctuation
-                    3. Non-verbal elements marked as [music], [laughing], [applause], etc.
-                    4. Informal spoken language and filler words
-                    5. Potential time stamps or speaker labels
+                    Core Message (Top of Pyramid)
 
-                    Please provide a comprehensive summary following this structure:
+                    Provide the single most important takeaway or main conclusion (1-2 sentences)
+                    What's the fundamental message or purpose of this video?
 
-                    Main Topic
-                    - State the primary subject matter or theme of the video (2-3 sentences)
+                    Primary Arguments (Second Layer)
 
-                    Key Points
-                    - List 3-5 main arguments, ideas, or topics discussed
-                    - Include relevant details or examples mentioned
-                    - Ignore speech recognition errors unless they significantly impact meaning
+                    List 5-10 key arguments or major points that support the core message
+                    Present these in order of importance
+                    Connect each point to the core message
+                    Clean up any obvious speech recognition errors
 
-                    Important Details
-                    - Notable quotes or statements (clean up obvious speech recognition errors)
-                    - Specific data, numbers, or statistics mentioned
-                    - Key examples or case studies discussed
-                    - Any resources or references cited
+                    Supporting Evidence (Third Layer)
 
-                    Structure and Flow
-                    - How the content is organized
-                    - Any significant transitions or shifts in topics
-                    - Relationship between different segments
+                    For each primary argument, provide:
 
-                    Technical Notes
-                    - Note any parts where technical issues (audio quality, recognition errors) might have affected comprehension
-                    - Flag any sections where meaning is unclear due to transcript quality
+                    Relevant data or statistics
+                    Notable quotes (cleaned up for clarity)
+                    Specific examples or case studies
+                    Expert opinions or references cited
+                    Real-world applications mentioned
 
-                    Please clean up obvious speech recognition errors when they can be understood from context, and note any sections where errors make the meaning unclear. Ignore non-verbal markers like [music] unless they're relevant to the content structure.
+                    Contextual Details (Base Layer)
 
-                    If you notice any patterns of errors or unclear sections, please mention them at the end of the summary.
+                    Background information provided
+                    Definitions or explanations of key terms
+                    Historical context or industry trends mentioned
+                    Related concepts or parallel examples
+                    Tools, resources, or recommendations shared
 
-                    Present the information in clear, professional language, converting casual spoken language into more formal written expression while maintaining the original meaning.
+                    Notes on handling transcript issues:
+
+                    Ignore non-verbal markers ([music], [applause], etc.) unless content-relevant
+                    Clean up obvious speech recognition errors when meaning is clear from context
+                    If a section is unclear due to transcript quality, note "Potential transcript gap" and continue with next clear segment
+                    Convert casual spoken language into clear, professional writing while preserving original meaning
+
+                    Present all information in professional language, maintaining accuracy while improving clarity and readability.
 
                     Here is transcript: {transcript}
                     """).strip()  # noqa: E501
