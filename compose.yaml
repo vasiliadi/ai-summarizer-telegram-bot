@@ -1,6 +1,5 @@
-version: "3.8"
-
 services:
+
   ai-summarizer-telegram-bot:
     build:
       context: .
@@ -11,5 +10,30 @@ services:
     env_file:
       - path: ./.env
         required: true
+    depends_on:
+      - tinyproxy
     entrypoint: [ "python", "main.py" ]
     restart: always
+    networks:
+      - proxy-network
+
+  tinyproxy:
+    build:
+      context: .
+      args:
+        - UPSTREAM_PROXY
+      dockerfile: tinyproxy.Dockerfile
+    container_name: tinyproxy
+    env_file:
+      - path: ./.env
+        required: true
+    restart: always
+    entrypoint: [ "tinyproxy", "-d" ]
+    networks:
+      - proxy-network
+
+networks:
+  proxy-network:
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16
