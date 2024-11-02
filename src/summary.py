@@ -31,65 +31,64 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
 
 def summarize_with_transcript(transcript: str) -> str:
     prompt = dedent(f"""
-                    I need you to analyze and summarize a YouTube video transcript using the SOAP method.
-                    Please note that this transcript may contain speech recognition errors, inconsistent punctuation, non-verbal markers [music], [laughing], etc., and informal spoken language.
-                    Please analyze and summarize the content following this structure:
+                    You are tasked with summarizing a YouTube video transcript. The transcript is provided below:
 
-                    Subjective (S)
+                    <transcript>
+                    {transcript}
+                    </transcript>
 
-                    Presenter's stated opinions and beliefs
-                    Personal experiences shared
-                    Emotional responses or reactions described
-                    Attitudes expressed towards the topic
-                    Hypothetical scenarios presented
-                    Arguments based on personal perspective
-                    User/customer testimonials mentioned
-                    Perceived challenges or opportunities discussed
+                    This task comes with several challenges:
+                    1. The transcript may contain errors due to incorrect word recognition.
+                    2. There might be a lack of proper punctuation.
+                    3. The text is more akin to video subtitles than a formal transcript.
+                    4. The transcript may include non-verbal cues like [music] or [laughing].
 
-                    Objective (O)
+                    To create a detailed summary, follow these steps:
 
-                    Factual information presented (5-10 key points)
-                    Verifiable data and statistics
-                    Research findings or studies cited
-                    Historical events referenced
-                    Technical specifications or processes explained
-                    Industry standards mentioned
-                    Market data or trends presented
-                    Expert quotes or citations (cleaned up from transcript errors)
-                    Measurable outcomes discussed
+                    1. Preprocessing:
+                    a. Remove non-verbal cues (e.g., [music], [laughing]) unless they are crucial to understanding the content.
+                    b. Attempt to add appropriate punctuation where it's clearly missing.
+                    c. Correct obvious word recognition errors based on context.
 
-                    Assessment (A)
-                    Analyze the relationship between subjective and objective elements:
+                    2. Content Analysis:
+                    a. Identify the main topic or themes of the video.
+                    b. Note key points, arguments, or information presented.
+                    c. Recognize any significant examples, case studies, or anecdotes used.
+                    d. Identify any conclusions or call-to-actions presented.
 
-                    How does the presenter use data to support their opinions?
-                    What connections are made between personal experience and factual evidence?
-                    Which arguments are supported by strong evidence vs. personal belief?
-                    What patterns emerge from combining subjective and objective information?
-                    How do examples and case studies reinforce the main points?
-                    What gaps exist between opinions and available data?
-                    How do different perspectives contribute to the overall message?
+                    3. Summarization:
+                    a. Provide a brief introduction (1-2 sentences) stating the main topic of the video.
+                    b. Outline the key points in order of presentation, explaining each in 1-3 sentences.
+                    c. Include any important examples or case studies that illustrate these points.
+                    d. Summarize any conclusions or final thoughts presented in the video.
+                    e. If applicable, mention any call-to-action or next steps suggested in the video.
 
-                    Plan (P)
-                    Organize the information into a coherent narrative:
+                    4. Review:
+                    a. Ensure the summary captures the essence of the video content.
+                    b. Check that the summary flows logically and is easy to understand.
+                    c. Verify that no crucial information has been omitted.
 
-                    Main conclusion or key takeaway
-                    Primary supporting arguments (minimum 5)
-                    Practical applications or recommendations
-                    Next steps or action items suggested
-                    Resources or tools recommended
-                    Future implications discussed
-                    Call-to-action or key learnings emphasized
+                    Present your summary in the following format:
 
-                    Notes on handling transcript issues:
+                    <summary>
+                    Title: [Inferred title of the video based on content]
 
-                    Clean up obvious speech recognition errors when meaning is clear from context
-                    Ignore non-verbal markers unless relevant to content meaning
-                    If a section is unclear due to transcript quality, note "Potential transcript gap" and continue with next clear segment
-                    Convert casual spoken language into professional writing while maintaining original meaning
+                    Introduction: [1-2 sentences introducing the main topic]
 
-                    Present all information in clear, professional language, organizing complex ideas into digestible segments while preserving important details and relationships.
+                    Key Points:
+                    1. [First key point]
+                    2. [Second key point]
+                    3. [Third key point]
+                    ...
 
-                    Here is transcript: {transcript}
+                    Examples/Case Studies: [If applicable, briefly mention significant examples]
+
+                    Conclusion: [Summarize the video's conclusion or final thoughts]
+
+                    Call-to-Action: [If applicable, mention any suggested next steps or actions]
+                    </summary>
+
+                    Remember to focus on providing a coherent and informative summary, even if the original transcript contains errors or is difficult to follow. Use your best judgment to interpret the content and present it in a clear, organized manner.
                     """).strip()  # noqa: E501
     response = gemini_pro_model.generate_content(
         prompt,
