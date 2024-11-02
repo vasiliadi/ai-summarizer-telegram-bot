@@ -79,6 +79,7 @@ PROTECTED_FILES = (
         "main.py",
         "models.py",
         "parse.py",
+        "prompts.py",
         "summary.py",
         "transcription.py",
         "translate.py",
