@@ -1,6 +1,6 @@
 import requests
 import trafilatura
-from selenium import webdriver
+from seleniumbase import SB
 
 from config import WEB_SCRAPE_PROXY
 
@@ -25,16 +25,16 @@ def parse_webpage_with_request(url: str) -> str:
 
 
 def parse_webpage_with_browser(url: str) -> str:
-    options = webdriver.ChromeOptions()
-    options.accept_insecure_certs = False
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument(f"--proxy-server={WEB_SCRAPE_PROXY}")
-
-    with webdriver.Chrome(options=options) as driver:
-        driver.implicitly_wait(10)
-        driver.get(requests.utils.requote_uri(url))
-        html = driver.page_source
+    with SB(
+        uc=True,
+        headless2=True,
+        chromium_arg="--no-sandbox",
+        cap_string={"acceptInsecureCerts": True},
+        proxy=WEB_SCRAPE_PROXY,
+    ) as sb:
+        sb.uc_open_with_reconnect(requests.utils.requote_uri(url), 4)
+        sb.uc_gui_click_captcha()
+        html = sb.get_page_source()
 
     return trafilatura.extract(html)
 

@@ -7,10 +7,23 @@ BASIC_PROMPT_FOR_TRANSCRIPT = (
 SOAP_PROMPT_FOR_TRANSCRIPT = """
     I need you to analyze and summarize a YouTube video transcript using the SOAP method.
     Please note that this transcript may contain speech recognition errors, inconsistent punctuation, non-verbal markers [music], [laughing], etc., and informal spoken language.
+
+    Notes on handling transcript issues:
+
+    Clean up obvious speech recognition errors when meaning is clear from context
+    Ignore non-verbal markers unless relevant to content meaning
+    If a section is unclear due to transcript quality, note "Potential transcript gap" and continue with next clear segment
+    Convert casual spoken language into professional writing while maintaining original meaning
+
+    Present all information in clear, professional language, organizing complex ideas into digestible segments while preserving important details and relationships.
+
     Please analyze and summarize the content following this structure:
 
-    Subjective (S)
+    Title: [Inferred title of the video based on content]
 
+    Introduction: [1-2 sentences introducing the main topic]
+
+    Subjective (S)
     Presenter's stated opinions and beliefs
     Personal experiences shared
     Emotional responses or reactions described
@@ -21,7 +34,6 @@ SOAP_PROMPT_FOR_TRANSCRIPT = """
     Perceived challenges or opportunities discussed
 
     Objective (O)
-
     Factual information presented (5-10 key points)
     Verifiable data and statistics
     Research findings or studies cited
@@ -34,7 +46,6 @@ SOAP_PROMPT_FOR_TRANSCRIPT = """
 
     Assessment (A)
     Analyze the relationship between subjective and objective elements:
-
     How does the presenter use data to support their opinions?
     What connections are made between personal experience and factual evidence?
     Which arguments are supported by strong evidence vs. personal belief?
@@ -45,7 +56,6 @@ SOAP_PROMPT_FOR_TRANSCRIPT = """
 
     Plan (P)
     Organize the information into a coherent narrative:
-
     Main conclusion or key takeaway
     Primary supporting arguments (minimum 5)
     Practical applications or recommendations
@@ -53,15 +63,6 @@ SOAP_PROMPT_FOR_TRANSCRIPT = """
     Resources or tools recommended
     Future implications discussed
     Call-to-action or key learnings emphasized
-
-    Notes on handling transcript issues:
-
-    Clean up obvious speech recognition errors when meaning is clear from context
-    Ignore non-verbal markers unless relevant to content meaning
-    If a section is unclear due to transcript quality, note "Potential transcript gap" and continue with next clear segment
-    Convert casual spoken language into professional writing while maintaining original meaning
-
-    Present all information in clear, professional language, organizing complex ideas into digestible segments while preserving important details and relationships.
 
     Here is transcript:
 """
@@ -95,11 +96,11 @@ KEY_POINTS_FOR_TRANSCRIPT = """
     4. Output Formatting:
     Present your summary in the following format:
 
-    Key Point 1: [Concise statement of the first main idea]
-    Key Point 2: [Concise statement of the second main idea]
-    Key Point 3: [Concise statement of the third main idea]
-    Key Point 4: [Concise statement of the fourth main idea]
-    Key Point 5: [Concise statement of the fifth main idea]
+    - [Concise statement of the first main idea]
+    - [Concise statement of the second main idea]
+    - [Concise statement of the third main idea]
+    - [Concise statement of the fourth main idea]
+    - [Concise statement of the fifth main idea]
     [Additional key points if applicable]
 
     Remember to focus on the most important and relevant information from the video.

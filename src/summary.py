@@ -24,7 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@retry.Retry(predicate=retry.if_transient_error, initial=10, timeout=120)
+@retry.Retry(predicate=retry.if_transient_error, initial=10, timeout=180)
 def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     prompt = BASIC_PROMPT_FOR_FILE
     audio_file = genai.upload_file(path=file)
@@ -35,7 +35,7 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     response = gemini_pro_model.generate_content(
         [prompt, audio_file],
         stream=False,
-        request_options={"timeout": 120},
+        request_options={"timeout": 180},
     )
     audio_file.delete()
     return response.text
