@@ -9,5 +9,4 @@ services:
     env_file:
       - path: ./.env
         required: true
-    entrypoint: [ "python", "main.py" ]
     restart: always

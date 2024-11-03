@@ -27,7 +27,7 @@ def parse_webpage_with_request(url: str) -> str:
 def parse_webpage_with_browser(url: str) -> str:
     with SB(
         uc=True,
-        headless2=True,
+        xvfb=True,
         chromium_arg="--no-sandbox",
         cap_string={"acceptInsecureCerts": True},
         proxy=WEB_SCRAPE_PROXY,

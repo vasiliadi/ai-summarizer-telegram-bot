@@ -14,11 +14,15 @@ FROM python:3.12-slim
 ENV ENV=PROD
 ENV SENTRY_ENVIRONMENT=${ENV}
 ENV PYTHONUNBUFFERED=1
+ENV DISPLAY=:99
 WORKDIR /app
 COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/src .
+COPY --from=builder /app/entrypoint.sh entrypoint.sh
+RUN chmod +x entrypoint.sh
 RUN pip install --no-cache-dir /wheels/*
-RUN apt-get update && apt-get install --no-install-recommends -y ffmpeg chromium-driver \
+RUN apt-get update && apt-get install --no-install-recommends -y ffmpeg chromium-driver xvfb \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-ENTRYPOINT ["python", "main.py"]
+USER root
+ENTRYPOINT ["./entrypoint.sh"]
