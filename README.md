@@ -78,7 +78,8 @@ Another approach (by default) is to use a special proxy. This approach requiring
 [Selenium](https://www.selenium.dev/documentation/overview/)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
-[Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg)
+[Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
+[Logging Levels](https://docs.python.org/3/library/logging.html#logging-levels)
 
 ## Cloud DBs
 
