@@ -11,8 +11,8 @@ from config import NUMERIC_LOG_LEVEL, gemini_pro_model
 from download import download_castro, download_yt
 from prompts import (
     BASIC_PROMPT_FOR_FILE,
+    BASIC_PROMPT_FOR_TRANSCRIPT,
     BASIC_PROMPT_FOR_WEBPAGE,
-    SOAP_PROMPT_FOR_TRANSCRIPT,
 )
 from transcription import get_yt_transcript, transcribe
 from utils import compress_audio, generate_temporary_name
@@ -42,7 +42,7 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
 
 
 def summarize_with_transcript(transcript: str) -> str:
-    prompt = dedent(f"{SOAP_PROMPT_FOR_TRANSCRIPT} {transcript}").strip()
+    prompt = dedent(f"{BASIC_PROMPT_FOR_TRANSCRIPT} {transcript}").strip()
     response = gemini_pro_model.generate_content(
         prompt,
         stream=False,
