@@ -28,8 +28,8 @@ def parse_webpage_with_browser(url: str) -> str:
     with SB(
         uc=True,
         xvfb=True,
-        chromium_arg="--no-sandbox",
         cap_string={"acceptInsecureCerts": True},
+        block_images=True,
         proxy=WEB_SCRAPE_PROXY,
     ) as sb:
         sb.uc_open_with_reconnect(requests.utils.requote_uri(url), 4)
