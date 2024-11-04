@@ -75,7 +75,7 @@ Another approach (by default) is to use a special proxy. This approach requiring
 [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \
 [Sentry](https://docs.sentry.io/platforms/python/) \
-[Selenium](https://www.selenium.dev/documentation/overview/)
+[Selenium](https://www.selenium.dev/documentation/overview/), [SeleniumBase](https://seleniumbase.io/)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
