@@ -28,7 +28,7 @@ def parse_webpage_with_browser(url: str) -> str:
     with SB(
         uc=True,
         xvfb=True,
-        cap_string={"acceptInsecureCerts": True},
+        chromium_arg="--ignore-certificate-errors",
         block_images=True,
         proxy=WEB_SCRAPE_PROXY,
     ) as sb:
