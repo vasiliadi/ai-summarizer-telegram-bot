@@ -10,3 +10,25 @@ services:
       - path: ./.env
         required: true
     restart: always
+    networks:
+      - proxy-network
+
+  pproxy:
+    build:
+      context: .
+      args:
+        - UPSTREAM_PROXY
+      dockerfile: pproxy.Dockerfile
+    container_name: pproxy
+    env_file:
+      - path: ./.env
+        required: true
+    restart: always
+    networks:
+      - proxy-network
+
+networks:
+  proxy-network:
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16
