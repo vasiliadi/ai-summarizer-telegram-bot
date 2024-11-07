@@ -68,6 +68,12 @@ REPLICATE_API_TOKEN = os.environ["REPLICATE_API_TOKEN"]
 replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
 
 
+# Headers for requests
+headers = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",  # noqa: E501
+}  # https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
+
+
 # For clean up
 PROTECTED_FILES = (
     os.listdir(Path.cwd())

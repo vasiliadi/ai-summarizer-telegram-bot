@@ -2,13 +2,10 @@ import requests
 import trafilatura
 from seleniumbase import SB
 
-from config import WEB_SCRAPE_PROXY
+from config import WEB_SCRAPE_PROXY, headers
 
 
 def parse_webpage_with_request(url: str) -> str:
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",  # noqa: E501
-    }  # https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
     proxies = {
         "http": WEB_SCRAPE_PROXY,
         "https": WEB_SCRAPE_PROXY,
