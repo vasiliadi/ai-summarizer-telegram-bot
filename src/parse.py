@@ -5,7 +5,7 @@ from seleniumbase import SB
 from config import WEB_SCRAPE_PROXY, headers
 
 
-def parse_webpage_with_request(url: str) -> str:
+def parse_webpage_with_requests(url: str) -> str:
     proxies = {
         "http": WEB_SCRAPE_PROXY,
         "https": WEB_SCRAPE_PROXY,
@@ -36,7 +36,7 @@ def parse_webpage_with_browser(url: str) -> str:
     return trafilatura.extract(html)
 
 
-def parse_webpage(url: str, strategy: str = "request") -> str:
+def parse_webpage(url: str, strategy: str = "requests") -> str:
     """
     Retrieves and parses the content of a webpage using the specified strategy.
 
@@ -45,19 +45,19 @@ def parse_webpage(url: str, strategy: str = "request") -> str:
             (e.g., 'https://example.com')
         strategy (str): The strategy to use for parsing. Must be one of:
             - 'browser': Uses a headless browser for JavaScript-rendered content
-            - 'request': Uses HTTP requests for static content
+            - 'requests': Uses HTTP requests for static content
 
     Returns:
         str: The parsed webpage content as a string
 
     Examples:
-        >>> content = parse_webpage('https://example.com', 'request')
         >>> content = parse_webpage('https://example.com', 'browser')
+        >>> content = parse_webpage('https://example.com', 'requests')
     """
     match strategy:
         case "browser":
             return parse_webpage_with_browser(url)
-        case "request":
-            return parse_webpage_with_request(url)
+        case "requests":
+            return parse_webpage_with_requests(url)
         case _:
             raise ValueError(f"Unsupported parsing strategy: {strategy}")

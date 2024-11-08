@@ -81,12 +81,16 @@ headers = {
 
 
 # Rate limits https://ai.google.dev/gemini-api/docs/models/gemini#gemini-1.5-pro
+MINUTE_LIMIT_KEY = "RPM"
+DAILY_LIMIT_KEY = "RPD"
+MINUTE_LIMIT = 2
+DAILY_LIMIT = 50
 per_minute_limit = throttle.Throttle(
     limiter=periodic.PeriodicLimiter(
         store=redis_store.RedisStore(url=RATE_LIMITER_URL),
     ),
     rate=quota.Quota.per_minute(
-        count=2,
+        count=MINUTE_LIMIT,
     ),
 )
 per_day_limit = throttle.Throttle(
@@ -94,7 +98,7 @@ per_day_limit = throttle.Throttle(
         store=redis_store.RedisStore(url=RATE_LIMITER_URL),
     ),
     rate=quota.Quota.per_day(
-        count=50,
+        count=DAILY_LIMIT,
     ),
 )
 

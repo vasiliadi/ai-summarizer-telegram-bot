@@ -15,7 +15,7 @@ from prompts import (
     BASIC_PROMPT_FOR_WEBPAGE,
 )
 from transcription import get_yt_transcript, transcribe
-from utils import check_quota, compress_audio, generate_temporary_name
+from utils import check_quota, clean_up, compress_audio, generate_temporary_name
 
 logging.basicConfig(
     level=NUMERIC_LOG_LEVEL,
@@ -32,7 +32,7 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
         time.sleep(sleep_time)
     if audio_file.state.name == "FAILED":
         raise ValueError(audio_file.state.name)
-    check_quota()
+    check_quota(quantity=1)
     response = gemini_pro_model.generate_content(
         [prompt, audio_file],
         stream=False,
@@ -44,7 +44,7 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
 
 def summarize_with_transcript(transcript: str) -> str:
     prompt = dedent(f"{BASIC_PROMPT_FOR_TRANSCRIPT} {transcript}").strip()
-    check_quota()
+    check_quota(quantity=1)
     response = gemini_pro_model.generate_content(
         prompt,
         stream=False,
@@ -55,7 +55,7 @@ def summarize_with_transcript(transcript: str) -> str:
 
 def summarize_webpage(content: str) -> str:
     prompt = f"{BASIC_PROMPT_FOR_WEBPAGE} {content}"
-    check_quota()
+    check_quota(quantity=1)
     response = gemini_pro_model.generate_content(
         prompt,
         stream=False,
@@ -90,8 +90,13 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
         if use_transcription:
             new_file = f"{generate_temporary_name().split('.', maxsplit=1)[0]}.ogg"
             compress_audio(input_file=data, output_file=new_file)
-            transcription = transcribe(new_file)
-            return dedent(f"""📝
-                          {summarize_with_transcript(transcription)}""").strip()
+            try:
+                transcription = transcribe(new_file)
+                return dedent(f"""📝
+                            {summarize_with_transcript(transcription)}""").strip()
+            finally:
+                clean_up(file=new_file)
         capture_exception(e)
         raise
+    finally:
+        clean_up(data)
