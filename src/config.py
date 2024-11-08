@@ -6,6 +6,9 @@ import google.generativeai as genai
 import replicate
 import sentry_sdk
 import telebot
+from rush import quota, throttle
+from rush.limiters import periodic
+from rush.stores import redis as redis_store
 
 if os.environ.get("ENV") != "PROD":
     from dotenv import load_dotenv
@@ -29,6 +32,9 @@ telebot.logger.setLevel(NUMERIC_LOG_LEVEL)
 
 # DB
 DSN = os.environ["DSN"]
+REDIS_URL = os.environ["REDIS_URL"]
+RATE_LIMITER_URL = REDIS_URL + "/0"
+# RQ_URL = REDIS_URL + "/1"  # noqa: ERA001
 
 
 # Proxy
@@ -68,10 +74,29 @@ REPLICATE_API_TOKEN = os.environ["REPLICATE_API_TOKEN"]
 replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
 
 
-# Headers for requests
+# Headers for requests https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
 headers = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",  # noqa: E501
-}  # https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
+}
+
+
+# Rate limits https://ai.google.dev/gemini-api/docs/models/gemini#gemini-1.5-pro
+per_minute_limit = throttle.Throttle(
+    limiter=periodic.PeriodicLimiter(
+        store=redis_store.RedisStore(url=RATE_LIMITER_URL),
+    ),
+    rate=quota.Quota.per_minute(
+        count=2,
+    ),
+)
+per_day_limit = throttle.Throttle(
+    limiter=periodic.PeriodicLimiter(
+        store=redis_store.RedisStore(url=RATE_LIMITER_URL),
+    ),
+    rate=quota.Quota.per_day(
+        count=50,
+    ),
+)
 
 
 # For clean up
