@@ -50,13 +50,13 @@ def compress_audio(input_file: str, output_file: str) -> None:
     )
 
 
-def clean_up(file: str, all_files: bool = False) -> None:
-    if all_files:
+def clean_up(file: str | None = None, all_downloads: bool = False) -> None:
+    if all_downloads:
         for file_name in os.listdir(Path.cwd()):
             file_path = Path(file_name)
             if file_path.is_file() and file_name not in PROTECTED_FILES:
                 Path.unlink(file_path)
-    else:
+    elif file is not None:
         file_path = Path(file)
         if file_path.is_file() and file not in PROTECTED_FILES:
             Path.unlink(file_path)

@@ -20,7 +20,7 @@ from database import (
 )
 from parse import parse_webpage
 from summary import summarize, summarize_webpage
-from utils import send_answer
+from utils import clean_up, send_answer
 
 if TYPE_CHECKING:
     from telebot.types import Message
@@ -191,4 +191,7 @@ def handle_text(message: "Message") -> None:
 
 
 if __name__ == "__main__":
-    bot.infinity_polling(timeout=20)
+    try:
+        bot.infinity_polling(timeout=20)
+    finally:
+        clean_up(all_downloads=True)
