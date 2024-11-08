@@ -57,7 +57,11 @@ def download_castro(url: str) -> str:
         verify=True,
         timeout=120,
     ) as r:
-        r.raise_for_status()  # or r.status_code https://requests.readthedocs.io/en/latest/api/
+        try:
+            r.raise_for_status()  # or r.status_code https://requests.readthedocs.io/en/latest/api/
+        except requests.exceptions.HTTPError:
+            logger.error("%s status code", r.status_code)
+            raise
         with Path(temprorary_file_name).open("wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
