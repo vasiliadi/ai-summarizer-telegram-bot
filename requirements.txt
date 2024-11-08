@@ -12,3 +12,5 @@ sentry-sdk==2.17.0
 tenacity==8.5.0
 trafilatura==1.12.2
 seleniumbase==4.32.6
+rush[redis]==2021.4.0
+# rq==2.0.0
