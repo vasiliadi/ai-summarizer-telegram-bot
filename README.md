@@ -9,10 +9,10 @@
 ## Usage
 
 1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/)
-2. Setup DB, for example [Supabase x Postgres](https://supabase.com/database)
+2. Setup DB and Redis. For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
-4. Apply [migrations](#migrations). Or run `Dockerfile` or `compose.yaml`.
-5. Run `python main.py` if you don't use Docker.
+4. Apply [migrations](#migrations). Or run `Dockerfile` or `compose.yaml`
+5. Run `python main.py` if you don't use Docker
 
 After `/start`, you need to set approved to `True` for wanted user IDs. Depending on your database, you can use [SQL Editor](https://supabase.com/docs/guides/database/overview) for [Supabase x Postgres](https://supabase.com/database) or any other SQL client for another database.
 
@@ -23,6 +23,7 @@ TG_API_TOKEN="your_api_key"
 GEMINI_API_KEY="your_api_key"
 REPLICATE_API_TOKEN="your_api_key"
 DB_URL="postgresql+driver://user:password@host:port/database"
+REDIS_URL=""
 SENTRY_DSN="your_sentry_dsn"
 PROXY=""
 WEB_SCRAPE_PROXY=""
@@ -75,7 +76,10 @@ Another approach (by default) is to use a special proxy. This approach requiring
 [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \
 [Sentry](https://docs.sentry.io/platforms/python/) \
-[SeleniumBase](https://seleniumbase.io/)
+[SeleniumBase](https://seleniumbase.io/) \
+[rush](https://rush.readthedocs.io/en/latest/) \
+[Redis Queue](https://python-rq.org/) \
+[Redis](https://redis-py.readthedocs.io/en/latest/index.html)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
@@ -83,8 +87,8 @@ Another approach (by default) is to use a special proxy. This approach requiring
 
 ## Cloud DBs
 
-PostgreSQL: [PostgreSQL on Render](https://docs.render.com/databases), [Supabase x Postgres](https://supabase.com/database), [EdgeDB Cloud](https://www.edgedb.com/)
-<!-- Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/) -->
+PostgreSQL: [PostgreSQL on Render](https://docs.render.com/databases), [Supabase x Postgres](https://supabase.com/database), [EdgeDB Cloud](https://www.edgedb.com/) \
+Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [Aiven for Valkey](https://aiven.io/free-redis-database)
 
 ## SQL Clients
 
@@ -116,3 +120,5 @@ PostgreSQL: [PostgreSQL on Render](https://docs.render.com/databases), [Supabase
 
 - Another model, [claude-3-5-sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8192 tokens but with only 200k inputs.
 - Use [Loguru](https://loguru.readthedocs.io/en/stable/index.html) for some cases.
+- [Modal](https://modal.com/docs/guide/custom-container) for ffmpeg.
+- [Perplexity API](https://docs.perplexity.ai/guides/getting-started) for page summarization.
