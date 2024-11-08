@@ -20,7 +20,7 @@ from database import (
 )
 from parse import parse_webpage
 from summary import summarize, summarize_webpage
-from utils import clean_up, send_answer
+from utils import send_answer
 
 if TYPE_CHECKING:
     from telebot.types import Message
@@ -157,12 +157,9 @@ def handle_regexp(message: "Message") -> None:
             use_yt_transcription=user.use_yt_transcription,
         )
         send_answer(message, user, answer)
-
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
         bot.reply_to(message, "An Unexpected Error Has Occurred.")
-    finally:
-        clean_up()
 
 
 @bot.message_handler(
@@ -173,13 +170,12 @@ def handle_webpages(message: "Message") -> None:
     try:
         user = select_user(message.from_user.id)
         url = message.text.strip().split(" ", maxsplit=1)[0]
-        content = parse_webpage(url, strategy="request")
+        content = parse_webpage(url, strategy="requests")
         if content is None:
             bot.reply_to(message, "No content to summarize.")
         else:
             answer = summarize_webpage(content)
             send_answer(message, user, answer)
-
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
         bot.reply_to(message, "An Unexpected Error Has Occurred.")
