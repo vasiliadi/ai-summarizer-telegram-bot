@@ -8,7 +8,14 @@ from uuid import uuid4
 from telebot.util import smart_split
 from telegramify_markdown import markdownify
 
-from config import PROTECTED_FILES, bot, per_day_limit, per_minute_limit
+from config import (
+    DAILY_LIMIT_KEY,
+    MINUTE_LIMIT_KEY,
+    PROTECTED_FILES,
+    bot,
+    per_day_limit,
+    per_minute_limit,
+)
 from translate import translate
 
 if TYPE_CHECKING:
@@ -72,11 +79,11 @@ def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
             bot.reply_to(message, translation, parse_mode="MarkdownV2")
 
 
-def check_quota() -> bool:
-    rpd = per_day_limit.check("RPD", quantity=1)
+def check_quota(quantity: int = 1) -> bool:
+    rpd = per_day_limit.check(DAILY_LIMIT_KEY, quantity=quantity)
     if rpd.limited:
         raise Exception("The daily limit for requests has been exceeded")  # pylint: disable=W0719
-    rpm = per_minute_limit.check("RPM", quantity=1)
+    rpm = per_minute_limit.check(MINUTE_LIMIT_KEY, quantity=quantity)
     if rpm.limited:
         time_to_reset = max(0, rpm.reset_after.total_seconds())
         time.sleep(time_to_reset)
