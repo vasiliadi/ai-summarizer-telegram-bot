@@ -66,6 +66,4 @@ def download_castro(url: str) -> str:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
     logger.debug("File downloaded...")
-    if not Path(temprorary_file_name).is_file():
-        raise OSError("Problem with downloading the file")
     return temprorary_file_name
