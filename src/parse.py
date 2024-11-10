@@ -21,7 +21,7 @@ def parse_webpage_with_requests(url: str) -> str:
     return trafilatura.extract(downloaded.text)
 
 
-def parse_webpage_with_browser(url: str) -> str:
+def parse_webpage_with_browser(url: str) -> str:  # beta
     with SB(
         uc=True,
         xvfb=True,
