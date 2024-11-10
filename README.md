@@ -77,9 +77,7 @@ Another approach (by default) is to use a special proxy. This approach requiring
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \
 [Sentry](https://docs.sentry.io/platforms/python/) \
 [SeleniumBase](https://seleniumbase.io/) \
-[rush](https://rush.readthedocs.io/en/latest/) \
-[Redis Queue](https://python-rq.org/) \
-[Redis](https://redis-py.readthedocs.io/en/latest/index.html)
+[rush](https://rush.readthedocs.io/en/latest/)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
@@ -119,6 +117,5 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 ## Possible improvements
 
 - Another model, [claude-3-5-sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8192 tokens but with only 200k inputs.
-- Use [Loguru](https://loguru.readthedocs.io/en/stable/index.html) for some cases.
+- Use [Loguru](https://loguru.readthedocs.io/en/stable/index.html) instead of logging.
 - [Modal](https://modal.com/docs/guide/custom-container) for ffmpeg.
-- [Perplexity API](https://docs.perplexity.ai/guides/getting-started) for page summarization.

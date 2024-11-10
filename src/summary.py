@@ -14,8 +14,9 @@ from prompts import (
     BASIC_PROMPT_FOR_TRANSCRIPT,
     BASIC_PROMPT_FOR_WEBPAGE,
 )
+from services import check_quota
 from transcription import get_yt_transcript, transcribe
-from utils import check_quota, clean_up, compress_audio, generate_temporary_name
+from utils import clean_up, compress_audio, generate_temporary_name
 
 logging.basicConfig(
     level=NUMERIC_LOG_LEVEL,
@@ -99,4 +100,4 @@ def summarize(data: str, use_transcription: bool, use_yt_transcription: bool) ->
         capture_exception(e)
         raise
     finally:
-        clean_up(data)
+        clean_up(file=data)

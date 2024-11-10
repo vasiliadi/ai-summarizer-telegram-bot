@@ -19,8 +19,9 @@ from database import (
     toggle_yt_transcription,
 )
 from parse import parse_webpage
+from services import send_answer
 from summary import summarize, summarize_webpage
-from utils import clean_up, send_answer
+from utils import clean_up
 
 if TYPE_CHECKING:
     from telebot.types import Message

@@ -58,7 +58,7 @@ def download_castro(url: str) -> str:
         timeout=120,
     ) as r:
         try:
-            r.raise_for_status()  # or r.status_code https://requests.readthedocs.io/en/latest/api/
+            r.raise_for_status()
         except requests.exceptions.HTTPError:
             logger.error("%s status code", r.status_code)
             raise
