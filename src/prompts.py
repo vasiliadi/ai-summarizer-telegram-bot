@@ -113,6 +113,8 @@ BASIC_PROMPT_FOR_WEBPAGE = (
     "Read carefully webpage content and provide a detailed summary:"
 )
 
+BASIC_PROMPT_FOR_PERPLEXITY = "Provide a detailed summary:"
+
 BASIC_PROMPT_FOR_FILE = (
     "Listen carefully to the following audio file. Provide a detailed summary."
 )

@@ -88,3 +88,15 @@ def toggle_yt_transcription(user_id: int) -> None:
         if user is not None:
             user.use_yt_transcription = not user.use_yt_transcription
             session.commit()
+
+
+def set_parsing_strategy(user_id: int, parsing_strategy: str) -> bool:
+    if parsing_strategy.lower() not in ["browser", "requests", "perplexity"]:
+        return False  # strategy is no supported
+    with Session() as session:
+        user = session.get(UsersOrm, user_id)
+        if user is not None:
+            user.parsing_strategy = parsing_strategy
+            session.commit()
+            return True
+        return False  # User not found
