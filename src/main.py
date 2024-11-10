@@ -171,7 +171,7 @@ def handle_regexp(message: "Message") -> None:
 def handle_set_parsing_strategy(message: "Message") -> None:
     markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     strategies = [
-        KeyboardButton(strategy for strategy in ["browser", "requests", "perplexity"]),
+        KeyboardButton(strategy) for strategy in ["browser", "requests", "perplexity"]
     ]
     markup.add(*strategies)
 
