@@ -6,6 +6,7 @@ import google.generativeai as genai
 import replicate
 import sentry_sdk
 import telebot
+from openai import OpenAI
 from rush import quota, throttle
 from rush.limiters import periodic
 from rush.stores import redis as redis_store
@@ -65,6 +66,14 @@ gemini_pro_model = genai.GenerativeModel(
 gemini_flash_model = genai.GenerativeModel(
     "models/gemini-1.5-flash-latest",
     **GEMINI_COMMON_CONFIG,
+)
+
+
+# Perplexity config
+PERPLEXITY_API_KEY = os.environ["PERPLEXITY_API_KEY"]
+perplexity_client = OpenAI(
+    api_key=PERPLEXITY_API_KEY,
+    base_url="https://api.perplexity.ai",
 )
 
 

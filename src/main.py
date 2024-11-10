@@ -13,6 +13,7 @@ from database import (
     check_auth,
     register_user,
     select_user,
+    set_parsing_strategy,
     set_target_language,
     toggle_transcription,
     toggle_translation,
@@ -164,19 +165,54 @@ def handle_regexp(message: "Message") -> None:
 
 
 @bot.message_handler(
+    commands=["set_parsing_strategy"],
+    func=lambda message: check_auth(message.from_user.id),
+)
+def handle_set_parsing_strategy(message: "Message") -> None:
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    strategies = [
+        KeyboardButton(strategy) for strategy in ["browser", "requests", "perplexity"]
+    ]
+    markup.add(*strategies)
+
+    bot.send_message(
+        message.chat.id,
+        "Select parsing strategy 👇",
+        reply_markup=markup,
+    )
+    bot.register_next_step_handler(message, proceed_set_parsing_strategy)
+
+
+def proceed_set_parsing_strategy(message: "Message") -> None:
+    set_strategy = set_parsing_strategy(message.from_user.id, message.text)
+    if not set_strategy:
+        raise ValueError("Unknown strategy")
+    markup = ReplyKeyboardRemove()
+    bot.send_message(
+        message.chat.id,
+        f"Parsing strategy is set to {message.text}.",
+        reply_markup=markup,
+    )
+
+
+@bot.message_handler(
     regexp=r"^(?!https:\/\/(www\.youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*)https?[\S]*",
     func=lambda message: check_auth(message.from_user.id),
 )
 def handle_webpages(message: "Message") -> None:
     try:
         user = select_user(message.from_user.id)
+        parsing_strategy = user.parsing_strategy
         url = message.text.strip().split(" ", maxsplit=1)[0]
-        content = parse_webpage(url, strategy="requests")
-        if content is None:
-            bot.reply_to(message, "No content to summarize.")
+        content = parse_webpage(url, strategy=parsing_strategy)
+        if parsing_strategy != "perplexity":
+            if content is None:
+                bot.reply_to(message, "No content to summarize.")
+            else:
+                answer = summarize_webpage(content)
+                send_answer(message, user, answer)
         else:
-            answer = summarize_webpage(content)
-            send_answer(message, user, answer)
+            send_answer(message, user, content)
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
         bot.reply_to(message, "An Unexpected Error Has Occurred.")

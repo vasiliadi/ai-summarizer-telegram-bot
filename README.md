@@ -8,7 +8,7 @@
 
 ## Usage
 
-1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/)
+1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Perplexity](https://docs.perplexity.ai/guides/getting-started), [Sentry](https://sentry.io/signup/)
 2. Setup DB and Redis. For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
 4. Apply [migrations](#migrations). Or run `Dockerfile` or `compose.yaml`
@@ -22,6 +22,7 @@ Example of `.env` file:
 TG_API_TOKEN="your_api_key"
 GEMINI_API_KEY="your_api_key"
 REPLICATE_API_TOKEN="your_api_key"
+PERPLEXITY_API_KEY="your_api_key"
 DB_URL="postgresql+driver://user:password@host:port/database"
 REDIS_URL=""
 SENTRY_DSN="your_sentry_dsn"
@@ -77,7 +78,8 @@ Another approach (by default) is to use a special proxy. This approach requiring
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \
 [Sentry](https://docs.sentry.io/platforms/python/) \
 [SeleniumBase](https://seleniumbase.io/) \
-[rush](https://rush.readthedocs.io/en/latest/)
+[rush](https://rush.readthedocs.io/en/latest/) \
+[openai](https://github.com/openai/openai-python)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
