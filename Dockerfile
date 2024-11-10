@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     xvfb=2:* \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-RUN useradd -r -u 1000 bot --shell /bin/false \
+RUN useradd -r -m -u 1000 bot --shell /bin/false \
     && chown -R bot:bot /app \
     && chown -R bot:bot /usr/local/lib/python3.12/site-packages/seleniumbase
 USER bot
