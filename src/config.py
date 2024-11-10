@@ -33,8 +33,7 @@ telebot.logger.setLevel(NUMERIC_LOG_LEVEL)
 # DB
 DSN = os.environ["DSN"]
 REDIS_URL = os.environ["REDIS_URL"]
-RATE_LIMITER_URL = REDIS_URL + "/0"
-# RQ_URL = REDIS_URL + "/1"  # noqa: ERA001
+RATE_LIMITER_URL = f"{REDIS_URL}/0"
 
 
 # Proxy
@@ -110,11 +109,13 @@ PROTECTED_FILES = (
     else [
         "config.py",
         "database.py",
+        "exceptions.py",
         "download.py",
         "main.py",
         "models.py",
         "parse.py",
         "prompts.py",
+        "services.py",
         "summary.py",
         "transcription.py",
         "translate.py",
