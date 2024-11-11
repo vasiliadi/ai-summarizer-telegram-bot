@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     )
 
 
-def parse_webpage_with_requests(url: str) -> str:
+def parse_webpage_with_requests(url: str) -> str | None:
     proxies = {
         "http": WEB_SCRAPE_PROXY,
         "https": WEB_SCRAPE_PROXY,
@@ -32,7 +32,7 @@ def parse_webpage_with_requests(url: str) -> str:
     return trafilatura.extract(downloaded.text)
 
 
-def parse_webpage_with_browser(url: str) -> str:  # beta
+def parse_webpage_with_browser(url: str) -> str | None:  # beta
     with SB(
         uc=True,
         xvfb=True,
@@ -47,7 +47,7 @@ def parse_webpage_with_browser(url: str) -> str:  # beta
     return trafilatura.extract(html)
 
 
-def parse_webpage_with_perplexity(url: str) -> str:
+def parse_webpage_with_perplexity(url: str) -> str | None:
     url_parsed = urlparse(url)
     url = urlunparse(
         (url_parsed.scheme, url_parsed.netloc, url_parsed.path, "", "", ""),
@@ -70,12 +70,10 @@ def parse_webpage_with_perplexity(url: str) -> str:
         model="llama-3.1-sonar-large-128k-online",
         messages=messages,
     )
-    if response.choices[0].message.content is None:
-        raise ValueError("Empty response from Perplexity")
     return response.choices[0].message.content
 
 
-def parse_webpage(url: str, strategy: str = "requests") -> str:
+def parse_webpage(url: str, strategy: str = "requests") -> str | None:
     """
     Retrieves and parses the content of a webpage using the specified strategy.
 

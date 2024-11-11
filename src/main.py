@@ -8,7 +8,7 @@ from telebot.types import (
     ReplyKeyboardRemove,
 )
 
-from config import SUPPORTED_LANGUAGES, bot
+from config import PARSING_STRATEGIES, SUPPORTED_LANGUAGES, bot
 from database import (
     check_auth,
     register_user,
@@ -170,9 +170,7 @@ def handle_regexp(message: "Message") -> None:
 )
 def handle_set_parsing_strategy(message: "Message") -> None:
     markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    strategies = [
-        KeyboardButton(strategy) for strategy in ["browser", "requests", "perplexity"]
-    ]
+    strategies = [KeyboardButton(strategy) for strategy in PARSING_STRATEGIES]
     markup.add(*strategies)
 
     bot.send_message(
@@ -205,14 +203,14 @@ def handle_webpages(message: "Message") -> None:
         parsing_strategy = user.parsing_strategy
         url = message.text.strip().split(" ", maxsplit=1)[0]
         content = parse_webpage(url, strategy=parsing_strategy)
-        if parsing_strategy != "perplexity":
-            if content is None:
-                bot.reply_to(message, "No content to summarize.")
+        if content is None:
+            bot.reply_to(message, "No content to summarize.")
+        else:  # noqa: PLR5501
+            if parsing_strategy == "perplexity":
+                send_answer(message, user, content)
             else:
                 answer = summarize_webpage(content)
                 send_answer(message, user, answer)
-        else:
-            send_answer(message, user, content)
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
         bot.reply_to(message, "An Unexpected Error Has Occurred.")
