@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from config import DEFAULT_LANG, DSN, SUPPORTED_LANGUAGES
+from config import DEFAULT_LANG, DSN, PARSING_STRATEGIES, SUPPORTED_LANGUAGES
 from models import UsersOrm
 
 engine = create_engine(DSN, echo=False, pool_pre_ping=True)
@@ -91,7 +91,7 @@ def toggle_yt_transcription(user_id: int) -> None:
 
 
 def set_parsing_strategy(user_id: int, parsing_strategy: str) -> bool:
-    if parsing_strategy.lower() not in ["browser", "requests", "perplexity"]:
+    if parsing_strategy.lower() not in PARSING_STRATEGIES:
         return False  # strategy is no supported
     with Session() as session:
         user = session.get(UsersOrm, user_id)

@@ -25,7 +25,8 @@ def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
     if len(answer) > 4000:  # 4096 limit # noqa: PLR2004
         chunks = smart_split(answer, 4000)
         for text in chunks:
-            bot.reply_to(message, text, parse_mode="MarkdownV2")
+            text_md = markdownify(text)
+            bot.reply_to(message, text_md, parse_mode="MarkdownV2")
             time.sleep(1)
     else:
         bot.reply_to(message, answer, parse_mode="MarkdownV2")
@@ -36,7 +37,8 @@ def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
         if len(translation) > 4096:  # noqa: PLR2004
             chunks = smart_split(translation, 4096)
             for text in chunks:
-                bot.reply_to(message, text, parse_mode="MarkdownV2")
+                text_md = markdownify(text)
+                bot.reply_to(message, text_md, parse_mode="MarkdownV2")
                 time.sleep(1)
         else:
             bot.reply_to(message, translation, parse_mode="MarkdownV2")
