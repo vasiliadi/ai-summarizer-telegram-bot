@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import requests
 from bs4 import BeautifulSoup
@@ -9,6 +10,9 @@ from yt_dlp.utils import DownloadError
 
 from config import NUMERIC_LOG_LEVEL, PROXY, bot, headers
 from utils import generate_temporary_name
+
+if TYPE_CHECKING:
+    from telebot.types import File
 
 logging.basicConfig(
     level=NUMERIC_LOG_LEVEL,
@@ -69,9 +73,9 @@ def download_castro(url: str) -> str:
     return temprorary_file_name
 
 
-def download_tg(file_id: str) -> str:
+def download_tg(file_id: "File") -> str:
     temprorary_file_name = generate_temporary_name()
-    downloaded_file = bot.download_file(file_id.file_path)  # type: ignore[attr-defined]
+    downloaded_file = bot.download_file(file_id.file_path)
     with Path(temprorary_file_name).open("wb") as f:
         f.write(downloaded_file)
     return temprorary_file_name
