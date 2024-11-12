@@ -7,7 +7,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fi
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import NUMERIC_LOG_LEVEL, PROXY, headers
+from config import NUMERIC_LOG_LEVEL, PROXY, bot, headers
 from utils import generate_temporary_name
 
 logging.basicConfig(
@@ -66,4 +66,12 @@ def download_castro(url: str) -> str:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
     logger.debug("File downloaded...")
+    return temprorary_file_name
+
+
+def download_tg(file_id: str) -> str:
+    temprorary_file_name = generate_temporary_name()
+    downloaded_file = bot.download_file(file_id.file_path)  # type: ignore[attr-defined]
+    with Path(temprorary_file_name).open("wb") as f:
+        f.write(downloaded_file)
     return temprorary_file_name
