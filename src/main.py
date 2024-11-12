@@ -216,6 +216,25 @@ def handle_webpages(message: "Message") -> None:
         bot.reply_to(message, "An Unexpected Error Has Occurred.")
 
 
+@bot.message_handler(
+    content_types=["audio"],
+    func=lambda message: check_auth(message.from_user.id),
+)
+def handle_audio(message: "Message") -> None:
+    try:
+        user = select_user(message.from_user.id)
+        data = bot.get_file(message.audio.file_id)
+        answer = summarize(
+            data=data,
+            use_transcription=user.use_transcription,
+        )
+        send_answer(message, user, answer)
+
+    except Exception as e:  # pylint: disable=W0718
+        capture_exception(e)
+        bot.reply_to(message, "An Unexpected Error Has Occurred.")
+
+
 @bot.message_handler(content_types=["text"])
 def handle_text(message: "Message") -> None:
     user = select_user(message.from_user.id)

@@ -21,27 +21,27 @@ if TYPE_CHECKING:
 
 
 def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
-    answer = markdownify(answer)
-    if len(answer) > 4000:  # 4096 limit # noqa: PLR2004
+    answer_md = markdownify(answer)
+    if len(answer_md) > 4000:  # 4096 limit # noqa: PLR2004
         chunks = smart_split(answer, 4000)
         for text in chunks:
             text_md = markdownify(text)
             bot.reply_to(message, text_md, parse_mode="MarkdownV2")
             time.sleep(1)
     else:
-        bot.reply_to(message, answer, parse_mode="MarkdownV2")
+        bot.reply_to(message, answer_md, parse_mode="MarkdownV2")
 
     if user.use_translator:
         translation = translate(answer, target_language=user.target_language)
-        translation = markdownify(translation)
-        if len(translation) > 4096:  # noqa: PLR2004
-            chunks = smart_split(translation, 4096)
+        translation_md = markdownify(translation)
+        if len(translation_md) > 4096:  # noqa: PLR2004
+            chunks = smart_split(translation, 4000)
             for text in chunks:
                 text_md = markdownify(text)
                 bot.reply_to(message, text_md, parse_mode="MarkdownV2")
                 time.sleep(1)
         else:
-            bot.reply_to(message, translation, parse_mode="MarkdownV2")
+            bot.reply_to(message, translation_md, parse_mode="MarkdownV2")
 
 
 def check_quota(quantity: int = 1) -> bool:
