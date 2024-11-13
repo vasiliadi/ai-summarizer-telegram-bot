@@ -15,7 +15,7 @@ FROM python:3.12-slim
 ENV ENV=PROD
 ENV SENTRY_ENVIRONMENT=${ENV}
 ENV PYTHONUNBUFFERED=1
-# ENV DISPLAY=:99
+ENV DISPLAY=:99
 WORKDIR /app
 COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/src .
@@ -25,8 +25,8 @@ RUN pip install --upgrade pip \
     && pip install --no-cache-dir /wheels/*
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ffmpeg=7:* \
-    # chromium-driver=130.* \
-    # xvfb=2:* \
+    chromium-driver=130.* \
+    xvfb=2:* \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd -r -m -u 1000 bot --shell /bin/false \
