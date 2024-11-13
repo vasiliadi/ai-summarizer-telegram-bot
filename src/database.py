@@ -19,6 +19,7 @@ def register_user(  # noqa: PLR0913
     use_translator: bool = False,
     target_language: str = DEFAULT_LANG,
     use_yt_transcription: bool = False,
+    parsing_strategy: str = "requests",
 ) -> bool:
     with Session() as session:
         try:
@@ -32,6 +33,7 @@ def register_user(  # noqa: PLR0913
                 use_translator=use_translator,
                 target_language=target_language,
                 use_yt_transcription=use_yt_transcription,
+                parsing_strategy=parsing_strategy,
             )
             session.add(stmt)
             session.commit()
