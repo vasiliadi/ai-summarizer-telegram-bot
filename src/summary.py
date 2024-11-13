@@ -25,7 +25,7 @@ from utils import clean_up, compress_audio, generate_temporary_name
 def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     prompt = BASIC_PROMPT_FOR_FILE
     # Deprecated since version 3.13 Use guess_file_type() for this.
-    mime_type = mimetypes.guess_type(file)[0]
+    mime_type, _ = mimetypes.guess_type(file)
     audio_file = genai.upload_file(path=file, mime_type=mime_type)
     while audio_file.state.name == "PROCESSING":
         time.sleep(sleep_time)
