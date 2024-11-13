@@ -8,7 +8,13 @@ from telebot.types import (
     ReplyKeyboardRemove,
 )
 
-from config import PARSING_STRATEGIES, SUPPORTED_LANGUAGES, bot
+from config import (
+    DAILY_LIMIT_KEY,
+    PARSING_STRATEGIES,
+    SUPPORTED_LANGUAGES,
+    bot,
+    per_day_limit,
+)
 from database import (
     check_auth,
     register_user,
@@ -67,6 +73,16 @@ def handle_myinfo(message: "Message") -> None:
                 Target language: {user.target_language}
                 Parsing strategy: {user.parsing_strategy}
                 """).strip()
+    bot.send_message(message.chat.id, msg)
+
+
+@bot.message_handler(
+    commands=["limit"],
+    func=lambda message: check_auth(message.from_user.id),
+)
+def handle_limit(message: "Message") -> None:
+    rpd = per_day_limit.check(DAILY_LIMIT_KEY, quantity=0)
+    msg = f"Remaining limit: {rpd.remaining}"
     bot.send_message(message.chat.id, msg)
 
 
