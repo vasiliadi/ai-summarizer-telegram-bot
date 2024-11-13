@@ -10,3 +10,15 @@ services:
       - path: ./.env
         required: true
     restart: always
+
+  ai-summarizer-worker:
+    build:
+      context: .
+      args:
+        - DSN
+      dockerfile: worker.Dockerfile
+    container_name: worker
+    env_file:
+      - path: ./.env
+        required: true
+    restart: always
