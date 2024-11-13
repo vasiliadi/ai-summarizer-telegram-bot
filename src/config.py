@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+from textwrap import dedent
 
 import google.generativeai as genai
 import replicate
@@ -10,6 +11,8 @@ from openai import OpenAI
 from rush import quota, throttle
 from rush.limiters import periodic
 from rush.stores import redis as redis_store
+
+from prompts import TRANSLATION_SYSTEM_INSTRUCTION
 
 if os.environ.get("ENV") != "PROD":
     from dotenv import load_dotenv
@@ -70,6 +73,7 @@ gemini_pro_model = genai.GenerativeModel(
 gemini_flash_model = genai.GenerativeModel(
     "models/gemini-1.5-flash-latest",
     **GEMINI_COMMON_CONFIG,
+    system_instruction=dedent(TRANSLATION_SYSTEM_INSTRUCTION).strip(),
 )
 
 
