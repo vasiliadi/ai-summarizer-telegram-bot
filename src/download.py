@@ -22,10 +22,10 @@ if TYPE_CHECKING:
     stop=stop_after_attempt(2),
 )  # type: ignore[call-overload]
 def download_yt(url: str) -> str:
-    temprorary_file_name = generate_temporary_name()
+    temprorary_file_name = generate_temporary_name(ext=".mp3")
     ydl_opts = {
         "format": "worstaudio",
-        "outtmpl": temprorary_file_name,
+        "outtmpl": temprorary_file_name.split(".", maxsplit=1)[0],
         "nocheckcertificate": False,
         "proxy": PROXY,
         "postprocessors": [
