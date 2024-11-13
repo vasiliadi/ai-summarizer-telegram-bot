@@ -1,24 +1,18 @@
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import requests
 from bs4 import BeautifulSoup
+from loguru import logger
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import NUMERIC_LOG_LEVEL, PROXY, bot, headers
+from config import PROXY, bot, headers
 from utils import generate_temporary_name
 
 if TYPE_CHECKING:
     from telebot.types import File
-
-logging.basicConfig(
-    level=NUMERIC_LOG_LEVEL,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
 
 
 @retry(
@@ -31,7 +25,7 @@ def download_yt(url: str) -> str:
     temprorary_file_name = generate_temporary_name()
     ydl_opts = {
         "format": "worstaudio",
-        "outtmpl": temprorary_file_name.split(".", maxsplit=1)[0],
+        "outtmpl": temprorary_file_name,
         "nocheckcertificate": False,
         "proxy": PROXY,
         "postprocessors": [
@@ -47,7 +41,7 @@ def download_yt(url: str) -> str:
 
 
 def download_castro(url: str) -> str:
-    temprorary_file_name = generate_temporary_name()
+    temprorary_file_name = generate_temporary_name(ext=".mp3")
     logger.debug("Parsing url...")
     url = BeautifulSoup(
         requests.get(requests.utils.requote_uri(url), verify=True, timeout=30).content,
@@ -74,7 +68,7 @@ def download_castro(url: str) -> str:
 
 
 def download_tg(file_id: "File") -> str:
-    temprorary_file_name = generate_temporary_name()
+    temprorary_file_name = generate_temporary_name(ext=".ogg")
     downloaded_file = bot.download_file(file_id.file_path)
     with Path(temprorary_file_name).open("wb") as f:
         f.write(downloaded_file)
