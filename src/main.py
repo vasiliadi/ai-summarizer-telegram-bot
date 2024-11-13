@@ -8,7 +8,7 @@ from telebot.types import (
     ReplyKeyboardRemove,
 )
 
-from config import PARSING_STRATEGIES, SUPPORTED_LANGUAGES, bot
+from config import PARSING_STRATEGIES, SUPPORTED_LANGUAGES, bot, q
 from database import (
     check_auth,
     register_user,
@@ -21,7 +21,7 @@ from database import (
 )
 from parse import parse_webpage
 from services import send_answer
-from summary import summarize, summarize_webpage
+from summary import process_summary, summarize_webpage
 from utils import clean_up
 
 if TYPE_CHECKING:
@@ -146,6 +146,7 @@ def proceed_set_target_language(message: "Message") -> None:
     )
 
 
+# YouTube and Castro
 @bot.message_handler(
     regexp=r"^https:\/\/(www\.youtube\.com\/*|youtu\.be\/|castro\.fm\/episode\/)[\S]*",
     func=lambda message: check_auth(message.from_user.id),
@@ -154,12 +155,11 @@ def handle_regexp(message: "Message") -> None:
     try:
         user = select_user(message.from_user.id)
         data = message.text.strip().split(" ", maxsplit=1)[0]
-        answer = summarize(
-            data=data,
-            use_transcription=user.use_transcription,
-            use_yt_transcription=user.use_yt_transcription,
+        q.enqueue(
+            process_summary,
+            args=(message, user, data),
+            job_timeout="15m",
         )
-        send_answer(message, user, answer)
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
         bot.reply_to(message, "An Unexpected Error Has Occurred.")
@@ -194,6 +194,7 @@ def proceed_set_parsing_strategy(message: "Message") -> None:
     )
 
 
+# All other links
 @bot.message_handler(
     regexp=r"^(?!https:\/\/(www\.youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*)https?[\S]*",
     func=lambda message: check_auth(message.from_user.id),
@@ -225,12 +226,11 @@ def handle_audio(message: "Message") -> None:
     try:
         user = select_user(message.from_user.id)
         data = bot.get_file(message.audio.file_id)
-        answer = summarize(
-            data=data,
-            use_transcription=user.use_transcription,
+        q.enqueue(
+            process_summary,
+            args=(message, user, data),
+            job_timeout="15m",
         )
-        send_answer(message, user, answer)
-
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
         bot.reply_to(message, "An Unexpected Error Has Occurred.")

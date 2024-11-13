@@ -7,6 +7,8 @@ import replicate
 import sentry_sdk
 import telebot
 from openai import OpenAI
+from redis import Redis
+from rq import Queue
 from rush import quota, throttle
 from rush.limiters import periodic
 from rush.stores import redis as redis_store
@@ -35,6 +37,11 @@ telebot.logger.setLevel(NUMERIC_LOG_LEVEL)
 DSN = os.environ["DSN"]
 REDIS_URL = os.environ["REDIS_URL"]
 RATE_LIMITER_URL = f"{REDIS_URL}/0"
+RQ_URL = f"{REDIS_URL}/1"
+
+
+# Q
+q = Queue(connection=Redis.from_url(RQ_URL))
 
 
 # Proxy
@@ -132,6 +139,7 @@ PROTECTED_FILES = (
         "transcription.py",
         "translate.py",
         "utils.py",
+        "worker.py",
     ]
 )
 

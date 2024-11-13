@@ -1,30 +1,30 @@
-import logging
 import mimetypes
 import time
 from textwrap import dedent
+from typing import TYPE_CHECKING
 
 import google.generativeai as genai
 from google.api_core import exceptions, retry
+from loguru import logger
 from sentry_sdk import capture_exception
 from telebot.types import File
 from youtube_transcript_api._errors import NoTranscriptAvailable, TranscriptsDisabled
 
-from config import NUMERIC_LOG_LEVEL, gemini_pro_model
+from config import gemini_pro_model
 from download import download_castro, download_tg, download_yt
 from prompts import (
     BASIC_PROMPT_FOR_FILE,
     BASIC_PROMPT_FOR_TRANSCRIPT,
     BASIC_PROMPT_FOR_WEBPAGE,
 )
-from services import check_quota
+from services import check_quota, send_answer
 from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
 
-logging.basicConfig(
-    level=NUMERIC_LOG_LEVEL,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from telebot.types import Message
+
+    from models import UsersOrm
 
 
 @retry.Retry(predicate=retry.if_transient_error, initial=30, timeout=300)
@@ -74,13 +74,17 @@ def summarize(
     use_transcription: bool,
     use_yt_transcription: bool = False,
 ) -> str:
+    logger.debug("Recieved summarize task...")
     if isinstance(data, str):
         if data.startswith("https://castro.fm/episode/"):
+            logger.debug("Starting download_castro...")
             data = download_castro(data)
         if data.startswith(("https://youtu.be/", "https://www.youtube.com/")):
             if use_yt_transcription:
                 try:
+                    logger.debug("Starting get_yt_transcript...")
                     transcript = get_yt_transcript(data)
+                    logger.debug("get_yt_transcript done...")
                     return dedent(f"""📹
                                 {summarize_with_transcript(transcript)}""").strip()
                 except (
@@ -90,11 +94,13 @@ def summarize(
                     exceptions.InternalServerError,
                 ):
                     pass
+            logger.debug("Starting download_yt...")
             data = download_yt(data)
     if isinstance(data, File):
         data = download_tg(data)
 
     try:
+        logger.debug("Trying summarize_with_file...")
         return summarize_with_file(data)
     except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded) as e:
         logger.warning("Error occurred while summarizing with file: %s", e)
@@ -111,3 +117,12 @@ def summarize(
         raise
     finally:
         clean_up(file=data)
+
+
+def process_summary(message: "Message", user: "UsersOrm", data: "str | File") -> None:
+    summary = summarize(
+        data=data,
+        use_transcription=user.use_transcription,
+        use_yt_transcription=user.use_yt_transcription,
+    )
+    send_answer(message=message, user=user, answer=summary)
