@@ -1,15 +1,15 @@
-import logging
 import mimetypes
 import time
 from textwrap import dedent
 
 import google.generativeai as genai
 from google.api_core import exceptions, retry
+from loguru import logger
 from sentry_sdk import capture_exception
 from telebot.types import File
 from youtube_transcript_api._errors import NoTranscriptAvailable, TranscriptsDisabled
 
-from config import NUMERIC_LOG_LEVEL, gemini_pro_model
+from config import gemini_pro_model
 from download import download_castro, download_tg, download_yt
 from prompts import (
     BASIC_PROMPT_FOR_FILE,
@@ -19,12 +19,6 @@ from prompts import (
 from services import check_quota
 from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
-
-logging.basicConfig(
-    level=NUMERIC_LOG_LEVEL,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
 
 
 @retry.Retry(predicate=retry.if_transient_error, initial=30, timeout=300)
@@ -99,7 +93,7 @@ def summarize(
     except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded) as e:
         logger.warning("Error occurred while summarizing with file: %s", e)
         if use_transcription:
-            new_file = f"{generate_temporary_name().split('.', maxsplit=1)[0]}.ogg"
+            new_file = generate_temporary_name(ext=".ogg")
             compress_audio(input_file=data, output_file=new_file)
             try:
                 transcription = transcribe(new_file)

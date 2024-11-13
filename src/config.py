@@ -29,6 +29,7 @@ sentry_sdk.init(
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "ERROR").upper()
 NUMERIC_LOG_LEVEL = getattr(logging, LOG_LEVEL, None)
 telebot.logger.setLevel(NUMERIC_LOG_LEVEL)
+os.environ["LOGURU_LEVEL"] = LOG_LEVEL
 
 
 # DB
