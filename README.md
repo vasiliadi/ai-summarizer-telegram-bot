@@ -79,7 +79,8 @@ Another approach (by default) is to use a special proxy. This approach requiring
 [Sentry](https://docs.sentry.io/platforms/python/) \
 [SeleniumBase](https://seleniumbase.io/) \
 [rush](https://rush.readthedocs.io/en/latest/) \
-[OpenAI](https://github.com/openai/openai-python)
+[OpenAI](https://github.com/openai/openai-python) \
+[Loguru](https://loguru.readthedocs.io/en/stable/index.html)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
@@ -119,5 +120,4 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 ## Possible improvements
 
 - Another model, [Claude 3.5 Sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8,192 tokens but with only 200k inputs. Or [GPT-4o](https://platform.openai.com/docs/models#gpt-4o) with 16,384 output and 128k input. Prices for [Claude 3.5 Sonnet](https://www.anthropic.com/pricing#anthropic-api) and [GPT-4o](https://openai.com/api/pricing/).
-- Use [Loguru](https://loguru.readthedocs.io/en/stable/index.html) instead of logging.
 - [Modal](https://modal.com/docs/guide/custom-container) for ffmpeg.
