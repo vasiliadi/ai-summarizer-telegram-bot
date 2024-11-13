@@ -94,8 +94,8 @@ def parse_webpage(url: str, strategy: str = "requests") -> str | None:
         >>> content = parse_webpage('https://example.com', 'perplexity')
     """
     match strategy:
-        case "browser":
-            return parse_webpage_with_browser(url)
+        # case "browser":  # noqa: ERA001
+        #     return parse_webpage_with_browser(url)  # noqa: ERA001
         case "requests":
             return parse_webpage_with_requests(url)
         case "perplexity":
