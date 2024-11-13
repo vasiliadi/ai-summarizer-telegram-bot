@@ -21,6 +21,27 @@ if TYPE_CHECKING:
 
 
 def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
+    """Send a response message to the user, with optional translation.
+
+    This function handles sending messages through the Telegram bot, including:
+    - Converting the message to Markdown format
+    - Splitting long messages into chunks if they exceed Telegram's length limit
+    - Translating the message if the user has translation enabled
+
+    Args:
+        message (Message): The original Telegram message to reply to
+        user (UsersOrm): The user object containing preferences
+        answer (str): The text content to send as a response
+
+    Returns:
+        None
+
+    Note:
+        - Messages longer than 4000 characters are automatically split
+        - There is a 1-second delay between sending chunks of split messages
+        - If translation is enabled, the translated message follows the original
+
+    """
     answer_md = markdownify(answer)
     if len(answer_md) > 4000:  # 4096 limit # noqa: PLR2004
         chunks = smart_split(answer, 4000)
@@ -45,9 +66,30 @@ def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
 
 
 def check_quota(quantity: int = 1) -> bool:
+    """Check if the request is within rate limits and handle any delays.
+
+    This function checks both daily and per-minute rate limits. If the daily limit
+    is exceeded, it raises an exception. If the per-minute limit is exceeded, it
+    waits until the limit resets.
+
+    Args:
+        quantity (int, optional): Number of quota units to check. Defaults to 1.
+
+    Returns:
+        bool: True if the request is allowed to proceed.
+
+    Raises:
+        LimitExceededError: If the daily request limit has been exceeded.
+
+    Note:
+        - The function will automatically sleep if the per-minute limit is reached
+        - Daily limits cannot be bypassed and will raise an exception
+
+    """
     rpd = per_day_limit.check(DAILY_LIMIT_KEY, quantity=quantity)
     if rpd.limited:
-        raise LimitExceededError("The daily limit for requests has been exceeded")
+        msg = "The daily limit for requests has been exceeded"
+        raise LimitExceededError(msg)
     rpm = per_minute_limit.check(MINUTE_LIMIT_KEY, quantity=quantity)
     if rpm.limited:
         time_to_reset = max(0, rpm.reset_after.total_seconds())

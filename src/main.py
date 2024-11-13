@@ -1,3 +1,5 @@
+# ruff: noqa: D103
+
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -36,6 +38,20 @@ if TYPE_CHECKING:
 
 @bot.message_handler(commands=["start"])
 def handle_start(message: "Message") -> None:
+    """Handle the /start command for the bot.
+
+    This function registers new users and sends a welcome message. If the user is
+    registering for the first time, they receive an initial greeting. Otherwise,
+    they receive a confirmation message.
+
+    Args:
+        message (Message): The message object from Telegram containing user information
+                           and chat details.
+
+    Returns:
+        None
+
+    """
     if register_user(
         message.from_user.id,
         message.from_user.first_name,
@@ -153,7 +169,8 @@ def handle_set_target_language(message: "Message") -> None:
 def proceed_set_target_language(message: "Message") -> None:
     set_lang = set_target_language(message.from_user.id, message.text)
     if not set_lang:
-        raise ValueError("Unknown language")
+        msg = "Unknown language"
+        raise ValueError(msg)
     markup = ReplyKeyboardRemove()
     bot.send_message(
         message.chat.id,
@@ -202,7 +219,8 @@ def handle_set_parsing_strategy(message: "Message") -> None:
 def proceed_set_parsing_strategy(message: "Message") -> None:
     set_strategy = set_parsing_strategy(message.from_user.id, message.text)
     if not set_strategy:
-        raise ValueError("Unknown strategy")
+        msg = "Unknown strategy"
+        raise ValueError(msg)
     markup = ReplyKeyboardRemove()
     bot.send_message(
         message.chat.id,

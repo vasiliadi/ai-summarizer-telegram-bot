@@ -1,2 +1,2 @@
 class LimitExceededError(Exception):
-    pass
+    """Exception raised when a limit or threshold has been exceeded."""
