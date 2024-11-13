@@ -6,8 +6,8 @@ from uuid import uuid4
 from config import PROTECTED_FILES
 
 
-def generate_temporary_name() -> str:
-    return f"{uuid4()!s}.mp3"
+def generate_temporary_name(ext: str = "") -> str:
+    return f"{uuid4()!s}{ext}"
 
 
 def compress_audio(input_file: str, output_file: str) -> None:
