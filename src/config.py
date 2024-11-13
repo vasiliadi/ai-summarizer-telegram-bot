@@ -144,7 +144,7 @@ PROTECTED_FILES = (
 DEFAULT_LANG = "English"
 
 
-PARSING_STRATEGIES = ["requests", "perplexity"]  # "browser"
+PARSING_STRATEGIES = ["browser", "requests", "perplexity"]
 
 
 # https://ai.google.dev/gemini-api/docs/models/gemini#available-languages

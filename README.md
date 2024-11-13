@@ -39,7 +39,7 @@ Don't forget to enabble `RLS` if you use [Supabase x Postgres](https://supabase.
 
 After completing these steps, you are ready to send youtube.com and castro.fm links to the bot and receive summary.
 
-## List of commands for @BotFather
+## List of commands for BotFather
 
 ```text
 toggle_transcription - Toggle transcription for summary (fallback on failure)
@@ -70,6 +70,7 @@ alembic upgrade head
 Many websites have protections against bots, and some content requires JavaScript to be rendered for visibility. To enable JavaScript rendering, I am using [Selenium WebDriver](https://www.selenium.dev/documentation/webdriver/), which requires the Chrome browser and ChromeDriver to be installed on the operating system.
 
 `Selenium WebDriver` supports only proxy without authorization. For authorized access, use a local proxy server such as [tinyproxy](https://github.com/tinyproxy/tinyproxy) or [pproxy](https://github.com/qwj/python-proxy), or any other proxy server.
+Or even solution like [Browserbase](https://docs.browserbase.com/quickstart/selenium).
 
 Another approach (by default) is to use a special proxy. This approach requiring special proxy (`WEB_SCRAPE_PROXY`) solutions for web scraping, such as [ScrapingBee](https://www.scrapingbee.com/), [ScrapingAnt](https://scrapingant.com/), [WebScrapingAPI](https://www.webscrapingapi.com/), [scraperapi](https://www.scraperapi.com/), or others.
 
