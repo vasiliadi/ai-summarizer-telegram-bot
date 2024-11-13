@@ -21,6 +21,27 @@ def register_user(  # noqa: PLR0913
     use_yt_transcription: bool = False,
     parsing_strategy: str = "requests",
 ) -> bool:
+    """Register a new user in the database.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+        first_name (str): User's first name
+        last_name (str): User's last name
+        username (str): Telegram username
+        approved (bool, optional): Whether user is approved.
+        use_transcription (bool, optional): Enable audio transcription.
+        use_translator (bool, optional): Enable translation.
+        target_language (str, optional): Target language for translations.
+        use_yt_transcription (bool, optional): Enable YouTube transcription.
+        parsing_strategy (str, optional): Strategy for parsing messages.
+
+    Returns:
+        bool: True if registration successful, False if user already exists
+
+    Raises:
+        IntegrityError: Handled internally when user already exists
+
+    """
     with Session() as session:
         try:
             stmt = UsersOrm(
@@ -44,19 +65,56 @@ def register_user(  # noqa: PLR0913
 
 
 def select_user(user_id: int) -> UsersOrm:
+    """Retrieve a user from the database by their ID.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+
+    Returns:
+        UsersOrm: User object from the database
+
+    Raises:
+        ValueError: If user with given ID is not found in the database
+
+    """
     with Session() as session:
         user = session.get(UsersOrm, user_id)
         if user is None:
-            raise ValueError("User not found")
+            msg = "User not found"
+            raise ValueError(msg)
         return user
 
 
 def check_auth(user_id: int) -> bool:
+    """Check if a user is approved in the database.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+
+    Returns:
+        bool: True if user is approved, False otherwise
+
+    Raises:
+        ValueError: If user with given ID is not found in the database
+
+    """
     user = select_user(user_id)
     return user.approved
 
 
 def toggle_transcription(user_id: int) -> None:
+    """Toggle the transcription setting for a user.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+
+    Returns:
+        None
+
+    Raises:
+        ValueError: If user with given ID is not found in the database
+
+    """
     with Session() as session:
         user = select_user(user_id)
         user.use_transcription = not user.use_transcription
@@ -65,6 +123,18 @@ def toggle_transcription(user_id: int) -> None:
 
 
 def toggle_translation(user_id: int) -> None:
+    """Toggle the translation setting for a user.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+
+    Returns:
+        None
+
+    Raises:
+        No exceptions raised - silently fails if user not found
+
+    """
     with Session() as session:
         user = session.get(UsersOrm, user_id)
         if user is not None:
@@ -73,6 +143,21 @@ def toggle_translation(user_id: int) -> None:
 
 
 def set_target_language(user_id: int, target_language: str) -> bool:
+    """Set the target language for translations for a user.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+        target_language (str): The language to set as target for translations
+
+    Returns:
+        bool: True if language was set successfully, False if language is not supported
+        or user not found
+
+    Note:
+        The target_language string is checked against SUPPORTED_LANGUAGES
+        (case-insensitive)
+
+    """
     if target_language.title() not in SUPPORTED_LANGUAGES:
         return False  # language not supported
     with Session() as session:
@@ -85,6 +170,18 @@ def set_target_language(user_id: int, target_language: str) -> bool:
 
 
 def toggle_yt_transcription(user_id: int) -> None:
+    """Toggle YouTube transcription setting for a user.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+
+    Returns:
+        None
+
+    Note:
+        Silently fails if user is not found in the database.
+
+    """
     with Session() as session:
         user = session.get(UsersOrm, user_id)
         if user is not None:
@@ -93,6 +190,21 @@ def toggle_yt_transcription(user_id: int) -> None:
 
 
 def set_parsing_strategy(user_id: int, parsing_strategy: str) -> bool:
+    """Set the message parsing strategy for a user.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+        parsing_strategy (str): Strategy name for parsing messages
+
+    Returns:
+        bool: True if strategy was set successfully, False if strategy is not supported
+        or user not found
+
+    Note:
+        The parsing_strategy string is checked against PARSING_STRATEGIES
+        (case-insensitive)
+
+    """
     if parsing_strategy.lower() not in PARSING_STRATEGIES:
         return False  # strategy is no supported
     with Session() as session:

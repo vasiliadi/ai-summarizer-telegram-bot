@@ -22,6 +22,24 @@ if TYPE_CHECKING:
     stop=stop_after_attempt(2),
 )  # type: ignore[call-overload]
 def download_yt(url: str) -> str:
+    """Download audio from a YouTube video and convert it to MP3 format.
+
+    Args:
+        url (str): The YouTube video URL to download from.
+
+    Returns:
+        str: Path to the downloaded temporary MP3 file.
+
+    Raises:
+        DownloadError: If the download fails after 2 retry attempts.
+            Each retry attempt waits 10 seconds before retrying.
+
+    Notes:
+        - Downloads the lowest quality audio stream to minimize bandwidth
+        - Uses FFmpeg to extract and convert the audio to MP3
+        - The output file is given a temporary name with .mp3 extension
+
+    """
     temprorary_file_name = generate_temporary_name(ext=".mp3")
     ydl_opts = {
         "format": "worstaudio",
@@ -41,6 +59,26 @@ def download_yt(url: str) -> str:
 
 
 def download_castro(url: str) -> str:
+    """Download audio from a Castro podcast URL and save it as an MP3 file.
+
+    Args:
+        url (str): The Castro podcast URL to download from.
+
+    Returns:
+        str: Path to the downloaded temporary MP3 file.
+
+    Raises:
+        HTTPError: If the HTTP request fails or returns an error status code.
+        Timeout: If the request exceeds the timeout limits
+                 (30s for parsing, 120s for download).
+
+    Notes:
+        - First parses the URL to extract the actual audio source URL
+        - Downloads the audio file in chunks to manage memory usage
+        - Uses a chunk size of 8192 bytes for streaming
+        - The output file is given a temporary name with .mp3 extension
+
+    """
     temprorary_file_name = generate_temporary_name(ext=".mp3")
     logger.debug("Parsing url...")
     url = BeautifulSoup(
@@ -58,7 +96,7 @@ def download_castro(url: str) -> str:
         try:
             r.raise_for_status()
         except requests.exceptions.HTTPError:
-            logger.error("%s status code", r.status_code)
+            logger.error(f"{r.status_code} status code")
             raise
         with Path(temprorary_file_name).open("wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
@@ -68,6 +106,20 @@ def download_castro(url: str) -> str:
 
 
 def download_tg(file_id: "File") -> str:
+    """Download a Telegram audio and save it as an OGG file.
+
+    Args:
+        file_id (File): The Telegram File object containing the audio.
+
+    Returns:
+        str: Path to the downloaded temporary OGG file.
+
+    Notes:
+        - Uses the Telegram bot API to download the audio
+        - The output file is given a temporary name with .ogg extension
+        - Voice messages in Telegram are typically stored in OGG format
+
+    """
     temprorary_file_name = generate_temporary_name(ext=".ogg")
     downloaded_file = bot.download_file(file_id.file_path)
     with Path(temprorary_file_name).open("wb") as f:
