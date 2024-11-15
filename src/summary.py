@@ -174,7 +174,7 @@ def summarize(
     try:
         return summarize_with_file(data)
     except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded) as e:
-        logger.warning("Error occurred while summarizing with file: %s", e)
+        logger.warning(f"Error occurred while summarizing with file: {e}")
         if use_transcription:
             new_file = generate_temporary_name(ext=".ogg")
             compress_audio(input_file=data, output_file=new_file)
