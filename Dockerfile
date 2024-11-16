@@ -18,6 +18,7 @@ ENV SENTRY_ENVIRONMENT=${ENV}
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
 ENV LOGURU_LEVEL=${LOG_LEVEL}
+ENV TZ=America/Los_Angeles
 WORKDIR /app
 COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/src .
