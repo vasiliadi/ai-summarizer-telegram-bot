@@ -68,6 +68,7 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     return response.text
 
 
+@retry.Retry(predicate=retry.if_transient_error, initial=30, timeout=300)
 def summarize_with_transcript(transcript: str) -> str:
     """Generate a summary of a transcript using the Gemini Pro model.
 
