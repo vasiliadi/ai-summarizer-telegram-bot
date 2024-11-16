@@ -1,8 +1,10 @@
 import mimetypes
 import time
+from ssl import SSLEOFError
 from textwrap import dedent
 
 import google.generativeai as genai
+import requests
 from google.api_core import exceptions, retry
 from loguru import logger
 from sentry_sdk import capture_exception
@@ -48,7 +50,10 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     prompt = BASIC_PROMPT_FOR_FILE
     # Deprecated since version 3.13 Use guess_file_type() for this.
     mime_type, _ = mimetypes.guess_type(file)
-    audio_file = genai.upload_file(path=file, mime_type=mime_type)
+    try:
+        audio_file = genai.upload_file(path=file, mime_type=mime_type)
+    except SSLEOFError as e:
+        raise requests.exceptions.ConnectionError from e  # to activate the retry
     while audio_file.state.name == "PROCESSING":
         time.sleep(sleep_time)
     if audio_file.state.name == "FAILED":
