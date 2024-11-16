@@ -95,7 +95,8 @@ Another approach (by default) is to use a special proxy. This approach requiring
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
-[Logging Levels](https://docs.python.org/3/library/logging.html#logging-levels)
+[Logging Levels](https://docs.python.org/3/library/logging.html#logging-levels) \
+[Google Python Style Guide | Docstrings](https://google.github.io/styleguide/pyguide.html#s3.8.1-comments-in-doc-strings)
 
 ## Cloud DBs
 
