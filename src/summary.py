@@ -5,10 +5,12 @@ from textwrap import dedent
 
 import google.generativeai as genai
 import requests
-from google.api_core import exceptions, retry
+from google.api_core import exceptions
+from google.api_core import retry as google_retry
 from loguru import logger
 from sentry_sdk import capture_exception
 from telebot.types import File
+from tenacity import retry, stop_after_attempt, wait_fixed
 from youtube_transcript_api._errors import NoTranscriptAvailable, TranscriptsDisabled
 
 from config import gemini_pro_model
@@ -23,7 +25,7 @@ from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
 
 
-@retry.Retry(predicate=retry.if_transient_error, initial=30, timeout=300)
+@google_retry.Retry(predicate=google_retry.if_transient_error, initial=30, timeout=300)
 def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     """Summarize the content of an audio file using Gemini Pro model.
 
@@ -68,7 +70,11 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     return response.text
 
 
-@retry.Retry(predicate=retry.if_transient_error, initial=30, timeout=300)
+@retry(
+    wait=wait_fixed(30),
+    reraise=True,
+    stop=stop_after_attempt(3),
+)
 def summarize_with_transcript(transcript: str) -> str:
     """Generate a summary of a transcript using the Gemini Pro model.
 
