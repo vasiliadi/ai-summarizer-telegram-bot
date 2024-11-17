@@ -47,7 +47,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
     retry=retry_if_exception_type((ProxyError, ParseError)),
     reraise=True,
     stop=stop_after_attempt(3),
-)  # type: ignore[call-overload]
+)
 def get_yt_transcript(url: str) -> str:
     """Retrieve and format the transcript from a YouTube video URL.
 
