@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
     stop=stop_after_attempt(2),
     wait=wait_fixed(10),
     retry=retry_if_exception_type(DownloadError),
-    before_sleep=before_sleep_log(logger, log_level=logging.ERROR),
+    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=True,
 )
 def download_yt(url: str) -> str:
