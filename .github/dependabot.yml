@@ -4,8 +4,8 @@
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
 # https://containers.dev/guide/dependabot
 
-# version: 2
-# updates:
+version: 2
+updates:
 #   - package-ecosystem: "pip"
 #     directory: "/"
 #     schedule:
@@ -16,7 +16,7 @@
 #     schedule:
 #       interval: weekly
 
-#   - package-ecosystem: "github-actions"
-#     directory: "/"
-#     schedule:
-#       interval: weekly
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: weekly
