@@ -56,7 +56,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
     wait=wait_fixed(10),
     retry=retry_if_exception_type((ProxyError, ParseError)),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
-    reraise=True,
+    reraise=False,
 )
 def get_yt_transcript(url: str) -> str:
     """Retrieve and format the transcript from a YouTube video URL.

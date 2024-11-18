@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
         ),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
-    reraise=True,
+    reraise=False,
 )
 def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     """Summarize the content of an audio file using Gemini Pro model.
@@ -85,7 +85,7 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     response = gemini_pro_model.generate_content(
         [prompt, audio_file],
         stream=False,
-        request_options={"timeout": 120},
+        request_options={"timeout": 180},
     )
     audio_file.delete()
     return response.text
@@ -95,7 +95,7 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
-    reraise=True,
+    reraise=False,
 )
 def summarize_with_transcript(transcript: str) -> str:
     """Generate a summary of a transcript using the Gemini Pro model.
@@ -120,7 +120,7 @@ def summarize_with_transcript(transcript: str) -> str:
     response = gemini_pro_model.generate_content(
         prompt,
         stream=False,
-        request_options={"timeout": 120},
+        request_options={"timeout": 180},
     )
     return response.text
 
@@ -148,7 +148,7 @@ def summarize_webpage(content: str) -> str:
     response = gemini_pro_model.generate_content(
         prompt,
         stream=False,
-        request_options={"timeout": 120},
+        request_options={"timeout": 180},
     )
     return response.text
 

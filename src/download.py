@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
     wait=wait_fixed(10),
     retry=retry_if_exception_type(DownloadError),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
-    reraise=True,
+    reraise=False,
 )
 def download_yt(url: str) -> str:
     """Download audio from a YouTube video and convert it to MP3 format.
