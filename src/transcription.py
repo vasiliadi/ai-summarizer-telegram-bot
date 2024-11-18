@@ -1,15 +1,24 @@
+import logging
 import time
 from pathlib import Path
 from xml.etree.ElementTree import ParseError
 
 from replicate.exceptions import ModelError
 from requests.exceptions import ProxyError
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_fixed,
+)
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound
 from youtube_transcript_api.formatters import TextFormatter
 
 from config import PROXY, replicate_client
+
+logger = logging.getLogger(__name__)
 
 
 def transcribe(file: str, sleep_time: int = 10) -> str:
@@ -46,6 +55,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
     stop=stop_after_attempt(3),
     wait=wait_fixed(10),
     retry=retry_if_exception_type((ProxyError, ParseError)),
+    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=True,
 )
 def get_yt_transcript(url: str) -> str:
