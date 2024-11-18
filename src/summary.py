@@ -7,10 +7,16 @@ from textwrap import dedent
 import google.generativeai as genai
 import requests
 from google.api_core import exceptions
-from google.api_core import retry as google_retry
+from google.auth.exceptions import TransportError
 from sentry_sdk import capture_exception
 from telebot.types import File
-from tenacity import before_sleep_log, retry, stop_after_attempt, wait_fixed
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_fixed,
+)
 from youtube_transcript_api._errors import NoTranscriptAvailable, TranscriptsDisabled
 
 from config import gemini_pro_model
@@ -27,7 +33,23 @@ from utils import clean_up, compress_audio, generate_temporary_name
 logger = logging.getLogger(__name__)
 
 
-@google_retry.Retry(predicate=google_retry.if_transient_error, initial=30, timeout=300)
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(30),
+    retry=retry_if_exception_type(
+        (
+            SSLEOFError,
+            exceptions.InternalServerError,
+            exceptions.TooManyRequests,
+            exceptions.ServiceUnavailable,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ChunkedEncodingError,
+            TransportError,
+        ),
+    ),
+    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    reraise=True,
+)
 def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     """Summarize the content of an audio file using Gemini Pro model.
 
@@ -54,10 +76,7 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     prompt = BASIC_PROMPT_FOR_FILE
     # Deprecated since version 3.13 Use guess_file_type() for this.
     mime_type, _ = mimetypes.guess_type(file)
-    try:
-        audio_file = genai.upload_file(path=file, mime_type=mime_type)
-    except SSLEOFError as e:
-        raise requests.exceptions.ConnectionError from e  # to activate the retry
+    audio_file = genai.upload_file(path=file, mime_type=mime_type)
     while audio_file.state.name == "PROCESSING":
         time.sleep(sleep_time)
     if audio_file.state.name == "FAILED":
@@ -75,7 +94,7 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
-    before_sleep=before_sleep_log(logger, log_level=logging.ERROR),
+    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=True,
 )
 def summarize_with_transcript(transcript: str) -> str:
