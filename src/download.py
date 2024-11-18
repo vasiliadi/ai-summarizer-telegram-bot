@@ -1,10 +1,16 @@
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import requests
 from bs4 import BeautifulSoup
-from loguru import logger
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_fixed,
+)
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
@@ -14,13 +20,16 @@ from utils import generate_temporary_name
 if TYPE_CHECKING:
     from telebot.types import File
 
+logger = logging.getLogger(__name__)
+
 
 @retry(
+    stop=stop_after_attempt(2),
     wait=wait_fixed(10),
     retry=retry_if_exception_type(DownloadError),
+    before_sleep=before_sleep_log(logger, log_level=logging.ERROR),
     reraise=True,
-    stop=stop_after_attempt(2),
-)  # type: ignore[call-overload]
+)
 def download_yt(url: str) -> str:
     """Download audio from a YouTube video and convert it to MP3 format.
 
@@ -96,7 +105,7 @@ def download_castro(url: str) -> str:
         try:
             r.raise_for_status()
         except requests.exceptions.HTTPError:
-            logger.error(f"{r.status_code} status code")
+            logger.error("%s: status code", r.status_code)
             raise
         with Path(temprorary_file_name).open("wb") as f:
             for chunk in r.iter_content(chunk_size=8192):

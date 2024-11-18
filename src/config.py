@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from textwrap import dedent
 
+import coloredlogs
 import google.generativeai as genai
 import replicate
 import sentry_sdk
@@ -30,8 +31,9 @@ sentry_sdk.init(
 
 # Logging
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "ERROR").upper()
-NUMERIC_LOG_LEVEL = getattr(logging, LOG_LEVEL, None)
+NUMERIC_LOG_LEVEL = getattr(logging, LOG_LEVEL, "ERROR")
 telebot.logger.setLevel(NUMERIC_LOG_LEVEL)
+coloredlogs.install(level=NUMERIC_LOG_LEVEL)
 
 
 # DB

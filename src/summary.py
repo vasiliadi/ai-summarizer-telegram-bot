@@ -1,3 +1,4 @@
+import logging
 import mimetypes
 import time
 from ssl import SSLEOFError
@@ -7,10 +8,9 @@ import google.generativeai as genai
 import requests
 from google.api_core import exceptions
 from google.api_core import retry as google_retry
-from loguru import logger
 from sentry_sdk import capture_exception
 from telebot.types import File
-from tenacity import retry, stop_after_attempt, wait_fixed
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_fixed
 from youtube_transcript_api._errors import NoTranscriptAvailable, TranscriptsDisabled
 
 from config import gemini_pro_model
@@ -23,6 +23,8 @@ from prompts import (
 from services import check_quota
 from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
+
+logger = logging.getLogger(__name__)
 
 
 @google_retry.Retry(predicate=google_retry.if_transient_error, initial=30, timeout=300)
@@ -71,9 +73,10 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
 
 
 @retry(
-    wait=wait_fixed(30),
-    reraise=True,
     stop=stop_after_attempt(3),
+    wait=wait_fixed(30),
+    before_sleep=before_sleep_log(logger, log_level=logging.ERROR),
+    reraise=True,
 )
 def summarize_with_transcript(transcript: str) -> str:
     """Generate a summary of a transcript using the Gemini Pro model.
@@ -186,7 +189,7 @@ def summarize(
     try:
         return summarize_with_file(data)
     except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded) as e:
-        logger.warning(f"Error occurred while summarizing with file: {e}")
+        logger.warning("Error occurred while summarizing with file: %s", e)
         if use_transcription:
             new_file = generate_temporary_name(ext=".ogg")
             compress_audio(input_file=data, output_file=new_file)

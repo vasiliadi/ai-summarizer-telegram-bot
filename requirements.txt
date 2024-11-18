@@ -14,4 +14,4 @@ trafilatura==1.12.2
 seleniumbase==4.32.9
 rush[redis]==2021.4.0
 openai==1.54.3
-loguru==0.7.2
+coloredlogs==15.0.1
