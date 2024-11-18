@@ -12,12 +12,10 @@ RUN pip install --no-cache-dir -r requirements-build.txt \
     && alembic upgrade head
 
 FROM python:3.12-slim
-ARG LOG_LEVEL
 ENV ENV=PROD
 ENV SENTRY_ENVIRONMENT=${ENV}
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
-ENV LOGURU_LEVEL=${LOG_LEVEL}
 ENV TZ=America/Los_Angeles
 WORKDIR /app
 COPY --from=builder /app/wheels /wheels

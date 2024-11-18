@@ -4,7 +4,6 @@ services:
       context: .
       args:
         - DSN
-        - LOG_LEVEL
       dockerfile: Dockerfile
     container_name: bot
     env_file:
