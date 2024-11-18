@@ -196,7 +196,7 @@ def handle_regexp(message: "Message") -> None:
         send_answer(message, user, answer)
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
-        bot.reply_to(message, "An Unexpected Error Has Occurred.")
+        bot.reply_to(message, f"Unexpected: {type(e).__name__}")
 
 
 @bot.message_handler(
@@ -250,7 +250,7 @@ def handle_webpages(message: "Message") -> None:
                 send_answer(message, user, answer)
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
-        bot.reply_to(message, "An Unexpected Error Has Occurred.")
+        bot.reply_to(message, f"Unexpected: {type(e).__name__}")
 
 
 @bot.message_handler(
@@ -269,7 +269,7 @@ def handle_audio(message: "Message") -> None:
 
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
-        bot.reply_to(message, "An Unexpected Error Has Occurred.")
+        bot.reply_to(message, f"Unexpected: {type(e).__name__}")
 
 
 @bot.message_handler(content_types=["text"])
