@@ -11,7 +11,7 @@ youtube-transcript-api==0.6.2
 sentry-sdk==2.18.0
 tenacity==8.5.0
 trafilatura==1.12.2
-seleniumbase==4.32.9
+seleniumbase==4.32.11
 rush[redis]==2021.4.0
 openai==1.54.4
 coloredlogs==15.0.1
