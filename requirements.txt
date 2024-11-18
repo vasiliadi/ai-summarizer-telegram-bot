@@ -1,6 +1,6 @@
 google-generativeai==0.8.3
 requests[socks]==2.32.3
-yt-dlp[default]==2024.11.4
+yt-dlp[default]==2024.11.18
 beautifulsoup4==4.12.3
 pyTelegramBotAPI==4.24.0
 replicate==1.0.3
