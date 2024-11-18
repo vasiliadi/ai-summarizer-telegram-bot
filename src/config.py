@@ -101,7 +101,7 @@ headers = {
 MINUTE_LIMIT_KEY = "RPM"
 DAILY_LIMIT_KEY = "RPD"
 MINUTE_LIMIT = 2
-DAILY_LIMIT = 40  # 50 max
+DAILY_LIMIT = 50
 per_minute_limit = throttle.Throttle(
     limiter=periodic.PeriodicLimiter(
         store=redis_store.RedisStore(url=RATE_LIMITER_URL),
