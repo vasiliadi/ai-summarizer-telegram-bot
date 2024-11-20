@@ -8,7 +8,7 @@
 
 ## Usage
 
-1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Perplexity](https://docs.perplexity.ai/guides/getting-started), [Sentry](https://sentry.io/signup/)
+1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Perplexity](https://docs.perplexity.ai/guides/getting-started), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/)
 2. Setup DB and Redis. For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
 4. Apply [migrations](#migrations). Or run `Dockerfile` or `compose.yaml`
@@ -24,11 +24,13 @@ GEMINI_API_KEY="your_api_key"
 REPLICATE_API_TOKEN="your_api_key"
 PERPLEXITY_API_KEY="your_api_key"
 DB_URL="postgresql+driver://user:password@host:port/database"
-REDIS_URL=""
+REDIS_URL="rediss://default:password@host:port"
 SENTRY_DSN="your_sentry_dsn"
 PROXY=""
 WEB_SCRAPE_PROXY=""
 LOG_LEVEL="ERROR"
+MODAL_TOKEN_ID="your_token"
+MODAL_TOKEN_SECRET="your_token_secret"
 ```
 
 Pass in an empty string to `PROXY` for direct connection. \
@@ -73,6 +75,10 @@ Many websites have protections against bots, and some content requires JavaScrip
 Or even solution like [Browserbase](https://docs.browserbase.com/quickstart/selenium).
 
 Another approach (by default) is to use a special proxy. This approach requiring special proxy (`WEB_SCRAPE_PROXY`) solutions for web scraping, such as [ScrapingBee](https://www.scrapingbee.com/), [ScrapingAnt](https://scrapingant.com/), [WebScrapingAPI](https://www.webscrapingapi.com/), [scraperapi](https://www.scraperapi.com/), or others.
+
+#### Remote functions
+
+To avoid multiple docker images, I use a [Modal](https://modal.com/) for cron jobs to reset the Gemini rate limit. [Modal Secrets](https://modal.com/docs/guide/secrets) should include `REDIS_URL`.
 
 #### Docstrings
 
@@ -131,7 +137,7 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 
 ### Error suppression
 
-[ruff](https://docs.astral.sh/ruff/linter/#error-suppression), [pylint](https://pylint.pycqa.org/en/latest/user_guide/messages/message_control.html#block-disables)
+[ruff](https://docs.astral.sh/ruff/linter/#error-suppression), [pylint](https://pylint.pycqa.org/en/latest/user_guide/messages/message_control.html#block-disables), [mypy](https://mypy.readthedocs.io/en/stable/error_codes.html#error-codes)
 
 ## Easy deploy
 
@@ -144,5 +150,4 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 ## Possible improvements
 
 - Another model, [Claude 3.5 Sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8,192 tokens but with only 200k inputs. Or [GPT-4o](https://platform.openai.com/docs/models#gpt-4o) with 16,384 output and 128k input. Prices for [Claude 3.5 Sonnet](https://www.anthropic.com/pricing#anthropic-api) and [GPT-4o](https://openai.com/api/pricing/).
-- [Modal](https://modal.com/docs/guide/custom-container) for ffmpeg.
 - [Gitflow workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).

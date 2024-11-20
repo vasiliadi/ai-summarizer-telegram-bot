@@ -1,6 +1,8 @@
 FROM python:3.12-slim AS builder
 ENV ENV=BUILD
 ARG DSN
+ARG MODAL_TOKEN_ID
+ARG MODAL_TOKEN_SECRET
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -10,13 +12,14 @@ RUN pip install --upgrade pip \
 RUN pip install --no-cache-dir -r requirements-build.txt \
     && python db.py \
     && alembic upgrade head
+RUN modal token set --token-id ${MODAL_TOKEN_ID} --token-secret ${MODAL_TOKEN_SECRET} \
+    && modal deploy cron/reset.py
 
 FROM python:3.12-slim
 ENV ENV=PROD
 ENV SENTRY_ENVIRONMENT=${ENV}
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
-ENV TZ=America/Los_Angeles
 WORKDIR /app
 COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/src .
