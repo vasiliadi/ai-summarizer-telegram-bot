@@ -4,6 +4,8 @@ services:
       context: .
       args:
         - DSN
+        - MODAL_TOKEN_ID
+        - MODAL_TOKEN_SECRET
       dockerfile: Dockerfile
     container_name: bot
     env_file:
