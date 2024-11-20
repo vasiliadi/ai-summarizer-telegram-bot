@@ -11,6 +11,7 @@ from google.auth.exceptions import TransportError
 from sentry_sdk import capture_exception
 from telebot.types import File
 from tenacity import (
+    RetryError,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -94,6 +95,16 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
+    retry=retry_if_exception_type(
+        (
+            exceptions.InternalServerError,
+            exceptions.TooManyRequests,
+            exceptions.ServiceUnavailable,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ChunkedEncodingError,
+            TransportError,
+        ),
+    ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
 )
@@ -112,7 +123,7 @@ def summarize_with_transcript(transcript: str) -> str:
     Note:
         - Uses prompt template for consistent summarization
         - Checks quota before making the API call
-        - Has a 120-second timeout for the API request
+        - Has a 180-second timeout for the API request
 
     """
     prompt = dedent(f"{BASIC_PROMPT_FOR_TRANSCRIPT} {transcript}").strip()
@@ -140,7 +151,7 @@ def summarize_webpage(content: str) -> str:
     Note:
         - Uses prompt template for consistent summarization
         - Checks quota before making the API call
-        - Has a 120-second timeout for the API request
+        - Has a 180-second timeout for the API request
 
     """
     prompt = f"{BASIC_PROMPT_FOR_WEBPAGE} {content}"
@@ -198,7 +209,7 @@ def summarize(
                     TranscriptsDisabled,
                     NoTranscriptAvailable,
                     exceptions.ResourceExhausted,
-                    exceptions.InternalServerError,
+                    RetryError,
                 ):
                     pass
             data = download_yt(data)
@@ -207,13 +218,14 @@ def summarize(
 
     try:
         return summarize_with_file(data)
-    except (exceptions.RetryError, TimeoutError, exceptions.DeadlineExceeded) as e:
+    except (RetryError, TimeoutError, exceptions.DeadlineExceeded) as e:
         logger.warning("Error occurred while summarizing with file: %s", e)
         if use_transcription:
             new_file = generate_temporary_name(ext=".ogg")
             compress_audio(input_file=data, output_file=new_file)
             try:
                 transcription = transcribe(new_file)
+                # If it fails, a RetryError or exceptions.ResourceExhausted will raise
                 return dedent(f"""📝
                             {summarize_with_transcript(transcription)}""").strip()
             finally:
