@@ -7,4 +7,4 @@ types-requests==2.32.0.20241016
 pylint==3.3.1
 ruff==0.7.4
 isort==5.13.2
-modal==0.66.16
+modal==0.66.25
