@@ -1,5 +1,3 @@
-import os
-
 import modal
 
 image = modal.Image.debian_slim(python_version="3.12").pip_install("rush[redis]")
@@ -8,16 +6,22 @@ secrets = modal.Secret.from_name("resetlimit-secrets")
 app = modal.App(name="ResetLimit", image=image, secrets=[secrets])
 
 with image.imports():
+    import os
     from rush import quota, throttle
     from rush.limiters import periodic
     from rush.stores import redis as redis_store
+    from typing import TYPE_CHECKING
+
+    if TYPE_CHECKING:
+        from rush.result import RateLimitResult
 
 
 @app.function(
     schedule=modal.Cron("0 8 * * *"),  # PST time. Every day at 8:00
     retries=modal.Retries(max_retries=3),
 )
-def clear_limit():
+def clear_limit() -> "RateLimitResult":
+    # pylint: disable=invalid-name
     # Duplicated from config.py
     REDIS_URL = os.environ["REDIS_URL"]
     RATE_LIMITER_URL = f"{REDIS_URL}/0"
