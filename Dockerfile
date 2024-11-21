@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements-build.txt \
     && python db.py \
     && alembic upgrade head
 RUN modal token set --token-id ${MODAL_TOKEN_ID} --token-secret ${MODAL_TOKEN_SECRET} \
-    && modal deploy cron/reset.py
+    && modal deploy cron/cron.py
 
 FROM python:3.12-slim
 ENV ENV=PROD
