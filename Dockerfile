@@ -1,15 +1,14 @@
 FROM python:3.12-slim AS builder
 ENV ENV=BUILD
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 ARG DSN
 ARG MODAL_TOKEN_ID
 ARG MODAL_TOKEN_SECRET
 WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
 COPY . .
-RUN pip install --upgrade pip \
-    && pip wheel --wheel-dir /app/wheels -r requirements.txt
-RUN pip install --no-cache-dir -r requirements-build.txt \
+RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
+    uv pip install --no-cache --system -r requirements-build.txt \
     && python db.py \
     && alembic upgrade head
 RUN modal token set --token-id ${MODAL_TOKEN_ID} --token-secret ${MODAL_TOKEN_SECRET} \
@@ -21,12 +20,12 @@ ENV SENTRY_ENVIRONMENT=${ENV}
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
 WORKDIR /app
-COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/src .
-COPY --from=builder /app/entrypoint.sh entrypoint.sh
+COPY --from=builder /app/entrypoint.sh .
 RUN chmod +x entrypoint.sh
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir /wheels/*
+RUN --mount=from=builder,source=/app/pyproject.toml,target=pyproject.toml \
+    --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
+    uv pip install --no-cache --system --compile-bytecode -r pyproject.toml
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ffmpeg \
     chromium-driver \

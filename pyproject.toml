@@ -1,3 +1,42 @@
+[project]
+name = "ai-summarizer-telegram-bot"
+version = "0.1.0"
+description = "Bot to summarize video from youtube.com and podcasts from castro.fm"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.12.3",
+    "coloredlogs>=15.0.1",
+    "google-generativeai>=0.8.3",
+    "openai>=1.55.0",
+    "psycopg2-binary>=2.9.10",
+    "pytelegrambotapi>=4.24.0",
+    "replicate>=1.0.3",
+    "requests[socks]>=2.32.3",
+    "rush[redis]>=2021.4.0",
+    "seleniumbase>=4.32.8",
+    "sentry-sdk==2.18.0",
+    "sqlalchemy>=2.0.36",
+    "telegramify-markdown>=0.1.17",
+    "tenacity>=9.0.0",
+    "trafilatura>=1.12.2",
+    "youtube-transcript-api>=0.6.3",
+    "yt-dlp[default]>=2024.11.18",
+]
+
+[dependency-groups]
+dev = [
+    "alembic>=1.14.0",
+    "black>=24.10.0",
+    "isort>=5.13.2",
+    "modal>=0.66.30",
+    "mypy>=1.13.0",
+    "pylint>=3.3.1",
+    "python-dotenv>=1.0.1",
+    "ruff>=0.7.4",
+    "types-requests>=2.32.0.20241016",
+]
+
 [tool.mypy]
 ignore_missing_imports = true
 follow_imports = "silent"
