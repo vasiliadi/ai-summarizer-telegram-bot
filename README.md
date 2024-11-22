@@ -120,7 +120,9 @@ While text transcripts can provide a solid foundation for understanding the cont
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
 [Logging Levels](https://docs.python.org/3/library/logging.html#logging-levels), [LogRecord attributes](https://docs.python.org/3/library/logging.html#logrecord-attributes) \
 [Google Python Style Guide | Docstrings](https://google.github.io/styleguide/pyguide.html#s3.8.1-comments-in-doc-strings) \
-[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), [Conventional Commits cheatsheet](https://cheatsheets.zip/conventional-commits), [gitmoji](https://gitmoji.dev/)
+[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), [Conventional Commits cheatsheet](https://cheatsheets.zip/conventional-commits), [gitmoji](https://gitmoji.dev/) \
+[Renovate bot](https://docs.renovatebot.com/), [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) \
+[crontab guru](https://crontab.guru/)
 
 ## Cloud DBs
 
