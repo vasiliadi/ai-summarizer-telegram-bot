@@ -19,6 +19,7 @@ ENV ENV=PROD
 ENV SENTRY_ENVIRONMENT=${ENV}
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
+ENV PATH="/root/.local/bin:${PATH}"
 WORKDIR /app
 COPY --from=builder /app/src .
 COPY --from=builder /app/entrypoint.sh /app/pyproject.toml /app/poetry.lock /app/
@@ -33,7 +34,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-ENV PATH="/root/.local/bin:${PATH}"
 RUN poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-root --no-cache --only main \
     && rm -f pyproject.toml poetry.lock
