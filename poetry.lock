@@ -1942,12 +1942,12 @@ files = [
 
 [[package]]
 name = "modal"
-version = "0.66.36"
+version = "0.66.38"
 description = "Python client library for Modal"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "modal-0.66.36-py3-none-any.whl", hash = "sha256:b08e09a16bfc0dd956dc7485c857727e4eac9957ffba8a7a18864f96893409a9"},
+    {file = "modal-0.66.38-py3-none-any.whl", hash = "sha256:0e11d1fd7210a11b1a18f169a4d89e707e37fe24d71a78c8a5ed5526387cc4e8"},
 ]
 
 [package.dependencies]
