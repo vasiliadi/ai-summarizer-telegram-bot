@@ -24,14 +24,13 @@ WORKDIR /app
 COPY --from=builder /app/src .
 COPY --from=builder /app/entrypoint.sh /app/pyproject.toml /app/poetry.lock /app/
 RUN chmod +x entrypoint.sh
+ADD https://install.python-poetry.org install-poetry.py
+RUN python install-poetry.py \
+    && rm -f install-poetry.py
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ffmpeg \
     chromium-driver \
     xvfb \
-    curl \
-    && curl -sSL https://install.python-poetry.org | python3 - \
-    && apt-get purge -y curl \
-    && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 RUN poetry config virtualenvs.create false \
