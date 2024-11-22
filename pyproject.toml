@@ -5,6 +5,8 @@ description = "Bot to summarize video from youtube.com and podcasts from castro.
 authors = ["Your Name <you@example.com>"]
 license = "Unlicense license"
 readme = "README.md"
+package-mode = false
+repository = "https://github.com/vasiliadi/ai-summarizer-telegram-bot"
 
 [tool.poetry.dependencies]
 python = "~3.12"

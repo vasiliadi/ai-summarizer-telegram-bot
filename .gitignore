@@ -166,6 +166,7 @@ cython_debug/
 temp
 .DS_Store
 setup.cfg
+poetry.toml
 
 # Zed
 .zed/
