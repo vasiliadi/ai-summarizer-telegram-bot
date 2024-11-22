@@ -7,9 +7,9 @@ ARG MODAL_TOKEN_ID
 ARG MODAL_TOKEN_SECRET
 WORKDIR /app
 COPY . .
-RUN --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv
-RUN uv pip install --no-cache --system -r requirements-build.txt
-RUN python db.py \
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
+RUN uv pip install --no-cache --system -r requirements-build.txt \
+    && python db.py \
     && alembic upgrade head \
     && modal token set --token-id ${MODAL_TOKEN_ID} --token-secret ${MODAL_TOKEN_SECRET} \
     && modal deploy cron/cron.py
