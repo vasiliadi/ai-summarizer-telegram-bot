@@ -1,3 +1,46 @@
+[tool.poetry]
+name = "ai-summarizer-telegram-bot"
+version = "0.1.0"
+description = "Bot to summarize video from youtube.com and podcasts from castro.fm"
+authors = ["Your Name <you@example.com>"]
+license = "Unlicense license"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "~3.12"
+google-generativeai = "^0.8.3"
+requests = {extras = ["socks"], version = "^2.32.3"}
+yt-dlp = {extras = ["default"], version = "^2024.11.18"}
+beautifulsoup4 = "^4.12.3"
+pytelegrambotapi = "^4.24.0"
+replicate = "^1.0.3"
+sqlalchemy = "^2.0.36"
+psycopg2-binary = "^2.9.10"
+telegramify-markdown = "^0.1.17"
+sentry-sdk = "^2.19.0"
+tenacity = "^9.0.0"
+trafilatura = "^1.12.2"
+rush = {extras = ["redis"], version = "^2021.4.0"}
+openai = "^1.55.0"
+coloredlogs = "^15.0.1"
+youtube-transcript-api = "^0.6.3"
+seleniumbase = "4.32.8"
+
+[tool.poetry.group.dev.dependencies]
+python-dotenv = "^1.0.1"
+alembic = "^1.14.0"
+black = "^24.10.0"
+mypy = "^1.13.0"
+types-requests = "^2.32.0.20241016"
+pylint = "^3.3.1"
+ruff = "^0.7.4"
+isort = "^5.13.2"
+modal = "^0.66.35"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.mypy]
 ignore_missing_imports = true
 follow_imports = "silent"
