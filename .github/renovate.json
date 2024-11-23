@@ -8,7 +8,8 @@
     },
     {
       "matchPackageNames": ["modal"],
-      "schedule": ["* * * * 6"]
+      "schedule": ["every sunday"],
+      "enabled": true
     }
   ]
 }
