@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from telebot.types import Message
 
 
+# /start
 @bot.message_handler(commands=["start"])
 def handle_start(message: "Message") -> None:
     """Handle the /start command for the bot.
@@ -69,11 +70,13 @@ def handle_start(message: "Message") -> None:
         )
 
 
+# /info
 @bot.message_handler(commands=["info"])
 def handle_info(message: "Message") -> None:
     bot.send_message(message.chat.id, f"{message.from_user.id}")
 
 
+# /myinfo
 @bot.message_handler(
     commands=["myinfo"],
     func=lambda message: check_auth(message.from_user.id),
@@ -92,6 +95,7 @@ def handle_myinfo(message: "Message") -> None:
     bot.send_message(message.chat.id, msg)
 
 
+# /limit
 @bot.message_handler(
     commands=["limit"],
     func=lambda message: check_auth(message.from_user.id),
@@ -102,6 +106,7 @@ def handle_limit(message: "Message") -> None:
     bot.send_message(message.chat.id, msg)
 
 
+# /toggle_transcription
 @bot.message_handler(
     commands=["toggle_transcription"],
     func=lambda message: check_auth(message.from_user.id),
@@ -119,6 +124,7 @@ def handle_toggle_transcription(message: "Message") -> None:
     )
 
 
+# /toggle_translation
 @bot.message_handler(
     commands=["toggle_translation"],
     func=lambda message: check_auth(message.from_user.id),
@@ -136,6 +142,7 @@ def handle_toggle_translation(message: "Message") -> None:
     )
 
 
+# /toggle_yt_transcription
 @bot.message_handler(
     commands=["toggle_yt_transcription"],
     func=lambda message: check_auth(message.from_user.id),
@@ -153,6 +160,7 @@ def handle_toggle_yt_transcription(message: "Message") -> None:
     )
 
 
+# /set_target_language
 @bot.message_handler(
     commands=["set_target_language"],
     func=lambda message: check_auth(message.from_user.id),
@@ -199,6 +207,7 @@ def handle_regexp(message: "Message") -> None:
         bot.reply_to(message, f"Unexpected: {type(e).__name__}")
 
 
+# /set_parsing_strategy
 @bot.message_handler(
     commands=["set_parsing_strategy"],
     func=lambda message: check_auth(message.from_user.id),
@@ -253,6 +262,7 @@ def handle_webpages(message: "Message") -> None:
         bot.reply_to(message, f"Unexpected: {type(e).__name__}")
 
 
+# Audio file
 @bot.message_handler(
     content_types=["audio"],
     func=lambda message: check_auth(message.from_user.id),
@@ -272,6 +282,7 @@ def handle_audio(message: "Message") -> None:
         bot.reply_to(message, f"Unexpected: {type(e).__name__}")
 
 
+# Other text
 @bot.message_handler(content_types=["text"])
 def handle_text(message: "Message") -> None:
     user = select_user(message.from_user.id)

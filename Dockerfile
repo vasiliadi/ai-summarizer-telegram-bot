@@ -11,7 +11,6 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
 RUN uv pip install --no-cache --system -r requirements-build.txt \
     && python db.py \
     && alembic upgrade head \
-    && modal token set --token-id ${MODAL_TOKEN_ID} --token-secret ${MODAL_TOKEN_SECRET} \
     && modal deploy cron/cron.py
 
 FROM python:3.12-slim
@@ -19,7 +18,6 @@ ENV ENV=PROD
 ENV SENTRY_ENVIRONMENT=${ENV}
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
-ENV PATH="/root/.local/bin:${PATH}"
 WORKDIR /app
 COPY --from=builder /app/src .
 COPY --from=builder /app/entrypoint.sh /app/pyproject.toml /app/poetry.lock /app/
@@ -27,6 +25,7 @@ RUN chmod +x entrypoint.sh
 ADD https://install.python-poetry.org install-poetry.py
 RUN python install-poetry.py \
     && rm -f install-poetry.py
+ENV PATH="/root/.local/bin:${PATH}"
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ffmpeg \
     chromium-driver \
