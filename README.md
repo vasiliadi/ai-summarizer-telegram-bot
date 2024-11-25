@@ -4,6 +4,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/e215a12081084eed95c60e5e80480218)](https://app.codacy.com/gh/vasiliadi/ai-summarizer-telegram-bot/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fvasiliadi%2Fai-summarizer-telegram-bot.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fvasiliadi%2Fai-summarizer-telegram-bot?ref=badge_shield&issueType=license)
+[![Poetry](https://img.shields.io/endpoint?url=https://python-poetry.org/badge/v0.json)](https://python-poetry.org/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ## Usage
