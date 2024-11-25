@@ -6,11 +6,6 @@
     {
       "matchManagers": ["github-actions"],
       "enabled": false
-    },
-    {
-      "matchPackageNames": ["modal"],
-      "schedule": ["every sunday"],
-      "enabled": false
     }
   ]
 }
