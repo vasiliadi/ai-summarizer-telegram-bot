@@ -4,7 +4,7 @@ from pathlib import Path
 
 from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError
-from requests.exceptions import ChunkedEncodingError, ProxyError
+from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
     before_sleep_log,
     retry,
@@ -54,7 +54,9 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(10),
-    retry=retry_if_exception_type((ProxyError, ParseError, ChunkedEncodingError)),
+    retry=retry_if_exception_type(
+        (ProxyError, ParseError, ChunkedEncodingError, SSLError),
+    ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
 )
