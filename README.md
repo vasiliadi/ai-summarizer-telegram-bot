@@ -9,13 +9,28 @@
 
 ## Usage
 
+### General settings
+
 1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Perplexity](https://docs.perplexity.ai/guides/getting-started), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/)
 2. Setup DB and Redis. For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
-4. Apply [migrations](#migrations). Or run `Dockerfile` or `compose.yaml`
-5. Run `python main.py` if you don't use Docker
+4. Set up the [Modal Secrets](https://modal.com/secrets) with name `resetlimit-secrets`. Only `REDIS_URL` from `.env` needed.
+
+### Dockerfile
+
+Run `Dockerfile` or `compose.yaml`
+
+### Without docker
+
+1. Apply [migrations](#migrations).
+2. Run `python main.py`
+3. To reset daily rate limit you must run `modal deploy cron/cron.py`. Otherwise, the daily limit may become inaccurate.
+
+### After start
 
 After `/start`, you need to set approved to `True` for wanted user IDs. Depending on your database, you can use [SQL Editor](https://supabase.com/docs/guides/database/overview) for [Supabase x Postgres](https://supabase.com/database) or any other SQL client for another database.
+
+## .env
 
 Example of `.env` file:
 
@@ -61,7 +76,7 @@ set_parsing_strategy - Select the strategy to use to parse the webpage
 
 #### Migrations
 
-Apply migrations before first run. Or use `Dockerfile`.
+Apply migrations before first run.
 
 ```text
 python db.py
