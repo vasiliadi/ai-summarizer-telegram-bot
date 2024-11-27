@@ -9,6 +9,7 @@ from telebot.types import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
+from tenacity import RetryError
 
 from config import (
     DAILY_LIMIT_KEY,
@@ -27,6 +28,7 @@ from database import (
     toggle_translation,
     toggle_yt_transcription,
 )
+from exceptions import LimitExceededError
 from parse import parse_webpage
 from services import send_answer
 from summary import summarize, summarize_webpage
@@ -317,6 +319,15 @@ def handle_regexp(message: "Message") -> None:
             use_yt_transcription=user.use_yt_transcription,
         )
         send_answer(message, user, answer)
+    except LimitExceededError as e:
+        capture_exception(e)
+        bot.reply_to(message, "Daily limit has been exceeded, try again tomorrow.")
+    except RetryError as e:
+        capture_exception(e)
+        bot.reply_to(
+            message,
+            "An error occurred during execution. Please try again in 10 minutes.",
+        )
     except Exception as e:  # pylint: disable=W0718
         capture_exception(e)
         bot.reply_to(message, f"Unexpected: {type(e).__name__}")
