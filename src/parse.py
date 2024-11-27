@@ -69,7 +69,7 @@ def parse_webpage_with_browser(url: str) -> str | None:  # beta
         - Currently in beta status
 
     Example:
-        >>> content = parse_webpage_with_browser('https://example.com')
+        >>> content = parse_webpage_with_browser("https://example.com")
         >>> if content:
         ...     print("Successfully extracted content")
 
@@ -111,7 +111,7 @@ def parse_webpage_with_perplexity(url: str) -> str | None:
         - Uses a predefined prompt template
 
     Example:
-        >>> content = parse_webpage_with_perplexity('https://example.com')
+        >>> content = parse_webpage_with_perplexity("https://example.com")
         >>> if content:
         ...     print("Successfully generated webpage summary")
 
@@ -156,9 +156,9 @@ def parse_webpage(url: str, strategy: str = "requests") -> str | None:
         str: The parsed webpage content as a string
 
     Examples:
-        >>> content = parse_webpage('https://example.com', 'browser')
-        >>> content = parse_webpage('https://example.com', 'requests')
-        >>> content = parse_webpage('https://example.com', 'perplexity')
+        >>> content = parse_webpage("https://example.com", "browser")
+        >>> content = parse_webpage("https://example.com", "requests")
+        >>> content = parse_webpage("https://example.com", "perplexity")
 
     """
     match strategy:

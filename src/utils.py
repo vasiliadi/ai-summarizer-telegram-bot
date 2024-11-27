@@ -16,7 +16,7 @@ def generate_temporary_name(ext: str = "") -> str:
         str: A unique filename string consisting of a UUID with the optional extension.
 
     Example:
-        >>> generate_temporary_name('.mp3')
+        >>> generate_temporary_name(".mp3")
         '123e4567-e89b-12d3-a456-426614174000.mp3'
         >>> generate_temporary_name()
         '123e4567-e89b-12d3-a456-426614174000'
@@ -81,7 +81,7 @@ def clean_up(file: str | None = None, all_downloads: bool = False) -> None:
                               current working directory.
 
     Example:
-        >>> clean_up('temp.mp3')  # Remove a single file
+        >>> clean_up("temp.mp3")  # Remove a single file
         >>> clean_up(all_downloads=True)  # Remove all non-protected files
 
     """
