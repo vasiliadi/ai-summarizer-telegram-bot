@@ -1,5 +1,3 @@
-# ruff: noqa: D103
-
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
