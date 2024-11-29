@@ -1,19 +1,8 @@
-from typing import TYPE_CHECKING
-from urllib.parse import urlparse, urlunparse
-
 import requests
 import trafilatura
 from seleniumbase import SB
 
-from config import WEB_SCRAPE_PROXY, headers, perplexity_client
-from prompts import BASIC_PROMPT_FOR_PERPLEXITY
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-    from openai.types.chat.chat_completion_message_param import (
-        ChatCompletionMessageParam,
-    )
+from config import WEB_SCRAPE_PROXY, headers
 
 
 def parse_webpage_with_requests(url: str) -> str | None:
@@ -88,59 +77,6 @@ def parse_webpage_with_browser(url: str) -> str | None:  # beta
     return trafilatura.extract(html)
 
 
-def parse_webpage_with_perplexity(url: str) -> str | None:
-    """Parse webpage content using Perplexity.ai's LLM capabilities.
-
-    This function processes a URL by:
-    1. Cleaning the URL (removing query parameters and fragments)
-    2. Sending the URL to Perplexity.ai's API with a predefined prompt
-    3. Returning the AI-generated summary of the webpage
-
-    Args:
-        url (str): The URL of the webpage to parse and summarize.
-
-    Returns:
-        str | None: The AI-generated content summarizing the webpage,
-                    or None if the operation fails.
-
-    Notes:
-        - Uses the llama-3.1-sonar-large-128k-online model
-        - Removes URL query parameters and fragments before processing
-        - Converts URL to lowercase for consistency
-        - Requires a configured Perplexity API client (perplexity_client)
-        - Uses a predefined prompt template
-
-    Example:
-        >>> content = parse_webpage_with_perplexity("https://example.com")
-        >>> if content:
-        ...     print("Successfully generated webpage summary")
-
-    """
-    url_parsed = urlparse(url)
-    url = urlunparse(
-        (url_parsed.scheme, url_parsed.netloc, url_parsed.path, "", "", ""),
-    ).lower()
-    prompt = f"{BASIC_PROMPT_FOR_PERPLEXITY} {url}"
-    messages: Iterable[ChatCompletionMessageParam] = [
-        {
-            "role": "system",
-            "content": (
-                "You are an artificial intelligence assistant and you need to "
-                "engage in a helpful, detailed, polite conversation with a user."
-            ),
-        },
-        {
-            "role": "user",
-            "content": prompt,
-        },
-    ]
-    response = perplexity_client.chat.completions.create(
-        model="llama-3.1-sonar-large-128k-online",
-        messages=messages,
-    )
-    return response.choices[0].message.content
-
-
 def parse_webpage(url: str, strategy: str = "requests") -> str | None:
     """Retrieves and parses the content of a webpage using the specified strategy.
 
@@ -150,7 +86,6 @@ def parse_webpage(url: str, strategy: str = "requests") -> str | None:
         strategy (str): The strategy to use for parsing. Must be one of:
             - 'browser': Uses a headless browser for JavaScript-rendered content
             - 'requests': Uses HTTP requests for static content
-            - 'perplexity' : Uses Perplexity.ai to summarize webpage
 
     Returns:
         str: The parsed webpage content as a string
@@ -158,7 +93,6 @@ def parse_webpage(url: str, strategy: str = "requests") -> str | None:
     Examples:
         >>> content = parse_webpage("https://example.com", "browser")
         >>> content = parse_webpage("https://example.com", "requests")
-        >>> content = parse_webpage("https://example.com", "perplexity")
 
     """
     match strategy:
@@ -166,8 +100,6 @@ def parse_webpage(url: str, strategy: str = "requests") -> str | None:
             return parse_webpage_with_browser(url)
         case "requests":
             return parse_webpage_with_requests(url)
-        case "perplexity":
-            return parse_webpage_with_perplexity(url)
         case _:
             msg = f"Unsupported parsing strategy: {strategy}"
             raise ValueError(msg)

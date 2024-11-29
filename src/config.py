@@ -8,7 +8,6 @@ import google.generativeai as genai
 import replicate
 import sentry_sdk
 import telebot
-from openai import OpenAI
 from rush import quota, throttle
 from rush.limiters import periodic
 from rush.stores import redis as redis_store
@@ -78,14 +77,6 @@ gemini_flash_model = genai.GenerativeModel(
 )
 
 
-# Perplexity config
-PERPLEXITY_API_KEY = os.environ["PERPLEXITY_API_KEY"]
-perplexity_client = OpenAI(
-    api_key=PERPLEXITY_API_KEY,
-    base_url="https://api.perplexity.ai",
-)
-
-
 # Replicate.com config
 REPLICATE_API_TOKEN = os.environ["REPLICATE_API_TOKEN"]
 replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
@@ -145,7 +136,7 @@ PROTECTED_FILES = (
 DEFAULT_LANG = "English"
 
 
-PARSING_STRATEGIES = ["browser", "requests", "perplexity"]
+PARSING_STRATEGIES = ["browser", "requests"]
 
 
 # https://ai.google.dev/gemini-api/docs/models/gemini#available-languages
