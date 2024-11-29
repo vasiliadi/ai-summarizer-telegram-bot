@@ -11,7 +11,7 @@
 
 ### General settings
 
-1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Perplexity](https://docs.perplexity.ai/guides/getting-started), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/)
+1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/)
 2. Setup DB and Redis. For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
 4. Set up the [Modal Secrets](https://modal.com/secrets) with name `resetlimit-secrets`. Only `REDIS_URL` from `.env` needed.
@@ -38,7 +38,6 @@ Example of `.env` file:
 TG_API_TOKEN="your_api_key"
 GEMINI_API_KEY="your_api_key"
 REPLICATE_API_TOKEN="your_api_key"
-PERPLEXITY_API_KEY="your_api_key"
 DB_URL="postgresql+driver://user:password@host:port/database"
 REDIS_URL="rediss://default:password@host:port"
 SENTRY_DSN="your_sentry_dsn"
@@ -129,8 +128,7 @@ While text transcripts can provide a solid foundation for understanding the cont
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \
 [Sentry](https://docs.sentry.io/platforms/python/) \
 [SeleniumBase](https://seleniumbase.io/) \
-[rush](https://rush.readthedocs.io/en/latest/) \
-[OpenAI](https://github.com/openai/openai-python)
+[rush](https://rush.readthedocs.io/en/latest/)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
@@ -138,7 +136,8 @@ While text transcripts can provide a solid foundation for understanding the cont
 [Google Python Style Guide | Docstrings](https://google.github.io/styleguide/pyguide.html#s3.8.1-comments-in-doc-strings) \
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), [Conventional Commits cheatsheet](https://cheatsheets.zip/conventional-commits), [gitmoji](https://gitmoji.dev/) \
 [Renovate bot](https://docs.renovatebot.com/), [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) \
-[crontab guru](https://crontab.guru/)
+[crontab guru](https://crontab.guru/) \
+Uptime stats: [Gemini Pro 1.5](https://openrouter.ai/google/gemini-pro-1.5), [Gemini Flash 1.5](https://openrouter.ai/google/gemini-flash-1.5/uptime)
 
 ## Cloud DBs
 

@@ -429,8 +429,8 @@ def handle_webpages(message: "Message") -> None:
     """Handle webpage URLs sent to the bot for parsing and summarization.
 
     This function processes URLs that aren't YouTube or Castro.fm links. It retrieves
-    the webpage content using the user's selected parsing strategy and either sends
-    the content directly (for perplexity strategy) or generates and sends a summary.
+    the webpage content using the user's selected parsing strategy and generates
+    and sends a summary.
 
     Args:
         message (Message): The message object from Telegram containing the URL and
@@ -456,12 +456,9 @@ def handle_webpages(message: "Message") -> None:
         content = parse_webpage(url, strategy=parsing_strategy)
         if content is None:
             bot.reply_to(message, "No content to summarize.")
-        else:  # noqa: PLR5501
-            if parsing_strategy == "perplexity":
-                send_answer(message, user, content)
-            else:
-                answer = summarize_webpage(content)
-                send_answer(message, user, answer)
+        else:
+            answer = summarize_webpage(content)
+            send_answer(message, user, answer)
     except LimitExceededError as e:
         capture_exception(e)
         bot.reply_to(message, "Daily limit has been exceeded, try again tomorrow.")
