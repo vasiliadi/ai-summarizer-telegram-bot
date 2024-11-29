@@ -429,8 +429,8 @@ def handle_webpages(message: "Message") -> None:
     """Handle webpage URLs sent to the bot for parsing and summarization.
 
     This function processes URLs that aren't YouTube or Castro.fm links. It retrieves
-    the webpage content using the user's selected parsing strategy and either sends
-    the content directly (for perplexity strategy) or generates and sends a summary.
+    the webpage content using the user's selected parsing strategy and generates
+    and sends a summary.
 
     Args:
         message (Message): The message object from Telegram containing the URL and
