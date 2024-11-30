@@ -71,7 +71,7 @@ gemini_pro_model = genai.GenerativeModel(
     **GEMINI_COMMON_CONFIG,
 )
 gemini_flash_model = genai.GenerativeModel(
-    "models/gemini-1.5-flash-8b-latest",
+    "models/gemini-1.5-flash-latest",
     **GEMINI_COMMON_CONFIG,
     system_instruction=dedent(TRANSLATION_SYSTEM_INSTRUCTION).strip(),
 )
