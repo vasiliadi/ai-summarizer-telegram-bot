@@ -118,8 +118,8 @@ PROTECTED_FILES = (
     else [
         "config.py",
         "database.py",
-        "exceptions.py",
         "download.py",
+        "exceptions.py",
         "main.py",
         "models.py",
         "parse.py",
