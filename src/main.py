@@ -1,3 +1,4 @@
+import re
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -366,187 +367,81 @@ def proceed_set_parsing_strategy(message: "Message") -> None:
     )
 
 
-# YouTube and Castro
-@bot.message_handler(
-    regexp=r"^https:\/\/(www\.youtube\.com\/*|youtu\.be\/|castro\.fm\/episode\/)[\S]*",
-    func=lambda message: check_auth(message.from_user.id),
-)
-def handle_regexp(message: "Message") -> None:
-    """Handle YouTube and Castro.fm URLs sent to the bot.
+# Unified handler
+@bot.message_handler(content_types=["text", "audio"])
+def handle_message(message: "Message") -> None:
+    """Universal message handler for the bot.
 
-    This function processes URLs from YouTube and Castro.fm for summarization.
-    It supports both standard YouTube links (youtube.com) and shortened URLs (youtu.be),
-    as well as Castro.fm episode links. The function checks user authentication
-    and applies the user's transcription preferences when processing the content.
+    This function processes various types of content:
+    - YouTube and Castro.fm URLs
+    - Other webpage URLs
+    - Audio files
+    - General text messages
 
     Args:
-        message (Message): The message object from Telegram containing the URL and
-                          user information.
+        message (Message): The message object from Telegram
 
     Raises:
-        LimitExceededError: When the user has exceeded their daily usage limit.
-        RetryError: When multiple attempts to process the request have failed.
-        Exception: For any other unexpected errors during execution.
-
-    Returns:
-        None
-
-    Note:
-        The function uses the user's transcription settings (both standard and
-        YouTube-specific) when processing the content and sends the summarized
-        result back to the user.
-
-    """
-    try:
-        user = select_user(message.from_user.id)
-        data = message.text.strip().split(" ", maxsplit=1)[0]
-        answer = summarize(
-            data=data,
-            use_transcription=user.use_transcription,
-            use_yt_transcription=user.use_yt_transcription,
-        )
-        send_answer(message, user, answer)
-    except LimitExceededError as e:
-        capture_exception(e)
-        bot.reply_to(message, "Daily limit has been exceeded, try again tomorrow.")
-    except RetryError as e:
-        capture_exception(e)
-        bot.reply_to(
-            message,
-            "An error occurred during execution. Please try again in 10 minutes.",
-        )
-    except Exception as e:  # pylint: disable=W0718
-        capture_exception(e)
-        bot.reply_to(message, f"Unexpected: {type(e).__name__}")
-
-
-# All other links
-@bot.message_handler(
-    regexp=r"^(?!https:\/\/(www\.youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*)https?[\S]*",
-    func=lambda message: check_auth(message.from_user.id),
-)
-def handle_webpages(message: "Message") -> None:
-    """Handle webpage URLs sent to the bot for parsing and summarization.
-
-    This function processes URLs that aren't YouTube or Castro.fm links. It retrieves
-    the webpage content using the user's selected parsing strategy and generates
-    and sends a summary.
-
-    Args:
-        message (Message): The message object from Telegram containing the URL and
-                           user information.
-
-    Raises:
-        LimitExceededError: When the user has exceeded their daily usage limit.
-        RetryError: When multiple attempts to process the request have failed.
-        Exception: For any other unexpected errors during execution.
-
-    Returns:
-        None
-
-    Note:
-        The function supports different parsing strategies and handles various error
-        cases, providing appropriate feedback to the user in each case.
-
-    """
-    try:
-        user = select_user(message.from_user.id)
-        parsing_strategy = user.parsing_strategy
-        url = message.text.strip().split(" ", maxsplit=1)[0]
-        content = parse_webpage(url, strategy=parsing_strategy)
-        if content is None:
-            bot.reply_to(message, "No content to summarize.")
-        else:
-            answer = summarize_webpage(content)
-            send_answer(message, user, answer)
-    except LimitExceededError as e:
-        capture_exception(e)
-        bot.reply_to(message, "Daily limit has been exceeded, try again tomorrow.")
-    except RetryError as e:
-        capture_exception(e)
-        bot.reply_to(
-            message,
-            "An error occurred during execution. Please try again in 10 minutes.",
-        )
-    except Exception as e:  # pylint: disable=W0718
-        capture_exception(e)
-        bot.reply_to(message, f"Unexpected: {type(e).__name__}")
-
-
-# Audio file
-@bot.message_handler(
-    content_types=["audio"],
-    func=lambda message: check_auth(message.from_user.id),
-)
-def handle_audio(message: "Message") -> None:
-    """Handle audio files sent to the bot for transcription and summarization.
-
-    This function processes audio files uploaded by authenticated users. It retrieves
-    the audio file using its file_id, transcribes it (if transcription is enabled
-    for the user), and generates a summary of the content.
-
-    Args:
-        message (Message): The message object from Telegram containing the audio file
-                           and user information.
-
-    Raises:
-        LimitExceededError: When the user has exceeded their daily usage limit.
-        RetryError: When multiple attempts to process the request have failed.
-        Exception: For any other unexpected errors during execution.
-
-    Returns:
-        None
-
-    Note:
-        The function respects the user's transcription settings and will only
-        transcribe audio if the user has enabled this feature.
-
-    """
-    try:
-        user = select_user(message.from_user.id)
-        data = bot.get_file(message.audio.file_id)
-        answer = summarize(
-            data=data,
-            use_transcription=user.use_transcription,
-        )
-        send_answer(message, user, answer)
-    except LimitExceededError as e:
-        capture_exception(e)
-        bot.reply_to(message, "Daily limit has been exceeded, try again tomorrow.")
-    except RetryError as e:
-        capture_exception(e)
-        bot.reply_to(
-            message,
-            "An error occurred during execution. Please try again in 10 minutes.",
-        )
-    except Exception as e:  # pylint: disable=W0718
-        capture_exception(e)
-        bot.reply_to(message, f"Unexpected: {type(e).__name__}")
-
-
-# Other text
-@bot.message_handler(content_types=["text"])
-def handle_text(message: "Message") -> None:
-    """Handle general text messages sent to the bot.
-
-    This function processes text messages that don't match any other message handlers.
-    It checks if the user is approved and sends an appropriate response. If the user
-    is not approved, they receive an error message. If they are approved, they receive
-    a message indicating there's no data to process.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                           and chat details.
+        LimitExceededError: When user exceeds daily limit
+        RetryError: When multiple processing attempts fail
+        Exception: For any other unexpected errors
 
     Returns:
         None
 
     """
     user = select_user(message.from_user.id)
+
     if not user.approved:
         bot.send_message(message.chat.id, "You are not approved.")
-    else:
-        bot.send_message(message.chat.id, "No data to proceed.")
+        return
+
+    try:
+        # Handle audio files
+        if message.content_type == "audio":
+            data = bot.get_file(message.audio.file_id)
+            answer = summarize(data=data, use_transcription=user.use_transcription)
+            send_answer(message, user, answer)
+            return
+
+        url = message.text.strip().split(" ", maxsplit=1)[0]
+
+        # YouTube/Castro pattern
+        yt_castro_pattern = (
+            r"^https:\/\/(www\.youtube\.com\/*|youtu\.be\/|castro\.fm\/episode\/)[\S]*"
+        )
+        # Other URLs pattern
+        other_url_pattern = r"^(?!https:\/\/(www\.youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*)https?[\S]*"  # noqa: E501
+
+        if re.match(yt_castro_pattern, url):
+            answer = summarize(
+                data=url,
+                use_transcription=user.use_transcription,
+                use_yt_transcription=user.use_yt_transcription,
+            )
+            send_answer(message, user, answer)
+        elif re.match(other_url_pattern, url):
+            content = parse_webpage(url, strategy=user.parsing_strategy)
+            if content is None:
+                bot.reply_to(message, "No content to summarize.")
+            else:
+                answer = summarize_webpage(content)
+                send_answer(message, user, answer)
+        else:
+            bot.send_message(message.chat.id, "No data to proceed.")
+
+    except LimitExceededError as e:
+        capture_exception(e)
+        bot.reply_to(message, "Daily limit has been exceeded, try again tomorrow.")
+    except RetryError as e:
+        capture_exception(e)
+        bot.reply_to(
+            message,
+            "An error occurred during execution. Please try again in 10 minutes.",
+        )
+    except Exception as e:  # pylint: disable=W0718
+        capture_exception(e)
+        bot.reply_to(message, f"Unexpected: {type(e).__name__}")
 
 
 if __name__ == "__main__":
