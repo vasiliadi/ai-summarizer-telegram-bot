@@ -67,7 +67,7 @@ GEMINI_COMMON_CONFIG = {
     ],
 }
 gemini_pro_model = genai.GenerativeModel(
-    "models/gemini-1.5-flash-8b-latest",
+    "models/gemini-1.5-flash-latest",
     **GEMINI_COMMON_CONFIG,
 )
 gemini_flash_model = genai.GenerativeModel(
@@ -92,7 +92,7 @@ headers = {
 MINUTE_LIMIT_KEY = "RPM"
 DAILY_LIMIT_KEY = "RPD"
 MINUTE_LIMIT = 2
-DAILY_LIMIT = 500
+DAILY_LIMIT = 1500
 per_minute_limit = throttle.Throttle(
     limiter=periodic.PeriodicLimiter(
         store=redis_store.RedisStore(url=RATE_LIMITER_URL),
