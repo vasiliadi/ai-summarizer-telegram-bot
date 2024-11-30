@@ -127,6 +127,7 @@ def download_tg(file_id: "File") -> str:
         - Uses the Telegram bot API to download the audio
         - The output file is given a temporary name with .ogg extension
         - Voice messages in Telegram are typically stored in OGG format
+        - Max file size 20mb
 
     """
     temprorary_file_name = generate_temporary_name(ext=".ogg")
