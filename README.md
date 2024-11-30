@@ -2,6 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
+![Redis](https://img.shields.io/badge/Redis-7.2.4-blue)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/e215a12081084eed95c60e5e80480218)](https://app.codacy.com/gh/vasiliadi/ai-summarizer-telegram-bot/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fvasiliadi%2Fai-summarizer-telegram-bot.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fvasiliadi%2Fai-summarizer-telegram-bot?ref=badge_shield&issueType=license)
 [![Poetry](https://img.shields.io/endpoint?url=https://python-poetry.org/badge/v0.json)](https://python-poetry.org/)
@@ -139,28 +140,28 @@ While text transcripts can provide a solid foundation for understanding the cont
 [crontab guru](https://crontab.guru/) \
 Uptime stats: [Gemini Pro 1.5](https://openrouter.ai/google/gemini-pro-1.5), [Gemini Flash 1.5](https://openrouter.ai/google/gemini-flash-1.5/uptime)
 
-## Cloud DBs
+### Cloud DBs
 
 PostgreSQL: [PostgreSQL on Render](https://docs.render.com/databases), [Supabase x Postgres](https://supabase.com/database), [EdgeDB Cloud](https://www.edgedb.com/) \
 Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [Aiven for Valkey](https://aiven.io/free-redis-database)
 
-## SQL Clients
+### SQL Clients
 
 [TablePlus](https://tableplus.com/), [DBeaver Community](https://dbeaver.io/), [Valentina Studio](https://www.valentina-db.com/en/valentina-studio-overview)
 
-## Linters and Checkers
+### Linters and Checkers
 
 [isort](https://pycqa.github.io/isort/), [black](https://github.com/psf/black), [mypy](https://mypy-lang.org/), [pylint](https://pylint.readthedocs.io/en/latest/), [ruff](https://github.com/astral-sh/ruff)
 
-### Error suppression
+#### Error suppression
 
 [ruff](https://docs.astral.sh/ruff/linter/#error-suppression), [pylint](https://pylint.pycqa.org/en/latest/user_guide/messages/message_control.html#block-disables), [mypy](https://mypy.readthedocs.io/en/stable/error_codes.html#error-codes)
 
-## Easy deploy
+### Easy deploy
 
 [Coolify](https://coolify.io/), [Appliku](https://appliku.com/), [CapRover](https://caprover.com/), [Dokku](https://dokku.com/)
 
-## Logs
+### Logs
 
 [Logtail](https://logs.betterstack.com/), [Papertrail](https://papertrailapp.com/)
 
