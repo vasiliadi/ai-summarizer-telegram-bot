@@ -294,7 +294,8 @@ def proceed_set_target_language(message: "Message") -> None:
     set_lang = set_target_language(message.from_user.id, message.text)
     if not set_lang:
         msg = "Unknown language"
-        raise ValueError(msg)
+        bot.send_message(message.chat.id, msg)
+        return
     markup = ReplyKeyboardRemove()
     bot.send_message(
         message.chat.id,
@@ -358,7 +359,8 @@ def proceed_set_parsing_strategy(message: "Message") -> None:
     set_strategy = set_parsing_strategy(message.from_user.id, message.text)
     if not set_strategy:
         msg = "Unknown strategy"
-        raise ValueError(msg)
+        bot.send_message(message.chat.id, msg)
+        return
     markup = ReplyKeyboardRemove()
     bot.send_message(
         message.chat.id,
