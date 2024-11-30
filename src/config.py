@@ -67,11 +67,11 @@ GEMINI_COMMON_CONFIG = {
     ],
 }
 gemini_pro_model = genai.GenerativeModel(
-    "models/gemini-1.5-pro-latest",
+    "models/gemini-1.5-flash-latest",
     **GEMINI_COMMON_CONFIG,
 )
 gemini_flash_model = genai.GenerativeModel(
-    "models/gemini-1.5-flash-latest",
+    "models/gemini-1.5-flash-8b-latest",
     **GEMINI_COMMON_CONFIG,
     system_instruction=dedent(TRANSLATION_SYSTEM_INSTRUCTION).strip(),
 )
