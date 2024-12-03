@@ -25,7 +25,7 @@ trafilatura = "^1.12.2"
 rush = {extras = ["redis"], version = "^2021.4.0"}
 coloredlogs = "^15.0.1"
 youtube-transcript-api = "^0.6.3"
-seleniumbase = "4.32.8"
+seleniumbase = "4.33.2"
 
 [tool.poetry.group.dev.dependencies]
 python-dotenv = "^1.0.1"
