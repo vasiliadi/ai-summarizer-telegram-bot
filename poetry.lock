@@ -1798,12 +1798,12 @@ files = [
 
 [[package]]
 name = "modal"
-version = "0.67.9"
+version = "0.67.22"
 description = "Python client library for Modal"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "modal-0.67.9-py3-none-any.whl", hash = "sha256:4e216c108016b1e1bf3d8e3682d649ebfbcbf34b9e6ffc2237f654086c61d25e"},
+    {file = "modal-0.67.22-py3-none-any.whl", hash = "sha256:1a5ed2c6cbca87b72a797485df112ea81b82ab8d67dc773b275fb24771700fdb"},
 ]
 
 [package.dependencies]
@@ -1814,7 +1814,7 @@ fastapi = "*"
 grpclib = "0.4.7"
 protobuf = ">=3.19,<4.24.0 || >4.24.0,<6.0"
 rich = ">=12.0.0"
-synchronicity = ">=0.9.3,<0.10.0"
+synchronicity = ">=0.9.4,<0.10.0"
 toml = "*"
 typer = ">=0.9"
 types-certifi = "*"
@@ -3459,13 +3459,13 @@ full = ["httpx (>=0.22.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.7
 
 [[package]]
 name = "synchronicity"
-version = "0.9.3"
+version = "0.9.5"
 description = "Export blocking and async library versions from a single async implementation"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "synchronicity-0.9.3-py3-none-any.whl", hash = "sha256:73c06fe6613c698cbcfa6e77ab6b8d49cce3494c5afc3ef23b007b1fdff2256d"},
-    {file = "synchronicity-0.9.3.tar.gz", hash = "sha256:d3856601e63e518a143ec42f57988d9e88e4f94716168b717fd4b1b64f4704fd"},
+    {file = "synchronicity-0.9.5-py3-none-any.whl", hash = "sha256:165b2b0363ff3d553a3c57a26ed6d6b5c66799c88e598fcc348d1d94bb55b671"},
+    {file = "synchronicity-0.9.5.tar.gz", hash = "sha256:a72ee6d89896d45970d7d894301614b1f2faf6c7134585098b18c2006b6196ca"},
 ]
 
 [package.dependencies]
