@@ -12,7 +12,6 @@ from tenacity import RetryError
 
 from config import (
     DAILY_LIMIT_KEY,
-    PARSING_STRATEGIES,
     SUPPORTED_LANGUAGES,
     bot,
     per_day_limit,
@@ -21,14 +20,13 @@ from database import (
     check_auth,
     register_user,
     select_user,
-    set_parsing_strategy,
     set_target_language,
     toggle_transcription,
     toggle_translation,
     toggle_yt_transcription,
 )
 from exceptions import LimitExceededError
-from parse import parse_webpage
+from parse import parse_webpage_with_requests
 from services import send_answer
 from summary import summarize, summarize_webpage
 from utils import clean_up
@@ -304,71 +302,6 @@ def proceed_set_target_language(message: "Message") -> None:
     )
 
 
-# /set_parsing_strategy
-@bot.message_handler(
-    commands=["set_parsing_strategy"],
-    func=lambda message: check_auth(message.from_user.id),
-)
-def handle_set_parsing_strategy(message: "Message") -> None:
-    """Handle the /set_parsing_strategy command for the bot.
-
-    This function presents the user with a keyboard of available parsing strategies
-    to choose from. Once the user selects a strategy, the bot proceeds to set the
-    parsing strategy for the user. The function ensures that the user is authenticated
-    before allowing them to set a parsing strategy.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                           and chat details.
-
-    Returns:
-        None
-
-    """
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    strategies = [KeyboardButton(strategy) for strategy in PARSING_STRATEGIES]
-    markup.add(*strategies)
-
-    bot.send_message(
-        message.chat.id,
-        "Select parsing strategy 👇",
-        reply_markup=markup,
-    )
-    bot.register_next_step_handler(message, proceed_set_parsing_strategy)
-
-
-def proceed_set_parsing_strategy(message: "Message") -> None:
-    """Process the parsing strategy selection and update user settings.
-
-    This function is called after the user selects a parsing strategy from
-    the keyboard markup. It attempts to set the user's parsing strategy preference
-    and sends a confirmation message.
-    If the selected strategy is not supported, it raises a ValueError.
-
-    Args:
-        message (Message): The message object from Telegram containing the selected
-                           parsing strategy and user information.
-
-    Raises:
-        ValueError: If the selected parsing strategy is not supported.
-
-    Returns:
-        None
-
-    """
-    set_strategy = set_parsing_strategy(message.from_user.id, message.text)
-    if not set_strategy:
-        msg = "Unknown strategy"
-        bot.send_message(message.chat.id, msg)
-        return
-    markup = ReplyKeyboardRemove()
-    bot.send_message(
-        message.chat.id,
-        f"Parsing strategy is set to {message.text}.",
-        reply_markup=markup,
-    )
-
-
 # Unified handler
 @bot.message_handler(content_types=["text", "audio"])
 def handle_message(message: "Message") -> None:
@@ -423,7 +356,7 @@ def handle_message(message: "Message") -> None:
             )
             send_answer(message, user, answer)
         elif re.match(other_url_pattern, url):
-            content = parse_webpage(url, strategy=user.parsing_strategy)
+            content = parse_webpage_with_requests(url)
             if content is None:
                 bot.reply_to(message, "No content to summarize.")
             else:

@@ -67,7 +67,7 @@ GEMINI_COMMON_CONFIG = {
     ],
 }
 gemini_pro_model = genai.GenerativeModel(
-    "models/gemini-1.5-flash-latest",
+    "models/gemini-1.5-pro-latest",
     **GEMINI_COMMON_CONFIG,
 )
 gemini_flash_model = genai.GenerativeModel(
@@ -92,7 +92,7 @@ headers = {
 MINUTE_LIMIT_KEY = "RPM"
 DAILY_LIMIT_KEY = "RPD"
 MINUTE_LIMIT = 2
-DAILY_LIMIT = 1500
+DAILY_LIMIT = 50
 per_minute_limit = throttle.Throttle(
     limiter=periodic.PeriodicLimiter(
         store=redis_store.RedisStore(url=RATE_LIMITER_URL),
@@ -134,9 +134,6 @@ PROTECTED_FILES = (
 
 
 DEFAULT_LANG = "English"
-
-
-PARSING_STRATEGIES = ["browser", "requests"]
 
 
 # https://ai.google.dev/gemini-api/docs/models/gemini#available-languages
