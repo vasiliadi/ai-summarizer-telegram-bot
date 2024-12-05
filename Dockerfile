@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS builder
+FROM python:3.13-slim AS builder
 ENV ENV=BUILD
 ARG DSN
 ARG MODAL_TOKEN_ID
@@ -12,7 +12,7 @@ RUN python db.py \
     && alembic upgrade head \
     && modal deploy cron/cron.py
 
-FROM python:3.12-alpine
+FROM python:3.13-alpine
 ENV ENV=PROD
 ENV PYTHONUNBUFFERED=1 \
     SENTRY_ENVIRONMENT=${ENV} \
