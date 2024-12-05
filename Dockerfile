@@ -4,10 +4,9 @@ ARG DSN
 ARG MODAL_TOKEN_ID
 ARG MODAL_TOKEN_SECRET
 WORKDIR /app
-COPY requirements-build.txt .
+COPY . .
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
 RUN uv pip install --no-cache --system -r requirements-build.txt
-COPY . .
 RUN python db.py \
     && alembic upgrade head \
     && modal deploy cron/cron.py

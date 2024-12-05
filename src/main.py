@@ -116,7 +116,6 @@ def handle_myinfo(message: "Message") -> None:
                 Audio transcript: {user.use_transcription}
                 Translator: {user.use_translator}
                 Target language: {user.target_language}
-                Parsing strategy: {user.parsing_strategy}
                 """).strip()
     bot.send_message(message.chat.id, msg)
 
