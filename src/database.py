@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from config import DEFAULT_LANG, DSN, PARSING_STRATEGIES, SUPPORTED_LANGUAGES
+from config import DEFAULT_LANG, DSN, SUPPORTED_LANGUAGES
 from models import UsersOrm
 
 engine = create_engine(DSN, echo=False, pool_pre_ping=True)
@@ -187,30 +187,3 @@ def toggle_yt_transcription(user_id: int) -> None:
         if user is not None:
             user.use_yt_transcription = not user.use_yt_transcription
             session.commit()
-
-
-def set_parsing_strategy(user_id: int, parsing_strategy: str) -> bool:
-    """Set the message parsing strategy for a user.
-
-    Args:
-        user_id (int): Unique Telegram user ID
-        parsing_strategy (str): Strategy name for parsing messages
-
-    Returns:
-        bool: True if strategy was set successfully, False if strategy is not supported
-        or user not found
-
-    Note:
-        The parsing_strategy string is checked against PARSING_STRATEGIES
-        (case-insensitive)
-
-    """
-    if parsing_strategy.lower() not in PARSING_STRATEGIES:
-        return False  # strategy is no supported
-    with Session() as session:
-        user = session.get(UsersOrm, user_id)
-        if user is not None:
-            user.parsing_strategy = parsing_strategy
-            session.commit()
-            return True
-        return False  # User not found
