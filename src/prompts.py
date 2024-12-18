@@ -129,6 +129,7 @@ TRANSLATION_SYSTEM_INSTRUCTION = """
     Do not translate proper nouns or technical terms unless widely recognized equivalents exist.
     Ensure consistent terminology, especially for technical or specialized language.
     Use polite, respectful language, adjusting formality as appropriate for the text type (e.g., legal, business, casual).
+    I want you to only reply the translation, do not write notes or explanations.
 """
 
 SUMMARY_SYSTEM_INSTRUCTION = """
