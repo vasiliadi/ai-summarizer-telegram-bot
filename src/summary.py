@@ -1,13 +1,9 @@
 import logging
-import mimetypes
 import time
 from ssl import SSLEOFError
 from textwrap import dedent
 
-import google.generativeai as genai
-import requests
-from google.api_core import exceptions
-from google.auth.exceptions import TransportError
+from google.genai import types
 from sentry_sdk import capture_exception
 from telebot.types import File
 from tenacity import (
@@ -20,7 +16,7 @@ from tenacity import (
 )
 from youtube_transcript_api._errors import NoTranscriptAvailable, TranscriptsDisabled
 
-from config import gemini_pro_model
+from config import GEMINI_CONFIG, MODEL_ID_FOR_SUMMARY, gemini_client
 from download import download_castro, download_tg, download_yt
 from prompts import (
     BASIC_PROMPT_FOR_FILE,
@@ -38,15 +34,7 @@ logger = logging.getLogger(__name__)
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
-        (
-            SSLEOFError,
-            exceptions.InternalServerError,
-            exceptions.TooManyRequests,
-            exceptions.ServiceUnavailable,
-            requests.exceptions.ConnectionError,
-            requests.exceptions.ChunkedEncodingError,
-            TransportError,
-        ),
+        (SSLEOFError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
@@ -75,39 +63,33 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
 
     """
     prompt = BASIC_PROMPT_FOR_FILE
-    # Deprecated since version 3.13 Use guess_file_type() for this.
-    mime_type, _ = mimetypes.guess_type(file)
-    audio_file = genai.upload_file(path=file, mime_type=mime_type)
-    while audio_file.state.name == "PROCESSING":
+    audio_file = gemini_client.files.upload(path=file)
+    while audio_file.state == "PROCESSING":
         time.sleep(sleep_time)
-    if audio_file.state.name == "FAILED":
-        raise ValueError(audio_file.state.name)
+        audio_file = gemini_client.files.get(name=audio_file.name)
+    if audio_file.state == "FAILED":
+        raise ValueError(audio_file.state)
     check_quota(quantity=1)
-    response = gemini_pro_model.generate_content(
-        [prompt, audio_file],
-        stream=False,
-        request_options={"timeout": 180},
+    response = gemini_client.models.generate_content(
+        model=MODEL_ID_FOR_SUMMARY,
+        contents=[
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_uri(
+                        file_uri=audio_file.uri,
+                        mime_type=audio_file.mime_type,
+                    ),
+                ],
+            ),
+            prompt,
+        ],
+        config=GEMINI_CONFIG,
     )
-    audio_file.delete()
+    gemini_client.files.delete(name=audio_file.name)
     return response.text
 
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_fixed(30),
-    retry=retry_if_exception_type(
-        (
-            exceptions.InternalServerError,
-            exceptions.TooManyRequests,
-            exceptions.ServiceUnavailable,
-            requests.exceptions.ConnectionError,
-            requests.exceptions.ChunkedEncodingError,
-            TransportError,
-        ),
-    ),
-    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
-    reraise=False,
-)
 def summarize_with_transcript(transcript: str) -> str:
     """Generate a summary of a transcript using the Gemini Pro model.
 
@@ -128,10 +110,10 @@ def summarize_with_transcript(transcript: str) -> str:
     """
     prompt = dedent(f"{BASIC_PROMPT_FOR_TRANSCRIPT} {transcript}").strip()
     check_quota(quantity=1)
-    response = gemini_pro_model.generate_content(
-        prompt,
-        stream=False,
-        request_options={"timeout": 180},
+    response = gemini_client.models.generate_content(
+        model=MODEL_ID_FOR_SUMMARY,
+        contents=prompt,
+        config=GEMINI_CONFIG,
     )
     return response.text
 
@@ -156,10 +138,10 @@ def summarize_webpage(content: str) -> str:
     """
     prompt = f"{BASIC_PROMPT_FOR_WEBPAGE} {content}"
     check_quota(quantity=1)
-    response = gemini_pro_model.generate_content(
-        prompt,
-        stream=False,
-        request_options={"timeout": 180},
+    response = gemini_client.models.generate_content(
+        model=MODEL_ID_FOR_SUMMARY,
+        contents=prompt,
+        config=GEMINI_CONFIG,
     )
     return response.text
 
@@ -208,7 +190,6 @@ def summarize(
                 except (
                     TranscriptsDisabled,
                     NoTranscriptAvailable,
-                    exceptions.ResourceExhausted,
                     RetryError,
                 ):
                     pass
@@ -218,14 +199,14 @@ def summarize(
 
     try:
         return summarize_with_file(data)
-    except (RetryError, TimeoutError, exceptions.DeadlineExceeded) as e:
+    except RetryError as e:
         logger.warning("Error occurred while summarizing with file: %s", e)
         if use_transcription:
             new_file = generate_temporary_name(ext=".ogg")
             compress_audio(input_file=data, output_file=new_file)
             try:
                 transcription = transcribe(new_file)
-                # If it fails, a RetryError or exceptions.ResourceExhausted will raise
+                # If it fails, a RetryError will raise
                 return dedent(f"""📝
                             {summarize_with_transcript(transcription)}""").strip()
             finally:

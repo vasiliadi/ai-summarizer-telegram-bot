@@ -1,18 +1,16 @@
 import logging
 import os
 from pathlib import Path
-from textwrap import dedent
 
 import coloredlogs
-import google.generativeai as genai
 import replicate
 import sentry_sdk
 import telebot
+from google import genai
+from google.genai import types
 from rush import quota, throttle
 from rush.limiters import periodic
 from rush.stores import redis as redis_store
-
-from prompts import TRANSLATION_SYSTEM_INSTRUCTION
 
 if os.environ.get("ENV") != "PROD":
     from dotenv import load_dotenv
@@ -53,27 +51,32 @@ bot = telebot.TeleBot(token=TG_API_TOKEN, disable_web_page_preview=True)
 
 # Gemini config
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-genai.configure(api_key=GEMINI_API_KEY)
-GEMINI_COMMON_CONFIG = {
-    "generation_config": {
-        "max_output_tokens": 8192,
-        "response_mime_type": "text/plain",
-    },
-    "safety_settings": [
-        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-    ],
-}
-gemini_pro_model = genai.GenerativeModel(
-    "models/gemini-1.5-flash-latest",
-    **GEMINI_COMMON_CONFIG,
-)
-gemini_flash_model = genai.GenerativeModel(
-    "models/gemini-1.5-flash-latest",
-    **GEMINI_COMMON_CONFIG,
-    system_instruction=dedent(TRANSLATION_SYSTEM_INSTRUCTION).strip(),
+gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+MODEL_ID_FOR_SUMMARY = "models/gemini-1.5-flash-latest"
+MODEL_ID_FOR_TRANSLATION = "gemini-2.0-flash-exp"
+SAFETY_SETTINGS = [
+    types.SafetySetting(
+        category="HARM_CATEGORY_HARASSMENT",
+        threshold="BLOCK_NONE",
+    ),
+    types.SafetySetting(
+        category="HARM_CATEGORY_HATE_SPEECH",
+        threshold="BLOCK_NONE",
+    ),
+    types.SafetySetting(
+        category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        threshold="BLOCK_NONE",
+    ),
+    types.SafetySetting(
+        category="HARM_CATEGORY_DANGEROUS_CONTENT",
+        threshold="BLOCK_NONE",
+    ),
+]
+GEMINI_CONFIG = types.GenerateContentConfig(
+    system_instruction=None,
+    safety_settings=SAFETY_SETTINGS,
+    response_mime_type="text/plain",
+    max_output_tokens=8192,
 )
 
 
@@ -176,75 +179,4 @@ SUPPORTED_LANGUAGES = [
     "Turkish",
     "Ukrainian",
     "Vietnamese",
-    "Afrikaans",
-    "Amharic",
-    "Assamese",
-    "Azerbaijani",
-    "Belarusian",
-    "Bosnian",
-    "Catalan",
-    "Cebuano",
-    "Corsican",
-    "Welsh",
-    "Dhivehi",
-    "Esperanto",
-    "Basque",
-    "Persian",
-    "Filipino",
-    "Frisian",
-    "Irish",
-    "Scots",
-    "Galician",
-    "Gujarati",
-    "Hausa",
-    "Hawaiian",
-    "Hmong",
-    "Haitian",
-    "Armenian",
-    "Igbo",
-    "Icelandic",
-    "Javanese",
-    "Georgian",
-    "Kazakh",
-    "Khmer",
-    "Kannada",
-    "Krio",
-    "Kurdish",
-    "Kyrgyz",
-    "Latin",
-    "Luxembourgish",
-    "Lao",
-    "Malagasy",
-    "Maori",
-    "Macedonian",
-    "Malayalam",
-    "Mongolian",
-    "Meiteilon",
-    "Marathi",
-    "Malay",
-    "Maltese",
-    "Myanmar",
-    "Nepali",
-    "Nyanja",
-    "Odia",
-    "Punjabi",
-    "Pashto",
-    "Sindhi",
-    "Sinhala",
-    "Samoan",
-    "Shona",
-    "Somali",
-    "Albanian",
-    "Sesotho",
-    "Sundanese",
-    "Tamil",
-    "Telugu",
-    "Tajik",
-    "Uyghur",
-    "Urdu",
-    "Uzbek",
-    "Xhosa",
-    "Yiddish",
-    "Yoruba",
-    "Zulu",
 ]

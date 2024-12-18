@@ -118,7 +118,7 @@ While text transcripts can provide a solid foundation for understanding the cont
 [pyTelegramBotAPI](https://pytba.readthedocs.io/en/latest/) \
 [SQLAlchemy 2.0](https://docs.sqlalchemy.org/en/20/contents.html) \
 [Alembic](https://alembic.sqlalchemy.org/en/latest/tutorial.html) \
-[Google AI Python SDK](https://github.com/google-gemini/generative-ai-python) \
+[Google Gen AI SDK](https://github.com/googleapis/python-genai) \
 [Requests](https://requests.readthedocs.io/en/latest/) \
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) \
 [beautifulsoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) \
@@ -127,7 +127,6 @@ While text transcripts can provide a solid foundation for understanding the cont
 [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \
 [Sentry](https://docs.sentry.io/platforms/python/) \
-[SeleniumBase](https://seleniumbase.io/) \
 [rush](https://rush.readthedocs.io/en/latest/)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
@@ -168,5 +167,6 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 
 - Another model, [Claude 3.5 Sonnet](https://docs.anthropic.com/en/docs/about-claude/models), produces the same output as 8,192 tokens but with only 200k inputs. Or [GPT-4o](https://platform.openai.com/docs/models#gpt-4o) with 16,384 output and 128k input. Prices for [Claude 3.5 Sonnet](https://www.anthropic.com/pricing#anthropic-api) and [GPT-4o](https://openai.com/api/pricing/).
 - [Gitflow workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
+- [NumPy Docstrings Style Guide | Docstrings](https://numpydoc.readthedocs.io/en/latest/format.html).
 
 [^1]: Use solutions for web scraping
