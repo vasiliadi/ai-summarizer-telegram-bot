@@ -1,9 +1,11 @@
-from google.api_core import retry
+from textwrap import dedent
 
-from config import gemini_flash_model
+from google.genai import types
+
+from config import MODEL_ID_FOR_TRANSLATION, SAFETY_SETTINGS, gemini_client
+from prompts import TRANSLATION_SYSTEM_INSTRUCTION
 
 
-@retry.Retry(predicate=retry.if_transient_error, initial=10, timeout=120)
 def translate(text: str, target_language: str) -> str:
     """Translates text into the specified target language using Gemini model.
 
@@ -19,5 +21,14 @@ def translate(text: str, target_language: str) -> str:
 
     """
     prompt = f"Translate into {target_language}: {text}"
-    translation = gemini_flash_model.generate_content(prompt)
+    translation = gemini_client.models.generate_content(
+        model=MODEL_ID_FOR_TRANSLATION,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=dedent(TRANSLATION_SYSTEM_INSTRUCTION).strip(),
+            safety_settings=SAFETY_SETTINGS,
+            response_mime_type="text/plain",
+            max_output_tokens=8192,
+        ),
+    )
     return translation.text
