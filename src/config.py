@@ -52,7 +52,7 @@ bot = telebot.TeleBot(token=TG_API_TOKEN, disable_web_page_preview=True)
 # Gemini config
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-MODEL_ID_FOR_SUMMARY = "gemini-2.0-flash-exp"
+MODEL_ID_FOR_SUMMARY = "models/gemini-1.5-flash-latest"
 MODEL_ID_FOR_TRANSLATION = "gemini-2.0-flash-exp"
 SAFETY_SETTINGS = [
     types.SafetySetting(
