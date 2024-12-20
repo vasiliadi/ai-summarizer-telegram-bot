@@ -7,9 +7,9 @@ WORKDIR /app
 COPY . .
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
 RUN uv pip install --no-cache --system -r requirements-build.txt
-RUN python db.py \
+RUN python scripts/db.py \
     && alembic upgrade head \
-    && modal deploy cron/cron.py
+    && modal deploy scripts/cron.py
 
 FROM python:3.12-alpine
 ENV ENV=PROD
