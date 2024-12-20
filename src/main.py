@@ -11,6 +11,7 @@ from telebot.types import (
 from tenacity import RetryError
 
 from config import (
+    ALLOWED_MODELS_FOR_SUMMARY,
     DAILY_LIMIT_KEY,
     SUPPORTED_LANGUAGES,
     bot,
@@ -20,6 +21,7 @@ from database import (
     check_auth,
     register_user,
     select_user,
+    set_summarizing_model,
     set_target_language,
     toggle_transcription,
     toggle_translation,
@@ -301,6 +303,67 @@ def proceed_set_target_language(message: "Message") -> None:
     )
 
 
+# /set_summarizing_model
+@bot.message_handler(
+    commands=["set_summarizing_model"],
+    func=lambda message: check_auth(message.from_user.id),
+)
+def handle_set_summarizing_model(message: "Message") -> None:
+    """Handle the /set_summarizing_model command for the bot.
+
+    This function presents the user with a keyboard of allowed summarizing models
+    to choose from. Once the user selects a model, the bot proceeds to set the
+    summarizing model for the user. The function ensures that the user is
+    authenticated before allowing them to set a model.
+
+    Args:
+        message (Message): The message object from Telegram containing user information
+                          and chat details.
+
+    Returns:
+        None
+
+    """
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    models = [KeyboardButton(model) for model in ALLOWED_MODELS_FOR_SUMMARY]
+    markup.add(*models)
+
+    bot.send_message(
+        message.chat.id,
+        "Select summarizing model 👇",
+        reply_markup=markup,
+    )
+    bot.register_next_step_handler(message, proceed_set_summarizing_model)
+
+
+def proceed_set_summarizing_model(message: "Message") -> None:
+    """Process the summarizing model selection and update user settings.
+
+    This function is called after the user selects a model from the keyboard markup.
+    It attempts to set the user's summarizing model preference and sends a confirmation
+    message. If the selected model is not supported, it sends an error message.
+
+    Args:
+        message (Message): The message object from Telegram containing the selected
+                          model and user information.
+
+    Returns:
+        None
+
+    """
+    set_model = set_summarizing_model(message.from_user.id, message.text)
+    if not set_model:
+        msg = "Unknown model"
+        bot.send_message(message.chat.id, msg)
+        return
+    markup = ReplyKeyboardRemove()
+    bot.send_message(
+        message.chat.id,
+        f"The summarizing model is set to {message.text}.",
+        reply_markup=markup,
+    )
+
+
 # Unified handler
 @bot.message_handler(content_types=["text", "audio"])
 def handle_message(message: "Message") -> None:
@@ -333,8 +396,14 @@ def handle_message(message: "Message") -> None:
     try:
         # Handle audio files
         if message.content_type == "audio":
-            data = bot.get_file(message.audio.file_id)
-            answer = summarize(data=data, use_transcription=user.use_transcription)
+            data = bot.get_file(
+                message.audio.file_id,
+            )  # Max 20MB https://core.telegram.org/bots/api#getfile
+            answer = summarize(
+                data=data,
+                use_transcription=user.use_transcription,
+                model=user.summarizing_model,
+            )
             send_answer(message, user, answer)
             return
 
@@ -351,6 +420,7 @@ def handle_message(message: "Message") -> None:
             answer = summarize(
                 data=url,
                 use_transcription=user.use_transcription,
+                model=user.summarizing_model,
                 use_yt_transcription=user.use_yt_transcription,
             )
             send_answer(message, user, answer)
@@ -359,7 +429,10 @@ def handle_message(message: "Message") -> None:
             if content is None:
                 bot.reply_to(message, "No content to summarize.")
             else:
-                answer = summarize_webpage(content)
+                answer = summarize_webpage(
+                    content=content,
+                    model=user.summarizing_model,
+                )
                 send_answer(message, user, answer)
         else:
             bot.send_message(message.chat.id, "No data to proceed.")
