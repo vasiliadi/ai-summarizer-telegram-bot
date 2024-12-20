@@ -16,7 +16,7 @@ from tenacity import (
 )
 from youtube_transcript_api._errors import NoTranscriptAvailable, TranscriptsDisabled
 
-from config import GEMINI_CONFIG, MODEL_ID_FOR_SUMMARY, gemini_client
+from config import GEMINI_CONFIG, gemini_client
 from download import download_castro, download_tg, download_yt
 from prompts import (
     BASIC_PROMPT_FOR_FILE,
@@ -39,27 +39,24 @@ logger = logging.getLogger(__name__)
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
 )
-def summarize_with_file(file: str, sleep_time: int = 10) -> str:
-    """Summarize the content of an audio file using Gemini Pro model.
+def summarize_with_file(file: str, model: str, sleep_time: int = 10) -> str:
+    """Summarize audio content from a file using Gemini API.
 
     This function uploads an audio file to Gemini, waits for processing,
-    and generates a summary of its content. It includes automatic retry logic
-    for transient errors.
+    and generates a summary of the content.
 
     Args:
         file (str): Path to the audio file to be summarized
-        sleep_time (int, optional): Time in seconds to wait between processing
-                                    status checks. Defaults to 10.
+        model (str): The Gemini model identifier to use for summarization
+        sleep_time (int, optional): Time to wait between processing status checks.
+                                    Defaults to 10.
 
     Returns:
         str: Generated summary text of the audio content
 
     Raises:
-        ValueError: If the audio file processing fails
-
-    Note:
-        The function automatically cleans up by deleting the uploaded file
-        after processing.
+        ValueError: If the file processing fails
+        RetryError: If maximum retries are exceeded for SSL errors
 
     """
     prompt = BASIC_PROMPT_FOR_FILE
@@ -71,7 +68,7 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
         raise ValueError(audio_file.state)
     check_quota(quantity=1)
     response = gemini_client.models.generate_content(
-        model=MODEL_ID_FOR_SUMMARY,
+        model=model,
         contents=[
             types.Content(
                 role="user",
@@ -80,9 +77,9 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
                         file_uri=audio_file.uri,
                         mime_type=audio_file.mime_type,
                     ),
+                    types.Part.from_text(prompt),
                 ],
             ),
-            prompt,
         ],
         config=GEMINI_CONFIG,
     )
@@ -90,56 +87,58 @@ def summarize_with_file(file: str, sleep_time: int = 10) -> str:
     return response.text
 
 
-def summarize_with_transcript(transcript: str) -> str:
-    """Generate a summary of a transcript using the Gemini Pro model.
+def summarize_with_transcript(transcript: str, model: str) -> str:
+    """Summarize content from a transcript using Gemini API.
 
-    This function takes a transcript text, combines it with a predefined prompt,
-    and uses the Gemini Pro model to generate a summary of the content.
+    This function takes a transcript text and generates a summary using the specified
+    Gemini model. It prepends a predefined prompt to the transcript before sending
+    it to the API.
 
     Args:
         transcript (str): The transcript text to be summarized
+        model (str): The Gemini model identifier to use for summarization
 
     Returns:
-        str: Generated summary of the transcript content
+        str: Generated summary text of the transcript content
 
     Note:
-        - Uses prompt template for consistent summarization
-        - Checks quota before making the API call
-        - Has a 180-second timeout for the API request
+        This function checks the API quota before making the request and uses
+        the global GEMINI_CONFIG for API configuration settings.
 
     """
-    prompt = dedent(f"{BASIC_PROMPT_FOR_TRANSCRIPT} {transcript}").strip()
+    prompt = (f"{dedent(BASIC_PROMPT_FOR_TRANSCRIPT)} {transcript}").strip()
     check_quota(quantity=1)
     response = gemini_client.models.generate_content(
-        model=MODEL_ID_FOR_SUMMARY,
+        model=model,
         contents=prompt,
         config=GEMINI_CONFIG,
     )
     return response.text
 
 
-def summarize_webpage(content: str) -> str:
-    """Generate a summary of webpage content using the Gemini Pro model.
+def summarize_webpage(content: str, model: str) -> str:
+    """Summarize content from a webpage using Gemini API.
 
-    This function takes webpage content, combines it with a predefined prompt,
-    and uses the Gemini Pro model to generate a summary of the content.
+    This function takes webpage content and generates a summary using the specified
+    Gemini model. It prepends a predefined prompt to the content before sending
+    it to the API.
 
     Args:
         content (str): The webpage content to be summarized
+        model (str): The Gemini model identifier to use for summarization
 
     Returns:
-        str: Generated summary of the webpage content
+        str: Generated summary text of the webpage content
 
     Note:
-        - Uses prompt template for consistent summarization
-        - Checks quota before making the API call
-        - Has a 180-second timeout for the API request
+        This function checks the API quota before making the request and uses
+        the global GEMINI_CONFIG for API configuration settings.
 
     """
     prompt = f"{BASIC_PROMPT_FOR_WEBPAGE} {content}"
     check_quota(quantity=1)
     response = gemini_client.models.generate_content(
-        model=MODEL_ID_FOR_SUMMARY,
+        model=model,
         contents=prompt,
         config=GEMINI_CONFIG,
     )
@@ -149,22 +148,24 @@ def summarize_webpage(content: str) -> str:
 def summarize(
     data: str | File,
     use_transcription: bool,
+    model: str,
     use_yt_transcription: bool = False,
 ) -> str:
-    """Summarize content from various sources using Gemini Pro model.
+    """Process and summarize content from various sources using Gemini API.
 
-    This function handles multiple types of inputs (URL or files) and attempts
-    different summarization strategies based on the input type and configuration.
+    This function handles multiple content types and sources, including:
+    - Castro.fm podcast episodes
+    - YouTube videos (with optional transcript-based summarization)
+    - Telegram audio files
 
     Args:
-        data (str | File): Input data to summarize. Can be:
-            - YouTube URL
-            - Castro.fm episode URL
-            - Telegram File object
+        data (str | File): Either a URL (str) to content or a Telegram File object.
+            Supported URLs include Castro.fm episodes and YouTube videos.
         use_transcription (bool): Whether to fall back to transcription-based
-                                  summarization if direct file summarization fails
-        use_yt_transcription (bool, optional): Whether to use YouTube's transcript
-                                               for YouTube videos.
+            summarization if direct file summarization fails.
+        model (str): The Gemini model identifier to use for summarization.
+        use_yt_transcription (bool, optional): Whether to attempt using YouTube's
+            built-in transcripts for YouTube URLs. Defaults to False.
 
     Returns:
         str: Generated summary of the content, prefixed with:
@@ -173,9 +174,8 @@ def summarize(
             - No prefix for direct file summaries
 
     Note:
-        - Automatically cleans up downloaded/temporary files
-        - Falls back to transcription-based summarization if configured
-        - Handles various error cases with appropriate logging
+        The function automatically handles cleanup of temporary files after
+        processing, regardless of success or failure.
 
     """
     if isinstance(data, str):
@@ -185,8 +185,10 @@ def summarize(
             if use_yt_transcription:
                 try:
                     transcript = get_yt_transcript(data)
-                    return dedent(f"""📹
-                                {summarize_with_transcript(transcript)}""").strip()
+                    return dedent(f"""
+                                  📹
+                                  {summarize_with_transcript(transcript, model)}
+                                  """).strip()
                 except (
                     TranscriptsDisabled,
                     NoTranscriptAvailable,
@@ -198,7 +200,7 @@ def summarize(
         data = download_tg(data)
 
     try:
-        return summarize_with_file(data)
+        return summarize_with_file(data, model)
     except RetryError as e:
         logger.warning("Error occurred while summarizing with file: %s", e)
         if use_transcription:
@@ -207,8 +209,10 @@ def summarize(
             try:
                 transcription = transcribe(new_file)
                 # If it fails, a RetryError will raise
-                return dedent(f"""📝
-                            {summarize_with_transcript(transcription)}""").strip()
+                return dedent(f"""
+                              📝
+                              {summarize_with_transcript(transcription, model)}
+                              """).strip()
             finally:
                 clean_up(file=new_file)
         capture_exception(e)

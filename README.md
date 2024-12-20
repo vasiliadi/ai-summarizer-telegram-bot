@@ -64,6 +64,7 @@ toggle_transcription - Toggle transcription for summary (fallback on failure)
 toggle_yt_transcription - Toggle YouTube transcription
 toggle_translation - Toggle translator
 set_target_language - Choose which language you want to translate into
+set_summarizing_model - Choose which model you want to use for summary
 ```
 
 ## Deploy
@@ -136,7 +137,8 @@ While text transcripts can provide a solid foundation for understanding the cont
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), [Conventional Commits cheatsheet](https://cheatsheets.zip/conventional-commits), [gitmoji](https://gitmoji.dev/) \
 [Renovate bot](https://docs.renovatebot.com/), [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) \
 [crontab guru](https://crontab.guru/) \
-Uptime stats: [Gemini Pro 1.5](https://openrouter.ai/google/gemini-pro-1.5), [Gemini Flash 1.5](https://openrouter.ai/google/gemini-flash-1.5/uptime)
+[Gemini API Cookbook](https://github.com/google-gemini/cookbook/) \
+Uptime stats: [Gemini Pro 1.5](https://openrouter.ai/google/gemini-pro-1.5/uptime), [Gemini Flash 1.5](https://openrouter.ai/google/gemini-flash-1.5/uptime), [Gemini Flash 2.0](https://openrouter.ai/google/gemini-2.0-flash-exp:free/uptime)
 
 ### Cloud DBs
 
@@ -162,6 +164,10 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 ### Logs
 
 [Logtail](https://logs.betterstack.com/), [Papertrail](https://papertrailapp.com/)
+
+## Known problems
+
+- Limits. Different models have different limits; while switching models, the limits remain for the default model.
 
 ## Possible improvements
 

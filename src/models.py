@@ -21,7 +21,8 @@ class UsersOrm(Base):
         use_translator (bool): Flag for translation feature, defaults to False.
         target_language (str): Language for translations, defaults to "English".
         use_yt_transcription (bool): Flag for YouTube transcription, defaults to False.
-        parsing_strategy (str): Strategy used for parsing, defaults to "requests".
+        summarizing_model (str): Model for summarization, defaults to
+                                 "models/gemini-1.5-flash-latest".
 
     """
 
@@ -36,3 +37,6 @@ class UsersOrm(Base):
     use_translator: Mapped[bool] = mapped_column(server_default="False")
     target_language: Mapped[str] = mapped_column(server_default="English")
     use_yt_transcription: Mapped[bool] = mapped_column(server_default="False")
+    summarizing_model: Mapped[str] = mapped_column(
+        server_default="models/gemini-1.5-flash-latest",
+    )

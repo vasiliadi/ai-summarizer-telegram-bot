@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from config import DEFAULT_LANG, DSN, SUPPORTED_LANGUAGES
+from config import ALLOWED_MODELS_FOR_SUMMARY, DEFAULT_LANG, DSN, SUPPORTED_LANGUAGES
 from models import UsersOrm
 
 engine = create_engine(DSN, echo=False, pool_pre_ping=True)
@@ -187,3 +187,30 @@ def toggle_yt_transcription(user_id: int) -> None:
         if user is not None:
             user.use_yt_transcription = not user.use_yt_transcription
             session.commit()
+
+
+def set_summarizing_model(user_id: int, summarizing_model: str) -> bool:
+    """Set the summarizing model for a user.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+        summarizing_model (str): The model to use for summarization
+
+    Returns:
+        bool: True if model was set successfully, False if model is not supported
+        or user not found
+
+    Note:
+        The summarizing_model string is checked against ALLOWED_MODELS_FOR_SUMMARY
+        (case-insensitive)
+
+    """
+    if summarizing_model.lower() not in ALLOWED_MODELS_FOR_SUMMARY:
+        return False  # model not supported
+    with Session() as session:
+        user = session.get(UsersOrm, user_id)
+        if user is not None:
+            user.summarizing_model = summarizing_model
+            session.commit()
+            return True
+        return False  # User not found
