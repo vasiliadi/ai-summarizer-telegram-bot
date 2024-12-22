@@ -1,5 +1,6 @@
 FROM python:3.12-slim AS builder
-ENV ENV=BUILD
+ENV ENV=BUILD \
+    PYTHONDONTWRITEBYTECODE=1
 ARG DSN
 ARG MODAL_TOKEN_ID
 ARG MODAL_TOKEN_SECRET
@@ -24,7 +25,7 @@ RUN python install-poetry.py \
     && poetry config virtualenvs.create false \
     && poetry install --no-interaction --no-root --no-cache --only main \
     && rm -f pyproject.toml poetry.lock install-poetry.py
-COPY /src .
+COPY --from=builder /app/src .
 RUN adduser -D -u 1000 -s /sbin/nologin bot \
     && chown -R bot:bot /app
 USER bot

@@ -41,11 +41,11 @@ ignore_missing_imports = true
 follow_imports = "silent"
 disallow_untyped_defs = true
 python_version = "3.12"
-exclude = ["temp.*", "migrations.*", "cron.*"]
+exclude = ["temp.*", "migrations.*", "scripts.*"]
 
 [tool.pylint]
 disable = ["C0114", "C0115", "C0116", "C0301"]
-ignore = ["temp", "migrations", "cron",]
+ignore = ["temp", "migrations", "scripts",]
 
 [tool.isort]
 py_version = 312
@@ -114,7 +114,7 @@ select = [
   "DOC",   # pydoclint
 ]
 ignore = ["S603", "S607", "D100", "D401"]
-exclude = ["cron"]
+exclude = ["scripts"]
 
 [tool.ruff.format]
 quote-style = "double"
