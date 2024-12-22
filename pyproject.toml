@@ -30,7 +30,7 @@ google-genai = "^0.3.0"
 python-dotenv = "^1.0.1"
 alembic = "^1.14.0"
 black = "^24.10.0"
-modal = "^0.68.0"
+modal = "^0.69.0"
 
 [build-system]
 requires = ["poetry-core"]
