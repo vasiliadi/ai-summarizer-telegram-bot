@@ -12,6 +12,7 @@ from tenacity import RetryError
 
 from config import (
     ALLOWED_MODELS_FOR_SUMMARY,
+    ALLOWED_PROMPT_KEYS,
     DAILY_LIMIT_KEY,
     SUPPORTED_LANGUAGES,
     bot,
@@ -21,6 +22,7 @@ from database import (
     check_auth,
     register_user,
     select_user,
+    set_prompt_strategy,
     set_summarizing_model,
     set_target_language,
     toggle_transcription,
@@ -118,6 +120,8 @@ def handle_myinfo(message: "Message") -> None:
                 Audio transcript: {user.use_transcription}
                 Translator: {user.use_translator}
                 Target language: {user.target_language}
+                Summarizing model: {user.summarizing_model}
+                Prompt strategy: {user.prompt_key_for_summary}
                 """).strip()
     bot.send_message(message.chat.id, msg)
 
@@ -364,6 +368,67 @@ def proceed_set_summarizing_model(message: "Message") -> None:
     )
 
 
+# /set_prompt_strategy
+@bot.message_handler(
+    commands=["set_prompt_strategy"],
+    func=lambda message: check_auth(message.from_user.id),
+)
+def handle_set_prompt_strategy(message: "Message") -> None:
+    """Handle the /set_prompt_strategy command for the bot.
+
+    This function presents the user with a keyboard of allowed prompt strategies
+    to choose from. Once the user selects a strategy, the bot proceeds to set the
+    prompt strategy for the user. The function ensures that the user is
+    authenticated before allowing them to set a strategy.
+
+    Args:
+        message (Message): The message object from Telegram containing user information
+                          and chat details.
+
+    Returns:
+        None
+
+    """
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    strategies = [KeyboardButton(strategy) for strategy in ALLOWED_PROMPT_KEYS]
+    markup.add(*strategies)
+
+    bot.send_message(
+        message.chat.id,
+        "Select summarization strategy 👇",
+        reply_markup=markup,
+    )
+    bot.register_next_step_handler(message, proceed_set_prompt_strategy)
+
+
+def proceed_set_prompt_strategy(message: "Message") -> None:
+    """Process the prompt strategy selection and update user settings.
+
+    This function is called after the user selects a strategy from the keyboard markup.
+    It attempts to set the user's prompt strategy preference and sends a confirmation
+    message. If the selected strategy is not supported, it sends an error message.
+
+    Args:
+        message (Message): The message object from Telegram containing the selected
+                           strategy and user information.
+
+    Returns:
+        None
+
+    """
+    set_strategy = set_prompt_strategy(message.from_user.id, message.text)
+    if not set_strategy:
+        msg = "Unknown strategy"
+        bot.send_message(message.chat.id, msg)
+        return
+    markup = ReplyKeyboardRemove()
+    bot.send_message(
+        message.chat.id,
+        f"The prompt strategy is set to {message.text}.",
+        reply_markup=markup,
+    )
+
+
 # Unified handler
 @bot.message_handler(content_types=["text", "audio"])
 def handle_message(message: "Message") -> None:
@@ -387,13 +452,13 @@ def handle_message(message: "Message") -> None:
         None
 
     """
-    user = select_user(message.from_user.id)
-
-    if not user.approved:
-        bot.send_message(message.chat.id, "You are not approved.")
-        return
-
     try:
+        user = select_user(message.from_user.id)
+
+        if not user.approved:
+            bot.send_message(message.chat.id, "You are not approved.")
+            return
+
         # Handle audio files
         if message.content_type == "audio":
             data = bot.get_file(
@@ -403,6 +468,7 @@ def handle_message(message: "Message") -> None:
                 data=data,
                 use_transcription=user.use_transcription,
                 model=user.summarizing_model,
+                prompt_key=user.prompt_key_for_summary,
             )
             send_answer(message, user, answer)
             return
@@ -421,6 +487,7 @@ def handle_message(message: "Message") -> None:
                 data=url,
                 use_transcription=user.use_transcription,
                 model=user.summarizing_model,
+                prompt_key=user.prompt_key_for_summary,
                 use_yt_transcription=user.use_yt_transcription,
             )
             send_answer(message, user, answer)
@@ -432,6 +499,7 @@ def handle_message(message: "Message") -> None:
                 answer = summarize_webpage(
                     content=content,
                     model=user.summarizing_model,
+                    prompt_key=user.prompt_key_for_summary,
                 )
                 send_answer(message, user, answer)
         else:
