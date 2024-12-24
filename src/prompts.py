@@ -132,10 +132,3 @@ TRANSLATION_SYSTEM_INSTRUCTION = """
     Use polite, respectful language, adjusting formality as appropriate for the text type (e.g., legal, business, casual).
     I want you to only reply the translation, do not write notes or explanations.
 """
-
-SUMMARY_SYSTEM_INSTRUCTION = """
-    You are a summarization assistant. When the user provides a text and requests a summary,
-    generate a concise, clear, and accurate summary that captures the main ideas and key points
-    without unnecessary detail or repetition. Keep your response within the requested length if specified,
-    and maintain a neutral, objective tone. If no length is specified, aim for brevity while ensuring clarity.
-"""
