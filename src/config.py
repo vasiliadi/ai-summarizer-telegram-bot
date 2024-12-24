@@ -58,6 +58,7 @@ ALLOWED_MODELS_FOR_SUMMARY = [
     "gemini-2.0-flash-exp",
     "models/gemini-1.5-pro-latest",
 ]
+# if change DEFAULT_MODEL_ID_FOR_SUMMARY, also change in models.py
 DEFAULT_MODEL_ID_FOR_SUMMARY = "models/gemini-1.5-flash-latest"
 SAFETY_SETTINGS = [
     types.SafetySetting(
@@ -86,6 +87,7 @@ GEMINI_CONFIG = types.GenerateContentConfig(
 
 
 # Prompts
+# If change DEFAULT_PROMPT_KEY, also change in models.py
 DEFAULT_PROMPT_KEY = "basic_prompt_for_transcript"
 ALLOWED_PROMPT_KEYS = [
     "basic_prompt_for_transcript",
