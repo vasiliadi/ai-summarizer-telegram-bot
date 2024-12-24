@@ -1,7 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from config import DEFAULT_MODEL_ID_FOR_SUMMARY, DEFAULT_PROMPT_KEY
-
 
 class Base(DeclarativeBase):
     """Base class for SQLAlchemy ORM models."""
@@ -40,8 +38,8 @@ class UsersOrm(Base):
     target_language: Mapped[str] = mapped_column(server_default="English")
     use_yt_transcription: Mapped[bool] = mapped_column(server_default="False")
     summarizing_model: Mapped[str] = mapped_column(
-        server_default=DEFAULT_MODEL_ID_FOR_SUMMARY,
+        server_default="models/gemini-1.5-flash-latest",
     )
     prompt_key_for_summary: Mapped[str] = mapped_column(
-        server_default=DEFAULT_PROMPT_KEY,
+        server_default="basic_prompt_for_transcript",
     )
