@@ -58,6 +58,7 @@ ALLOWED_MODELS_FOR_SUMMARY = [
     "gemini-2.0-flash-exp",
     "models/gemini-1.5-pro-latest",
 ]
+DEFAULT_MODEL_ID_FOR_SUMMARY = "models/gemini-1.5-flash-latest"
 SAFETY_SETTINGS = [
     types.SafetySetting(
         category="HARM_CATEGORY_HARASSMENT",
@@ -82,6 +83,15 @@ GEMINI_CONFIG = types.GenerateContentConfig(
     response_mime_type="text/plain",
     max_output_tokens=8192,
 )
+
+
+# Prompts
+DEFAULT_PROMPT_KEY = "basic_prompt_for_transcript"
+ALLOWED_PROMPT_KEYS = [
+    "basic_prompt_for_transcript",
+    "soap_prompt_for_transcript",
+    "key_points_for_transcript",
+]
 
 
 # Replicate.com config
@@ -140,9 +150,8 @@ PROTECTED_FILES = (
 )
 
 
+# Translation
 DEFAULT_LANG = "English"
-
-
 # https://ai.google.dev/gemini-api/docs/models/gemini#available-languages
 SUPPORTED_LANGUAGES = [
     "Arabic",

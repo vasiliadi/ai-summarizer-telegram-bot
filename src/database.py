@@ -2,7 +2,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from config import ALLOWED_MODELS_FOR_SUMMARY, DEFAULT_LANG, DSN, SUPPORTED_LANGUAGES
+from config import (
+    ALLOWED_MODELS_FOR_SUMMARY,
+    ALLOWED_PROMPT_KEYS,
+    DEFAULT_LANG,
+    DEFAULT_MODEL_ID_FOR_SUMMARY,
+    DEFAULT_PROMPT_KEY,
+    DSN,
+    SUPPORTED_LANGUAGES,
+)
 from models import UsersOrm
 
 engine = create_engine(DSN, echo=False, pool_pre_ping=True)
@@ -19,7 +27,8 @@ def register_user(  # noqa: PLR0913
     use_translator: bool = False,
     target_language: str = DEFAULT_LANG,
     use_yt_transcription: bool = False,
-    parsing_strategy: str = "requests",
+    summarizing_model: str = DEFAULT_MODEL_ID_FOR_SUMMARY,
+    prompt_key_for_summary: (str) = DEFAULT_PROMPT_KEY,
 ) -> bool:
     """Register a new user in the database.
 
@@ -33,7 +42,8 @@ def register_user(  # noqa: PLR0913
         use_translator (bool, optional): Enable translation.
         target_language (str, optional): Target language for translations.
         use_yt_transcription (bool, optional): Enable YouTube transcription.
-        parsing_strategy (str, optional): Strategy for parsing messages.
+        summarizing_model (str, optional): Model for summary.
+        prompt_key_for_summary (str): Prompt key for summarization strategy.
 
     Returns:
         bool: True if registration successful, False if user already exists
@@ -54,7 +64,8 @@ def register_user(  # noqa: PLR0913
                 use_translator=use_translator,
                 target_language=target_language,
                 use_yt_transcription=use_yt_transcription,
-                parsing_strategy=parsing_strategy,
+                summarizing_model=summarizing_model,
+                prompt_key_for_summary=prompt_key_for_summary,
             )
             session.add(stmt)
             session.commit()
@@ -211,6 +222,33 @@ def set_summarizing_model(user_id: int, summarizing_model: str) -> bool:
         user = session.get(UsersOrm, user_id)
         if user is not None:
             user.summarizing_model = summarizing_model
+            session.commit()
+            return True
+        return False  # User not found
+
+
+def set_prompt_strategy(user_id: int, prompt_key_for_summary: str) -> bool:
+    """Set the prompt strategy for summarization for a user.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+        prompt_key_for_summary (str): The prompt key to use for summarization strategy
+
+    Returns:
+        bool: True if prompt strategy was set successfully, False if prompt key is not
+        supported or user not found
+
+    Note:
+        The prompt_key_for_summary string is checked against ALLOWED_PROMPT_KEYS
+        (case-insensitive)
+
+    """
+    if prompt_key_for_summary.lower() not in ALLOWED_PROMPT_KEYS:
+        return False  # prompt key not supported
+    with Session() as session:
+        user = session.get(UsersOrm, user_id)
+        if user is not None:
+            user.prompt_key_for_summary = prompt_key_for_summary
             session.commit()
             return True
         return False  # User not found

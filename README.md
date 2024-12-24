@@ -60,11 +60,12 @@ After completing these steps, you are ready to send youtube.com and castro.fm li
 ## List of commands for BotFather
 
 ```text
+set_summarizing_model - Choose which model you want to use for summary
+set_prompt_strategy - Choose which prompt strategy to use for summary
 toggle_transcription - Toggle transcription for summary (fallback on failure)
 toggle_yt_transcription - Toggle YouTube transcription
 toggle_translation - Toggle translator
 set_target_language - Choose which language you want to translate into
-set_summarizing_model - Choose which model you want to use for summary
 ```
 
 ## Deploy
