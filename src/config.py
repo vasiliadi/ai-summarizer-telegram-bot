@@ -55,8 +55,9 @@ gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 MODEL_ID_FOR_TRANSLATION = "gemini-2.0-flash-exp"
 ALLOWED_MODELS_FOR_SUMMARY = [
     "models/gemini-1.5-flash-latest",
-    "gemini-2.0-flash-exp",
     "models/gemini-1.5-pro-latest",
+    "gemini-exp-1206",
+    "gemini-2.0-flash-exp",
 ]
 # if change DEFAULT_MODEL_ID_FOR_SUMMARY, also change in models.py
 DEFAULT_MODEL_ID_FOR_SUMMARY = "models/gemini-1.5-flash-latest"
