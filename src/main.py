@@ -461,6 +461,10 @@ def handle_message(message: "Message") -> None:
 
         # Handle audio files
         if message.content_type == "audio":
+            if message.audio.file_size >= 20971520:  # 20MB  # noqa: PLR2004
+                bot.reply_to(message, "File is too big.")
+                return
+
             data = bot.get_file(
                 message.audio.file_id,
             )  # Max 20MB https://core.telegram.org/bots/api#getfile
@@ -495,13 +499,14 @@ def handle_message(message: "Message") -> None:
             content = parse_webpage_with_requests(url)
             if content is None:
                 bot.reply_to(message, "No content to summarize.")
-            else:
-                answer = summarize_webpage(
-                    content=content,
-                    model=user.summarizing_model,
-                    prompt_key=user.prompt_key_for_summary,
-                )
-                send_answer(message, user, answer)
+                return
+
+            answer = summarize_webpage(
+                content=content,
+                model=user.summarizing_model,
+                prompt_key=user.prompt_key_for_summary,
+            )
+            send_answer(message, user, answer)
         else:
             bot.send_message(message.chat.id, "No data to proceed.")
 
