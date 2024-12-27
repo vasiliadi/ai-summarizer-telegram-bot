@@ -1,8 +1,17 @@
+import logging
 import time
 from typing import TYPE_CHECKING
 
+from rush.exceptions import DataChangedInStoreError
 from telebot.util import smart_split
 from telegramify_markdown import markdownify
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_fixed,
+)
 
 from config import (
     DAILY_LIMIT_KEY,
@@ -18,6 +27,8 @@ if TYPE_CHECKING:
     from telebot.types import Message
 
     from models import UsersOrm
+
+logger = logging.getLogger(__name__)
 
 
 def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
@@ -65,6 +76,15 @@ def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
             bot.reply_to(message, translation_md, parse_mode="MarkdownV2")
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(1),
+    retry=retry_if_exception_type(
+        (DataChangedInStoreError),
+    ),
+    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    reraise=False,
+)
 def check_quota(quantity: int = 1) -> bool:
     """Check if the request is within rate limits and handle any delays.
 
