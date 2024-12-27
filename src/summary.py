@@ -4,6 +4,7 @@ from ssl import SSLEOFError
 from textwrap import dedent
 
 from google.genai import types
+from google.genai.errors import ServerError
 from sentry_sdk import capture_exception
 from telebot.types import File
 from tenacity import (
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
-        (SSLEOFError),
+        (SSLEOFError, ServerError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
@@ -88,6 +89,15 @@ def summarize_with_file(
     return response.text
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(30),
+    retry=retry_if_exception_type(
+        (ServerError),
+    ),
+    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    reraise=False,
+)
 def summarize_with_transcript(transcript: str, model: str, prompt_key: str) -> str:
     """Generate a summary from a transcript using Gemini API.
 
@@ -117,6 +127,15 @@ def summarize_with_transcript(transcript: str, model: str, prompt_key: str) -> s
     return response.text
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(30),
+    retry=retry_if_exception_type(
+        (ServerError),
+    ),
+    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    reraise=False,
+)
 def summarize_webpage(content: str, model: str, prompt_key: str) -> str:
     """Generate a summary from webpage content using Gemini API.
 
