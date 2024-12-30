@@ -140,6 +140,7 @@ PROTECTED_FILES = (
         "database.py",
         "download.py",
         "exceptions.py",
+        "handlers.py",
         "main.py",
         "models.py",
         "parse.py",
