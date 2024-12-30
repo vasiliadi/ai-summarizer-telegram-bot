@@ -75,11 +75,11 @@ def summarize_with_file(
             types.Content(
                 role="user",
                 parts=[
+                    types.Part.from_text(prompt),
                     types.Part.from_uri(
                         file_uri=audio_file.uri,
                         mime_type=audio_file.mime_type,
                     ),
-                    types.Part.from_text(prompt),
                 ],
             ),
         ],
@@ -165,6 +165,84 @@ def summarize_webpage(content: str, model: str, prompt_key: str) -> str:
     return response.text
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(30),
+    retry=retry_if_exception_type(
+        (ServerError),
+    ),
+    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    reraise=False,
+)
+def summarize_with_document(
+    file: str,
+    model: str,
+    prompt_key: str,
+    mime_type: str,
+    sleep_time: int = 10,
+) -> str:
+    """Summarize document content using Gemini API with file upload.
+
+    This function downloads a document from Telegram, uploads it to Gemini,
+    waits for processing, and generates a summary using the specified model
+    and prompt.
+
+    Args:
+        file (str): Path or identifier of the document to be summarized
+        model (str): The Gemini model identifier to use for generation
+        prompt_key (str): Key to retrieve the prompt template from PROMPTS
+        mime_type (str): MIME type of the document being uploaded
+        sleep_time (int, optional): Time between processing checks. Defaults to 10.
+
+    Returns:
+        str: Generated summary text from the document content
+
+    Raises:
+        ValueError: If the document processing fails on Gemini's side
+        RetryError: If the operation fails after all retry attempts
+
+    Note:
+        - This function is decorated with @retry and will attempt the operation
+          up to 3 times with a 30-second wait between attempts.
+        - Temporary files are automatically cleaned up after processing.
+        - The function checks quota usage before making the API call.
+
+    """
+    try:
+        data = download_tg(file)
+        prompt = dedent(PROMPTS[prompt_key]).strip()
+        document_file = gemini_client.files.upload(
+            path=data,
+            config={"mime_type": mime_type},
+        )
+        while document_file.state == "PROCESSING":
+            time.sleep(sleep_time)
+            document_file = gemini_client.files.get(name=document_file.name)
+        if document_file.state == "FAILED":
+            raise ValueError(document_file.state)
+        check_quota(quantity=1)
+        response = gemini_client.models.generate_content(
+            model=model,
+            contents=[
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(prompt),
+                        types.Part.from_uri(
+                            file_uri=document_file.uri,
+                            mime_type=document_file.mime_type,
+                        ),
+                    ],
+                ),
+            ],
+            config=GEMINI_CONFIG,
+        )
+        gemini_client.files.delete(name=document_file.name)
+    finally:
+        clean_up(file=data)
+    return response.text
+
+
 def summarize(
     data: str | File,
     use_transcription: bool,
@@ -228,7 +306,7 @@ def summarize(
                     pass
             data = download_yt(data)
     if isinstance(data, File):
-        data = download_tg(data)
+        data = download_tg(data, ext=".ogg")
 
     try:
         return summarize_with_file(file=data, model=model, prompt_key=prompt_key)

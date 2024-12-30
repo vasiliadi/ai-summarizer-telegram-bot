@@ -114,23 +114,24 @@ def download_castro(url: str) -> str:
     return temprorary_file_name
 
 
-def download_tg(file_id: "File") -> str:
-    """Download a Telegram audio and save it as an OGG file.
+def download_tg(file_id: "File", ext: str = "") -> str:
+    """Download a file from Telegram and save it locally.
 
     Args:
-        file_id (File): The Telegram File object containing the audio.
+        file_id (File): The Telegram File object containing file information.
+        ext (str, optional): File extension for the output file.
+                             Defaults to empty string.
 
     Returns:
-        str: Path to the downloaded temporary OGG file.
+        str: Path to the downloaded temporary file.
 
     Notes:
-        - Uses the Telegram bot API to download the audio
-        - The output file is given a temporary name with .ogg extension
-        - Voice messages in Telegram are typically stored in OGG format
-        - Max file size 20mb
+        - Uses the Telegram bot API to download the file
+        - The output file is given a temporary name with the specified extension
+        - File is written in binary mode
 
     """
-    temprorary_file_name = generate_temporary_name(ext=".ogg")
+    temprorary_file_name = generate_temporary_name(ext=ext)
     downloaded_file = bot.download_file(file_id.file_path)
     with Path(temprorary_file_name).open("wb") as f:
         f.write(downloaded_file)
