@@ -1,4 +1,3 @@
-import re
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -30,9 +29,7 @@ from database import (
     toggle_yt_transcription,
 )
 from exceptions import LimitExceededError
-from parse import parse_webpage_with_requests
-from services import send_answer
-from summary import summarize, summarize_webpage
+from handlers import handle_audio, handle_document, handle_url
 from utils import clean_up
 
 if TYPE_CHECKING:
@@ -430,7 +427,7 @@ def proceed_set_prompt_strategy(message: "Message") -> None:
 
 
 # Unified handler
-@bot.message_handler(content_types=["text", "audio"])
+@bot.message_handler(content_types=["text", "audio", "document"])
 def handle_message(message: "Message") -> None:
     """Universal message handler for the bot.
 
@@ -459,56 +456,18 @@ def handle_message(message: "Message") -> None:
             bot.send_message(message.chat.id, "You are not approved.")
             return
 
-        # Handle audio files
         if message.content_type == "audio":
-            if message.audio.file_size >= 20971520:  # 20MB  # noqa: PLR2004
-                bot.reply_to(message, "File is too big.")
-                return
-
-            data = bot.get_file(
-                message.audio.file_id,
-            )  # Max 20MB https://core.telegram.org/bots/api#getfile
-            answer = summarize(
-                data=data,
-                use_transcription=user.use_transcription,
-                model=user.summarizing_model,
-                prompt_key=user.prompt_key_for_summary,
-            )
-            send_answer(message, user, answer)
-            return
-
-        url = message.text.strip().split(" ", maxsplit=1)[0]
-
-        # YouTube/Castro pattern
-        yt_castro_pattern = (
-            r"^https:\/\/(www\.youtube\.com\/*|youtu\.be\/|castro\.fm\/episode\/)[\S]*"
-        )
-        # Other URLs pattern
-        other_url_pattern = r"^(?!https:\/\/(www\.youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*)https?[\S]*"  # noqa: E501
-
-        if re.match(yt_castro_pattern, url):
-            answer = summarize(
-                data=url,
-                use_transcription=user.use_transcription,
-                model=user.summarizing_model,
-                prompt_key=user.prompt_key_for_summary,
-                use_yt_transcription=user.use_yt_transcription,
-            )
-            send_answer(message, user, answer)
-        elif re.match(other_url_pattern, url):
-            content = parse_webpage_with_requests(url)
-            if content is None:
-                bot.reply_to(message, "No content to summarize.")
-                return
-
-            answer = summarize_webpage(
-                content=content,
-                model=user.summarizing_model,
-                prompt_key=user.prompt_key_for_summary,
-            )
-            send_answer(message, user, answer)
+            handle_audio(message, user)
+        elif message.content_type == "document" and message.document.mime_type in (
+            "application/pdf",
+            "text/plain",
+            "text/rtf",
+            "text/csv",
+        ):
+            handle_document(message, user)
         else:
-            bot.send_message(message.chat.id, "No data to proceed.")
+            url = message.text.strip().split(" ", maxsplit=1)[0]
+            handle_url(message, user, url)
 
     except LimitExceededError as e:
         capture_exception(e)
