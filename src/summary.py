@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
-        (SSLEOFError, ServerError),
+        (SSLEOFError, ServerError, AttributeError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
@@ -86,6 +86,8 @@ def summarize_with_file(
         config=GEMINI_CONFIG,
     )
     gemini_client.files.delete(name=audio_file.name)
+    if response.text is None:
+        raise AttributeError
     return response.text
 
 
@@ -93,7 +95,7 @@ def summarize_with_file(
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
-        (ServerError),
+        (ServerError, AttributeError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
@@ -124,6 +126,8 @@ def summarize_with_transcript(transcript: str, model: str, prompt_key: str) -> s
         contents=prompt,
         config=GEMINI_CONFIG,
     )
+    if response.text is None:
+        raise AttributeError
     return response.text
 
 
@@ -131,7 +135,7 @@ def summarize_with_transcript(transcript: str, model: str, prompt_key: str) -> s
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
-        (ServerError),
+        (ServerError, AttributeError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
@@ -162,6 +166,8 @@ def summarize_webpage(content: str, model: str, prompt_key: str) -> str:
         contents=prompt,
         config=GEMINI_CONFIG,
     )
+    if response.text is None:
+        raise AttributeError
     return response.text
 
 
@@ -169,7 +175,7 @@ def summarize_webpage(content: str, model: str, prompt_key: str) -> str:
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
-        (ServerError),
+        (ServerError, AttributeError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
@@ -238,6 +244,8 @@ def summarize_with_document(
             config=GEMINI_CONFIG,
         )
         gemini_client.files.delete(name=document_file.name)
+        if response.text is None:
+            raise AttributeError
     finally:
         clean_up(file=data)
     return response.text
