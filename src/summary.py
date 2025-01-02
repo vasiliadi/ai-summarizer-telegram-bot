@@ -1,10 +1,10 @@
 import logging
 import time
-from ssl import SSLEOFError
 from textwrap import dedent
 
 from google.genai import types
 from google.genai.errors import ClientError, ServerError
+from requests.exceptions import SSLError
 from sentry_sdk import capture_exception
 from telebot.types import File
 from tenacity import (
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
-        (SSLEOFError, ServerError, AttributeError, ClientError),
+        (ServerError, AttributeError, ClientError, SSLError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
@@ -175,7 +175,7 @@ def summarize_webpage(content: str, model: str, prompt_key: str) -> str:
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
-        (ServerError, AttributeError, ClientError),
+        (ServerError, AttributeError, ClientError, SSLError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
