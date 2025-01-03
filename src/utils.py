@@ -64,7 +64,7 @@ def compress_audio(input_file: str, output_file: str) -> None:
             output_file,
         ],
         check=True,
-        capture_output=True,
+        capture_output=False,
         text=True,
     )
 
