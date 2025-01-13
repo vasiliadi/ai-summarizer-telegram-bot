@@ -1070,13 +1070,13 @@ requests = ["requests (>=2.20.0,<3.0.0.dev0)"]
 
 [[package]]
 name = "google-genai"
-version = "0.3.0"
+version = "0.4.0"
 description = "GenAI Python SDK"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "google_genai-0.3.0-py3-none-any.whl", hash = "sha256:e45eb1732cf5b1f7c5a4103fe64cc4b577981d7e592e3edfba6d34ec734f56be"},
-    {file = "google_genai-0.3.0.tar.gz", hash = "sha256:1e080ca381268912dacc8e0cb15eb203eb4e38f51f6ae35cc5768e5af323c8cc"},
+    {file = "google_genai-0.4.0-py3-none-any.whl", hash = "sha256:2cbfea3cb47d4ac54ee3d3f9ecd79ff72298cac13e150828afdc5ed62768ed00"},
+    {file = "google_genai-0.4.0.tar.gz", hash = "sha256:d14ce2e941063092cfc98726aeabcae44f179456e3a4906ee5f28dc91b0663fb"},
 ]
 
 [package.dependencies]
@@ -3579,4 +3579,4 @@ test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.13.0"
-content-hash = "28ac0f150ae674579d595ad749de566d42207a25f306f761944cbe2c62b2f119"
+content-hash = "e80699e9279dc14ccfc3f9fc6f9937a61f2bcaeb731812112225736f9e392e90"
