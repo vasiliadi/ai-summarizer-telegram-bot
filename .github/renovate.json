@@ -5,13 +5,5 @@
   ],
   "schedule": [
     "on sunday"
-  ],
-  "packageRules": [
-    {
-      "matchManagers": [
-        "github-actions"
-      ],
-      "enabled": false
-    }
   ]
 }
