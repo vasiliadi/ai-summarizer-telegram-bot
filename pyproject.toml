@@ -24,7 +24,7 @@ trafilatura = "^2.0.0"
 rush = {extras = ["redis"], version = "^2021.4.0"}
 coloredlogs = "^15.0.1"
 youtube-transcript-api = "^0.6.3"
-google-genai = "^0.5.0"
+google-genai = "^0.6.0"
 
 [tool.poetry.group.dev.dependencies]
 python-dotenv = "^1.0.1"
