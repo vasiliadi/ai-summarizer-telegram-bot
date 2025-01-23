@@ -1,40 +1,41 @@
-[tool.poetry]
+[project]
 name = "ai-summarizer-telegram-bot"
 version = "0.4.0"
 description = "Bot to summarize video from youtube.com and podcasts from castro.fm"
 authors = []
-license = "Unlicense license"
+license = {text = "Unlicense license"}
 readme = "README.md"
-package-mode = false
-repository = "https://github.com/vasiliadi/ai-summarizer-telegram-bot"
+requires-python = "~3.13"
+dependencies = [
+    "requests[socks] (>=2.32.3,<3.0.0)",
+    "yt-dlp[default] (>=2025.1.15,<2026.0.0)",
+    "beautifulsoup4 (>=4.12.3,<5.0.0)",
+    "pytelegrambotapi (>=4.26.0,<5.0.0)",
+    "replicate (>=1.0.4,<2.0.0)",
+    "sqlalchemy (>=2.0.37,<3.0.0)",
+    "psycopg2-binary (>=2.9.10,<3.0.0)",
+    "telegramify-markdown (>=0.4.1,<0.5.0)",
+    "sentry-sdk (>=2.20.0,<3.0.0)",
+    "tenacity (>=9.0.0,<10.0.0)",
+    "trafilatura (>=2.0.0,<3.0.0)",
+    "rush[redis] (>=2021.4.0,<2022.0.0)",
+    "coloredlogs (>=15.0.1,<16.0.0)",
+    "youtube-transcript-api (>=0.6.3,<0.7.0)",
+    "google-genai (>=0.6.0,<0.7.0)"
+]
 
-[tool.poetry.dependencies]
-python = "~3.13.0"
-requests = {extras = ["socks"], version = "^2.32.3"}
-yt-dlp = {extras = ["default"], version = "^2025.0.0"}
-beautifulsoup4 = "^4.12.3"
-pytelegrambotapi = "^4.24.0"
-replicate = "^1.0.3"
-sqlalchemy = "^2.0.36"
-psycopg2-binary = "^2.9.10"
-telegramify-markdown = "^0.4.0"
-sentry-sdk = "^2.19.0"
-tenacity = "^9.0.0"
-trafilatura = "^2.0.0"
-rush = {extras = ["redis"], version = "^2021.4.0"}
-coloredlogs = "^15.0.1"
-youtube-transcript-api = "^0.6.3"
-google-genai = "^0.6.0"
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false
 
 [tool.poetry.group.dev.dependencies]
 python-dotenv = "^1.0.1"
-alembic = "^1.14.0"
+alembic = "^1.14.1"
 black = "^24.10.0"
-modal = "^0.72.0"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+modal = "^0.72.47"
 
 [tool.mypy]
 ignore_missing_imports = true
