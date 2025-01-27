@@ -5,7 +5,7 @@ description = "Bot to summarize video from youtube.com and podcasts from castro.
 authors = []
 license = {text = "Unlicense license"}
 readme = "README.md"
-requires-python = "~3.13"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "requests[socks] (>=2.32.3,<3.0.0)",
     "yt-dlp[default] (>=2025.1.15,<2026.0.0)",
