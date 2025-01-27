@@ -41,7 +41,7 @@ modal = "^0.72.47"
 ignore_missing_imports = true
 follow_imports = "silent"
 disallow_untyped_defs = true
-python_version = "3.12"
+python_version = "3.13"
 exclude = ["temp.*", "migrations.*", "scripts.*"]
 
 [tool.pylint]
@@ -49,7 +49,7 @@ disable = ["C0114", "C0115", "C0116", "C0301"]
 ignore = ["temp", "migrations", "scripts",]
 
 [tool.isort]
-py_version = 312
+py_version = 313
 skip_glob = ["temp/*", "migrations/*"]
 multi_line_output = 3
 include_trailing_comma = true
@@ -59,7 +59,7 @@ line_length = 88
 extend-exclude = ["temp", "migrations"]
 line-length = 88
 indent-width = 4
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = [
