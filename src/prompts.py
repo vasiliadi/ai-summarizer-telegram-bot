@@ -2,7 +2,12 @@
 
 # Prompts
 PROMPTS = {
-    "basic_prompt_for_transcript": "Read or listen carefully transcription or audio file and provide a detailed summary:",
+    "basic_prompt_for_transcript": """
+        Read or listen carefully transcription or audio file and provide a detailed summary.
+        Return it in English language.
+
+        Here is transcript or audio file:
+        """,
     "soap_prompt_for_transcript": """
         I need you to analyze and summarize a transcript or audio file using the SOAP method.
         Please note that this transcript may contain speech recognition errors, inconsistent punctuation, non-verbal markers [music], [laughing], etc., and informal spoken language.
