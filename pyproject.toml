@@ -34,7 +34,7 @@ package-mode = false
 [tool.poetry.group.dev.dependencies]
 python-dotenv = "^1.0.1"
 alembic = "^1.14.1"
-black = "^24.10.0"
+black = "^25.0.0"
 modal = "^0.72.47"
 
 [tool.mypy]
