@@ -75,7 +75,7 @@ def summarize_with_file(
             types.Content(
                 role="user",
                 parts=[
-                    types.Part.from_text(prompt),
+                    types.Part.from_text(text=prompt),
                     types.Part.from_uri(
                         file_uri=audio_file.uri,
                         mime_type=audio_file.mime_type,
@@ -233,7 +233,7 @@ def summarize_with_document(
                 types.Content(
                     role="user",
                     parts=[
-                        types.Part.from_text(prompt),
+                        types.Part.from_text(text=prompt),
                         types.Part.from_uri(
                             file_uri=document_file.uri,
                             mime_type=document_file.mime_type,
