@@ -62,7 +62,7 @@ def summarize_with_file(
 
     """
     prompt = dedent(PROMPTS[prompt_key]).strip()
-    audio_file = gemini_client.files.upload(path=file)
+    audio_file = gemini_client.files.upload(file=file)
     while audio_file.state == "PROCESSING":
         time.sleep(sleep_time)
         audio_file = gemini_client.files.get(name=audio_file.name)
@@ -218,7 +218,7 @@ def summarize_with_document(
         data = download_tg(file)
         prompt = dedent(PROMPTS[prompt_key]).strip()
         document_file = gemini_client.files.upload(
-            path=data,
+            file=data,
             config={"mime_type": mime_type},
         )
         while document_file.state == "PROCESSING":
@@ -302,9 +302,11 @@ def summarize(
                     transcript = get_yt_transcript(data)
                     return dedent(f"""
                                   📹
-                                  {summarize_with_transcript(transcript=transcript,
-                                                             model=model,
-                                                             prompt_key=prompt_key)}
+                                  {
+                        summarize_with_transcript(
+                            transcript=transcript, model=model, prompt_key=prompt_key
+                        )
+                    }
                                   """).strip()
                 except (
                     TranscriptsDisabled,
@@ -328,9 +330,11 @@ def summarize(
                 # If it fails, a RetryError will raise
                 return dedent(f"""
                               📝
-                              {summarize_with_transcript(transcript=transcription,
-                                                         model=model,
-                                                         prompt_key=prompt_key)}
+                              {
+                    summarize_with_transcript(
+                        transcript=transcription, model=model, prompt_key=prompt_key
+                    )
+                }
                               """).strip()
             finally:
                 clean_up(file=new_file)
