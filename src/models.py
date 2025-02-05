@@ -38,7 +38,7 @@ class UsersOrm(Base):
     target_language: Mapped[str] = mapped_column(server_default="English")
     use_yt_transcription: Mapped[bool] = mapped_column(server_default="False")
     summarizing_model: Mapped[str] = mapped_column(
-        server_default="models/gemini-1.5-flash-latest",
+        server_default="gemini-2.0-flash",
     )
     prompt_key_for_summary: Mapped[str] = mapped_column(
         server_default="basic_prompt_for_transcript",
