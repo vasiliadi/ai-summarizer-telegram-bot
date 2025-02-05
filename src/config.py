@@ -52,16 +52,16 @@ bot = telebot.TeleBot(token=TG_API_TOKEN, disable_web_page_preview=True)
 # Gemini config
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-MODEL_ID_FOR_TRANSLATION = "gemini-2.0-flash-exp"
+MODEL_ID_FOR_TRANSLATION = "gemini-2.0-flash"
 ALLOWED_MODELS_FOR_SUMMARY = [
-    "models/gemini-1.5-flash-latest",
-    "models/gemini-1.5-pro-latest",
-    "gemini-exp-1206",
-    "gemini-2.0-flash-exp",
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-pro-latest",
+    "gemini-2.0-pro-exp-02-05",
+    "gemini-2.0-flash",
     "gemini-2.0-flash-thinking-exp-01-21",
 ]
 # if change DEFAULT_MODEL_ID_FOR_SUMMARY, also change in models.py
-DEFAULT_MODEL_ID_FOR_SUMMARY = "models/gemini-1.5-flash-latest"
+DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-2.0-flash"
 SAFETY_SETTINGS = [
     types.SafetySetting(
         category="HARM_CATEGORY_HARASSMENT",
