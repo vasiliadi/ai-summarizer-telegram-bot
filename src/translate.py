@@ -2,7 +2,7 @@ import logging
 from textwrap import dedent
 
 from google.genai import types
-from google.genai.errors import ServerError
+from google.genai.errors import ClientError, ServerError
 from tenacity import (
     before_sleep_log,
     retry,
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
-        (ServerError),
+        (ServerError, ClientError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
