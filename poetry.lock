@@ -1524,14 +1524,14 @@ files = [
 
 [[package]]
 name = "modal"
-version = "0.73.86"
+version = "0.73.91"
 description = "Python client library for Modal"
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "modal-0.73.86-py3-none-any.whl", hash = "sha256:8c0c02fdeea35dcf43d1c7a80e8a0a8a9da6888351ead3ca02895521a5847d4b"},
-    {file = "modal-0.73.86.tar.gz", hash = "sha256:23fbc22bba4ce259c9ef955f41dda17f8fd3279582ada4a405d16bb72abfc0bb"},
+    {file = "modal-0.73.91-py3-none-any.whl", hash = "sha256:5d47a250dc8af992934359ffe9ee7c0cb1a1b7a732f47651750a982ed6b9a214"},
+    {file = "modal-0.73.91.tar.gz", hash = "sha256:77d8c556f9be37298e042ea0ea1602f5de3261ef1e3c4135f63a6f758be9c06d"},
 ]
 
 [package.dependencies]
