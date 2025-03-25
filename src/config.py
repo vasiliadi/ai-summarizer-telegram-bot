@@ -54,9 +54,9 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 MODEL_ID_FOR_TRANSLATION = "gemini-2.0-flash"
 ALLOWED_MODELS_FOR_SUMMARY = [
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-pro-latest",
-    "gemini-2.0-pro-exp-02-05",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+    "gemini-2.5-pro-exp-03-25",
     "gemini-2.0-flash",
     "gemini-2.0-flash-thinking-exp-01-21",
 ]
@@ -134,7 +134,7 @@ per_day_limit = throttle.Throttle(
 
 # For clean up
 PROTECTED_FILES = (
-    os.listdir(Path.cwd())
+    os.listdir(Path.cwd())  # noqa: PTH208
     if os.environ.get("ENV") != "PROD"
     else [
         "config.py",
