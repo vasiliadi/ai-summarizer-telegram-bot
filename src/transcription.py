@@ -4,7 +4,8 @@ from pathlib import Path
 
 from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError
-from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
+
+# from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
     before_sleep_log,
     retry,
@@ -13,8 +14,10 @@ from tenacity import (
     wait_fixed,
 )
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import NoTranscriptFound
+
+# from youtube_transcript_api._errors import NoTranscriptFound
 from youtube_transcript_api.formatters import TextFormatter
+from youtube_transcript_api.proxies import GenericProxyConfig
 
 from config import PROXY, replicate_client
 
@@ -55,7 +58,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
     stop=stop_after_attempt(3),
     wait=wait_fixed(10),
     retry=retry_if_exception_type(
-        (ProxyError, ParseError, ChunkedEncodingError, SSLError),
+        (ParseError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
@@ -80,16 +83,13 @@ def get_yt_transcript(url: str) -> str:
         msg = "Unknown URL"
         raise ValueError(msg)
 
-    try:
-        transcript = YouTubeTranscriptApi.get_transcript(
-            video_id,
-            proxies={"https": PROXY},
-        )
-    except NoTranscriptFound:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(
-            video_id,
-            proxies={"https": PROXY},
-        )
-        language_codes = [transcript.language_code for transcript in transcript_list]
-        transcript = transcript_list.find_transcript(language_codes).fetch()
+    ytt_api = YouTubeTranscriptApi(proxy_config=GenericProxyConfig(https_url=PROXY))
+    transcript = ytt_api.fetch(video_id)
+
+    # try:
+    #     transcript = ytt_api.fetch(video_id)
+    # except NoTranscriptFound:
+    #     transcript_list = ytt_api.list(video_id)
+    #     language_codes = [transcript.language_code for transcript in transcript_list]
+    #     transcript = ytt_api.fetch(video_id, languages=language_codes)
     return TextFormatter().format_transcript(transcript)
