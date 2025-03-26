@@ -14,8 +14,7 @@ from tenacity import (
     wait_fixed,
 )
 from youtube_transcript_api import YouTubeTranscriptApi
-
-# from youtube_transcript_api._errors import NoTranscriptFound
+from youtube_transcript_api._errors import NoTranscriptFound
 from youtube_transcript_api.formatters import TextFormatter
 from youtube_transcript_api.proxies import GenericProxyConfig
 
@@ -84,12 +83,11 @@ def get_yt_transcript(url: str) -> str:
         raise ValueError(msg)
 
     ytt_api = YouTubeTranscriptApi(proxy_config=GenericProxyConfig(https_url=PROXY))
-    transcript = ytt_api.fetch(video_id)
 
-    # try:
-    #     transcript = ytt_api.fetch(video_id)
-    # except NoTranscriptFound:
-    #     transcript_list = ytt_api.list(video_id)
-    #     language_codes = [transcript.language_code for transcript in transcript_list]
-    #     transcript = ytt_api.fetch(video_id, languages=language_codes)
+    try:
+        transcript = ytt_api.fetch(video_id)
+    except NoTranscriptFound:
+        transcript_list = ytt_api.list(video_id)
+        language_codes = [transcript.language_code for transcript in transcript_list]
+        transcript = ytt_api.fetch(video_id, languages=language_codes)
     return TextFormatter().format_transcript(transcript)
