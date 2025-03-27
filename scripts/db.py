@@ -32,4 +32,7 @@ class UsersOrm(Base):
     approved: Mapped[bool] = mapped_column(server_default="False")
 
 
-Base.metadata.create_all(engine, checkfirst=True)
+try:
+    Base.metadata.create_all(engine, checkfirst=True)
+finally:
+    engine.dispose()
