@@ -2,17 +2,17 @@ import logging
 import time
 from pathlib import Path
 
-from defusedxml.ElementTree import ParseError
+# from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError
 
 # from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
-from tenacity import (
-    before_sleep_log,
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_fixed,
-)
+# from tenacity import (
+#     before_sleep_log,
+#     retry,
+#     retry_if_exception_type,
+#     stop_after_attempt,
+#     wait_fixed,
+# )
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound
 from youtube_transcript_api.formatters import TextFormatter
@@ -53,15 +53,15 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
     return prediction.output["text"]
 
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_fixed(10),
-    retry=retry_if_exception_type(
-        (ParseError),
-    ),
-    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
-    reraise=False,
-)
+# @retry(
+#     stop=stop_after_attempt(3),
+#     wait=wait_fixed(10),
+#     retry=retry_if_exception_type(
+#         (ParseError),
+#     ),
+#     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+#     reraise=False,
+# )
 def get_yt_transcript(url: str) -> str:
     """Retrieve and format the transcript from a YouTube video URL.
 
