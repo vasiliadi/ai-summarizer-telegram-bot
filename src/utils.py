@@ -1,4 +1,3 @@
-import os
 import subprocess
 from pathlib import Path
 from uuid import uuid4
@@ -86,11 +85,10 @@ def clean_up(file: str | None = None, all_downloads: bool = False) -> None:
 
     """
     if all_downloads:
-        for file_name in os.listdir(Path.cwd()):
-            file_path = Path(file_name)
-            if file_path.is_file() and file_name not in PROTECTED_FILES:
-                Path.unlink(file_path)
+        for file_name in Path.cwd().iterdir():
+            if file_name.is_file() and file_name.name not in PROTECTED_FILES:
+                Path.unlink(file_name)
     elif file is not None:
         file_path = Path(file)
-        if file_path.is_file() and file not in PROTECTED_FILES:
+        if file_path.is_file() and file_path.name not in PROTECTED_FILES:
             Path.unlink(file_path)
