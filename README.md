@@ -145,7 +145,7 @@ While text transcripts can provide a solid foundation for understanding the cont
 [Renovate bot](https://docs.renovatebot.com/), [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) \
 [crontab guru](https://crontab.guru/) \
 [Gemini API Cookbook](https://github.com/google-gemini/cookbook/) \
-Uptime stats: [Gemini Pro 1.5](https://openrouter.ai/google/gemini-pro-1.5/uptime), [Gemini Flash 1.5](https://openrouter.ai/google/gemini-flash-1.5/uptime), [Gemini Flash 2.0](https://openrouter.ai/google/gemini-2.0-flash-exp:free/uptime), [Gemini 2.0 Flash Thinking Experimental](https://openrouter.ai/google/gemini-2.0-flash-thinking-exp:free/uptime), [Gemini Experimental 1206](https://openrouter.ai/google/gemini-exp-1206:free/uptime)
+Uptime stats: [Gemini Pro 1.5](https://openrouter.ai/google/gemini-pro-1.5/uptime), [Gemini Flash 1.5](https://openrouter.ai/google/gemini-flash-1.5/uptime), [Gemini Flash 2.0](https://openrouter.ai/google/gemini-2.0-flash-exp:free/uptime), [Gemini 2.0 Flash Thinking Experimental](https://openrouter.ai/google/gemini-2.0-flash-thinking-exp:free/uptime), [Gemini Pro 2.5 Experimental](https://openrouter.ai/google/gemini-2.5-pro-exp-03-25:free/uptime)
 
 ### Cloud DBs
 
