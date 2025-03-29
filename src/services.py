@@ -53,15 +53,16 @@ def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
         - If translation is enabled, the translated message follows the original
 
     """
-    answer_md = markdownify(answer)
-    if len(answer_md) > 4000:  # 4096 limit # noqa: PLR2004
-        chunks = smart_split(answer, 4000)
-        for text in chunks:
-            text_md = markdownify(text)
-            bot.reply_to(message, text_md, parse_mode="MarkdownV2")
-            time.sleep(1)
-    else:
-        bot.reply_to(message, answer_md, parse_mode="MarkdownV2")
+    if not user.use_translator:
+        answer_md = markdownify(answer)
+        if len(answer_md) > 4000:  # 4096 limit # noqa: PLR2004
+            chunks = smart_split(answer, 4000)
+            for text in chunks:
+                text_md = markdownify(text)
+                bot.reply_to(message, text_md, parse_mode="MarkdownV2")
+                time.sleep(1)
+        else:
+            bot.reply_to(message, answer_md, parse_mode="MarkdownV2")
 
     if user.use_translator:
         translation = translate(answer, target_language=user.target_language)
