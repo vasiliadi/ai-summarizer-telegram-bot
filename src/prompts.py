@@ -20,6 +20,7 @@ PROMPTS = {
         Convert casual spoken language into professional writing while maintaining original meaning
 
         Present all information in clear, professional language, organizing complex ideas into digestible segments while preserving important details and relationships.
+        Return it in English language.
 
         Please analyze and summarize the content following this structure:
 
@@ -108,6 +109,8 @@ PROMPTS = {
 
         Remember to focus on the most important and relevant information from the video.
         Your summary should provide a clear and accurate representation of the video's content, despite any challenges in the original transcript.
+        Do not include preprocessing information.
+        Return it in English language.
 
         Here is transcript or audio file:
         """,
