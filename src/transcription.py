@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 
 from replicate.exceptions import ModelError
-from requests.exceptions import ProxyError
+from requests.exceptions import ProxyError, SSLError
 from tenacity import (
     before_sleep_log,
     retry,
@@ -55,7 +55,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
     stop=stop_after_attempt(3),
     wait=wait_fixed(10),
     retry=retry_if_exception_type(
-        (ProxyError),
+        (ProxyError, SSLError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
