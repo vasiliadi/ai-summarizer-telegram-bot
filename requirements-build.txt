@@ -1,4 +1,4 @@
 SQLAlchemy==2.0.40
 psycopg2-binary==2.9.10
 alembic==1.15.2
-modal==0.73.167
+modal==0.73.169
