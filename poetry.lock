@@ -1503,14 +1503,14 @@ files = [
 
 [[package]]
 name = "modal"
-version = "0.74.41"
+version = "0.75.6"
 description = "Python client library for Modal"
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "modal-0.74.41-py3-none-any.whl", hash = "sha256:9beae78028ae35aba835f71f9206d2708ecf631bb19c7a18327f354688b1178d"},
-    {file = "modal-0.74.41.tar.gz", hash = "sha256:219473530c76140691a70cf1ef48a631f64b54a1a01762d73889a10719aeeb7f"},
+    {file = "modal-0.75.6-py3-none-any.whl", hash = "sha256:08be2f58e331f09a9a9495f8669c08683c77d9b7819d48ddfdd534b9503c0fb8"},
+    {file = "modal-0.75.6.tar.gz", hash = "sha256:b72e9df21e8c24c7a4bf071fb6cedfa507f8989d1781ecf730eacad90f0be2dc"},
 ]
 
 [package.dependencies]
@@ -1518,9 +1518,9 @@ aiohttp = "*"
 certifi = "*"
 click = ">=8.1.0"
 grpclib = "0.4.7"
-protobuf = ">=3.19,<4.24.0 || >4.24.0,<6.0"
+protobuf = ">=3.19,<4.24.0 || >4.24.0,<7.0"
 rich = ">=12.0.0"
-synchronicity = ">=0.9.10,<0.10.0"
+synchronicity = ">=0.9.12,<0.10.0"
 toml = "*"
 typer = ">=0.9"
 types-certifi = "*"
@@ -2665,14 +2665,14 @@ sqlcipher = ["sqlcipher3_binary"]
 
 [[package]]
 name = "synchronicity"
-version = "0.9.10"
+version = "0.9.12"
 description = "Export blocking and async library versions from a single async implementation"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
 files = [
-    {file = "synchronicity-0.9.10-py3-none-any.whl", hash = "sha256:5073064753961d930366520a4fb04d3b9acd98d6d6eba946374421a9e18ff042"},
-    {file = "synchronicity-0.9.10.tar.gz", hash = "sha256:7460a471190ba53c1ae3e15f9e51ed28d8bcc80df867194686ed28eaad5f19f2"},
+    {file = "synchronicity-0.9.12-py3-none-any.whl", hash = "sha256:b006f57bd216d55e578316096a11b6dc16016d6b48e2766bcffabe40c88f9793"},
+    {file = "synchronicity-0.9.12.tar.gz", hash = "sha256:977f3ed8f6e35de4d1a3f0aeee4937143ba8d913f531d33e8df7c539b2792fb8"},
 ]
 
 [package.dependencies]
@@ -3177,4 +3177,4 @@ test = ["pytest (>=8.1,<9.0)", "pytest-rerunfailures (>=14.0,<15.0)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<3.14"
-content-hash = "3606d201896441f61497f87402b89729799b39bfaf7e6c0ab5614221f8714aee"
+content-hash = "879667bda192c3f6b08cffaba40d9a68704c0434eb57d3d078d941e43c7b4bac"
