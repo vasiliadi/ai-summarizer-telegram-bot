@@ -1503,20 +1503,20 @@ files = [
 
 [[package]]
 name = "modal"
-version = "0.75.6"
+version = "0.75.7"
 description = "Python client library for Modal"
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "modal-0.75.6-py3-none-any.whl", hash = "sha256:08be2f58e331f09a9a9495f8669c08683c77d9b7819d48ddfdd534b9503c0fb8"},
-    {file = "modal-0.75.6.tar.gz", hash = "sha256:b72e9df21e8c24c7a4bf071fb6cedfa507f8989d1781ecf730eacad90f0be2dc"},
+    {file = "modal-0.75.7-py3-none-any.whl", hash = "sha256:570d28c73aaec00059d72d21f3ddb49b8f289353fa776d4e5114355b7914a0de"},
+    {file = "modal-0.75.7.tar.gz", hash = "sha256:4cf14d9b35e272a8f6ffad2d74b5b7fc9012e51a8a4ed6959b0fa0257ab602b1"},
 ]
 
 [package.dependencies]
 aiohttp = "*"
 certifi = "*"
-click = ">=8.1.0"
+click = ">=8.1.0,<8.2.0"
 grpclib = "0.4.7"
 protobuf = ">=3.19,<4.24.0 || >4.24.0,<7.0"
 rich = ">=12.0.0"
