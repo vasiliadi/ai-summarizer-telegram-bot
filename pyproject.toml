@@ -35,7 +35,7 @@ package-mode = false
 python-dotenv = "^1.0.1"
 alembic = "^1.14.1"
 black = "^25.0.0"
-modal = "^0.75.0"
+modal = "^1.0.0"
 
 [tool.mypy]
 ignore_missing_imports = true
