@@ -57,8 +57,8 @@ ALLOWED_MODELS_FOR_SUMMARY = [
     "gemini-1.5-pro",
     "gemini-1.5-flash",
     "gemini-2.0-flash",
-    "gemini-2.5-pro-exp-03-25",
-    "gemini-2.5-flash-preview-04-17",
+    "gemini-2.5-flash-preview-05-20",
+    "gemma-3n-e4b-it",
 ]
 # if change DEFAULT_MODEL_ID_FOR_SUMMARY, also change in models.py
 DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-2.0-flash"
