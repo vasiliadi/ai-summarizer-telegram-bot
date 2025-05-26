@@ -81,7 +81,10 @@ def get_yt_transcript(url: str) -> str:
         msg = "Unknown URL"
         raise ValueError(msg)
 
-    ytt_api = YouTubeTranscriptApi(proxy_config=GenericProxyConfig(https_url=PROXY))
+    if PROXY:
+        ytt_api = YouTubeTranscriptApi(proxy_config=GenericProxyConfig(https_url=PROXY))
+    else:
+        ytt_api = YouTubeTranscriptApi()
 
     try:
         transcript = ytt_api.fetch(video_id)
