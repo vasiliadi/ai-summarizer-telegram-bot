@@ -17,11 +17,10 @@ with image.imports():
 
 
 @app.function(
-    schedule=modal.Cron("0 8 * * *"),  # PST time. Every day at 8:00
+    schedule=modal.Cron("0 0 * * *", timezone="America/Los_Angeles"),  # PST8PDT
     retries=modal.Retries(max_retries=3),
 )
 def clear_limit() -> "RateLimitResult":
-    # pylint: disable=invalid-name
     # Duplicated from config.py
     REDIS_URL = os.environ["REDIS_URL"]
     RATE_LIMITER_URL = f"{REDIS_URL}/0"
