@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
-![Valkey](https://img.shields.io/badge/Valkey-8.0.2-blue)
+![Valkey](https://img.shields.io/badge/Valkey-8.0.3-blue)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/e215a12081084eed95c60e5e80480218)](https://app.codacy.com/gh/vasiliadi/ai-summarizer-telegram-bot/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fvasiliadi%2Fai-summarizer-telegram-bot.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fvasiliadi%2Fai-summarizer-telegram-bot?ref=badge_shield&issueType=license)
 [![Poetry](https://img.shields.io/endpoint?url=https://python-poetry.org/badge/v0.json)](https://python-poetry.org/)
@@ -145,7 +145,7 @@ While text transcripts can provide a solid foundation for understanding the cont
 [Renovate bot](https://docs.renovatebot.com/), [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) \
 [crontab guru](https://crontab.guru/) \
 [Gemini API Cookbook](https://github.com/google-gemini/cookbook/) \
-Uptime stats: [Gemini Pro 1.5](https://openrouter.ai/google/gemini-pro-1.5/uptime), [Gemini Flash 1.5](https://openrouter.ai/google/gemini-flash-1.5/uptime), [Gemini Flash 2.0](https://openrouter.ai/google/gemini-2.0-flash-exp:free/uptime), [Gemini 2.0 Flash Thinking Experimental](https://openrouter.ai/google/gemini-2.0-flash-thinking-exp:free/uptime), [Gemini Pro 2.5 Experimental](https://openrouter.ai/google/gemini-2.5-pro-exp-03-25:free/uptime)
+Uptime stats: [Gemini Models](https://openrouter.ai/google)
 
 ### Cloud DBs
 
