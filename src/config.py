@@ -56,8 +56,9 @@ MODEL_ID_FOR_TRANSLATION = "gemini-2.0-flash"
 ALLOWED_MODELS_FOR_SUMMARY = [
     "gemini-1.5-flash",
     "gemini-2.0-flash",
-    "gemini-2.5-flash-preview-05-20",
+    "gemini-2.5-flash",
     "gemma-3n-e4b-it",
+    "gemma-3-27b-it",
 ]
 # if change DEFAULT_MODEL_ID_FOR_SUMMARY, also change in models.py
 DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-2.0-flash"
