@@ -41,7 +41,6 @@ RATE_LIMITER_URL = f"{REDIS_URL}/0"
 
 # Proxy
 PROXY = os.environ.get("PROXY", "")
-WEB_SCRAPE_PROXY = os.environ.get("WEB_SCRAPE_PROXY", PROXY)
 
 
 # Telegram bot config

@@ -17,7 +17,7 @@ from tenacity import (
 )
 from youtube_transcript_api._errors import TranscriptsDisabled, VideoUnavailable
 
-from config import GEMINI_CONFIG, gemini_client
+from config import GEMINI_CONFIG, SAFETY_SETTINGS, gemini_client
 from download import download_castro, download_tg, download_yt
 from prompts import PROMPTS
 from services import check_quota
@@ -161,10 +161,18 @@ def summarize_webpage(content: str, model: str, prompt_key: str) -> str:
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {content}").strip()
     check_quota(quantity=1)
+    tools = [types.Tool(url_context=types.UrlContext())]
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
-        config=GEMINI_CONFIG,
+        config=types.GenerateContentConfig(
+            system_instruction=None,
+            safety_settings=SAFETY_SETTINGS,
+            tools=tools,
+            response_mime_type="text/plain",
+            max_output_tokens=8192,
+            thinking_config=types.ThinkingConfig(thinking_budget=-1),
+        ),
     )
     if response.text is None:
         raise AttributeError

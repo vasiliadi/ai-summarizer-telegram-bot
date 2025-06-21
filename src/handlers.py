@@ -2,7 +2,6 @@ import re
 from typing import TYPE_CHECKING
 
 from config import bot
-from parse import parse_webpage_with_requests
 from services import send_answer
 from summary import summarize, summarize_webpage, summarize_with_document
 
@@ -67,13 +66,8 @@ def handle_url(message: "Message", user: "UsersOrm", url: str) -> None:
         )
         send_answer(message, user, answer)
     elif re.match(other_url_pattern, url):
-        content = parse_webpage_with_requests(url)
-        if content is None:
-            bot.reply_to(message, "No content to summarize.")
-            return
-
         answer = summarize_webpage(
-            content=content,
+            content=url,
             model=user.summarizing_model,
             prompt_key=user.prompt_key_for_summary,
         )
