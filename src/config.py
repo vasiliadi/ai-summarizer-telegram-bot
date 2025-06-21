@@ -54,7 +54,6 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 MODEL_ID_FOR_TRANSLATION = "gemini-2.0-flash"
 ALLOWED_MODELS_FOR_SUMMARY = [
-    "gemini-2.0-flash",
     "gemini-2.5-flash",
 ]
 # if change DEFAULT_MODEL_ID_FOR_SUMMARY, also change in models.py
