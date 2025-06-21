@@ -108,8 +108,7 @@ def download_castro(url: str) -> str:
             logger.error("%s: status code", r.status_code)
             raise
         with Path(temprorary_file_name).open("wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
+            f.writelines(r.iter_content(chunk_size=8192))
     logger.debug("File downloaded...")
     return temprorary_file_name
 
