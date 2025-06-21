@@ -43,7 +43,6 @@ DB_URL="postgresql+driver://user:password@host:port/database"
 REDIS_URL="rediss://default:password@host:port"
 SENTRY_DSN="your_sentry_dsn"
 PROXY=""
-WEB_SCRAPE_PROXY=""
 LOG_LEVEL="ERROR"
 MODAL_TOKEN_ID="your_token"
 MODAL_TOKEN_SECRET="your_token_secret"
@@ -98,6 +97,8 @@ Many websites have protections against bots, and some content requires JavaScrip
 Or even solution like [Browserbase](https://docs.browserbase.com/quickstart/selenium).
 
 Another approach (by default) is to use a special proxy. This approach requiring special proxy (`WEB_SCRAPE_PROXY`) solutions for web scraping, such as [ScrapingBee](https://www.scrapingbee.com/), [ScrapingAnt](https://scrapingant.com/), [WebScrapingAPI](https://www.webscrapingapi.com/), [scraperapi](https://www.scraperapi.com/), or others.
+
+Now uses `Url context` tool.
 
 #### Remote functions
 
