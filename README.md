@@ -35,7 +35,7 @@ After `/start`, you need to set approved to `True` for wanted user IDs. Dependin
 
 Example of `.env` file:
 
-```text
+```env
 TG_API_TOKEN="your_api_key"
 GEMINI_API_KEY="your_api_key"
 REPLICATE_API_TOKEN="your_api_key"
