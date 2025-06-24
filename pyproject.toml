@@ -1,6 +1,6 @@
 [project]
 name = "ai-summarizer-telegram-bot"
-version = "0.5.0"
+version = "0.5.1"
 description = "Bot to summarize video from youtube.com and podcasts from castro.fm"
 authors = []
 license = {text = "Unlicense license"}
