@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from pathlib import Path
 
@@ -85,6 +86,8 @@ def get_yt_transcript(url: str) -> str:
         ytt_api = YouTubeTranscriptApi(proxy_config=GenericProxyConfig(https_url=PROXY))
     else:
         ytt_api = YouTubeTranscriptApi()
+
+    video_id = re.match(r"^[^?]+", video_id).group()
 
     try:
         transcript = ytt_api.fetch(video_id)
