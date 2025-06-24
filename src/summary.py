@@ -15,7 +15,7 @@ from tenacity import (
     stop_after_attempt,
     wait_fixed,
 )
-from youtube_transcript_api._errors import TranscriptsDisabled, VideoUnavailable
+from youtube_transcript_api._errors import TranscriptsDisabled
 
 from config import GEMINI_CONFIG, SAFETY_SETTINGS, gemini_client
 from download import download_castro, download_tg, download_yt
@@ -318,7 +318,6 @@ def summarize(
                                   """).strip()
                 except (
                     TranscriptsDisabled,
-                    VideoUnavailable,
                     RetryError,
                 ):
                     pass
