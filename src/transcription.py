@@ -1,5 +1,4 @@
 import logging
-import re
 import time
 from pathlib import Path
 
@@ -73,11 +72,11 @@ def get_yt_transcript(url: str) -> str:
 
     """
     if url.startswith("https://www.youtube.com/watch"):
-        video_id = url.replace("https://www.youtube.com/watch?v=", "")
+        video_id = url.replace("https://www.youtube.com/watch?v=", "").split("?")[0]
     elif url.startswith("https://youtu.be/"):
-        video_id = url.replace("https://youtu.be/", "")
+        video_id = url.replace("https://youtu.be/", "").split("?")[0]
     elif url.startswith("https://www.youtube.com/live/"):
-        video_id = url.replace("https://www.youtube.com/live/", "")
+        video_id = url.replace("https://www.youtube.com/live/", "").split("?")[0]
     else:
         msg = "Unknown URL"
         raise ValueError(msg)
@@ -86,8 +85,6 @@ def get_yt_transcript(url: str) -> str:
         ytt_api = YouTubeTranscriptApi(proxy_config=GenericProxyConfig(https_url=PROXY))
     else:
         ytt_api = YouTubeTranscriptApi()
-
-    video_id = re.match(r"^[^?]+", video_id).group()
 
     try:
         transcript = ytt_api.fetch(video_id)
