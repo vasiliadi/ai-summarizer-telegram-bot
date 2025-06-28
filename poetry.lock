@@ -1246,21 +1246,21 @@ files = [
 
 [[package]]
 name = "modal"
-version = "1.0.4"
+version = "1.0.5"
 description = "Python client library for Modal"
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "modal-1.0.4-py3-none-any.whl", hash = "sha256:6c0d96bb49b09fa47e407a13e49545e32fe0803803b4330fbeb38de5e71209cc"},
-    {file = "modal-1.0.4.tar.gz", hash = "sha256:09a575ff5fcae1e690b10187bea6da7ff01430c38ec1785090bf7a7ccee7f408"},
+    {file = "modal-1.0.5-py3-none-any.whl", hash = "sha256:e575414b7e10c5ad97ae0a77149456f021e9f2c457559bb4a5af70771f481c09"},
+    {file = "modal-1.0.5.tar.gz", hash = "sha256:1c6927dd5eb9bd8d86d83ee499b87d64366525f1dd3e5b31d1ac1ed62090f72a"},
 ]
 
 [package.dependencies]
 aiohttp = "*"
 certifi = "*"
 click = ">=8.1.0,<8.2.0"
-grpclib = "0.4.7"
+grpclib = ">=0.4.7,<0.4.9"
 protobuf = ">=3.19,<4.24.0 || >4.24.0,<7.0"
 rich = ">=12.0.0"
 synchronicity = ">=0.9.15,<0.10.0"
