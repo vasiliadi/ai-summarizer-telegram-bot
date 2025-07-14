@@ -3,14 +3,14 @@
 # Prompts
 PROMPTS = {
     "basic_prompt_for_transcript": """
-        Read or listen carefully transcription or audio file and provide a detailed summary.
+        Read or listen carefully provided content below and provide a detailed summary.
         Return it in English language.
 
-        Here is transcript or audio file:
+        Here is provided content:
         """,
     "soap_prompt_for_transcript": """
-        I need you to analyze and summarize a transcript or audio file using the SOAP method.
-        Please note that this transcript may contain speech recognition errors, inconsistent punctuation, non-verbal markers [music], [laughing], etc., and informal spoken language.
+        I need you to analyze and summarize provided content below using the SOAP method.
+        If provided content is transcript, please note that this transcript may contain speech recognition errors, inconsistent punctuation, non-verbal markers [music], [laughing], etc., and informal spoken language.
 
         Notes on handling transcript issues:
 
@@ -69,12 +69,12 @@ PROMPTS = {
         Future implications discussed
         Call-to-action or key learnings emphasized
 
-        Here is transcript or audio file:
+        Here is provided content:
         """,
     "key_points_for_transcript": """
-        You are tasked with summarizing a YouTube video transcript into at least 5 key points.
+        You are tasked with summarizing provided content below into at least 5 key points.
 
-        This task comes with several challenges:
+        This task comes with several challenges (if provided content is transcript):
         1. The transcript may contain errors, such as incorrect word recognition or lack of punctuation.
         2. It's more akin to video subtitles than a formal transcript.
         3. The transcript may include non-verbal cues like [music] or [laughing].
@@ -112,7 +112,7 @@ PROMPTS = {
         Do not include preprocessing information.
         Return it in English language.
 
-        Here is transcript or audio file:
+        Here is provided content:
         """,
 }
 
