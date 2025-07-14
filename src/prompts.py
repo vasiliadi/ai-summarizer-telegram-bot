@@ -3,14 +3,14 @@
 # Prompts
 PROMPTS = {
     "basic_prompt_for_transcript": """
-        Read or listen carefully provided content below and provide a detailed summary.
+        Read or listen carefully to the provided content below and provide a detailed summary.
         Return it in English language.
 
-        Here is provided content:
+        Here is the provided content:
         """,
     "soap_prompt_for_transcript": """
-        I need you to analyze and summarize provided content below using the SOAP method.
-        If provided content is transcript, please note that this transcript may contain speech recognition errors, inconsistent punctuation, non-verbal markers [music], [laughing], etc., and informal spoken language.
+        I need you to analyze and summarize the provided content below using the SOAP method.
+        If the provided content is a transcript, please note that this transcript may contain speech recognition errors, inconsistent punctuation, non-verbal markers [music], [laughing], etc., and informal spoken language.
 
         Notes on handling transcript issues:
 
@@ -69,7 +69,7 @@ PROMPTS = {
         Future implications discussed
         Call-to-action or key learnings emphasized
 
-        Here is provided content:
+        Here is the provided content:
         """,
     "key_points_for_transcript": """
         You are tasked with summarizing provided content below into at least 5 key points.
@@ -112,7 +112,7 @@ PROMPTS = {
         Do not include preprocessing information.
         Return it in English language.
 
-        Here is provided content:
+        Here is the provided content:
         """,
 }
 
