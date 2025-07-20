@@ -1246,14 +1246,14 @@ files = [
 
 [[package]]
 name = "modal"
-version = "1.0.5"
+version = "1.1.0"
 description = "Python client library for Modal"
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "modal-1.0.5-py3-none-any.whl", hash = "sha256:e575414b7e10c5ad97ae0a77149456f021e9f2c457559bb4a5af70771f481c09"},
-    {file = "modal-1.0.5.tar.gz", hash = "sha256:1c6927dd5eb9bd8d86d83ee499b87d64366525f1dd3e5b31d1ac1ed62090f72a"},
+    {file = "modal-1.1.0-py3-none-any.whl", hash = "sha256:985f47427f214e098768995782fda3915141af5f84007815db0c10c45e4a6a16"},
+    {file = "modal-1.1.0.tar.gz", hash = "sha256:190ea96d45fbdfd6d6cb545a736bf1ef5599511d346ae94cfd773528a33b6097"},
 ]
 
 [package.dependencies]
@@ -1263,7 +1263,7 @@ click = ">=8.1.0,<8.2.0"
 grpclib = ">=0.4.7,<0.4.9"
 protobuf = ">=3.19,<4.24.0 || >4.24.0,<7.0"
 rich = ">=12.0.0"
-synchronicity = ">=0.9.15,<0.10.0"
+synchronicity = ">=0.10.1,<0.11.0"
 toml = "*"
 typer = ">=0.9"
 types-certifi = "*"
@@ -2265,14 +2265,14 @@ sqlcipher = ["sqlcipher3_binary"]
 
 [[package]]
 name = "synchronicity"
-version = "0.9.15"
+version = "0.10.1"
 description = "Export blocking and async library versions from a single async implementation"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
 files = [
-    {file = "synchronicity-0.9.15-py3-none-any.whl", hash = "sha256:6e3008f54795d73d59fbd133c812734e7c83f4a6f44257cc2a3251237ee8921b"},
-    {file = "synchronicity-0.9.15.tar.gz", hash = "sha256:9451d0caef3509e9f980ba62885a3b8ba7ab247845618e9d9c9c8d11da7ee84b"},
+    {file = "synchronicity-0.10.1-py3-none-any.whl", hash = "sha256:af9c077586cf4895aea88fe9104d966f50b8fac730f79117383591acb5489952"},
+    {file = "synchronicity-0.10.1.tar.gz", hash = "sha256:4af861f215a11b885e18cf2985ba8b3a1aa0000d440a9b615402f724a453a8c2"},
 ]
 
 [package.dependencies]
