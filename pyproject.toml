@@ -1,58 +1,33 @@
 [project]
 name = "ai-summarizer-telegram-bot"
-version = "0.5.1"
+version = "0.6.0"
 description = "Bot to summarize video from youtube.com and podcasts from castro.fm"
-authors = []
-license = {text = "Unlicense license"}
 readme = "README.md"
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.13"
 dependencies = [
-    "requests[socks] (>=2.32.3,<3.0.0)",
-    "yt-dlp[default] (>=2025.1.15,<2026.0.0)",
-    "beautifulsoup4 (>=4.12.3,<5.0.0)",
-    "pytelegrambotapi (>=4.26.0,<5.0.0)",
-    "replicate (>=1.0.4,<2.0.0)",
-    "sqlalchemy (>=2.0.37,<3.0.0)",
-    "psycopg2-binary (>=2.9.10,<3.0.0)",
-    "telegramify-markdown (>=0.5.0,<0.6.0)",
-    "sentry-sdk (>=2.20.0,<3.0.0)",
-    "tenacity (>=8.2.3,<9.0.0)",
-    "rush[redis] (>=2021.4.0,<2022.0.0)",
-    "coloredlogs (>=15.0.1,<16.0.0)",
-    "youtube-transcript-api (>=1.1.0,<1.2.0)",
-    "google-genai (>=1.25.0,<1.26.0)",
+    "beautifulsoup4>=4.13.4",
+    "coloredlogs>=15.0.1",
+    "google-genai>=1.25.0",
+    "psycopg2-binary>=2.9.10",
+    "pytelegrambotapi>=4.27.0",
+    "replicate>=1.0.7",
+    "requests[socks]>=2.32.4",
+    "rush[redis]>=2021.4.0",
+    "sentry-sdk>=2.33.0",
+    "sqlalchemy>=2.0.41",
+    "telegramify-markdown>=0.5.1",
+    "tenacity>=8.5.0",
+    "youtube-transcript-api>=1.1.1",
+    "yt-dlp[default]>=2025.6.30",
 ]
 
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
-package-mode = false
-
-[tool.poetry.group.dev.dependencies]
-python-dotenv = "^1.0.1"
-alembic = "^1.14.1"
-black = "^25.0.0"
-modal = "^1.0.0"
-
-[tool.mypy]
-ignore_missing_imports = true
-follow_imports = "silent"
-disallow_untyped_defs = true
-python_version = "3.13"
-exclude = ["temp.*", "migrations.*", "scripts.*"]
-
-[tool.pylint]
-disable = ["C0114", "C0115", "C0116", "C0301"]
-ignore = ["temp", "migrations", "scripts",]
-
-[tool.isort]
-py_version = 313
-skip_glob = ["temp/*", "migrations/*"]
-multi_line_output = 3
-include_trailing_comma = true
-line_length = 88
+[dependency-groups]
+dev = [
+    "alembic>=1.16.4",
+    "black>=25.1.0",
+    "modal>=1.0.5",
+    "python-dotenv>=1.1.1",
+]
 
 [tool.ruff]
 extend-exclude = ["temp", "migrations"]
@@ -62,56 +37,56 @@ target-version = "py313"
 
 [tool.ruff.lint]
 select = [
-  "E",     # pycodestyle
-  "F",     # Pyflakes
-  "B",     # flake8-bugbear
-  "I",     # isort
-  "W",     # pycodestyle
-  "SIM",   # flake8-simplify
-  "UP",    # pyupgrade
-  "LOG",   # flake8-logging
-  "G",     # flake8-logging-format
-  "PT",    # flake8-pytest-style
-  "S",     # flake8-bandit
-  "DTZ",   # flake8-datetimez
-  "Q",     # flake8-quotes
-  "RET",   # flake8-return
-  "TID",   # flake8-tidy-imports
-  "PTH",   # flake8-use-pathlib
-  "PERF",  # Perflint
-  "FURB",  # refurb
-  "RUF",   # Ruff-specific rules
-  "C90",   # mccabe
-  "N",     # pep8-naming
-  "A",     # flake8-builtins
-  "COM",   # flake8-commas
-  "CPY",   # flake8-copyright
-  "C4",    # flake8-comprehensions
-  "ICN",   # flake8-import-conventions
-  "T20",   # flake8-print
-  "RSE",   # flake8-raise
-  "TCH",   # flake8-type-checking
-  "ARG",   # flake8-unused-arguments
-  "FIX",   # flake8-fixme
-  "ERA",   # eradicate
-  "PL",    # Pylint
-  "FLY",   # flynt
-  "D",     # pydocstyle
-  "ANN",   # flake8-annotations
-  "ASYNC", # flake8-async
-  "T10",   # flake8-debugger
-  "EM",    # flake8-errmsg
-  "EXE",   # flake8-executable
-  "FA",    # flake8-future-annotations
-  "ISC",   # flake8-implicit-str-concat
-  "INP",   # flake8-no-pep420
-  "PIE",   # flake8-pie
-  "PYI",   # flake8-pyi
-  "SLF",   # flake8-self
-  "SLOT",  # flake8-slots
-  "INT",   # flake8-gettext
-  "PGH",   # pygrep-hooks
-  "DOC",   # pydoclint
+    "E",     # pycodestyle
+    "F",     # Pyflakes
+    "B",     # flake8-bugbear
+    "I",     # isort
+    "W",     # pycodestyle
+    "SIM",   # flake8-simplify
+    "UP",    # pyupgrade
+    "LOG",   # flake8-logging
+    "G",     # flake8-logging-format
+    "PT",    # flake8-pytest-style
+    "S",     # flake8-bandit
+    "DTZ",   # flake8-datetimez
+    "Q",     # flake8-quotes
+    "RET",   # flake8-return
+    "TID",   # flake8-tidy-imports
+    "PTH",   # flake8-use-pathlib
+    "PERF",  # Perflint
+    "FURB",  # refurb
+    "RUF",   # Ruff-specific rules
+    "C90",   # mccabe
+    "N",     # pep8-naming
+    "A",     # flake8-builtins
+    "COM",   # flake8-commas
+    "CPY",   # flake8-copyright
+    "C4",    # flake8-comprehensions
+    "ICN",   # flake8-import-conventions
+    "T20",   # flake8-print
+    "RSE",   # flake8-raise
+    "TCH",   # flake8-type-checking
+    "ARG",   # flake8-unused-arguments
+    "FIX",   # flake8-fixme
+    "ERA",   # eradicate
+    "PL",    # Pylint
+    "FLY",   # flynt
+    "D",     # pydocstyle
+    "ANN",   # flake8-annotations
+    "ASYNC", # flake8-async
+    "T10",   # flake8-debugger
+    "EM",    # flake8-errmsg
+    "EXE",   # flake8-executable
+    "FA",    # flake8-future-annotations
+    "ISC",   # flake8-implicit-str-concat
+    "INP",   # flake8-no-pep420
+    "PIE",   # flake8-pie
+    "PYI",   # flake8-pyi
+    "SLF",   # flake8-self
+    "SLOT",  # flake8-slots
+    "INT",   # flake8-gettext
+    "PGH",   # pygrep-hooks
+    "DOC",   # pydoclint
 ]
 ignore = ["S603", "S607", "D100", "D401"]
 exclude = ["scripts"]
