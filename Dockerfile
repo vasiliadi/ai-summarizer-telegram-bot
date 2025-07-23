@@ -15,18 +15,19 @@ RUN python scripts/db.py \
 FROM python:3.13-alpine
 ENV ENV=PROD
 ENV PYTHONUNBUFFERED=1 \
-    SENTRY_ENVIRONMENT=${ENV} \
-    PATH="/root/.local/bin:${PATH}"
+    SENTRY_ENVIRONMENT=${ENV}
 WORKDIR /app
 RUN apk add --no-cache ffmpeg
-COPY pyproject.toml poetry.lock ./
-ADD https://install.python-poetry.org install-poetry.py
-RUN python install-poetry.py \
-    && poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-root --no-cache --only main \
-    && rm -f pyproject.toml poetry.lock install-poetry.py
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
+COPY pyproject.toml uv.lock ./
+RUN uv sync \
+    --frozen \
+    --compile-bytecode \
+    --python-preference only-system \
+    && rm -f pyproject.toml uv.lock
+RUN rm -f pyproject.toml poetry.lock install-poetry.py
 COPY --from=builder /app/src .
 RUN adduser -D -u 1000 -s /sbin/nologin bot \
     && chown -R bot:bot /app
 USER bot
-ENTRYPOINT ["python", "main.py"]
+ENTRYPOINT ["uv", "run", "main.py"]
