@@ -26,7 +26,6 @@ RUN uv sync \
     --compile-bytecode \
     --python-preference only-system \
     && rm -f pyproject.toml uv.lock
-RUN rm -f pyproject.toml poetry.lock install-poetry.py
 COPY --from=builder /app/src .
 RUN adduser -D -u 1000 -s /sbin/nologin bot \
     && chown -R bot:bot /app
