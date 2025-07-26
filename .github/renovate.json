@@ -1,9 +1,6 @@
 {
+  "enabled": false,
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
-  "schedule": [
-    "on sunday"
-  ]
+  "extends": ["config:recommended"],
+  "schedule": ["on sunday"]
 }
