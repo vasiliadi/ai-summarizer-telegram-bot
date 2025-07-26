@@ -1341,15 +1341,15 @@ wheels = [
 
 [[package]]
 name = "youtube-transcript-api"
-version = "1.1.1"
+version = "1.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "defusedxml" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/eb/e5/226a09b9ca49136f901a969fd65bcd055eaa980fd04ac065dac4741e6b00/youtube_transcript_api-1.1.1.tar.gz", hash = "sha256:2e1162d45ece14223a58a4a39176c464fdd33d5ebdd6def18ebb038dea62f667", size = 470360, upload-time = "2025-07-03T13:43:23.867Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/95/9d6ebcbfd4993ff239d9ebc59dc9b9505b88b7f7001f379692d07ee05fba/youtube_transcript_api-1.2.1.tar.gz", hash = "sha256:7c16ba3e981dd7ab4c0f00f42e5a69b19bdb9f13324c60bd6cc8f97701699900", size = 469216, upload-time = "2025-07-22T16:19:11.406Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a7/8a/b942a230084045da4a255bbebca97693569535670c0a23c09096881b2846/youtube_transcript_api-1.1.1-py3-none-any.whl", hash = "sha256:a438a824d67c0885855047e2b38993abdd4f59b69a983cf27b50a06c9d564064", size = 485906, upload-time = "2025-07-03T13:43:22.806Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/54/9581c511e47582da4286a65d90b82dd36cbb3eab7d452a58c625bf74dc60/youtube_transcript_api-1.2.1-py3-none-any.whl", hash = "sha256:4852356c8459aceab73f8f05e0f7fc4762d5f278e7e34bd6359fce7427df853b", size = 484622, upload-time = "2025-07-22T16:19:09.838Z" },
 ]
 
 [[package]]
