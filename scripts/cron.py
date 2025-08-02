@@ -1,6 +1,6 @@
 import modal
 
-image = modal.Image.debian_slim(python_version="3.12").pip_install("rush[redis]")
+image = modal.Image.debian_slim(python_version="3.12").uv_pip_install("rush[redis]")
 secrets = modal.Secret.from_name("resetlimit-secrets")
 
 app = modal.App(name="ResetLimit", image=image, secrets=[secrets])
