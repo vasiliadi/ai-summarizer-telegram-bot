@@ -88,12 +88,12 @@ PROMPTS = {
 
         2. Content Analysis:
         a. Read through the preprocessed transcript carefully.
-        b. Identify the main topics or themes discussed in the video.
+        b. Identify the main topics or themes discussed in the content.
         c. Look for key information, important facts, or central ideas presented.
 
         3. Summarization:
         a. Distill the content into at least 5 key points.
-        b. Ensure each key point captures a distinct and significant aspect of the video's content.
+        b. Ensure each key point captures a distinct and significant aspect of the content.
         c. Present the information in a clear, concise manner.
         d. If the video content allows for more than 5 key points, include them as well.
 
@@ -107,9 +107,10 @@ PROMPTS = {
         - [Concise statement of the fifth main idea]
         [Additional key points if applicable]
 
-        Remember to focus on the most important and relevant information from the video.
-        Your summary should provide a clear and accurate representation of the video's content, despite any challenges in the original transcript.
+        Remember to focus on the most important and relevant information from the content.
+        Your summary should provide a clear and accurate representation content, despite any challenges in the original transcript.
         Do not include preprocessing information.
+        Do not preface responses with phrases like "Here are at least five key points:" - simply provide this key points.
         Return it in English language.
 
         Here is the provided content:
