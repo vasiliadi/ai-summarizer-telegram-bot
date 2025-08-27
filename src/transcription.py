@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def transcribe(file: str, sleep_time: int = 10) -> str:
-    """Transcribe an audio file using the Incredibly Fast Whisper model.
+    """Transcribe an audio file using WhisperX model.
 
     Args:
         file (str): Path to the audio file to transcribe.
@@ -36,12 +36,12 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
         ModelError: If the transcription fails or is canceled.
 
     """
-    model = replicate_client.models.get("vaibhavs10/incredibly-fast-whisper")
+    model = replicate_client.models.get("victor-upmeet/whisperx")
     version = model.versions.get(model.versions.list()[0].id)
     with Path(file).open("rb") as audio:
         prediction = replicate_client.predictions.create(
             version=version,
-            input={"audio": audio},
+            input={"audio_file": audio},
         )
     while prediction.status != "succeeded":
         if prediction.status in ("failed", "canceled"):
@@ -49,7 +49,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
             raise ModelError(msg)
         prediction.reload()
         time.sleep(sleep_time)
-    return prediction.output["text"]
+    return "".join([segment["text"] for segment in prediction.output["segments"]])
 
 
 @retry(
