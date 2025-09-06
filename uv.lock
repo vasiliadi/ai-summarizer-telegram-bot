@@ -605,7 +605,7 @@ wheels = [
 
 [[package]]
 name = "modal"
-version = "1.1.3"
+version = "1.1.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -622,9 +622,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "watchfiles" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/99/67bad0582adfdad88eee5918548b85fbb53c91af4ebb6d418ec01d7878ac/modal-1.1.3.tar.gz", hash = "sha256:6183117ceeb9d62696e9a6c181955669b241515c339c51f3d4c72d0688af44aa", size = 590327, upload-time = "2025-08-19T21:26:20.057Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ba/96/6696e536e7d0063eab645c11330e2daa5b87dbccc12c719307079b362050/modal-1.1.4.tar.gz", hash = "sha256:67f612f41ef6091e24a92fb9bb158fabf5e8f6ff7351a2c7ae2140bb112b871b", size = 594653, upload-time = "2025-09-03T22:25:38.44Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/06/71c85be04d43e5e627aa4fd505d745e4e59b3e9a83a77fb1087797ec4d0c/modal-1.1.3-py3-none-any.whl", hash = "sha256:4444cd5e59025ab595934e805eb139dfa3758f87ef44b443ca88dc139adac11b", size = 681441, upload-time = "2025-08-19T21:26:18.215Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/cf/6b3988de454d65e6f5b6471400dbb1f28ad4784f24abd5d3f392a39df782/modal-1.1.4-py3-none-any.whl", hash = "sha256:fcacbc22c5db59b76239f54e16e35c5a4a24cda10b465f1e4750311418939212", size = 685859, upload-time = "2025-09-03T22:25:35.477Z" },
 ]
 
 [[package]]
