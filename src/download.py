@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import requests
 from bs4 import BeautifulSoup
+from requests.exceptions import SSLError
 from tenacity import (
     before_sleep_log,
     retry,
@@ -67,6 +68,13 @@ def download_yt(url: str) -> str:
     return temprorary_file_name
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(10),
+    retry=retry_if_exception_type(SSLError),
+    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    reraise=False,
+)
 def download_castro(url: str) -> str:
     """Download audio from a Castro podcast URL and save it as an MP3 file.
 
