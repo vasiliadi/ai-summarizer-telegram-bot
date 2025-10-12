@@ -2,7 +2,6 @@ import logging
 import os
 from pathlib import Path
 
-import coloredlogs
 import replicate
 import sentry_sdk
 import telebot
@@ -30,7 +29,6 @@ sentry_sdk.init(
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "ERROR").upper()
 NUMERIC_LOG_LEVEL = getattr(logging, LOG_LEVEL, "ERROR")
 telebot.logger.setLevel(NUMERIC_LOG_LEVEL)
-coloredlogs.install(level=NUMERIC_LOG_LEVEL)
 
 
 # DB
