@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "beautifulsoup4>=4.13.4",
-    "coloredlogs>=15.0.1",
     "google-genai>=1.25.0",
     "psycopg2-binary>=2.9.10",
     "pytelegrambotapi>=4.27.0",
