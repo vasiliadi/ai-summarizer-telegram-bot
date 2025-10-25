@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 
 from defusedxml.ElementTree import ParseError
-from replicate.exceptions import ModelError
+from replicate.exceptions import ModelError, ReplicateError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
     before_sleep_log,
@@ -22,6 +22,13 @@ from config import PROXY, replicate_client
 logger = logging.getLogger(__name__)
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(10),
+    retry=retry_if_exception_type(ReplicateError),
+    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    reraise=False,
+)
 def transcribe(file: str, sleep_time: int = 10) -> str:
     """Transcribe an audio file using WhisperX model.
 
