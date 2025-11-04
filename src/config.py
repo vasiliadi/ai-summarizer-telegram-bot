@@ -23,6 +23,7 @@ sentry_sdk.init(
     traces_sample_rate=1.0,
     profiles_sample_rate=1.0,
     enable_tracing=True,
+    enable_logs=True,
 )
 
 # Logging
