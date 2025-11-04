@@ -10,7 +10,6 @@ from google.genai import types
 from rush import quota, throttle
 from rush.limiters import periodic
 from rush.stores import redis as redis_store
-from sentry_sdk.integrations.google_genai import GoogleGenAIIntegration
 
 if os.environ.get("ENV") != "PROD":
     from dotenv import load_dotenv
@@ -24,10 +23,6 @@ sentry_sdk.init(
     traces_sample_rate=1.0,
     profiles_sample_rate=1.0,
     enable_tracing=True,
-    send_default_pii=True,
-    integrations=[
-        GoogleGenAIIntegration(),
-    ],
 )
 
 # Logging
