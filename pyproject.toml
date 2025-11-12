@@ -1,6 +1,6 @@
 [project]
 name = "ai-summarizer-telegram-bot"
-version = "0.6.1"
+version = "0.7.0"
 description = "Bot to summarize video from youtube.com and podcasts from castro.fm"
 readme = "README.md"
 requires-python = ">=3.13"
