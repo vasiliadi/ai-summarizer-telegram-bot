@@ -49,7 +49,7 @@ def translate(text: str, target_language: str) -> str:
             safety_settings=SAFETY_SETTINGS,
             response_mime_type="text/plain",
             max_output_tokens=8192,
-            # thinking_config=types.ThinkingConfig(thinking_budget=0), # only for thinking models  # noqa: ERA001, E501
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
         ),
     )
     return translation.text
