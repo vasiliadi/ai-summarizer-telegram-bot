@@ -29,12 +29,11 @@ logger = logging.getLogger(__name__)
 
 
 def send_answer(message: "Message", answer: str) -> None:
-    """Send a response message to the user, with optional translation.
+    """Send a response message to the user.
 
     This function handles sending messages through the Telegram bot, including:
     - Converting the message to Markdown format
     - Splitting long messages into chunks if they exceed Telegram's length limit
-    - Translating the message if the user has translation enabled
 
     Args:
         message (Message): The original Telegram message to reply to
@@ -46,7 +45,6 @@ def send_answer(message: "Message", answer: str) -> None:
     Note:
         - Messages longer than 4000 characters are automatically split
         - There is a 1-second delay between sending chunks of split messages
-        - If translation is enabled, the translated message follows the original
 
     """
     answer_md = markdownify(answer)
