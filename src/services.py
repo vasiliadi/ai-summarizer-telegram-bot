@@ -21,17 +21,14 @@ from config import (
     per_minute_limit,
 )
 from exceptions import LimitExceededError
-from translate import translate
 
 if TYPE_CHECKING:
     from telebot.types import Message
 
-    from models import UsersOrm
-
 logger = logging.getLogger(__name__)
 
 
-def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
+def send_answer(message: "Message", answer: str) -> None:
     """Send a response message to the user, with optional translation.
 
     This function handles sending messages through the Telegram bot, including:
@@ -41,7 +38,6 @@ def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
 
     Args:
         message (Message): The original Telegram message to reply to
-        user (UsersOrm): The user object containing preferences
         answer (str): The text content to send as a response
 
     Returns:
@@ -53,28 +49,15 @@ def send_answer(message: "Message", user: "UsersOrm", answer: str) -> None:
         - If translation is enabled, the translated message follows the original
 
     """
-    if not user.use_translator:
-        answer_md = markdownify(answer)
-        if len(answer_md) > 4000:  # 4096 limit # noqa: PLR2004
-            chunks = smart_split(answer, 4000)
-            for text in chunks:
-                text_md = markdownify(text)
-                bot.reply_to(message, text_md, parse_mode="MarkdownV2")
-                time.sleep(1)
-        else:
-            bot.reply_to(message, answer_md, parse_mode="MarkdownV2")
-
-    if user.use_translator:
-        translation = translate(answer, target_language=user.target_language)
-        translation_md = markdownify(translation)
-        if len(translation_md) > 4096:  # noqa: PLR2004
-            chunks = smart_split(translation, 4000)
-            for text in chunks:
-                text_md = markdownify(text)
-                bot.reply_to(message, text_md, parse_mode="MarkdownV2")
-                time.sleep(1)
-        else:
-            bot.reply_to(message, translation_md, parse_mode="MarkdownV2")
+    answer_md = markdownify(answer)
+    if len(answer_md) > 4000:  # 4096 limit # noqa: PLR2004
+        chunks = smart_split(answer, 4000)
+        for text in chunks:
+            text_md = markdownify(text)
+            bot.reply_to(message, text_md, parse_mode="MarkdownV2")
+            time.sleep(1)
+    else:
+        bot.reply_to(message, answer_md, parse_mode="MarkdownV2")
 
 
 @retry(

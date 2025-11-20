@@ -17,9 +17,9 @@ from tenacity import (
 )
 from youtube_transcript_api._errors import TranscriptsDisabled
 
-from config import GEMINI_CONFIG, SAFETY_SETTINGS, gemini_client
+from config import GEMINI_CONFIG, gemini_client
 from download import download_castro, download_tg, download_yt
-from prompts import PROMPTS
+from prompts import LANGUAGE_SYSTEM_INSTRUCTION, PROMPTS
 from services import check_quota
 from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
@@ -40,6 +40,7 @@ def summarize_with_file(
     file: str,
     model: str,
     prompt_key: str,
+    target_language: str,
     sleep_time: int = 10,
 ) -> str:
     """Summarize audio content using Gemini API with file upload.
@@ -51,6 +52,7 @@ def summarize_with_file(
         file (str): Path to the audio file to be summarized
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
+        target_language (str): The language to translate the text into.
         sleep_time (int, optional): Time between processing checks. Defaults to 10.
 
     Returns:
@@ -83,7 +85,13 @@ def summarize_with_file(
                 ],
             ),
         ],
-        config=GEMINI_CONFIG,
+        config=GEMINI_CONFIG.model_copy(
+            update={
+                "system_instruction": dedent(
+                    LANGUAGE_SYSTEM_INSTRUCTION.format(language=target_language),
+                ).strip(),
+            },
+        ),
     )
     gemini_client.files.delete(name=audio_file.name)
     if response.text is None:
@@ -100,7 +108,12 @@ def summarize_with_file(
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
 )
-def summarize_with_transcript(transcript: str, model: str, prompt_key: str) -> str:
+def summarize_with_transcript(
+    transcript: str,
+    model: str,
+    prompt_key: str,
+    target_language: str,
+) -> str:
     """Generate a summary from a transcript using Gemini API.
 
     This function takes a transcript text, combines it with a predefined prompt
@@ -110,6 +123,7 @@ def summarize_with_transcript(transcript: str, model: str, prompt_key: str) -> s
         transcript (str): The text transcript to be summarized
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
+        target_language (str): The language to translate the text into.
 
     Returns:
         str: Generated summary text from the transcript
@@ -124,7 +138,13 @@ def summarize_with_transcript(transcript: str, model: str, prompt_key: str) -> s
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
-        config=GEMINI_CONFIG,
+        config=GEMINI_CONFIG.model_copy(
+            update={
+                "system_instruction": dedent(
+                    LANGUAGE_SYSTEM_INSTRUCTION.format(language=target_language),
+                ).strip(),
+            },
+        ),
     )
     if response.text is None:
         raise AttributeError
@@ -140,7 +160,12 @@ def summarize_with_transcript(transcript: str, model: str, prompt_key: str) -> s
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
 )
-def summarize_webpage(content: str, model: str, prompt_key: str) -> str:
+def summarize_webpage(
+    content: str,
+    model: str,
+    prompt_key: str,
+    target_language: str,
+) -> str:
     """Generate a summary from webpage content using Gemini API.
 
     This function takes webpage content, combines it with a predefined prompt template,
@@ -150,6 +175,7 @@ def summarize_webpage(content: str, model: str, prompt_key: str) -> str:
         content (str): The webpage content to be summarized
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
+        target_language (str): The language to translate the text into.
 
     Returns:
         str: Generated summary text from the webpage content
@@ -165,13 +191,13 @@ def summarize_webpage(content: str, model: str, prompt_key: str) -> str:
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=None,
-            safety_settings=SAFETY_SETTINGS,
-            tools=tools,
-            response_mime_type="text/plain",
-            max_output_tokens=8192,
-            thinking_config=types.ThinkingConfig(thinking_budget=-1),
+        config=GEMINI_CONFIG.model_copy(
+            update={
+                "system_instruction": dedent(
+                    LANGUAGE_SYSTEM_INSTRUCTION.format(language=target_language),
+                ).strip(),
+                "tools": tools,
+            },
         ),
     )
     if response.text is None:
@@ -188,10 +214,11 @@ def summarize_webpage(content: str, model: str, prompt_key: str) -> str:
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
 )
-def summarize_with_document(
+def summarize_with_document(  # noqa: PLR0913
     file: str,
     model: str,
     prompt_key: str,
+    target_language: str,
     mime_type: str,
     sleep_time: int = 10,
 ) -> str:
@@ -205,6 +232,7 @@ def summarize_with_document(
         file (str): Path or identifier of the document to be summarized
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
+        target_language (str): The language to translate the text into.
         mime_type (str): MIME type of the document being uploaded
         sleep_time (int, optional): Time between processing checks. Defaults to 10.
 
@@ -249,7 +277,13 @@ def summarize_with_document(
                     ],
                 ),
             ],
-            config=GEMINI_CONFIG,
+            config=GEMINI_CONFIG.model_copy(
+                update={
+                    "system_instruction": dedent(
+                        LANGUAGE_SYSTEM_INSTRUCTION.format(language=target_language),
+                    ).strip(),
+                },
+            ),
         )
         gemini_client.files.delete(name=document_file.name)
         if response.text is None:
@@ -259,11 +293,12 @@ def summarize_with_document(
     return response.text
 
 
-def summarize(
+def summarize(  # noqa: PLR0913
     data: str | File,
     use_transcription: bool,
     model: str,
     prompt_key: str,
+    target_language: str,
     use_yt_transcription: bool = False,
 ) -> str:
     """Generate a summary from various input sources using Gemini API.
@@ -280,6 +315,7 @@ def summarize(
             summarization fails
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
+        target_language (str): The language to translate the text into.
         use_yt_transcription (bool, optional): Whether to attempt using YouTube's
             built-in transcripts for YouTube URLs. Defaults to False.
 
@@ -312,7 +348,10 @@ def summarize(
                                   📹
                                   {
                         summarize_with_transcript(
-                            transcript=transcript, model=model, prompt_key=prompt_key
+                            transcript=transcript,
+                            model=model,
+                            prompt_key=prompt_key,
+                            target_language=target_language,
                         )
                     }
                                   """).strip()
@@ -326,7 +365,12 @@ def summarize(
         data = download_tg(data, ext=".ogg")
 
     try:
-        return summarize_with_file(file=data, model=model, prompt_key=prompt_key)
+        return summarize_with_file(
+            file=data,
+            model=model,
+            prompt_key=prompt_key,
+            target_language=target_language,
+        )
     except RetryError as e:
         logger.warning("Error occurred while summarizing with file: %s", e)
         if use_transcription:
@@ -339,7 +383,10 @@ def summarize(
                               📝
                               {
                     summarize_with_transcript(
-                        transcript=transcription, model=model, prompt_key=prompt_key
+                        transcript=transcription,
+                        model=model,
+                        prompt_key=prompt_key,
+                        target_language=target_language,
                     )
                 }
                               """).strip()

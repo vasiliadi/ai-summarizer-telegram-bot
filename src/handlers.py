@@ -25,8 +25,9 @@ def handle_audio(message: "Message", user: "UsersOrm") -> None:
         use_transcription=user.use_transcription,
         model=user.summarizing_model,
         prompt_key=user.prompt_key_for_summary,
+        target_language=user.target_language,
     )
-    send_answer(message, user, answer)
+    send_answer(message, answer)
 
 
 def handle_document(message: "Message", user: "UsersOrm") -> None:
@@ -42,9 +43,10 @@ def handle_document(message: "Message", user: "UsersOrm") -> None:
         file=data,
         model=user.summarizing_model,
         prompt_key=user.prompt_key_for_summary,
+        target_language=user.target_language,
         mime_type=message.document.mime_type,
     )
-    send_answer(message, user, answer)
+    send_answer(message, answer)
 
 
 def handle_url(message: "Message", user: "UsersOrm", url: str) -> None:
@@ -62,14 +64,16 @@ def handle_url(message: "Message", user: "UsersOrm", url: str) -> None:
             use_transcription=user.use_transcription,
             model=user.summarizing_model,
             prompt_key=user.prompt_key_for_summary,
+            target_language=user.target_language,
             use_yt_transcription=user.use_yt_transcription,
         )
-        send_answer(message, user, answer)
+        send_answer(message, answer)
     elif re.match(other_url_pattern, url):
         answer = summarize_webpage(
             content=url,
             model=user.summarizing_model,
             prompt_key=user.prompt_key_for_summary,
+            target_language=user.target_language,
         )
         send_answer(message, user, answer)
     else:
