@@ -75,6 +75,6 @@ def handle_url(message: "Message", user: "UsersOrm", url: str) -> None:
             prompt_key=user.prompt_key_for_summary,
             target_language=user.target_language,
         )
-        send_answer(message, user, answer)
+        send_answer(message, answer)
     else:
         bot.send_message(message.chat.id, "No data to proceed.")
