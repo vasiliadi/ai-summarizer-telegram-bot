@@ -25,7 +25,6 @@ from database import (
     set_summarizing_model,
     set_target_language,
     toggle_transcription,
-    toggle_translation,
     toggle_yt_transcription,
 )
 from exceptions import LimitExceededError
@@ -115,7 +114,6 @@ def handle_myinfo(message: "Message") -> None:
                 Approved: {user.approved}
                 YouTube transcript: {user.use_yt_transcription}
                 Audio transcript: {user.use_transcription}
-                Translator: {user.use_translator}
                 Target language: {user.target_language}
                 Summarizing model: {user.summarizing_model}
                 Prompt strategy: {user.prompt_key_for_summary}
@@ -176,38 +174,6 @@ def handle_toggle_transcription(message: "Message") -> None:
             "Transcription enabled."
             if not user.use_transcription
             else "Transcription disabled."
-        ),
-    )
-
-
-# /toggle_translation
-@bot.message_handler(
-    commands=["toggle_translation"],
-    func=lambda message: check_auth(message.from_user.id),
-)
-def handle_toggle_translation(message: "Message") -> None:
-    """Handle the /toggle_translation command for the bot.
-
-    This function toggles the translation setting for the authenticated user.
-    It first checks the current translation status, toggles it, and then sends
-    a confirmation indicating whether translation has been enabled or disabled.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                           and chat details.
-
-    Returns:
-        None
-
-    """
-    user = select_user(message.from_user.id)
-    toggle_translation(message.from_user.id)
-    bot.send_message(
-        message.chat.id,
-        (
-            "Translation enabled."
-            if not user.use_translator
-            else "Translation disabled."
         ),
     )
 

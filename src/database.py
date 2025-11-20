@@ -24,7 +24,6 @@ def register_user(  # noqa: PLR0913
     username: str,
     approved: bool = False,
     use_transcription: bool = False,
-    use_translator: bool = False,
     target_language: str = DEFAULT_LANG,
     use_yt_transcription: bool = False,
     summarizing_model: str = DEFAULT_MODEL_ID_FOR_SUMMARY,
@@ -39,7 +38,6 @@ def register_user(  # noqa: PLR0913
         username (str): Telegram username
         approved (bool, optional): Whether user is approved.
         use_transcription (bool, optional): Enable audio transcription.
-        use_translator (bool, optional): Enable translation.
         target_language (str, optional): Target language for translations.
         use_yt_transcription (bool, optional): Enable YouTube transcription.
         summarizing_model (str, optional): Model for summary.
@@ -61,7 +59,6 @@ def register_user(  # noqa: PLR0913
                 username=username,
                 approved=approved,
                 use_transcription=use_transcription,
-                use_translator=use_translator,
                 target_language=target_language,
                 use_yt_transcription=use_yt_transcription,
                 summarizing_model=summarizing_model,
@@ -131,26 +128,6 @@ def toggle_transcription(user_id: int) -> None:
         user.use_transcription = not user.use_transcription
         session.add(user)
         session.commit()
-
-
-def toggle_translation(user_id: int) -> None:
-    """Toggle the translation setting for a user.
-
-    Args:
-        user_id (int): Unique Telegram user ID
-
-    Returns:
-        None
-
-    Raises:
-        No exceptions raised - silently fails if user not found
-
-    """
-    with Session() as session:
-        user = session.get(UsersOrm, user_id)
-        if user is not None:
-            user.use_translator = not user.use_translator
-            session.commit()
 
 
 def set_target_language(user_id: int, target_language: str) -> bool:

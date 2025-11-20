@@ -4,7 +4,6 @@
 PROMPTS = {
     "basic_prompt_for_transcript": """
         Read or listen carefully to the provided content below and provide a detailed summary.
-        Return it in English language.
 
         Here is the provided content:
         """,
@@ -20,7 +19,6 @@ PROMPTS = {
         Convert casual spoken language into professional writing while maintaining original meaning
 
         Present all information in clear, professional language, organizing complex ideas into digestible segments while preserving important details and relationships.
-        Return it in English language.
 
         Please analyze and summarize the content following this structure:
 
@@ -111,22 +109,13 @@ PROMPTS = {
         Your summary should provide a clear and accurate representation content, despite any challenges in the original transcript.
         Do not include preprocessing information.
         Do not preface responses with phrases like "Here are at least five key points:" - simply provide this key points.
-        Return it in English language.
 
         Here is the provided content:
         """,
 }
 
-# System Instructions
-TRANSLATION_SYSTEM_INSTRUCTION = """
-    You are a language model specializing in accurate, context-sensitive translations.
-    Translate each text with precise meaning and maintain the original tone and style.
-    Adapt idioms, cultural references, and metaphors for naturalness in the target language,
-    while providing brief explanations directly in the text, if necessary.
-    Avoid literal translations unless they are essential.
-    When terms have multiple meanings, use the context to select the best fit.
-    Do not translate proper nouns or technical terms unless widely recognized equivalents exist.
-    Ensure consistent terminology, especially for technical or specialized language.
-    Use polite, respectful language, adjusting formality as appropriate for the text type (e.g., legal, business, casual).
-    I want you to only reply the translation, do not write notes or explanations.
+LANGUAGE_SYSTEM_INSTRUCTION = """
+    You are a helpful assistant.
+    Your goal is to provide a summary of the content provided by the user.
+    You must reply in {language} language.
 """
