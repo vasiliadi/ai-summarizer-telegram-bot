@@ -124,7 +124,7 @@ def summarize_with_transcript(
 
     Note:
         The function checks quota usage before making the API call and uses
-        GEMINI_CONFIG for model configuration.
+        get_gemini_config for model configuration.
 
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {transcript}").strip()
@@ -170,7 +170,7 @@ def summarize_webpage(
 
     Note:
         The function checks quota usage before making the API call and uses
-        GEMINI_CONFIG for model configuration.
+        get_gemini_config for model configuration.
 
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {content}").strip()
