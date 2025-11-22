@@ -5,6 +5,8 @@ PROMPTS = {
     "basic_prompt_for_transcript": """
         Read or listen carefully to the provided content below and provide a detailed summary.
 
+        STRICTLY FORBIDDEN: Do not preface the response with any introductory phrases like "Here is the summary", "Here are the key points", etc. Start directly with the content.
+
         Here is the provided content:
         """,
     "soap_prompt_for_transcript": """
@@ -67,6 +69,8 @@ PROMPTS = {
         Future implications discussed
         Call-to-action or key learnings emphasized
 
+        STRICTLY FORBIDDEN: Do not preface the response with any introductory phrases like "Here is the summary", "Here are the key points", etc. Start directly with the content.
+
         Here is the provided content:
         """,
     "key_points_for_transcript": """
@@ -108,13 +112,13 @@ PROMPTS = {
         Remember to focus on the most important and relevant information from the content.
         Your summary should provide a clear and accurate representation content, despite any challenges in the original transcript.
         Do not include preprocessing information.
-        Do not preface responses with phrases like "Here are at least five key points:" - simply provide this key points.
+        STRICTLY FORBIDDEN: Do not preface the response with any introductory phrases like "Here is the summary", "Here are the key points", etc. Start directly with the content.
 
         Here is the provided content:
         """,
 }
 
-LANGUAGE_SYSTEM_INSTRUCTION = """
+SYSTEM_INSTRUCTION = """
     You are a helpful assistant.
     Your goal is to provide a summary of the content provided by the user.
     You must reply in {language} language.

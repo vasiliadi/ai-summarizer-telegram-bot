@@ -1,7 +1,9 @@
 import logging
 import time
+from textwrap import dedent
 from typing import TYPE_CHECKING
 
+from google.genai import types
 from rush.exceptions import DataChangedInStoreError
 from telebot.util import smart_split
 from telegramify_markdown import markdownify
@@ -15,12 +17,14 @@ from tenacity import (
 
 from config import (
     DAILY_LIMIT_KEY,
+    GEMINI_CONFIG,
     MINUTE_LIMIT_KEY,
     bot,
     per_day_limit,
     per_minute_limit,
 )
 from exceptions import LimitExceededError
+from prompts import SYSTEM_INSTRUCTION
 
 if TYPE_CHECKING:
     from telebot.types import Message
@@ -97,3 +101,14 @@ def check_quota(quantity: int = 1) -> bool:
         time_to_reset = max(0, rpm.reset_after.total_seconds())
         time.sleep(time_to_reset)
     return True
+
+
+def get_gemini_config(target_language: str) -> types.GenerateContentConfig:
+    """Get Gemini config with system instruction."""
+    return GEMINI_CONFIG.model_copy(
+        update={
+            "system_instruction": dedent(
+                SYSTEM_INSTRUCTION.format(language=target_language),
+            ).strip(),
+        },
+    )

@@ -17,10 +17,10 @@ from tenacity import (
 )
 from youtube_transcript_api._errors import TranscriptsDisabled
 
-from config import GEMINI_CONFIG, gemini_client
+from config import gemini_client
 from download import download_castro, download_tg, download_yt
-from prompts import LANGUAGE_SYSTEM_INSTRUCTION, PROMPTS
-from services import check_quota
+from prompts import PROMPTS
+from services import check_quota, get_gemini_config
 from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
 
@@ -85,13 +85,7 @@ def summarize_with_file(
                 ],
             ),
         ],
-        config=GEMINI_CONFIG.model_copy(
-            update={
-                "system_instruction": dedent(
-                    LANGUAGE_SYSTEM_INSTRUCTION.format(language=target_language),
-                ).strip(),
-            },
-        ),
+        config=get_gemini_config(target_language),
     )
     gemini_client.files.delete(name=audio_file.name)
     if response.text is None:
@@ -130,7 +124,7 @@ def summarize_with_transcript(
 
     Note:
         The function checks quota usage before making the API call and uses
-        GEMINI_CONFIG for model configuration.
+        get_gemini_config for model configuration.
 
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {transcript}").strip()
@@ -138,13 +132,7 @@ def summarize_with_transcript(
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
-        config=GEMINI_CONFIG.model_copy(
-            update={
-                "system_instruction": dedent(
-                    LANGUAGE_SYSTEM_INSTRUCTION.format(language=target_language),
-                ).strip(),
-            },
-        ),
+        config=get_gemini_config(target_language),
     )
     if response.text is None:
         raise AttributeError
@@ -182,7 +170,7 @@ def summarize_webpage(
 
     Note:
         The function checks quota usage before making the API call and uses
-        GEMINI_CONFIG for model configuration.
+        get_gemini_config for model configuration.
 
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {content}").strip()
@@ -191,11 +179,8 @@ def summarize_webpage(
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
-        config=GEMINI_CONFIG.model_copy(
+        config=get_gemini_config(target_language).model_copy(
             update={
-                "system_instruction": dedent(
-                    LANGUAGE_SYSTEM_INSTRUCTION.format(language=target_language),
-                ).strip(),
                 "tools": tools,
             },
         ),
@@ -277,13 +262,7 @@ def summarize_with_document(  # noqa: PLR0913
                     ],
                 ),
             ],
-            config=GEMINI_CONFIG.model_copy(
-                update={
-                    "system_instruction": dedent(
-                        LANGUAGE_SYSTEM_INSTRUCTION.format(language=target_language),
-                    ).strip(),
-                },
-            ),
+            config=get_gemini_config(target_language),
         )
         gemini_client.files.delete(name=document_file.name)
         if response.text is None:
