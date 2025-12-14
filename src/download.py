@@ -72,7 +72,7 @@ def download_yt(url: str) -> str:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(10),
-    retry=retry_if_exception_type(SSLError, RequestsConnectionError),
+    retry=retry_if_exception_type((SSLError, RequestsConnectionError)),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
 )
