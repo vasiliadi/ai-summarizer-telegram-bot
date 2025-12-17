@@ -4,7 +4,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING
 
 from google.genai import types
-from rush.exceptions import DataChangedInStoreError
+from rush.exceptions import DataChangedInStoreError, MismatchedDataError
 from telebot.util import smart_split
 from telegramify_markdown import markdownify
 from tenacity import (
@@ -66,7 +66,7 @@ def send_answer(message: "Message", answer: str) -> None:
     stop=stop_after_attempt(3),
     wait=wait_fixed(1),
     retry=retry_if_exception_type(
-        (DataChangedInStoreError),
+        (DataChangedInStoreError, MismatchedDataError),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
