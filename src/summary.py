@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 import time
 from textwrap import dedent
 
@@ -64,7 +65,8 @@ def summarize_with_file(
 
     """
     prompt = dedent(PROMPTS[prompt_key]).strip()
-    audio_file = gemini_client.files.upload(file=file)
+    mime_type = mimetypes.guess_type(file)[0]
+    audio_file = gemini_client.files.upload(file=file, config={"mime_type": mime_type})
     while audio_file.state == "PROCESSING":
         time.sleep(sleep_time)
         audio_file = gemini_client.files.get(name=audio_file.name)
