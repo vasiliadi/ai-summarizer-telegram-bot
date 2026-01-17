@@ -429,6 +429,7 @@ def handle_message(message: "Message") -> None:
             "text/plain",
             "text/rtf",
             "text/csv",
+            "audio/ogg",
         ):
             handle_document(message, user)
         else:
