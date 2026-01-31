@@ -24,9 +24,9 @@ RUN uv sync \
     --frozen \
     --no-dev \
     --compile-bytecode \
-    --python-preference only-system
+    --no-managed-python
 COPY --from=builder /app/src .
 RUN adduser -D -u 1000 -s /sbin/nologin bot \
     && chown -R bot:bot /app
 USER bot
-ENTRYPOINT ["uv", "run", "main.py"]
+ENTRYPOINT ["uv", "run", "--no-dev", "main.py"]
