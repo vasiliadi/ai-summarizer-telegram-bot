@@ -17,7 +17,7 @@ dependencies = [
     "telegramify-markdown>=0.5.1",
     "tenacity>=8.5.0",
     "youtube-transcript-api>=1.1.1",
-    "yt-dlp[default]>=2025.6.30",
+    "yt-dlp[default,deno]>=2025.6.30",
 ]
 
 [dependency-groups]
