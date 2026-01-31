@@ -13,9 +13,10 @@ RUN python scripts/db.py \
     && modal deploy scripts/cron.py
 
 FROM python:3.13-alpine
-ENV ENV=PROD
-ENV PYTHONUNBUFFERED=1 \
-    SENTRY_ENVIRONMENT=${ENV}
+ENV ENV=PROD \
+    PYTHONUNBUFFERED=1 \
+    PATH="/app/.venv/bin:$PATH"
+ENV SENTRY_ENVIRONMENT=${ENV}
 WORKDIR /app
 RUN apk add --no-cache ffmpeg deno
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
@@ -24,9 +25,10 @@ RUN uv sync \
     --frozen \
     --no-dev \
     --compile-bytecode \
-    --no-managed-python
+    --no-managed-python \
+    && rm -f pyproject.toml uv.lock
 COPY --from=builder /app/src .
 RUN adduser -D -u 1000 -s /sbin/nologin bot \
     && chown -R bot:bot /app
 USER bot
-ENTRYPOINT ["uv", "run", "--no-dev", "main.py"]
+ENTRYPOINT ["python", "main.py"]
