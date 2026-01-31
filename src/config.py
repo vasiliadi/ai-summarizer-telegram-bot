@@ -20,6 +20,7 @@ if os.environ.get("ENV") != "PROD":
 # Sentry.io config
 sentry_sdk.init(
     dsn=os.environ["SENTRY_DSN"],
+    send_default_pii=True,  # capture input and output of your AI model
     traces_sample_rate=1.0,
     profiles_sample_rate=1.0,
     enable_tracing=True,
