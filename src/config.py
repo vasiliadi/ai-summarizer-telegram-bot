@@ -20,6 +20,7 @@ if os.environ.get("ENV") != "PROD":
 # Sentry.io config
 sentry_sdk.init(
     dsn=os.environ["SENTRY_DSN"],
+    send_default_pii=True,
     traces_sample_rate=1.0,
     profiles_sample_rate=1.0,
     enable_tracing=True,
