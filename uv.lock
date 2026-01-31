@@ -23,7 +23,7 @@ dependencies = [
     { name = "telegramify-markdown" },
     { name = "tenacity" },
     { name = "youtube-transcript-api" },
-    { name = "yt-dlp", extra = ["default", "deno"] },
+    { name = "yt-dlp", extra = ["default"] },
 ]
 
 [package.dev-dependencies]
@@ -48,7 +48,7 @@ requires-dist = [
     { name = "telegramify-markdown", specifier = ">=0.5.1" },
     { name = "tenacity", specifier = ">=8.5.0" },
     { name = "youtube-transcript-api", specifier = ">=1.1.1" },
-    { name = "yt-dlp", extras = ["default", "deno"], specifier = ">=2025.6.30" },
+    { name = "yt-dlp", extras = ["default"], specifier = ">=2025.6.30" },
 ]
 
 [package.metadata.requires-dev]
@@ -475,19 +475,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0f/d5/c66da9b79e5bdb124974bfe172b4daf3c984ebd9c2a06e2b8a4dc7331c72/defusedxml-0.7.1.tar.gz", hash = "sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69", size = 75520, upload-time = "2021-03-08T10:59:26.269Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl", hash = "sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61", size = 25604, upload-time = "2021-03-08T10:59:24.45Z" },
-]
-
-[[package]]
-name = "deno"
-version = "2.6.7"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/12/dc/e96ae53193cf10d6b160e7a1586b4f86dc7a40539adb74dd60150af5f90f/deno-2.6.7.tar.gz", hash = "sha256:3ae9773c0b22f74f8adf9c62b751fb755875cebf3782a8534051fe454adeaa4f", size = 8127, upload-time = "2026-01-29T14:15:31.512Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c1/45/9fec3258206dc0b112cceb1b8909beaba034f9bff9cde02b560aea4896b3/deno-2.6.7-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:9f262184c898ab3a1b26149f2bfbec4f7bfd55752b0c87cab52f9752405cb73c", size = 44274025, upload-time = "2026-01-29T14:15:15.906Z" },
-    { url = "https://files.pythonhosted.org/packages/69/64/7378b81887096abaafd2b14246da3c26493a3ca1c36d97b3554e889f2a40/deno-2.6.7-py3-none-macosx_11_0_arm64.whl", hash = "sha256:edd156253f0fec31c879f7341246356136c09dee20f67f4cdcaca22ab04a6612", size = 41449770, upload-time = "2026-01-29T14:15:19.069Z" },
-    { url = "https://files.pythonhosted.org/packages/9a/ac/8c7de80f5c960dd02aaa59b68d7658f53b19e4e54372b0152fff429f5666/deno-2.6.7-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:8d54eecdedef65b2125ea5c195b89c1aa04aa1177359b3e9806d5889b1093346", size = 45314062, upload-time = "2026-01-29T14:15:21.789Z" },
-    { url = "https://files.pythonhosted.org/packages/c2/57/37c8827275df54defb5fcf134237b6cc720f6744f4a52df566420142e9f4/deno-2.6.7-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:350d337b39dd1daf8ae278f5891ae043273312cf04fa9880fa0eb20623e09074", size = 47220866, upload-time = "2026-01-29T14:15:24.586Z" },
-    { url = "https://files.pythonhosted.org/packages/b9/5a/52ef4f68d7da5d5b56738b81bce228dc7773af6116c8eadedc1fcd57e7d4/deno-2.6.7-py3-none-win_amd64.whl", hash = "sha256:8d9d4b00eb1ac0705603ba3e7d73ba104ec2d1a6ac970310b80e974fb3024300", size = 46110742, upload-time = "2026-01-29T14:15:27.529Z" },
 ]
 
 [[package]]
@@ -1747,9 +1734,6 @@ default = [
     { name = "urllib3" },
     { name = "websockets" },
     { name = "yt-dlp-ejs" },
-]
-deno = [
-    { name = "deno" },
 ]
 
 [[package]]
