@@ -162,7 +162,7 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 
 #### Error suppression
 
-[ruff](https://docs.astral.sh/ruff/linter/#error-suppression), [pylint](https://pylint.pycqa.org/en/latest/user_guide/messages/message_control.html#block-disables), [mypy](https://mypy.readthedocs.io/en/stable/error_codes.html#error-codes)
+[ruff error suppression](https://docs.astral.sh/ruff/linter/#error-suppression) and [ruff block-level](https://docs.astral.sh/ruff/linter/#block-level), [pylint](https://pylint.pycqa.org/en/latest/user_guide/messages/message_control.html#block-disables), [mypy](https://mypy.readthedocs.io/en/stable/error_codes.html#error-codes), [ty](https://docs.astral.sh/ty/suppression/)
 
 ### Easy deploy
 
