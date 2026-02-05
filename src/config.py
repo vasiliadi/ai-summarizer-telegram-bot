@@ -79,7 +79,6 @@ GEMINI_CONFIG = types.GenerateContentConfig(
     system_instruction=None,
     safety_settings=SAFETY_SETTINGS,
     response_mime_type="text/plain",
-    max_output_tokens=8192,
     thinking_config=types.ThinkingConfig(thinking_budget=-1),
 )
 
@@ -108,8 +107,8 @@ headers = {
 # Rate limits https://ai.google.dev/gemini-api/docs/models#gemini-2.5-pro-exp-03-25
 MINUTE_LIMIT_KEY = "RPM"
 DAILY_LIMIT_KEY = "RPD"
-MINUTE_LIMIT = 2
-DAILY_LIMIT = 50
+MINUTE_LIMIT = 5
+DAILY_LIMIT = 20
 per_minute_limit = throttle.Throttle(
     limiter=periodic.PeriodicLimiter(
         store=redis_store.RedisStore(url=RATE_LIMITER_URL),

@@ -24,7 +24,7 @@ def clear_limit() -> "RateLimitResult":
     # Duplicated from config.py
     REDIS_URL = os.environ["REDIS_URL"]
     RATE_LIMITER_URL = f"{REDIS_URL}/0"
-    DAILY_LIMIT = 1500
+    DAILY_LIMIT = 20
     DAILY_LIMIT_KEY = "RPD"
 
     per_day_limit = throttle.Throttle(
