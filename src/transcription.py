@@ -13,7 +13,7 @@ from tenacity import (
     wait_fixed,
 )
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import IpBlocked, NoTranscriptFound
+from youtube_transcript_api._errors import IpBlocked, NoTranscriptFound, RequestBlocked
 from youtube_transcript_api.formatters import TextFormatter
 from youtube_transcript_api.proxies import GenericProxyConfig
 
@@ -63,7 +63,14 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
     stop=stop_after_attempt(3),
     wait=wait_fixed(10),
     retry=retry_if_exception_type(
-        (ProxyError, SSLError, ChunkedEncodingError, ParseError, IpBlocked),
+        (
+            ProxyError,
+            SSLError,
+            ChunkedEncodingError,
+            ParseError,
+            IpBlocked,
+            RequestBlocked,
+        ),
     ),
     before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
     reraise=False,
