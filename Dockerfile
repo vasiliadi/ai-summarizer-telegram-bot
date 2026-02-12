@@ -1,4 +1,4 @@
-FROM python:3.13-slim AS builder
+FROM python:3.14-slim AS builder
 ENV ENV=BUILD \
     PYTHONDONTWRITEBYTECODE=1
 ARG DSN
@@ -12,7 +12,7 @@ RUN python scripts/db.py \
     && alembic upgrade head \
     && modal deploy scripts/cron.py
 
-FROM python:3.13-alpine
+FROM python:3.14-alpine
 ENV ENV=PROD \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH"
