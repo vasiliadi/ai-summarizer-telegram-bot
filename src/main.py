@@ -1,3 +1,4 @@
+import logging
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -28,11 +29,20 @@ from database import (
     toggle_yt_transcription,
 )
 from exceptions import LimitExceededError
-from handlers import handle_audio, handle_document, handle_url
+from handlers import (
+    handle_audio,
+    handle_document,
+    handle_url,
+    handle_video,
+    handle_video_note,
+    handle_voice,
+)
 from utils import clean_up
 
 if TYPE_CHECKING:
     from telebot.types import Message
+
+logger = logging.getLogger(__name__)
 
 
 # /start
@@ -393,7 +403,9 @@ def proceed_set_prompt_strategy(message: "Message") -> None:
 
 
 # Unified handler
-@bot.message_handler(content_types=["text", "audio", "document"])
+@bot.message_handler(
+    content_types=["text", "audio", "document", "video_note", "voice", "video"],
+)
 def handle_message(message: "Message") -> None:
     """Universal message handler for the bot.
 
@@ -432,6 +444,13 @@ def handle_message(message: "Message") -> None:
             "audio/ogg",
         ):
             handle_document(message, user)
+        elif message.content_type == "video_note":
+            logger.debug("video_note found. Starting video_note handle...")
+            handle_video_note(message, user)
+        elif message.content_type == "voice":
+            handle_voice(message, user)
+        elif message.content_type == "video":
+            handle_video(message, user)
         else:
             url = message.text.strip().split(" ", maxsplit=1)[0]
             handle_url(message, user, url)
