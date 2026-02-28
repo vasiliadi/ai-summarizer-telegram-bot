@@ -30,6 +30,63 @@ def handle_audio(message: "Message", user: "UsersOrm") -> None:
     send_answer(message, answer)
 
 
+def handle_video_note(message: "Message", user: "UsersOrm") -> None:
+    """Handle video note file processing."""
+    if message.video_note.file_size >= 20971520:  # 20MB  # noqa: PLR2004
+        bot.reply_to(message, "File is too big.")
+        return
+
+    data = bot.get_file(
+        message.video_note.file_id,
+    )  # Max 20MB https://core.telegram.org/bots/api#getfile
+    answer = summarize(
+        data=data,
+        use_transcription=user.use_transcription,
+        model=user.summarizing_model,
+        prompt_key=user.prompt_key_for_summary,
+        target_language=user.target_language,
+    )
+    send_answer(message, answer)
+
+
+def handle_voice(message: "Message", user: "UsersOrm") -> None:
+    """Handle voice file processing."""
+    if message.voice.file_size >= 20971520:  # 20MB  # noqa: PLR2004
+        bot.reply_to(message, "File is too big.")
+        return
+
+    data = bot.get_file(
+        message.voice.file_id,
+    )  # Max 20MB https://core.telegram.org/bots/api#getfile
+    answer = summarize(
+        data=data,
+        use_transcription=user.use_transcription,
+        model=user.summarizing_model,
+        prompt_key=user.prompt_key_for_summary,
+        target_language=user.target_language,
+    )
+    send_answer(message, answer)
+
+
+def handle_video(message: "Message", user: "UsersOrm") -> None:
+    """Handle video file processing."""
+    if message.video.file_size >= 20971520:  # 20MB  # noqa: PLR2004
+        bot.reply_to(message, "File is too big.")
+        return
+
+    data = bot.get_file(
+        message.video.file_id,
+    )  # Max 20MB https://core.telegram.org/bots/api#getfile
+    answer = summarize(
+        data=data,
+        use_transcription=user.use_transcription,
+        model=user.summarizing_model,
+        prompt_key=user.prompt_key_for_summary,
+        target_language=user.target_language,
+    )
+    send_answer(message, answer)
+
+
 def handle_document(message: "Message", user: "UsersOrm") -> None:
     """Handle document file processing."""
     if message.document.file_size >= 20971520:  # 20MB  # noqa: PLR2004
