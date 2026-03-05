@@ -179,3 +179,15 @@ poetry.toml
 
 # Ruff
 .ruff_cache
+
+# Kiro
+.kiro
+
+# AI
+docs/discovery
+docs/research
+docs/requirements
+docs/strategy
+docs/archive
+docs/summaries
+output/
