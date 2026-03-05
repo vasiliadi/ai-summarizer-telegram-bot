@@ -1,0 +1,9 @@
+{
+  "config": {
+    "default": true
+  },
+  "ignores": [
+    // "**/AGENTS.md",
+    "**/CLAUDE.md"
+  ]
+}
