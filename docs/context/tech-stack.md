@@ -63,17 +63,21 @@ uv lock --upgrade
 ## Core Technologies
 
 ### Language & Runtime
-- **Python 3.13** - Primary programming language
+
+- **Python** - Primary programming language
 - **uv** - Fast Python package manager and project manager
 
 ### Bot Framework
-- **pyTelegramBotAPI 4.27+** - Telegram Bot API wrapper
+
+- **pyTelegramBotAPI+** - Telegram Bot API wrapper
 
 ### AI & ML Services
+
 - **Google Gemini API** - Primary AI model for summarization
 - **Replicate** - Alternative AI model hosting
 
 ### Database & Caching
+
 - **PostgreSQL 15** - Primary relational database
 - **SQLAlchemy 2.0** - ORM and database toolkit
 - **Alembic** - Database migration tool
@@ -81,11 +85,13 @@ uv lock --upgrade
 - **psycopg2-binary** - PostgreSQL adapter
 
 ### Media Processing
+
 - **yt-dlp** - YouTube and video platform downloader
 - **youtube-transcript-api** - YouTube transcript extraction
 - **BeautifulSoup4** - HTML parsing and web scraping
 
 ### Utilities
+
 - **Requests** - HTTP library with SOCKS proxy support
 - **Tenacity** - Retry logic and error handling
 - **telegramify-markdown** - Markdown formatting for Telegram
@@ -93,6 +99,7 @@ uv lock --upgrade
 - **rush** - Rate limiting with Redis backend
 
 ### Development Tools
+
 - **Ruff** - Fast Python linter and formatter
 - **python-dotenv** - Environment variable management
 - **Modal** - Serverless function deployment for cron jobs
@@ -100,10 +107,12 @@ uv lock --upgrade
 ## Infrastructure
 
 ### Deployment Options
+
 - **Docker** - Containerized deployment via `Dockerfile` or `compose.yaml`
 - **Modal** - Serverless cron jobs for rate limit resets
 
 ### Recommended Cloud Services
+
 - **Database**: Supabase (PostgreSQL)
 - **Cache**: Aiven for Valkey
 - **Hosting**: Railway, or any Docker-compatible platform
@@ -112,9 +121,11 @@ uv lock --upgrade
 ## Code Quality
 
 ### Linting & Formatting
+
 - **Ruff** - Primary linter with extensive rule set (see `pyproject.toml`)
 
 ### Style Guidelines
+
 - **Google Python Style Guide** - Docstring format
 - **Conventional Commits** - Commit message format
 - **gitmoji** - Commit emoji conventions
@@ -211,18 +222,21 @@ MODAL_TOKEN_SECRET="your_modal_token_secret"
 When working on this project, AI agents must follow these architectural principles:
 
 #### 1. Package Management
+
 - **ALWAYS** use `uv run` prefix for all Python commands
 - **NEVER** use bare `python`, `pip`, or direct script execution
 - Use `uv add` for adding dependencies, not manual `pyproject.toml` edits
 - Maintain dependency groups: production dependencies in `[project.dependencies]`, dev tools in `[dependency-groups.dev]`
 
 #### 2. Database Operations
+
 - **ALWAYS** use SQLAlchemy ORM for database operations
 - **NEVER** write raw SQL queries unless absolutely necessary
 - Create Alembic migrations for all schema changes: `uv run alembic revision --autogenerate`
 - Test migrations with `uv run alembic upgrade head` before committing
 
 #### 3. Code Quality
+
 - **ALWAYS** run `uv run ruff check .` before committing code
 - **ALWAYS** run `uv run ruff format .` to format code
 - Use `uv run ty check .` for type checking
@@ -230,48 +244,56 @@ When working on this project, AI agents must follow these architectural principl
 - Use type hints for all function signatures
 
 #### 4. Error Handling
+
 - **ALWAYS** use Sentry's `capture_exception()` for error tracking
 - Use Tenacity's retry decorators for external API calls
 - Implement proper error messages for users (no stack traces in bot responses)
 - Log errors with appropriate levels (ERROR, WARNING, INFO, DEBUG)
 
 #### 5. Configuration
+
 - **NEVER** hardcode API keys, tokens, or sensitive data
 - **ALWAYS** use environment variables via `.env` file
 - Use `config.py` for application configuration
 - Document all required environment variables
 
 #### 6. Bot Development
+
 - Keep command handlers in `src/main.py`
 - Keep business logic in `src/handlers.py` and `src/services.py`
 - Use `check_auth()` decorator for protected commands
 - Implement rate limiting for all user-facing operations
 
 #### 7. AI Model Integration
+
 - Default to Google Gemini API for summarization
 - Implement fallback to Replicate when Gemini fails
 - Respect rate limits using Redis-backed rush library
 - Cache responses when appropriate to reduce API costs
 
 #### 8. Testing Strategy
+
 - Write property-based tests for critical business logic
 - Test database operations with transactions
 - Mock external API calls in tests
 - Use `temp/` directory for test artifacts (auto-cleaned)
 
 #### 9. Deployment
+
 - **ALWAYS** test Docker builds locally before deploying
 - Use `compose.yaml` for local development with dependencies
 - Deploy Modal cron jobs separately: `uv run modal deploy scripts/cron.py`
 - Verify environment variables are set in production
 
 #### 10. Dependencies
+
 - Prefer Astral ecosystem tools (uv, ruff, ty) for consistency
 - Minimize dependency count - evaluate if new dependencies are truly needed
 - Pin major versions, allow minor/patch updates
 - Review security advisories for dependencies regularly
 
 #### 11. File Organization
+
 - Source code in `src/`
 - Database migrations in `migrations/`
 - Utility scripts in `scripts/`
@@ -279,6 +301,7 @@ When working on this project, AI agents must follow these architectural principl
 - Temporary files in `temp/` (gitignored)
 
 #### 12. Commit Standards
+
 - Use Conventional Commits format
 - Use gitmoji for commit prefixes
 - Write clear, descriptive commit messages
@@ -291,6 +314,7 @@ When working on this project, AI agents must follow these architectural principl
 **Decision**: Use uv instead of pip/poetry/pipenv
 
 **Rationale**:
+
 - 10-100x faster than pip for dependency resolution and installation
 - Built-in virtual environment management
 - Compatible with standard Python packaging (pyproject.toml)
@@ -303,6 +327,7 @@ When working on this project, AI agents must follow these architectural principl
 **Decision**: Use pyTelegramBotAPI for bot framework
 
 **Rationale**:
+
 - Lightweight and straightforward API wrapper
 - Synchronous design fits the application's polling-based architecture
 - Well-documented with active community support
@@ -314,6 +339,7 @@ When working on this project, AI agents must follow these architectural principl
 **Decision**: Use Google Gemini API with Replicate as fallback
 
 **Rationale**:
+
 - Gemini offers competitive pricing and performance for summarization tasks
 - Native support for multimodal inputs (text, audio, video)
 - Generous free tier for development and testing
@@ -325,6 +351,7 @@ When working on this project, AI agents must follow these architectural principl
 **Decision**: PostgreSQL for persistent storage, Valkey for caching/rate limiting
 
 **Rationale**:
+
 - PostgreSQL: Robust relational database with excellent SQLAlchemy support
 - Valkey: Redis-compatible, open-source alternative with better licensing
 - Clear separation of concerns: PostgreSQL for user data, Valkey for ephemeral data
@@ -336,6 +363,7 @@ When working on this project, AI agents must follow these architectural principl
 **Decision**: Use SQLAlchemy 2.0 ORM with Alembic migrations
 
 **Rationale**:
+
 - Type-safe ORM with modern Python syntax
 - Alembic provides robust schema migration management
 - Excellent PostgreSQL support with advanced features
@@ -347,6 +375,7 @@ When working on this project, AI agents must follow these architectural principl
 **Decision**: Use Ruff as primary linter and formatter, replacing Black, isort, flake8, etc.
 
 **Rationale**:
+
 - 10-100x faster than traditional Python linters
 - Replaces multiple tools (Black, isort, flake8, pylint) with single tool
 - Extensive rule set covering code quality, security, and style
@@ -359,6 +388,7 @@ When working on this project, AI agents must follow these architectural principl
 **Decision**: Use Modal for serverless cron jobs instead of traditional cron
 
 **Rationale**:
+
 - Serverless execution reduces infrastructure overhead
 - No need to maintain separate server for periodic tasks
 - Pay-per-execution pricing model
@@ -370,6 +400,7 @@ When working on this project, AI agents must follow these architectural principl
 **Decision**: Containerize application with Docker
 
 **Rationale**:
+
 - Consistent environment across development and production
 - Easy deployment to any cloud platform
 - Isolation from host system dependencies
@@ -381,6 +412,7 @@ When working on this project, AI agents must follow these architectural principl
 **Decision**: Use Sentry SDK for error monitoring
 
 **Rationale**:
+
 - Real-time error tracking and alerting
 - Detailed stack traces and context
 - Integration with Telegram bot framework
