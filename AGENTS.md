@@ -8,13 +8,7 @@ Before starting work, state: what you understand the project state to be, what y
 
 ## Identity
 
-<!-- Customize this section for your workflow. Examples:
-     - "You work with [Name], a software engineer building [product]."
-     - "You work with [Name], a consultant preparing client deliverables."
-     - "You work with [Name], a researcher analyzing [domain]."
-     Keep it to 2-3 lines. Just enough framing for Claude to shape its outputs. -->
-
-You work with [Your Name], [your role and context]. Adapt your communication style and outputs to match this domain.
+You work with Andrii Vasiliadi, a software engineer building ai-summarizer-telegram-bot. Adapt your communication style and outputs to match this domain.
 
 ## Rules
 
