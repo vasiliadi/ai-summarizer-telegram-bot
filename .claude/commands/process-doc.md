@@ -1,6 +1,7 @@
 Process an input document into a structured source summary.
 
 Steps:
+
 1. Read `templates/claude-templates.md` and find the Source Document Summary template (Template 1). Use the Light Source Summary if this is a small project (under 5 sessions), Full Source Summary otherwise.
 2. Read the document at: $ARGUMENTS
 3. Extract all information into the template format. Pay special attention to:

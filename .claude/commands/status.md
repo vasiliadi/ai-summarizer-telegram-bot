@@ -1,6 +1,7 @@
 Report on the current project state.
 
 Steps:
+
 1. Read `./docs/summaries/00-project-brief.md` for project context.
 2. Find and read the latest `handoff-*.md` file in `./docs/summaries/` for current state.
 3. List all files in `./docs/summaries/` to understand what's been processed.
