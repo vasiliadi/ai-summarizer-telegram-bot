@@ -3,7 +3,7 @@
     "default": true
   },
   "ignores": [
-    // "**/AGENTS.md",
-    "**/CLAUDE.md"
+    "**/*.md",
+    "!README.md"
   ]
 }
