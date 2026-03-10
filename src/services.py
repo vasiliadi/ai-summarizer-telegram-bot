@@ -90,6 +90,7 @@ def check_quota(quantity: int = 1) -> bool:
 
     Raises:
         LimitExceededError: If the daily request limit has been exceeded.
+        RetryError: If store data errors persist after all retry attempts.
 
     Note:
         - The function will automatically sleep if the per-minute limit is reached

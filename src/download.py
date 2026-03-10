@@ -46,7 +46,7 @@ def download_yt(url: str) -> str:
         str: Path to the downloaded temporary MP3 file.
 
     Raises:
-        DownloadError: If the download fails after 2 retry attempts.
+        RetryError: If the download fails after 2 retry attempts.
             Each retry attempt waits 10 seconds before retrying.
 
     Notes:
@@ -90,9 +90,11 @@ def download_castro(url: str) -> str:
         str: Path to the downloaded temporary MP3 file.
 
     Raises:
+        ValueError: If the audio source tag or URL is missing on the page.
         HTTPError: If the HTTP request fails or returns an error status code.
         Timeout: If the request exceeds the timeout limits
-                 (30s for parsing, 120s for download).
+            (30s for parsing, 120s for download).
+        RetryError: If SSL/connection failures persist after retries.
 
     Notes:
         - First parses the URL to extract the actual audio source URL
