@@ -168,9 +168,6 @@ temp
 setup.cfg
 poetry.toml
 
-# Zed
-.zed/
-
 # dotenv.com
 .env*
 .flaskenv*
@@ -181,7 +178,10 @@ poetry.toml
 .ruff_cache
 
 # Kiro
-.kiro
+.kiro/
+.zed/
+.vscode/
+.codex/
 
 # AI
 docs/discovery
