@@ -2,6 +2,7 @@ import logging
 import mimetypes
 import time
 from textwrap import dedent
+from typing import cast
 
 from google.genai import types
 from google.genai.errors import ClientError, ServerError
@@ -10,6 +11,7 @@ from sentry_sdk import capture_exception
 from telebot.types import File
 from tenacity import (
     RetryError,
+    _utils as tenacity_utils,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -26,6 +28,7 @@ from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
 
 logger = logging.getLogger(__name__)
+tenacity_logger = cast(tenacity_utils.LoggerProtocol, logger)
 
 
 @retry(
@@ -34,7 +37,7 @@ logger = logging.getLogger(__name__)
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError, SSLError),
     ),
-    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
 def summarize_with_file(
@@ -67,11 +70,18 @@ def summarize_with_file(
     prompt = dedent(PROMPTS[prompt_key]).strip()
     mime_type = mimetypes.guess_type(file)[0]
     audio_file = gemini_client.files.upload(file=file, config={"mime_type": mime_type})
+    if audio_file.name is None:
+        raise AttributeError
+    audio_file_name = audio_file.name
     while audio_file.state == "PROCESSING":
         time.sleep(sleep_time)
-        audio_file = gemini_client.files.get(name=audio_file.name)
+        audio_file = gemini_client.files.get(name=audio_file_name)
     if audio_file.state == "FAILED":
         raise ValueError(audio_file.state)
+    if audio_file.uri is None:
+        raise AttributeError
+    if audio_file.mime_type is None:
+        raise AttributeError
     check_quota(quantity=1)
     response = gemini_client.models.generate_content(
         model=model,
@@ -89,7 +99,7 @@ def summarize_with_file(
         ],
         config=get_gemini_config(target_language),
     )
-    gemini_client.files.delete(name=audio_file.name)
+    gemini_client.files.delete(name=audio_file_name)
     if response.text is None:
         raise AttributeError
     return response.text
@@ -101,7 +111,7 @@ def summarize_with_file(
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError),
     ),
-    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
 def summarize_with_transcript(
@@ -147,7 +157,7 @@ def summarize_with_transcript(
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError),
     ),
-    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
 def summarize_webpage(
@@ -198,11 +208,11 @@ def summarize_webpage(
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError, SSLError),
     ),
-    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
 def summarize_with_document(  # noqa: PLR0913
-    file: str,
+    file: File,
     model: str,
     prompt_key: str,
     target_language: str,
@@ -216,7 +226,7 @@ def summarize_with_document(  # noqa: PLR0913
     and prompt.
 
     Args:
-        file (str): Path or identifier of the document to be summarized
+        file (File): Telegram File object for the document to be summarized
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
         target_language (str): The language to translate the text into.
@@ -237,6 +247,7 @@ def summarize_with_document(  # noqa: PLR0913
         - The function checks quota usage before making the API call.
 
     """
+    data: str | None = None
     try:
         data = download_tg(file)
         prompt = dedent(PROMPTS[prompt_key]).strip()
@@ -244,11 +255,18 @@ def summarize_with_document(  # noqa: PLR0913
             file=data,
             config={"mime_type": mime_type},
         )
+        if document_file.name is None:
+            raise AttributeError
+        document_file_name = document_file.name
         while document_file.state == "PROCESSING":
             time.sleep(sleep_time)
-            document_file = gemini_client.files.get(name=document_file.name)
+            document_file = gemini_client.files.get(name=document_file_name)
         if document_file.state == "FAILED":
             raise ValueError(document_file.state)
+        if document_file.uri is None:
+            raise AttributeError
+        if document_file.mime_type is None:
+            raise AttributeError
         check_quota(quantity=1)
         response = gemini_client.models.generate_content(
             model=model,
@@ -266,11 +284,12 @@ def summarize_with_document(  # noqa: PLR0913
             ],
             config=get_gemini_config(target_language),
         )
-        gemini_client.files.delete(name=document_file.name)
+        gemini_client.files.delete(name=document_file_name)
         if response.text is None:
             raise AttributeError
     finally:
-        clean_up(file=data)
+        if data is not None:
+            clean_up(file=data)
     return response.text
 
 

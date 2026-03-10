@@ -1,13 +1,14 @@
 import logging
 import time
 from textwrap import dedent
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from google.genai import types
 from rush.exceptions import DataChangedInStoreError, MismatchedDataError
 from telebot.util import smart_split
 from telegramify_markdown import markdownify
 from tenacity import (
+    _utils as tenacity_utils,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
     from telebot.types import Message
 
 logger = logging.getLogger(__name__)
+tenacity_logger = cast(tenacity_utils.LoggerProtocol, logger)
 
 
 def send_answer(message: "Message", answer: str) -> None:
@@ -68,7 +70,7 @@ def send_answer(message: "Message", answer: str) -> None:
     retry=retry_if_exception_type(
         (DataChangedInStoreError, MismatchedDataError),
     ),
-    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
 def check_quota(quantity: int = 1) -> bool:

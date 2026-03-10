@@ -62,11 +62,14 @@ def handle_start(message: "Message") -> None:
         None
 
     """
+    if message.from_user is None:
+        bot.reply_to(message, "User information is missing.")
+        return
     if register_user(
         message.from_user.id,
-        message.from_user.first_name,
-        message.from_user.last_name,
-        message.from_user.username,
+        message.from_user.first_name or "",
+        message.from_user.last_name or "",
+        message.from_user.username or "",
     ):
         bot.send_message(
             message.chat.id,
@@ -94,13 +97,17 @@ def handle_info(message: "Message") -> None:
         None
 
     """
+    if message.from_user is None:
+        bot.reply_to(message, "User information is missing.")
+        return
     bot.send_message(message.chat.id, f"{message.from_user.id}")
 
 
 # /myinfo
 @bot.message_handler(
     commands=["myinfo"],
-    func=lambda message: check_auth(message.from_user.id),
+    func=lambda message: message.from_user is not None
+    and check_auth(message.from_user.id),
 )
 def handle_myinfo(message: "Message") -> None:
     """Handle the /myinfo command for the bot.
@@ -118,6 +125,9 @@ def handle_myinfo(message: "Message") -> None:
         None
 
     """
+    if message.from_user is None:
+        bot.reply_to(message, "User information is missing.")
+        return
     user = select_user(message.from_user.id)
     msg = dedent(f"""
                 UserId: {user.user_id}
@@ -134,7 +144,8 @@ def handle_myinfo(message: "Message") -> None:
 # /limit
 @bot.message_handler(
     commands=["limit"],
-    func=lambda message: check_auth(message.from_user.id),
+    func=lambda message: message.from_user is not None
+    and check_auth(message.from_user.id),
 )
 def handle_limit(message: "Message") -> None:
     """Handle the /limit command for the bot.
@@ -159,7 +170,8 @@ def handle_limit(message: "Message") -> None:
 # /toggle_transcription
 @bot.message_handler(
     commands=["toggle_transcription"],
-    func=lambda message: check_auth(message.from_user.id),
+    func=lambda message: message.from_user is not None
+    and check_auth(message.from_user.id),
 )
 def handle_toggle_transcription(message: "Message") -> None:
     """Handle the /toggle_transcription command for the bot.
@@ -176,6 +188,9 @@ def handle_toggle_transcription(message: "Message") -> None:
         None
 
     """
+    if message.from_user is None:
+        bot.reply_to(message, "User information is missing.")
+        return
     user = select_user(message.from_user.id)
     toggle_transcription(message.from_user.id)
     bot.send_message(
@@ -191,7 +206,8 @@ def handle_toggle_transcription(message: "Message") -> None:
 # /toggle_yt_transcription
 @bot.message_handler(
     commands=["toggle_yt_transcription"],
-    func=lambda message: check_auth(message.from_user.id),
+    func=lambda message: message.from_user is not None
+    and check_auth(message.from_user.id),
 )
 def handle_toggle_yt_transcription(message: "Message") -> None:
     """Handle the /toggle_yt_transcription command for the bot.
@@ -208,6 +224,9 @@ def handle_toggle_yt_transcription(message: "Message") -> None:
         None
 
     """
+    if message.from_user is None:
+        bot.reply_to(message, "User information is missing.")
+        return
     user = select_user(message.from_user.id)
     toggle_yt_transcription(message.from_user.id)
     bot.send_message(
@@ -223,7 +242,8 @@ def handle_toggle_yt_transcription(message: "Message") -> None:
 # /set_target_language
 @bot.message_handler(
     commands=["set_target_language"],
-    func=lambda message: check_auth(message.from_user.id),
+    func=lambda message: message.from_user is not None
+    and check_auth(message.from_user.id),
 )
 def handle_set_target_language(message: "Message") -> None:
     """Handle the /set_target_language command for the bot.
@@ -267,6 +287,9 @@ def proceed_set_target_language(message: "Message") -> None:
         None
 
     """
+    if message.from_user is None or message.text is None:
+        bot.reply_to(message, "User information or language is missing.")
+        return
     set_lang = set_target_language(message.from_user.id, message.text)
     if not set_lang:
         msg = "Unknown language"
@@ -283,7 +306,8 @@ def proceed_set_target_language(message: "Message") -> None:
 # /set_summarizing_model
 @bot.message_handler(
     commands=["set_summarizing_model"],
-    func=lambda message: check_auth(message.from_user.id),
+    func=lambda message: message.from_user is not None
+    and check_auth(message.from_user.id),
 )
 def handle_set_summarizing_model(message: "Message") -> None:
     """Handle the /set_summarizing_model command for the bot.
@@ -328,6 +352,9 @@ def proceed_set_summarizing_model(message: "Message") -> None:
         None
 
     """
+    if message.from_user is None or message.text is None:
+        bot.reply_to(message, "User information or model is missing.")
+        return
     set_model = set_summarizing_model(message.from_user.id, message.text)
     if not set_model:
         msg = "Unknown model"
@@ -344,7 +371,8 @@ def proceed_set_summarizing_model(message: "Message") -> None:
 # /set_prompt_strategy
 @bot.message_handler(
     commands=["set_prompt_strategy"],
-    func=lambda message: check_auth(message.from_user.id),
+    func=lambda message: message.from_user is not None
+    and check_auth(message.from_user.id),
 )
 def handle_set_prompt_strategy(message: "Message") -> None:
     """Handle the /set_prompt_strategy command for the bot.
@@ -389,6 +417,9 @@ def proceed_set_prompt_strategy(message: "Message") -> None:
         None
 
     """
+    if message.from_user is None or message.text is None:
+        bot.reply_to(message, "User information or strategy is missing.")
+        return
     set_strategy = set_prompt_strategy(message.from_user.id, message.text)
     if not set_strategy:
         msg = "Unknown strategy"
@@ -428,6 +459,9 @@ def handle_message(message: "Message") -> None:
 
     """
     try:
+        if message.from_user is None:
+            bot.reply_to(message, "User information is missing.")
+            return
         user = select_user(message.from_user.id)
 
         if not user.approved:
@@ -436,12 +470,16 @@ def handle_message(message: "Message") -> None:
 
         if message.content_type == "audio":
             handle_audio(message, user)
-        elif message.content_type == "document" and message.document.mime_type in (
+        elif (
+            message.content_type == "document"
+            and message.document is not None
+            and message.document.mime_type in (
             "application/pdf",
             "text/plain",
             "text/rtf",
             "text/csv",
             "audio/ogg",
+            )
         ):
             handle_document(message, user)
         elif message.content_type == "video_note":
@@ -452,6 +490,9 @@ def handle_message(message: "Message") -> None:
         elif message.content_type == "video":
             handle_video(message, user)
         else:
+            if message.text is None:
+                bot.send_message(message.chat.id, "No text to process.")
+                return
             url = message.text.strip().split(" ", maxsplit=1)[0]
             handle_url(message, user, url)
 

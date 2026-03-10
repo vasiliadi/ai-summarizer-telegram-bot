@@ -13,12 +13,16 @@ if TYPE_CHECKING:
 
 def handle_audio(message: "Message", user: "UsersOrm") -> None:
     """Handle audio file processing."""
-    if message.audio.file_size >= 20971520:  # 20MB  # noqa: PLR2004
+    audio = message.audio
+    if audio is None or audio.file_size is None or audio.file_id is None:
+        bot.reply_to(message, "No audio file found.")
+        return
+    if audio.file_size >= 20971520:  # 20MB  # noqa: PLR2004
         bot.reply_to(message, "File is too big.")
         return
 
     data = bot.get_file(
-        message.audio.file_id,
+        audio.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
     answer = summarize(
         data=data,
@@ -32,12 +36,20 @@ def handle_audio(message: "Message", user: "UsersOrm") -> None:
 
 def handle_video_note(message: "Message", user: "UsersOrm") -> None:
     """Handle video note file processing."""
-    if message.video_note.file_size >= 20971520:  # 20MB  # noqa: PLR2004
+    video_note = message.video_note
+    if (
+        video_note is None
+        or video_note.file_size is None
+        or video_note.file_id is None
+    ):
+        bot.reply_to(message, "No video note found.")
+        return
+    if video_note.file_size >= 20971520:  # 20MB  # noqa: PLR2004
         bot.reply_to(message, "File is too big.")
         return
 
     data = bot.get_file(
-        message.video_note.file_id,
+        video_note.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
     answer = summarize(
         data=data,
@@ -51,12 +63,16 @@ def handle_video_note(message: "Message", user: "UsersOrm") -> None:
 
 def handle_voice(message: "Message", user: "UsersOrm") -> None:
     """Handle voice file processing."""
-    if message.voice.file_size >= 20971520:  # 20MB  # noqa: PLR2004
+    voice = message.voice
+    if voice is None or voice.file_size is None or voice.file_id is None:
+        bot.reply_to(message, "No voice message found.")
+        return
+    if voice.file_size >= 20971520:  # 20MB  # noqa: PLR2004
         bot.reply_to(message, "File is too big.")
         return
 
     data = bot.get_file(
-        message.voice.file_id,
+        voice.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
     answer = summarize(
         data=data,
@@ -70,12 +86,16 @@ def handle_voice(message: "Message", user: "UsersOrm") -> None:
 
 def handle_video(message: "Message", user: "UsersOrm") -> None:
     """Handle video file processing."""
-    if message.video.file_size >= 20971520:  # 20MB  # noqa: PLR2004
+    video = message.video
+    if video is None or video.file_size is None or video.file_id is None:
+        bot.reply_to(message, "No video file found.")
+        return
+    if video.file_size >= 20971520:  # 20MB  # noqa: PLR2004
         bot.reply_to(message, "File is too big.")
         return
 
     data = bot.get_file(
-        message.video.file_id,
+        video.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
     answer = summarize(
         data=data,
@@ -89,19 +109,27 @@ def handle_video(message: "Message", user: "UsersOrm") -> None:
 
 def handle_document(message: "Message", user: "UsersOrm") -> None:
     """Handle document file processing."""
-    if message.document.file_size >= 20971520:  # 20MB  # noqa: PLR2004
+    document = message.document
+    if (
+        document is None
+        or document.file_size is None
+        or document.file_id is None
+    ):
+        bot.reply_to(message, "No document found.")
+        return
+    if document.file_size >= 20971520:  # 20MB  # noqa: PLR2004
         bot.reply_to(message, "File is too big.")
         return
 
     data = bot.get_file(
-        message.document.file_id,
+        document.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
     answer = summarize_with_document(
         file=data,
         model=user.summarizing_model,
         prompt_key=user.prompt_key_for_summary,
         target_language=user.target_language,
-        mime_type=message.document.mime_type,
+        mime_type=document.mime_type or "application/octet-stream",
     )
     send_answer(message, answer)
 
