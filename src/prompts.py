@@ -74,9 +74,9 @@ PROMPTS = {
         Here is the provided content:
         """,
     "key_points_for_transcript": """
-        You are tasked with summarizing provided content below into at least 5 key points.
+        You are tasked with summarizing the provided content below into at least 5 key points.
 
-        This task comes with several challenges (if provided content is transcript):
+        This task comes with several challenges (if the provided content is a transcript):
         1. The transcript may contain errors, such as incorrect word recognition or lack of punctuation.
         2. It's more akin to video subtitles than a formal transcript.
         3. The transcript may include non-verbal cues like [music] or [laughing].
@@ -110,7 +110,7 @@ PROMPTS = {
         [Additional key points if applicable]
 
         Remember to focus on the most important and relevant information from the content.
-        Your summary should provide a clear and accurate representation content, despite any challenges in the original transcript.
+        Your summary should provide a clear and accurate representation of the content, despite any challenges in the original transcript.
         Do not include preprocessing information.
         STRICTLY FORBIDDEN: Do not preface the response with any introductory phrases like "Here is the summary", "Here are the key points", etc. Start directly with the content.
 

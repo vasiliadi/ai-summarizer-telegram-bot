@@ -55,7 +55,7 @@ ALLOWED_MODELS_FOR_SUMMARY = [
     "gemini-2.5-flash",
     "gemini-3-flash-preview",
 ]
-# if change DEFAULT_MODEL_ID_FOR_SUMMARY, also change in models.py
+# If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
 DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-2.5-flash"
 SAFETY_SETTINGS = [
     types.SafetySetting(
@@ -84,7 +84,7 @@ GEMINI_CONFIG = types.GenerateContentConfig(
 
 
 # Prompts
-# If change DEFAULT_PROMPT_KEY, also change in models.py
+# If you change DEFAULT_PROMPT_KEY, also change it in models.py.
 DEFAULT_PROMPT_KEY = "basic_prompt_for_transcript"
 ALLOWED_PROMPT_KEYS = [
     "basic_prompt_for_transcript",
@@ -139,7 +139,7 @@ per_day_limit = throttle.Throttle(
 )
 
 
-# For clean up
+# For cleanup
 PROTECTED_FILES = (
     os.listdir(Path.cwd())  # noqa: PTH208
     if os.environ.get("ENV") != "PROD"
