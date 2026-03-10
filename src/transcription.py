@@ -1,11 +1,13 @@
 import logging
 import time
 from pathlib import Path
+from typing import cast
 
 from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError, ReplicateError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
+    _utils as tenacity_utils,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -20,13 +22,14 @@ from youtube_transcript_api.proxies import GenericProxyConfig
 from config import PROXY, replicate_client
 
 logger = logging.getLogger(__name__)
+tenacity_logger = cast(tenacity_utils.LoggerProtocol, logger)
 
 
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(10),
     retry=retry_if_exception_type(ReplicateError),
-    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
 def transcribe(file: str, sleep_time: int = 10) -> str:
@@ -52,11 +55,21 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
         )
     while prediction.status != "succeeded":
         if prediction.status in ("failed", "canceled"):
-            msg = "File can't be transcribed"
-            raise ModelError(msg)
+            raise ModelError(prediction)
         prediction.reload()
         time.sleep(sleep_time)
-    return "".join([segment["text"] for segment in prediction.output["segments"]])
+    if prediction.output is None:
+        raise ModelError(prediction)
+    segments = prediction.output.get("segments")
+    if not isinstance(segments, list):
+        raise ModelError(prediction)
+    return "".join(
+        [
+            segment.get("text", "")
+            for segment in segments
+            if isinstance(segment, dict)
+        ]
+    )
 
 
 @retry(
@@ -72,7 +85,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
             RequestBlocked,
         ),
     ),
-    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
 def get_yt_transcript(url: str) -> str:

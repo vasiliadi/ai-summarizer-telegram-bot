@@ -59,20 +59,20 @@ ALLOWED_MODELS_FOR_SUMMARY = [
 DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-2.5-flash"
 SAFETY_SETTINGS = [
     types.SafetySetting(
-        category="HARM_CATEGORY_HARASSMENT",
-        threshold="BLOCK_NONE",
+        category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+        threshold=types.HarmBlockThreshold.BLOCK_NONE,
     ),
     types.SafetySetting(
-        category="HARM_CATEGORY_HATE_SPEECH",
-        threshold="BLOCK_NONE",
+        category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        threshold=types.HarmBlockThreshold.BLOCK_NONE,
     ),
     types.SafetySetting(
-        category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
-        threshold="BLOCK_NONE",
+        category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        threshold=types.HarmBlockThreshold.BLOCK_NONE,
     ),
     types.SafetySetting(
-        category="HARM_CATEGORY_DANGEROUS_CONTENT",
-        threshold="BLOCK_NONE",
+        category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        threshold=types.HarmBlockThreshold.BLOCK_NONE,
     ),
 ]
 GEMINI_CONFIG = types.GenerateContentConfig(
@@ -111,7 +111,13 @@ MINUTE_LIMIT = 5
 DAILY_LIMIT = 20
 per_minute_limit = throttle.Throttle(
     limiter=periodic.PeriodicLimiter(
-        store=redis_store.RedisStore(url=RATE_LIMITER_URL),
+        store=redis_store.RedisStore(
+            url=redis_store.parse(RATE_LIMITER_URL),
+            client=redis_store.redis.StrictRedis.from_url(
+                url=RATE_LIMITER_URL,
+                decode_responses=True,
+            ),
+        ),
     ),
     rate=quota.Quota.per_minute(
         count=MINUTE_LIMIT,
@@ -119,7 +125,13 @@ per_minute_limit = throttle.Throttle(
 )
 per_day_limit = throttle.Throttle(
     limiter=periodic.PeriodicLimiter(
-        store=redis_store.RedisStore(url=RATE_LIMITER_URL),
+        store=redis_store.RedisStore(
+            url=redis_store.parse(RATE_LIMITER_URL),
+            client=redis_store.redis.StrictRedis.from_url(
+                url=RATE_LIMITER_URL,
+                decode_responses=True,
+            ),
+        ),
     ),
     rate=quota.Quota.per_day(
         count=DAILY_LIMIT,

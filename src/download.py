@@ -1,12 +1,13 @@
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import requests
 from bs4 import BeautifulSoup
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import SSLError
 from tenacity import (
+    _utils as tenacity_utils,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -23,13 +24,14 @@ if TYPE_CHECKING:
     from telebot.types import File
 
 logger = logging.getLogger(__name__)
+tenacity_logger = cast(tenacity_utils.LoggerProtocol, logger)
 
 
 @retry(
     stop=stop_after_attempt(2),
     wait=wait_fixed(10),
     retry=retry_if_exception_type(DownloadError),
-    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
 def download_yt(url: str) -> str:
@@ -73,7 +75,7 @@ def download_yt(url: str) -> str:
     stop=stop_after_attempt(3),
     wait=wait_fixed(10),
     retry=retry_if_exception_type((SSLError, RequestsConnectionError)),
-    before_sleep=before_sleep_log(logger, log_level=logging.WARNING),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
 def download_castro(url: str) -> str:
@@ -99,13 +101,21 @@ def download_castro(url: str) -> str:
     """
     temprorary_file_name = generate_temporary_name(ext=".mp3")
     logger.debug("Parsing url...")
-    url = BeautifulSoup(
+    soup = BeautifulSoup(
         requests.get(requests.utils.requote_uri(url), verify=True, timeout=30).content,
         "html.parser",
-    ).source.get("src")
+    )
+    source_tag = soup.source
+    if source_tag is None:
+        msg = "Audio source tag not found in Castro page."
+        raise ValueError(msg)
+    audio_url = source_tag.get("src")
+    if not audio_url:
+        msg = "Audio URL not found in Castro page."
+        raise ValueError(msg)
     logger.debug("Url parsed! Starting download...")
     with requests.get(
-        requests.utils.requote_uri(url),
+        requests.utils.requote_uri(audio_url),
         stream=True,
         headers=headers,
         verify=True,
@@ -140,6 +150,9 @@ def download_tg(file_id: "File", ext: str = "") -> str:
 
     """
     temprorary_file_name = generate_temporary_name(ext=ext)
+    if file_id.file_path is None:
+        msg = "Telegram file path is missing."
+        raise ValueError(msg)
     downloaded_file = bot.download_file(file_id.file_path)
     with Path(temprorary_file_name).open("wb") as f:
         f.write(downloaded_file)
