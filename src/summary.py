@@ -64,6 +64,11 @@ def summarize_with_file(
     Returns:
         str: Generated summary text from the audio content
 
+    Raises:
+        AttributeError: If Gemini returns incomplete file or response metadata.
+        ValueError: If Gemini reports a failed processing state.
+        RetryError: If transient Gemini or network errors persist after retries.
+
     Note:
         This function is decorated with @retry and will attempt the operation
         up to 3 times with a 30-second wait between attempts.
@@ -136,6 +141,10 @@ def summarize_with_transcript(
     Returns:
         str: Generated summary text from the transcript
 
+    Raises:
+        AttributeError: If Gemini returns an empty response.
+        RetryError: If transient Gemini or network errors persist after retries.
+
     Note:
         The function checks quota usage before making the API call and uses
         get_gemini_config for model configuration.
@@ -181,6 +190,10 @@ def summarize_webpage(
 
     Returns:
         str: Generated summary text from the webpage content
+
+    Raises:
+        AttributeError: If Gemini returns an empty response.
+        RetryError: If transient Gemini or network errors persist after retries.
 
     Note:
         The function checks quota usage before making the API call and uses
@@ -239,8 +252,9 @@ def summarize_with_document(  # noqa: PLR0913
         str: Generated summary text from the document content
 
     Raises:
-        ValueError: If the document processing fails on Gemini's side
-        RetryError: If the operation fails after all retry attempts
+        AttributeError: If Gemini returns incomplete file or response metadata.
+        ValueError: If the document processing fails on Gemini's side.
+        RetryError: If the operation fails after all retry attempts.
 
     Note:
         - This function is decorated with @retry and will attempt the operation

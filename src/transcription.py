@@ -45,7 +45,8 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
         str: The transcribed text from the audio file.
 
     Raises:
-        ModelError: If the transcription fails or is canceled.
+        ModelError: If the transcription fails, is canceled, or output is invalid.
+        RetryError: If Replicate errors persist after all retry attempts.
 
     """
     model = replicate_client.models.get("victor-upmeet/whisperx")
@@ -94,6 +95,10 @@ def get_yt_transcript(url: str) -> str:
 
     Returns:
         str: The formatted transcript text from the video.
+
+    Raises:
+        ValueError: If the URL format is not recognized.
+        RetryError: If proxy/SSL/XML errors persist after retries.
 
     """
     if url.startswith("https://www.youtube.com/watch"):

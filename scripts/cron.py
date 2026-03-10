@@ -21,6 +21,7 @@ with image.imports():
     retries=modal.Retries(max_retries=3),
 )
 def clear_limit() -> "RateLimitResult":
+    """Clear the per-day rate limit key in Redis."""
     # Duplicated from config.py
     REDIS_URL = os.environ["REDIS_URL"]
     RATE_LIMITER_URL = f"{REDIS_URL}/0"

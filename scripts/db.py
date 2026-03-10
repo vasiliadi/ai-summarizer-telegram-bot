@@ -15,10 +15,12 @@ engine = create_engine(DSN, echo=True, poolclass=NullPool)
 
 
 class Base(DeclarativeBase):
+    """Base class for SQLAlchemy ORM models in the scripts module."""
     pass
 
 
 class UsersOrm(Base):
+    """Users table ORM model for bootstrap scripts."""
     __tablename__ = "users"
 
     user_id: Mapped[int] = mapped_column(
