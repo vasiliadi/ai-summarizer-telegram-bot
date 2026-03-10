@@ -38,7 +38,7 @@ def compress_audio(input_file: str, output_file: str) -> None:
         output_file (str): Path where the compressed audio file will be saved.
 
     Raises:
-        subprocess.CalledProcessError: If ffmpeg command fails
+        subprocess.CalledProcessError: If the ffmpeg command fails.
 
     Requirements:
         - ffmpeg must be installed and available in system PATH

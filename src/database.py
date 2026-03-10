@@ -36,7 +36,7 @@ def register_user(  # noqa: PLR0913
         first_name (str): User's first name
         last_name (str): User's last name
         username (str): Telegram username
-        approved (bool, optional): Whether user is approved.
+        approved (bool, optional): Whether the user is approved.
         use_transcription (bool, optional): Enable audio transcription.
         target_language (str, optional): Target language for translations.
         use_yt_transcription (bool, optional): Enable YouTube transcription.
@@ -44,10 +44,10 @@ def register_user(  # noqa: PLR0913
         prompt_key_for_summary (str): Prompt key for summarization strategy.
 
     Returns:
-        bool: True if registration successful, False if user already exists
+        bool: True if registration is successful, False if the user already exists.
 
     Raises:
-        IntegrityError: Handled internally when user already exists
+        IntegrityError: Handled internally when the user already exists.
 
     """
     with Session() as session:
@@ -79,10 +79,10 @@ def select_user(user_id: int) -> UsersOrm:
         user_id (int): Unique Telegram user ID
 
     Returns:
-        UsersOrm: User object from the database
+        UsersOrm: User object from the database.
 
     Raises:
-        ValueError: If user with given ID is not found in the database
+        ValueError: If the user with the given ID is not found in the database.
 
     """
     with Session() as session:
@@ -100,10 +100,10 @@ def check_auth(user_id: int) -> bool:
         user_id (int): Unique Telegram user ID
 
     Returns:
-        bool: True if user is approved, False otherwise
+        bool: True if the user is approved, False otherwise.
 
     Raises:
-        ValueError: If user with given ID is not found in the database
+        ValueError: If the user with the given ID is not found in the database.
 
     """
     user = select_user(user_id)
@@ -120,7 +120,7 @@ def toggle_transcription(user_id: int) -> None:
         None
 
     Raises:
-        ValueError: If user with given ID is not found in the database
+        ValueError: If the user with the given ID is not found in the database.
 
     """
     with Session() as session:
@@ -138,8 +138,8 @@ def set_target_language(user_id: int, target_language: str) -> bool:
         target_language (str): The language to set as target for translations
 
     Returns:
-        bool: True if language was set successfully, False if language is not supported
-        or user not found
+        bool: True if language was set successfully, False if the language is not
+        supported or the user is not found.
 
     Note:
         The target_language string is checked against SUPPORTED_LANGUAGES
@@ -185,8 +185,8 @@ def set_summarizing_model(user_id: int, summarizing_model: str) -> bool:
         summarizing_model (str): The model to use for summarization
 
     Returns:
-        bool: True if model was set successfully, False if model is not supported
-        or user not found
+        bool: True if model was set successfully, False if the model is not
+        supported or the user is not found.
 
     Note:
         The summarizing_model string is checked against ALLOWED_MODELS_FOR_SUMMARY
@@ -212,8 +212,8 @@ def set_prompt_strategy(user_id: int, prompt_key_for_summary: str) -> bool:
         prompt_key_for_summary (str): The prompt key to use for summarization strategy
 
     Returns:
-        bool: True if prompt strategy was set successfully, False if prompt key is not
-        supported or user not found
+        bool: True if prompt strategy was set successfully, False if the prompt key
+        is not supported or the user is not found.
 
     Note:
         The prompt_key_for_summary string is checked against ALLOWED_PROMPT_KEYS

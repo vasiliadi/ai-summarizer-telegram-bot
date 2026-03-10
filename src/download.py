@@ -55,10 +55,10 @@ def download_yt(url: str) -> str:
         - The output file is given a temporary name with .mp3 extension
 
     """
-    temprorary_file_name = generate_temporary_name(ext=".mp3")
+    temporary_file_name = generate_temporary_name(ext=".mp3")
     ydl_opts = {
         "format": "worstaudio",
-        "outtmpl": temprorary_file_name.split(".", maxsplit=1)[0],
+        "outtmpl": temporary_file_name.split(".", maxsplit=1)[0],
         "nocheckcertificate": False,
         "proxy": PROXY,
         "postprocessors": [
@@ -70,7 +70,7 @@ def download_yt(url: str) -> str:
     }
     with YoutubeDL(ydl_opts) as ydl:
         ydl.download(url)
-    return temprorary_file_name
+    return temporary_file_name
 
 
 @retry(
@@ -103,8 +103,8 @@ def download_castro(url: str) -> str:
         - The output file is given a temporary name with .mp3 extension
 
     """
-    temprorary_file_name = generate_temporary_name(ext=".mp3")
-    logger.debug("Parsing url...")
+    temporary_file_name = generate_temporary_name(ext=".mp3")
+    logger.debug("Parsing URL...")
     soup = BeautifulSoup(
         requests.get(requests.utils.requote_uri(url), verify=True, timeout=30).content,
         "html.parser",
@@ -117,7 +117,7 @@ def download_castro(url: str) -> str:
     if not audio_url:
         msg = "Audio URL not found in Castro page."
         raise ValueError(msg)
-    logger.debug("Url parsed! Starting download...")
+    logger.debug("URL parsed! Starting download...")
     with requests.get(
         requests.utils.requote_uri(audio_url),
         stream=True,
@@ -130,10 +130,10 @@ def download_castro(url: str) -> str:
         except requests.exceptions.HTTPError:
             logger.error("%s: status code", r.status_code)
             raise
-        with Path(temprorary_file_name).open("wb") as f:
+        with Path(temporary_file_name).open("wb") as f:
             f.writelines(r.iter_content(chunk_size=8192))
     logger.debug("File downloaded...")
-    return temprorary_file_name
+    return temporary_file_name
 
 
 def download_tg(file_id: "File", ext: str = "") -> str:
@@ -153,11 +153,11 @@ def download_tg(file_id: "File", ext: str = "") -> str:
         - File is written in binary mode
 
     """
-    temprorary_file_name = generate_temporary_name(ext=ext)
+    temporary_file_name = generate_temporary_name(ext=ext)
     if file_id.file_path is None:
         msg = "Telegram file path is missing."
         raise ValueError(msg)
     downloaded_file = bot.download_file(file_id.file_path)
-    with Path(temprorary_file_name).open("wb") as f:
+    with Path(temporary_file_name).open("wb") as f:
         f.write(downloaded_file)
-    return temprorary_file_name
+    return temporary_file_name
