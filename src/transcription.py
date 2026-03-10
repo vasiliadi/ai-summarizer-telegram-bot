@@ -8,6 +8,8 @@ from replicate.exceptions import ModelError, ReplicateError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
     _utils as tenacity_utils,
+)
+from tenacity import (
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -22,7 +24,7 @@ from youtube_transcript_api.proxies import GenericProxyConfig
 from config import PROXY, replicate_client
 
 logger = logging.getLogger(__name__)
-tenacity_logger = cast(tenacity_utils.LoggerProtocol, logger)
+tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 
 @retry(
@@ -64,11 +66,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
     if not isinstance(segments, list):
         raise ModelError(prediction)
     return "".join(
-        [
-            segment.get("text", "")
-            for segment in segments
-            if isinstance(segment, dict)
-        ]
+        [segment.get("text", "") for segment in segments if isinstance(segment, dict)],
     )
 
 

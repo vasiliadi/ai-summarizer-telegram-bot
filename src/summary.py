@@ -11,12 +11,14 @@ from sentry_sdk import capture_exception
 from telebot.types import File
 from tenacity import (
     RetryError,
-    _utils as tenacity_utils,
     before_sleep_log,
     retry,
     retry_if_exception_type,
     stop_after_attempt,
     wait_fixed,
+)
+from tenacity import (
+    _utils as tenacity_utils,
 )
 from youtube_transcript_api._errors import TranscriptsDisabled
 
@@ -28,7 +30,7 @@ from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
 
 logger = logging.getLogger(__name__)
-tenacity_logger = cast(tenacity_utils.LoggerProtocol, logger)
+tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 
 @retry(

@@ -8,6 +8,8 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import SSLError
 from tenacity import (
     _utils as tenacity_utils,
+)
+from tenacity import (
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -24,7 +26,7 @@ if TYPE_CHECKING:
     from telebot.types import File
 
 logger = logging.getLogger(__name__)
-tenacity_logger = cast(tenacity_utils.LoggerProtocol, logger)
+tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 
 @retry(
