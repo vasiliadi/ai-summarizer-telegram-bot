@@ -106,8 +106,9 @@ def handle_info(message: "Message") -> None:
 # /myinfo
 @bot.message_handler(
     commands=["myinfo"],
-    func=lambda message: message.from_user is not None
-    and check_auth(message.from_user.id),
+    func=lambda message: (
+        message.from_user is not None and check_auth(message.from_user.id)
+    ),
 )
 def handle_myinfo(message: "Message") -> None:
     """Handle the /myinfo command for the bot.
@@ -144,8 +145,9 @@ def handle_myinfo(message: "Message") -> None:
 # /limit
 @bot.message_handler(
     commands=["limit"],
-    func=lambda message: message.from_user is not None
-    and check_auth(message.from_user.id),
+    func=lambda message: (
+        message.from_user is not None and check_auth(message.from_user.id)
+    ),
 )
 def handle_limit(message: "Message") -> None:
     """Handle the /limit command for the bot.
@@ -170,8 +172,9 @@ def handle_limit(message: "Message") -> None:
 # /toggle_transcription
 @bot.message_handler(
     commands=["toggle_transcription"],
-    func=lambda message: message.from_user is not None
-    and check_auth(message.from_user.id),
+    func=lambda message: (
+        message.from_user is not None and check_auth(message.from_user.id)
+    ),
 )
 def handle_toggle_transcription(message: "Message") -> None:
     """Handle the /toggle_transcription command for the bot.
@@ -206,8 +209,9 @@ def handle_toggle_transcription(message: "Message") -> None:
 # /toggle_yt_transcription
 @bot.message_handler(
     commands=["toggle_yt_transcription"],
-    func=lambda message: message.from_user is not None
-    and check_auth(message.from_user.id),
+    func=lambda message: (
+        message.from_user is not None and check_auth(message.from_user.id)
+    ),
 )
 def handle_toggle_yt_transcription(message: "Message") -> None:
     """Handle the /toggle_yt_transcription command for the bot.
@@ -242,8 +246,9 @@ def handle_toggle_yt_transcription(message: "Message") -> None:
 # /set_target_language
 @bot.message_handler(
     commands=["set_target_language"],
-    func=lambda message: message.from_user is not None
-    and check_auth(message.from_user.id),
+    func=lambda message: (
+        message.from_user is not None and check_auth(message.from_user.id)
+    ),
 )
 def handle_set_target_language(message: "Message") -> None:
     """Handle the /set_target_language command for the bot.
@@ -306,8 +311,9 @@ def proceed_set_target_language(message: "Message") -> None:
 # /set_summarizing_model
 @bot.message_handler(
     commands=["set_summarizing_model"],
-    func=lambda message: message.from_user is not None
-    and check_auth(message.from_user.id),
+    func=lambda message: (
+        message.from_user is not None and check_auth(message.from_user.id)
+    ),
 )
 def handle_set_summarizing_model(message: "Message") -> None:
     """Handle the /set_summarizing_model command for the bot.
@@ -371,8 +377,9 @@ def proceed_set_summarizing_model(message: "Message") -> None:
 # /set_prompt_strategy
 @bot.message_handler(
     commands=["set_prompt_strategy"],
-    func=lambda message: message.from_user is not None
-    and check_auth(message.from_user.id),
+    func=lambda message: (
+        message.from_user is not None and check_auth(message.from_user.id)
+    ),
 )
 def handle_set_prompt_strategy(message: "Message") -> None:
     """Handle the /set_prompt_strategy command for the bot.
@@ -437,7 +444,7 @@ def proceed_set_prompt_strategy(message: "Message") -> None:
 @bot.message_handler(
     content_types=["text", "audio", "document", "video_note", "voice", "video"],
 )
-def handle_message(message: "Message") -> None:
+def handle_message(message: "Message") -> None:  # noqa: C901
     """Universal message handler for the bot.
 
     This function processes various types of content:
@@ -473,12 +480,13 @@ def handle_message(message: "Message") -> None:
         elif (
             message.content_type == "document"
             and message.document is not None
-            and message.document.mime_type in (
-            "application/pdf",
-            "text/plain",
-            "text/rtf",
-            "text/csv",
-            "audio/ogg",
+            and message.document.mime_type
+            in (
+                "application/pdf",
+                "text/plain",
+                "text/rtf",
+                "text/csv",
+                "audio/ogg",
             )
         ):
             handle_document(message, user)
