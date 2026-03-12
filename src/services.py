@@ -43,6 +43,10 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=True,
 )
+def _reply_with_retry(message: "Message", text_md: str) -> None:
+    bot.reply_to(message, text_md, parse_mode="MarkdownV2")
+
+
 def send_answer(message: "Message", answer: str) -> None:
     """Send a response message to the user.
 
@@ -61,7 +65,6 @@ def send_answer(message: "Message", answer: str) -> None:
     Note:
         - Messages longer than 4000 characters are automatically split
         - There is a 1-second delay between sending chunks of split messages
-        - A retry re-runs this function and may resend earlier chunks
 
     """
     answer_md = markdownify(answer)
@@ -69,10 +72,10 @@ def send_answer(message: "Message", answer: str) -> None:
         chunks = smart_split(answer, 4000)
         for text in chunks:
             text_md = markdownify(text)
-            bot.reply_to(message, text_md, parse_mode="MarkdownV2")
+            _reply_with_retry(message, text_md)
             time.sleep(1)
     else:
-        bot.reply_to(message, answer_md, parse_mode="MarkdownV2")
+        _reply_with_retry(message, answer_md)
 
 
 @retry(
