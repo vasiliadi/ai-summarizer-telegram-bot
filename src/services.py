@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 from google.genai import types
 from rush.exceptions import DataChangedInStoreError, MismatchedDataError
+from telebot.apihelper import ApiTelegramException
 from telebot.util import smart_split
 from telegramify_markdown import markdownify
 from tenacity import (
@@ -35,6 +36,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(1),
+    retry=retry_if_exception_type(ApiTelegramException),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+    reraise=True,
+)
+def _reply_with_retry(message: "Message", text_md: str) -> None:
+    bot.reply_to(message, text_md, parse_mode="MarkdownV2")
+
 
 def send_answer(message: "Message", answer: str) -> None:
     """Send a response message to the user.
@@ -42,6 +53,7 @@ def send_answer(message: "Message", answer: str) -> None:
     This function handles sending messages through the Telegram bot, including:
     - Converting the message to Markdown format
     - Splitting long messages into chunks if they exceed Telegram's length limit
+    - Retrying Telegram API failures up to 3 times with a 1-second wait
 
     Args:
         message (Message): The original Telegram message to reply to
@@ -60,10 +72,10 @@ def send_answer(message: "Message", answer: str) -> None:
         chunks = smart_split(answer, 4000)
         for text in chunks:
             text_md = markdownify(text)
-            bot.reply_to(message, text_md, parse_mode="MarkdownV2")
+            _reply_with_retry(message, text_md)
             time.sleep(1)
     else:
-        bot.reply_to(message, answer_md, parse_mode="MarkdownV2")
+        _reply_with_retry(message, answer_md)
 
 
 @retry(
