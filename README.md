@@ -8,6 +8,10 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
+## About
+
+A bot designed to summarize YouTube videos (via audio or transcripts), Castro.fm podcasts, and various Telegram content, including voice messages, videos, and files (PDF, RTF, CSV, etc.).
+
 ## Usage
 
 ### General settings
@@ -145,7 +149,8 @@ While text transcripts can provide a solid foundation for understanding the cont
 [Renovate bot](https://docs.renovatebot.com/), [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) \
 [crontab guru](https://crontab.guru/) \
 [Gemini API Cookbook](https://github.com/google-gemini/cookbook/) \
-Uptime stats: [Gemini Models](https://openrouter.ai/google)
+Uptime stats: [Gemini Models](https://openrouter.ai/google) \
+[AI Agent Framework](https://github.com/Arkya-AI/claude-context-os)
 
 ### Cloud DBs
 
@@ -162,7 +167,7 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 
 #### Error suppression
 
-[ruff error suppression](https://docs.astral.sh/ruff/linter/#error-suppression) and [ruff block-level](https://docs.astral.sh/ruff/linter/#block-level), [pylint](https://pylint.pycqa.org/en/latest/user_guide/messages/message_control.html#block-disables), [mypy](https://mypy.readthedocs.io/en/stable/error_codes.html#error-codes), [ty](https://docs.astral.sh/ty/suppression/)
+[ruff error suppression](https://docs.astral.sh/ruff/linter/#error-suppression) and [ruff block-level](https://docs.astral.sh/ruff/linter/#block-level), [pylint](https://pylint.pycqa.org/en/latest/user_guide/messages/message_control.html#block-disables), [mypy](https://mypy.readthedocs.io/en/stable/error_codes.html#error-codes), [ty](https://docs.astral.sh/ty/suppression/), [pyrefly](https://pyrefly.org/en/docs/error-suppressions/)
 
 ### Easy deploy
 

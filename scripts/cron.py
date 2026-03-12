@@ -1,6 +1,6 @@
 import modal
 
-image = modal.Image.debian_slim(python_version="3.12").uv_pip_install("rush[redis]")
+image = modal.Image.debian_slim(python_version="3.12").uv_pip_install("rush[redis]")  # ty:ignore[unresolved-attribute]
 secrets = modal.Secret.from_name("resetlimit-secrets")
 
 app = modal.App(name="ResetLimit", image=image, secrets=[secrets])
@@ -31,7 +31,7 @@ def clear_limit() -> "RateLimitResult":
     per_day_limit = throttle.Throttle(
         limiter=periodic.PeriodicLimiter(
             store=redis_store.RedisStore(
-                url=RATE_LIMITER_URL,
+                url=RATE_LIMITER_URL,  # ty:ignore[invalid-argument-type]
                 client=redis_store.redis.StrictRedis.from_url(
                     url=RATE_LIMITER_URL,
                     decode_responses=True,
