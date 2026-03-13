@@ -397,11 +397,13 @@ evaluation/
 import json
 from datetime import datetime
 from pathlib import Path
+import time
 
 class EvaluationRunner:
     """Run comprehensive prompt evaluation."""
 
     def __init__(self, prompt_path: str, test_suites: list[str]):
+        self.prompt_path = prompt_path
         self.prompt = Path(prompt_path).read_text()
         self.test_suites = self._load_test_suites(test_suites)
         self.results_dir = Path(f"results/{datetime.now().isoformat()}_{Path(prompt_path).stem}")
