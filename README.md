@@ -43,7 +43,7 @@ Example of `.env` file:
 TG_API_TOKEN="your_api_key"
 GEMINI_API_KEY="your_api_key"
 REPLICATE_API_TOKEN="your_api_key"
-DB_URL="postgresql+driver://user:password@host:port/database"
+DSN="postgresql+driver://user:password@host:port/database"
 REDIS_URL="rediss://default:password@host:port"
 SENTRY_DSN="your_sentry_dsn"
 PROXY=""

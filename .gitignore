@@ -173,6 +173,7 @@ poetry.toml
 .flaskenv*
 !.env.project
 !.env.vault
+!.env.example
 
 # Ruff
 .ruff_cache
