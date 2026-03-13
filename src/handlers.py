@@ -37,11 +37,7 @@ def handle_audio(message: "Message", user: "UsersOrm") -> None:
 def handle_video_note(message: "Message", user: "UsersOrm") -> None:
     """Handle video note file processing."""
     video_note = message.video_note
-    if (
-        video_note is None
-        or video_note.file_size is None
-        or video_note.file_id is None
-    ):
+    if video_note is None or video_note.file_size is None or video_note.file_id is None:
         bot.reply_to(message, "No video note found.")
         return
     if video_note.file_size >= 20971520:  # 20MB  # noqa: PLR2004
@@ -110,11 +106,7 @@ def handle_video(message: "Message", user: "UsersOrm") -> None:
 def handle_document(message: "Message", user: "UsersOrm") -> None:
     """Handle document file processing."""
     document = message.document
-    if (
-        document is None
-        or document.file_size is None
-        or document.file_id is None
-    ):
+    if document is None or document.file_size is None or document.file_id is None:
         bot.reply_to(message, "No document found.")
         return
     if document.file_size >= 20971520:  # 20MB  # noqa: PLR2004
