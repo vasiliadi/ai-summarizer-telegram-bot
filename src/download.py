@@ -7,9 +7,6 @@ from bs4 import BeautifulSoup
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import SSLError
 from tenacity import (
-    _utils as tenacity_utils,
-)
-from tenacity import (
     before_sleep_log,
     retry,
     retry_if_exception_type,

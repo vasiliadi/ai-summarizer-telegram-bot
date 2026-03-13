@@ -17,9 +17,6 @@ from tenacity import (
     stop_after_attempt,
     wait_fixed,
 )
-from tenacity import (
-    _utils as tenacity_utils,
-)
 from youtube_transcript_api._errors import TranscriptsDisabled
 
 from config import gemini_client

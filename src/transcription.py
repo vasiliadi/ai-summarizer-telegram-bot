@@ -7,9 +7,6 @@ from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError, ReplicateError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
-    _utils as tenacity_utils,
-)
-from tenacity import (
     before_sleep_log,
     retry,
     retry_if_exception_type,
