@@ -28,7 +28,7 @@ sentry_sdk.init(
     enable_logs=True,
 )
 
-# Logging
+# Logging1
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "ERROR").upper()
 NUMERIC_LOG_LEVEL = getattr(logging, LOG_LEVEL, "ERROR")
 LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
