@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING, cast
 from google.genai import types
 from rush.exceptions import DataChangedInStoreError, MismatchedDataError
 from telebot.apihelper import ApiTelegramException
-from telebot.util import smart_split
-from telegramify_markdown import markdownify
+from telegramify_markdown import convert, split_entities
 from tenacity import (
     before_sleep_log,
     retry,
@@ -44,16 +43,23 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=True,
 )
-def _reply_with_retry(message: "Message", text_md: str) -> None:
-    bot.reply_to(message, text_md, parse_mode="MarkdownV2")
+def _reply_with_retry(
+    message: "Message",
+    text: str,
+    entities: list[dict[str, object]] | None = None,
+) -> None:
+    if entities is None:
+        bot.reply_to(message, text)
+    else:
+        bot.reply_to(message, text, entities=entities)
 
 
 def send_answer(message: "Message", answer: str) -> None:
     """Send a response message to the user.
 
     This function handles sending messages through the Telegram bot, including:
-    - Converting the message to Markdown format
-    - Splitting long messages into chunks if they exceed Telegram's length limit
+    - Converting Markdown to Telegram entities
+    - Splitting long messages into chunks if they exceed Telegram's UTF-16 limit
     - Retrying Telegram API failures up to 3 times with a 1-second wait
 
     Args:
@@ -64,19 +70,17 @@ def send_answer(message: "Message", answer: str) -> None:
         None
 
     Note:
-        - Messages longer than 4000 characters are automatically split
+        - Messages longer than 4096 UTF-16 code units are automatically split
         - There is a 1-second delay between sending chunks of split messages
 
     """
-    answer_md = markdownify(answer)
-    if len(answer_md) > 4000:  # 4096 limit # noqa: PLR2004
-        chunks = smart_split(answer, 4000)
-        for text in chunks:
-            text_md = markdownify(text)
-            _reply_with_retry(message, text_md)
+    text, entities = convert(answer)
+    chunks = list(split_entities(text, entities, max_utf16_len=4096))
+    for index, (chunk_text, chunk_entities) in enumerate(chunks):
+        serialized_entities = [entity.to_dict() for entity in chunk_entities]
+        _reply_with_retry(message, chunk_text, entities=serialized_entities)
+        if index < len(chunks) - 1:
             time.sleep(1)
-    else:
-        _reply_with_retry(message, answer_md)
 
 
 @retry(
