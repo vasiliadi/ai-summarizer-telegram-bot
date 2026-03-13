@@ -44,6 +44,39 @@ uv run alembic revision --autogenerate
 uv run modal deploy scripts/cron.py
 ```
 
+### Using `uv tool` and `uvx` for One-Off Tools
+
+When you need to run a general-purpose Python tool that is not already part of the project's dependencies (for example, during investigation or quick checks), use `uv tool` / `uvx` instead of `pipx`, `pip`, or a global install.
+
+**Guidelines:**
+- Prefer `uv run` for tools already listed in `pyproject.toml`.
+- Use `uvx` for ad-hoc, one-off runs without adding dependencies.
+- If a tool becomes part of the standard workflow, add it to dev dependencies with `uv add --dev` and then use `uv run`.
+
+**Examples (one-off runs):**
+
+```bash
+# Linting (one-off)
+uvx ruff check .
+
+# Formatting (one-off)
+uvx ruff format .
+
+# Type checking (one-off)
+uvx ty check .
+```
+
+**Examples (install a tool for repeated local use without changing deps):**
+
+```bash
+uv tool install ruff
+uv tool install ty
+
+uv tool run ruff check .
+uv tool run ruff format .
+uv tool run ty check .
+```
+
 ### Dependency Management
 
 ```bash
