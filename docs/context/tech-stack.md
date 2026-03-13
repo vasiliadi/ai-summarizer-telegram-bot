@@ -234,9 +234,9 @@ MODAL_TOKEN_SECRET="your_modal_token_secret"
 
 ## Testing & Quality Assurance
 
-- Linting: `uv run ruff check .`
-- Formatting: `uv run ruff format .`
-- Type checking: `uv run ty check .` (using [ty](https://docs.astral.sh/ty/) - modern type checker from Astral)
+- Linting: `uv run ruff check .` (or `uvx ruff check .` for one-off runs)
+- Formatting: `uv run ruff format .` (or `uvx ruff format .` for one-off runs)
+- Type checking: `uv run ty check .` (or `uvx ty check .` for one-off runs; using [ty](https://docs.astral.sh/ty/) - modern type checker from Astral)
 
 ## Documentation Resources
 
