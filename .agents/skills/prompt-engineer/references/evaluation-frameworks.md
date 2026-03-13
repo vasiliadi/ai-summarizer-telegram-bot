@@ -476,7 +476,7 @@ class EvaluationRunner:
                 "passed": suite_passed,
                 "total": suite_total,
                 "accuracy": suite_passed / suite_total if suite_total > 0 else 0,
-                "avg_latency": sum(r["latency"] for r in results) / suite_total
+                "avg_latency": (sum(r["latency"] for r in results) / suite_total) if suite_total > 0 else 0
             }
 
             total_passed += suite_passed
