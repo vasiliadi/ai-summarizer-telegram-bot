@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from pathlib import Path
 
 import replicate
@@ -30,6 +31,15 @@ sentry_sdk.init(
 # Logging
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "ERROR").upper()
 NUMERIC_LOG_LEVEL = getattr(logging, LOG_LEVEL, "ERROR")
+LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+
+# Ensure root logger is configured for all modules, not just telebot.
+logging.basicConfig(
+    level=NUMERIC_LOG_LEVEL,
+    format=LOG_FORMAT,
+    handlers=[logging.StreamHandler(sys.stdout)],
+    force=True,
+)
 telebot.logger.setLevel(NUMERIC_LOG_LEVEL)
 
 
