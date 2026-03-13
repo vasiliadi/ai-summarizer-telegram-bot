@@ -1,14 +1,11 @@
 import logging
 import time
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError, ReplicateError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
-from tenacity import (
-    _utils as tenacity_utils,
-)
 from tenacity import (
     before_sleep_log,
     retry,
@@ -22,6 +19,11 @@ from youtube_transcript_api.formatters import TextFormatter
 from youtube_transcript_api.proxies import GenericProxyConfig
 
 from config import PROXY, replicate_client
+
+if TYPE_CHECKING:
+    from tenacity import (
+        _utils as tenacity_utils,
+    )
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)

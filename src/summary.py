@@ -2,7 +2,7 @@ import logging
 import mimetypes
 import time
 from textwrap import dedent
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from google.genai import types
 from google.genai.errors import ClientError, ServerError
@@ -17,9 +17,6 @@ from tenacity import (
     stop_after_attempt,
     wait_fixed,
 )
-from tenacity import (
-    _utils as tenacity_utils,
-)
 from youtube_transcript_api._errors import TranscriptsDisabled
 
 from config import gemini_client
@@ -28,6 +25,11 @@ from prompts import PROMPTS
 from services import check_quota, get_gemini_config
 from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
+
+if TYPE_CHECKING:
+    from tenacity import (
+        _utils as tenacity_utils,
+    )
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
