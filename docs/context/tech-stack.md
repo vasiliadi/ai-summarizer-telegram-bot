@@ -44,6 +44,39 @@ uv run alembic revision --autogenerate
 uv run modal deploy scripts/cron.py
 ```
 
+### Using `uv tool` and `uvx` for One-Off Tools
+
+When you need to run a general-purpose Python tool that is not already part of the project's dependencies (for example, during investigation or quick checks), use `uv tool` / `uvx` instead of `pipx`, `pip`, or a global install.
+
+**Guidelines:**
+- Prefer `uv run` for tools already listed in `pyproject.toml`.
+- Use `uvx` for ad-hoc, one-off runs without adding dependencies.
+- If a tool becomes part of the standard workflow, add it to dev dependencies with `uv add --dev` and then use `uv run`.
+
+**Examples (one-off runs):**
+
+```bash
+# Linting (one-off)
+uvx ruff check .
+
+# Formatting (one-off)
+uvx ruff format .
+
+# Type checking (one-off)
+uvx ty check .
+```
+
+**Examples (install a tool for repeated local use without changing deps):**
+
+```bash
+uv tool install ruff
+uv tool install ty
+
+uv tool run ruff check .
+uv tool run ruff format .
+uv tool run ty check .
+```
+
 ### Dependency Management
 
 ```bash
@@ -201,9 +234,9 @@ MODAL_TOKEN_SECRET="your_modal_token_secret"
 
 ## Testing & Quality Assurance
 
-- Linting: `uv run ruff check .`
-- Formatting: `uv run ruff format .`
-- Type checking: `uv run ty check .` (using [ty](https://docs.astral.sh/ty/) - modern type checker from Astral)
+- Linting: `uv run ruff check .` (or `uvx ruff check .` for one-off runs)
+- Formatting: `uv run ruff format .` (or `uvx ruff format .` for one-off runs)
+- Type checking: `uv run ty check .` (or `uvx ty check .` for one-off runs; using [ty](https://docs.astral.sh/ty/) - modern type checker from Astral)
 
 ## Documentation Resources
 
