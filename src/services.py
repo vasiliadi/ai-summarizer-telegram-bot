@@ -9,9 +9,6 @@ from telebot.apihelper import ApiTelegramException
 from telebot.util import smart_split
 from telegramify_markdown import markdownify
 from tenacity import (
-    _utils as tenacity_utils,
-)
-from tenacity import (
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -32,9 +29,13 @@ from prompts import SYSTEM_INSTRUCTION
 
 if TYPE_CHECKING:
     from telebot.types import Message
+    from tenacity import (
+        _utils as tenacity_utils,
+    )
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
+
 
 @retry(
     stop=stop_after_attempt(3),

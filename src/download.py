@@ -24,6 +24,9 @@ from utils import generate_temporary_name
 
 if TYPE_CHECKING:
     from telebot.types import File
+    from tenacity import (
+        _utils as tenacity_utils,
+    )
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
