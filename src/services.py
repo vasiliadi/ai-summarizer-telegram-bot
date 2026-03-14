@@ -46,11 +46,27 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=True,
 )
-def _reply_with_retry(
+def reply_with_retry(
     message: "Message",
     text: str,
     entities: list[dict[str, object]] | None = None,
 ) -> None:
+    """Send a reply to a Telegram message with retry logic.
+
+    This function attempts to reply to a Telegram message using the bot's
+    reply_to method. If an ApiTelegramException occurs, it retries up to 3
+    times with a 1-second wait between attempts.
+
+    Args:
+        message (Message): The Telegram message to reply to.
+        text (str): The text content of the reply.
+        entities (list[dict[str, object]] | None): Optional list of message
+            entities for formatting.
+
+    Returns:
+        None
+
+    """
     if entities is None:
         bot.reply_to(message, text)
     else:
@@ -60,7 +76,7 @@ def _reply_with_retry(
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
-    retry=retry_if_exception_type((ApiTelegramException, ReadTimeout)),
+    retry=retry_if_exception_type(ReadTimeout),
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=True,
 )
@@ -101,7 +117,7 @@ def send_answer(message: "Message", answer: str) -> None:
     chunks = list(split_entities(text, entities, max_utf16_len=4096))
     for index, (chunk_text, chunk_entities) in enumerate(chunks):
         serialized_entities = [entity.to_dict() for entity in chunk_entities]
-        _reply_with_retry(message, chunk_text, entities=serialized_entities)
+        reply_with_retry(message, chunk_text, entities=serialized_entities)
         if index < len(chunks) - 1:
             time.sleep(1)
 
