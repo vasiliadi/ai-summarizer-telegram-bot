@@ -42,6 +42,8 @@ from utils import clean_up
 if TYPE_CHECKING:
     from telebot.types import Message
 
+    from models import UsersOrm
+
 logger = logging.getLogger(__name__)
 
 
@@ -440,11 +442,52 @@ def proceed_set_prompt_strategy(message: "Message") -> None:
     )
 
 
+def process_message_content(message: "Message", user: "UsersOrm") -> None:
+    """Process the content of a validated message.
+
+    Args:
+        message (Message): The message object from Telegram
+        user (UsersOrm): The authenticated user object
+
+    Returns:
+        None
+
+    """
+    if message.content_type == "audio":
+        handle_audio(message, user)
+    elif (
+        message.content_type == "document"
+        and message.document is not None
+        and message.document.mime_type
+        in (
+            "application/pdf",
+            "text/plain",
+            "text/rtf",
+            "text/csv",
+            "audio/ogg",
+        )
+    ):
+        handle_document(message, user)
+    elif message.content_type == "video_note":
+        logger.debug("video_note found. Starting video_note handle...")
+        handle_video_note(message, user)
+    elif message.content_type == "voice":
+        handle_voice(message, user)
+    elif message.content_type == "video":
+        handle_video(message, user)
+    else:
+        if message.text is None:
+            bot.send_message(message.chat.id, "No text to process.")
+            return
+        url = message.text.strip().split(" ", maxsplit=1)[0]
+        handle_url(message, user, url)
+
+
 # Unified handler
 @bot.message_handler(
     content_types=["text", "audio", "document", "video_note", "voice", "video"],
 )
-def handle_message(message: "Message") -> None:  # noqa: C901
+def handle_message(message: "Message") -> None:
     """Universal message handler for the bot.
 
     This function processes various types of content:
@@ -475,34 +518,7 @@ def handle_message(message: "Message") -> None:  # noqa: C901
             bot.send_message(message.chat.id, "You are not approved.")
             return
 
-        if message.content_type == "audio":
-            handle_audio(message, user)
-        elif (
-            message.content_type == "document"
-            and message.document is not None
-            and message.document.mime_type
-            in (
-                "application/pdf",
-                "text/plain",
-                "text/rtf",
-                "text/csv",
-                "audio/ogg",
-            )
-        ):
-            handle_document(message, user)
-        elif message.content_type == "video_note":
-            logger.debug("video_note found. Starting video_note handle...")
-            handle_video_note(message, user)
-        elif message.content_type == "voice":
-            handle_voice(message, user)
-        elif message.content_type == "video":
-            handle_video(message, user)
-        else:
-            if message.text is None:
-                bot.send_message(message.chat.id, "No text to process.")
-                return
-            url = message.text.strip().split(" ", maxsplit=1)[0]
-            handle_url(message, user, url)
+        process_message_content(message, user)
 
     except LimitExceededError as e:
         capture_exception(e)
@@ -513,7 +529,7 @@ def handle_message(message: "Message") -> None:  # noqa: C901
             message,
             "An error occurred during execution. Please try again in 10 minutes.",
         )
-    except Exception as e:  # pylint: disable=W0718
+    except Exception as e:
         capture_exception(e)
         bot.reply_to(message, f"Unexpected: {type(e).__name__}")
 
