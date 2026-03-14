@@ -46,7 +46,7 @@ requires-dist = [
     { name = "rush", extras = ["redis"], specifier = ">=2021.4.0" },
     { name = "sentry-sdk", specifier = ">=2.33.0" },
     { name = "sqlalchemy", specifier = ">=2.0.41" },
-    { name = "telegramify-markdown", specifier = ">=0.5.1" },
+    { name = "telegramify-markdown", specifier = ">=1.0.0" },
     { name = "tenacity", specifier = ">=9.1.3" },
     { name = "youtube-transcript-api", specifier = ">=1.1.1" },
     { name = "yt-dlp", extras = ["default"], specifier = ">=2025.6.30" },

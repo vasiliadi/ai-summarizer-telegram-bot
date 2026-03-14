@@ -7,10 +7,11 @@ app = modal.App(name="ResetLimit", image=image, secrets=[secrets])
 
 with image.imports():
     import os
+    from typing import TYPE_CHECKING
+
     from rush import quota, throttle
     from rush.limiters import periodic
     from rush.stores import redis as redis_store
-    from typing import TYPE_CHECKING
 
     if TYPE_CHECKING:
         from rush.result import RateLimitResult
