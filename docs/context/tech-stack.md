@@ -230,6 +230,29 @@ MODAL_TOKEN_SECRET="your_modal_token_secret"
 
 ## Testing & Quality Assurance
 
+The project uses `pytest` for unit testing and `pytest-cov` for coverage reporting.
+
+### Run tests
+
+```bash
+uv run pytest
+```
+
+### Generate coverage report
+
+```bash
+uv run pytest --cov=src --cov-report=term-missing
+```
+
+> [!NOTE]
+> If you encounter `unrecognized arguments: --cov=src`, ensure `pytest-cov` is installed by running `uv sync` or use `uv run --with pytest-cov pytest --cov=src`.
+
+The HTML report can also be generated:
+```bash
+uv run pytest --cov=src --cov-report=html
+```
+The report will be available in the `htmlcov/` directory.
+
 - Linting: `ruff check .` (preferred; install via `uv tool install ruff` if missing, or `uvx ruff check .` for one-off runs)
 - Formatting: `ruff format .` (preferred; install via `uv tool install ruff` if missing, or `uvx ruff format .` for one-off runs)
 - Type checking: `ty check .` (preferred; install via `uv tool install ty` if missing, or `uvx ty check .` for one-off runs; using [ty](https://docs.astral.sh/ty/) - modern type checker from Astral)
