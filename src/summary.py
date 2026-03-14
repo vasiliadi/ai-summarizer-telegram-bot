@@ -357,7 +357,9 @@ def summarize(  # noqa: PLR0913
     if isinstance(data, str):
         if data.startswith("https://castro.fm/episode/"):
             data = download_castro(data)
-        if data.startswith(("https://youtu.be/", "https://www.youtube.com/")):
+        if data.startswith(
+            ("https://youtu.be/", "https://www.youtube.com/", "https://youtube.com/"),
+        ):
             if use_yt_transcription:
                 try:
                     transcript = get_yt_transcript(data)
