@@ -266,9 +266,9 @@ When working on this project, AI agents must follow these architectural principl
 
 #### 3. Code Quality
 
-- **ALWAYS** run `uv run ruff check .` before committing code
-- **ALWAYS** run `uv run ruff format .` to format code
-- Use `uv run ty check .` for type checking
+- **ALWAYS** run `ruff check .` before committing code (install via `uv tool install ruff` if missing)
+- **ALWAYS** run `ruff format .` to format code (install via `uv tool install ruff` if missing)
+- Use `ty check .` for type checking (install via `uv tool install ty` if missing)
 - Follow Google Python Style Guide for docstrings
 - Use type hints for all function signatures
 - Preferred local workflow: install `ruff` and `ty` via `uv tool install` and run `ruff ...` / `ty ...` directly; use `uvx` only for one-off runs when not installed.
