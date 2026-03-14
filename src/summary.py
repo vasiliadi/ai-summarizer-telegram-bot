@@ -1,5 +1,4 @@
 import logging
-import mimetypes
 import time
 from textwrap import dedent
 from typing import TYPE_CHECKING, cast
@@ -22,7 +21,12 @@ from youtube_transcript_api._errors import TranscriptsDisabled
 from config import gemini_client
 from download import download_castro, download_tg, download_yt
 from prompts import PROMPTS
-from services import check_quota, get_gemini_config
+from services import (
+    check_quota,
+    get_gemini_config,
+    resolve_mime_type,
+    upload_and_wait_for_audio_file,
+)
 from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
 
@@ -77,20 +81,15 @@ def summarize_with_file(
 
     """
     prompt = dedent(PROMPTS[prompt_key]).strip()
-    mime_type = mimetypes.guess_type(file)[0]
-    audio_file = gemini_client.files.upload(file=file, config={"mime_type": mime_type})
-    if audio_file.name is None:
+    mime_type = resolve_mime_type(file)
+    audio_file = upload_and_wait_for_audio_file(
+        file=file,
+        mime_type=mime_type,
+        sleep_time=sleep_time,
+    )
+    if audio_file.name is None or audio_file.uri is None:
         raise AttributeError
     audio_file_name = audio_file.name
-    while audio_file.state == "PROCESSING":
-        time.sleep(sleep_time)
-        audio_file = gemini_client.files.get(name=audio_file_name)
-    if audio_file.state == "FAILED":
-        raise ValueError(audio_file.state)
-    if audio_file.uri is None:
-        raise AttributeError
-    if audio_file.mime_type is None:
-        raise AttributeError
     check_quota(quantity=1)
     response = gemini_client.models.generate_content(
         model=model,
