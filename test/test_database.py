@@ -1,15 +1,16 @@
 
-import pytest
 from sqlalchemy.exc import IntegrityError
+
 from database import (
     register_user,
+    set_prompt_strategy,
+    set_summarizing_model,
+    set_target_language,
     toggle_transcription,
     toggle_yt_transcription,
-    set_target_language,
-    set_summarizing_model,
-    set_prompt_strategy
 )
 from models import UsersOrm
+
 
 def test_register_user_success(mock_db_session):
     """Test registering a new user successfully."""

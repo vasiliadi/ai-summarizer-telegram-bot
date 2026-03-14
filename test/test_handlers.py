@@ -1,5 +1,6 @@
-import config
 from telebot import types
+
+import config
 from exceptions import LimitExceededError
 from main import handle_message
 
@@ -137,15 +138,15 @@ def test_handle_url_youtube_pattern(message_factory, mocker):
     """Test that YouTube URLs trigger summarize."""
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     msg = message_factory(content_type="text", text=url)
-    
+
     mocker.patch("main.check_auth", return_value=True)
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
-    
+
     mock_summarize = mocker.patch("handlers.summarize")
     mocker.patch("handlers.send_answer")
-    
+
     handle_message(msg)
-    
+
     mock_summarize.assert_called_once()
     # Check that it was called with data=url
     assert mock_summarize.call_args.kwargs["data"] == url
@@ -154,15 +155,15 @@ def test_handle_url_castro_pattern(message_factory, mocker):
     """Test that Castro URLs trigger summarize."""
     url = "https://castro.fm/episode/123"
     msg = message_factory(content_type="text", text=url)
-    
+
     mocker.patch("main.check_auth", return_value=True)
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
-    
+
     mock_summarize = mocker.patch("handlers.summarize")
     mocker.patch("handlers.send_answer")
-    
+
     handle_message(msg)
-    
+
     mock_summarize.assert_called_once()
     assert mock_summarize.call_args.kwargs["data"] == url
 
@@ -170,15 +171,15 @@ def test_handle_url_other_http_pattern(message_factory, mocker):
     """Test that other URLs trigger summarize_webpage."""
     url = "https://example.com/article"
     msg = message_factory(content_type="text", text=url)
-    
+
     mocker.patch("main.check_auth", return_value=True)
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
-    
+
     mock_summarize_webpage = mocker.patch("handlers.summarize_webpage")
     mocker.patch("handlers.send_answer")
-    
+
     handle_message(msg)
-    
+
     mock_summarize_webpage.assert_called_once()
     assert mock_summarize_webpage.call_args.kwargs["content"] == url
 
@@ -285,9 +286,9 @@ def test_handle_message_limit_exceeded(message_factory, mocker):
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
     mocker.patch("main.process_message_content", side_effect=LimitExceededError("Rate limit exceeded"))
     mock_reply = mocker.patch("main.bot.reply_to")
-    
+
     handle_message(msg)
-    
+
     mock_reply.assert_called_once_with(msg, "Daily limit has been exceeded, try again tomorrow.")
 
 def test_handle_message_unexpected_error(message_factory, mocker):
@@ -297,7 +298,7 @@ def test_handle_message_unexpected_error(message_factory, mocker):
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
     mocker.patch("main.process_message_content", side_effect=Exception("BOOM"))
     mock_reply = mocker.patch("main.bot.reply_to")
-    
+
     handle_message(msg)
-    
+
     mock_reply.assert_called_once_with(msg, "Unexpected: Exception")
