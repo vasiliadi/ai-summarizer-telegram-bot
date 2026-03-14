@@ -2,8 +2,10 @@ import re
 from typing import TYPE_CHECKING
 
 from config import bot
+from download import download_tg
 from services import send_answer
 from summary import summarize, summarize_webpage, summarize_with_document
+from utils import clean_up, compress_audio, generate_temporary_name
 
 if TYPE_CHECKING:
     from telebot.types import Message
@@ -47,14 +49,20 @@ def handle_video_note(message: "Message", user: "UsersOrm") -> None:
     data = bot.get_file(
         video_note.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
-    answer = summarize(
-        data=data,
-        use_transcription=user.use_transcription,
-        model=user.summarizing_model,
-        prompt_key=user.prompt_key_for_summary,
-        target_language=user.target_language,
-    )
-    send_answer(message, answer)
+    downloaded_file = download_tg(data, ext=".mp4")
+    compressed_file = generate_temporary_name(ext=".ogg")
+    try:
+        compress_audio(input_file=downloaded_file, output_file=compressed_file)
+        answer = summarize(
+            data=compressed_file,
+            use_transcription=user.use_transcription,
+            model=user.summarizing_model,
+            prompt_key=user.prompt_key_for_summary,
+            target_language=user.target_language,
+        )
+        send_answer(message, answer)
+    finally:
+        clean_up(file=downloaded_file)
 
 
 def handle_voice(message: "Message", user: "UsersOrm") -> None:
@@ -93,14 +101,20 @@ def handle_video(message: "Message", user: "UsersOrm") -> None:
     data = bot.get_file(
         video.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
-    answer = summarize(
-        data=data,
-        use_transcription=user.use_transcription,
-        model=user.summarizing_model,
-        prompt_key=user.prompt_key_for_summary,
-        target_language=user.target_language,
-    )
-    send_answer(message, answer)
+    downloaded_file = download_tg(data, ext=".mp4")
+    compressed_file = generate_temporary_name(ext=".ogg")
+    try:
+        compress_audio(input_file=downloaded_file, output_file=compressed_file)
+        answer = summarize(
+            data=compressed_file,
+            use_transcription=user.use_transcription,
+            model=user.summarizing_model,
+            prompt_key=user.prompt_key_for_summary,
+            target_language=user.target_language,
+        )
+        send_answer(message, answer)
+    finally:
+        clean_up(file=downloaded_file)
 
 
 def handle_document(message: "Message", user: "UsersOrm") -> None:
