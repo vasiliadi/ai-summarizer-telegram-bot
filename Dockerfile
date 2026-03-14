@@ -23,7 +23,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
 COPY pyproject.toml uv.lock ./
 RUN uv sync \
     --frozen \
-    --no-dev \
+    --no-group dev \
+    --no-group test \
     --compile-bytecode \
     --no-managed-python \
     && rm -f pyproject.toml uv.lock
