@@ -47,9 +47,6 @@ def mock_db_session(mocker):
     # Also mock engine if accessed
     mocker.patch("database.engine", mocker.MagicMock())
     return session_mock
-    # Also mock engine if accessed
-    mocker.patch("database.engine", mocker.MagicMock())
-    return session_mock
 
 
 @pytest.fixture
@@ -120,6 +117,22 @@ def message_factory():
                 height=480,
                 file_name="test.mp4",
                 mime_type="video/mp4",
+                file_size=1024,
+            )
+        elif content_type == "voice":
+            msg.voice = types.Voice(
+                file_id="mock_voice_id",
+                file_unique_id="mock_voice_uid",
+                duration=10,
+                mime_type="audio/ogg",
+                file_size=1024,
+            )
+        elif content_type == "video_note":
+            msg.video_note = types.VideoNote(
+                file_id="mock_vn_id",
+                file_unique_id="mock_vn_uid",
+                duration=10,
+                length=200,
                 file_size=1024,
             )
 

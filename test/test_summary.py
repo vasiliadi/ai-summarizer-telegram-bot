@@ -4,7 +4,7 @@ from google.genai.errors import ClientError
 from tenacity import RetryError
 
 from services import resolve_mime_type
-from summary import summarize_webpage, summarize_with_file, summarize_with_transcript
+from summary import summarize_webpage, summarize_with_document, summarize_with_file, summarize_with_transcript
 
 
 def test_resolve_mime_type():
@@ -134,6 +134,8 @@ def test_summarize_genai_exception(mocker):
     """Test summarize_with_transcript raises RetryError when GenAI crashes."""
     mocker.patch("summary.check_quota", return_value=True)
     mock_client = mocker.patch("summary.gemini_client")
+    # Patch tenacity's sleep to avoid hanging during retries
+    mocker.patch("tenacity.nap.time.sleep")
 
     # Tenacity `retry` block raises RetryError when all attempts are exhausted. To test the bare
     # generate_content raises this, we'll patch generate_content.
@@ -146,3 +148,109 @@ def test_summarize_genai_exception(mocker):
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
         )
+
+
+def test_summarize_with_document_polling(mocker):
+    """Test summarize_with_document with PROCESSING polling loop."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("time.sleep")  # Skip actual sleeping
+
+    mock_client = mocker.patch("summary.gemini_client")
+    
+    # First call: PROCESSING, Second call: ACTIVE
+    mock_file_proc = mocker.MagicMock()
+    mock_file_proc.state = "PROCESSING"
+    mock_file_proc.name = "files/doc123"
+    
+    mock_file_active = mocker.MagicMock()
+    mock_file_active.state = "ACTIVE"
+    mock_file_active.name = "files/doc123"
+    mock_file_active.uri = "https://mock.uri"
+    mock_file_active.mime_type = "application/pdf"
+    
+    mock_client.files.upload.return_value = mock_file_proc
+    mock_client.files.get.return_value = mock_file_active
+    
+    mock_response = mocker.MagicMock()
+    mock_response.text = "Document summary"
+    mock_client.models.generate_content.return_value = mock_response
+
+    from telebot.types import File
+    mock_tg_file = mocker.MagicMock(spec=File)
+    
+    result = summarize_with_document(
+        file=mock_tg_file,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        mime_type="application/pdf"
+    )
+
+    assert result == "Document summary"
+    assert mock_client.files.get.call_count == 1
+    mock_client.files.delete.assert_called_once_with(name="files/doc123")
+
+
+def test_summarize_youtube_direct_transcript(mocker):
+    """Test summarize() using direct YouTube transcript (📹 prefix)."""
+    url = "https://youtube.com/watch?v=123"
+    mocker.patch("summary.get_yt_transcript", return_value="YT Transcript content")
+    mock_sum_transcript = mocker.patch("summary.summarize_with_transcript", return_value="Summary Result")
+    
+    from summary import summarize
+    result = summarize(
+        data=url,
+        use_transcription=True,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        use_yt_transcription=True
+    )
+    
+    assert result.startswith("📹")
+    assert "Summary Result" in result
+    mock_sum_transcript.assert_called_once()
+
+
+def test_summarize_fallback_to_transcription(mocker):
+    """Test summarize() fallback to transcription (📝 prefix) when file summary fails."""
+    # Data is a local file (or downloaded)
+    mocker.patch("summary.summarize_with_file", side_effect=RetryError("File summary failed"))
+    mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
+    mocker.patch("summary.compress_audio")
+    mocker.patch("summary.transcribe", return_value="Transcription text")
+    mocker.patch("summary.summarize_with_transcript", return_value="Transcript Summary")
+    mocker.patch("summary.clean_up")
+    
+    from summary import summarize
+    result = summarize(
+        data="local_audio.ogg",
+        use_transcription=True,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English"
+    )
+    
+    assert result.startswith("📝")
+    assert "Transcript Summary" in result
+
+
+def test_summarize_castro(mocker):
+    """Test summarize() with Castro.fm URL."""
+    url = "https://castro.fm/episode/123"
+    mocker.patch("summary.download_castro", return_value="downloaded.mp3")
+    mocker.patch("summary.summarize_with_file", return_value="Castro summary")
+    mocker.patch("summary.clean_up")
+    
+    from summary import summarize
+    result = summarize(
+        data=url,
+        use_transcription=True,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English"
+    )
+    
+    assert result == "Castro summary"
