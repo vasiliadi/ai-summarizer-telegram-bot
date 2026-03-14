@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from config import bot
 from download import download_tg
-from services import send_answer
+from services import get_file_with_retry, send_answer
 from summary import summarize, summarize_webpage, summarize_with_document
 from utils import clean_up, compress_audio, generate_temporary_name
 
@@ -23,7 +23,7 @@ def handle_audio(message: "Message", user: "UsersOrm") -> None:
         bot.reply_to(message, "File is too big.")
         return
 
-    data = bot.get_file(
+    data = get_file_with_retry(
         audio.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
     answer = summarize(
@@ -46,7 +46,7 @@ def handle_video_note(message: "Message", user: "UsersOrm") -> None:
         bot.reply_to(message, "File is too big.")
         return
 
-    data = bot.get_file(
+    data = get_file_with_retry(
         video_note.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
     downloaded_file = download_tg(data, ext=".mp4")
@@ -75,7 +75,7 @@ def handle_voice(message: "Message", user: "UsersOrm") -> None:
         bot.reply_to(message, "File is too big.")
         return
 
-    data = bot.get_file(
+    data = get_file_with_retry(
         voice.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
     answer = summarize(
@@ -98,7 +98,7 @@ def handle_video(message: "Message", user: "UsersOrm") -> None:
         bot.reply_to(message, "File is too big.")
         return
 
-    data = bot.get_file(
+    data = get_file_with_retry(
         video.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
     downloaded_file = download_tg(data, ext=".mp4")
@@ -127,7 +127,7 @@ def handle_document(message: "Message", user: "UsersOrm") -> None:
         bot.reply_to(message, "File is too big.")
         return
 
-    data = bot.get_file(
+    data = get_file_with_retry(
         document.file_id,
     )  # Max 20MB https://core.telegram.org/bots/api#getfile
     answer = summarize_with_document(

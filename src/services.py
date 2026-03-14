@@ -5,6 +5,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
 from google.genai import types
+from requests.exceptions import ReadTimeout
 from rush.exceptions import DataChangedInStoreError, MismatchedDataError
 from telebot.apihelper import ApiTelegramException
 from telegramify_markdown import convert, split_entities
@@ -29,7 +30,7 @@ from exceptions import LimitExceededError
 from prompts import SYSTEM_INSTRUCTION
 
 if TYPE_CHECKING:
-    from telebot.types import Message
+    from telebot.types import File, Message
     from tenacity import (
         _utils as tenacity_utils,
     )
@@ -54,6 +55,26 @@ def _reply_with_retry(
         bot.reply_to(message, text)
     else:
         bot.reply_to(message, text, entities=entities)
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(30),
+    retry=retry_if_exception_type((ApiTelegramException, ReadTimeout)),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+    reraise=True,
+)
+def get_file_with_retry(file_id: str) -> "File":
+    """Get file information from Telegram, with retries on timeout.
+
+    Args:
+        file_id (str): The Telegram file ID to retrieve.
+
+    Returns:
+        File: The downloaded file information.
+
+    """
+    return bot.get_file(file_id)
 
 
 def send_answer(message: "Message", answer: str) -> None:
