@@ -44,38 +44,34 @@ uv run alembic revision --autogenerate
 uv run modal deploy scripts/cron.py
 ```
 
-### Using `uv tool` and `uvx` for One-Off Tools
+### Using `uv tool` and `uvx` for Tooling
 
-When you need to run a general-purpose Python tool that is not already part of the project's dependencies (for example, during investigation or quick checks), use `uv tool` / `uvx` instead of `pipx`, `pip`, or a global install.
+Use `uv tool install` to install general-purpose developer tools (like linters, formatters, and type checkers) so the executables are available on your `PATH`. Once installed, run the tool directly (no `uvx` prefix needed).
 
-**Guidelines:**
-- Prefer `uv run` for tools already listed in `pyproject.toml`.
-- Use `uvx` for ad-hoc, one-off runs without adding dependencies.
-- If a tool becomes part of the standard workflow, add it to dev dependencies with `uv add --dev` and then use `uv run`.
+`uvx` is an alias for `uv tool run` and is best for one-off runs when you do not want to install the tool.
 
-**Examples (one-off runs):**
+**Preferred workflow for linting, formatting, and type checking:**
 
 ```bash
-# Linting (one-off)
-uvx ruff check .
-
-# Formatting (one-off)
-uvx ruff format .
-
-# Type checking (one-off)
-uvx ty check .
-```
-
-**Examples (install a tool for repeated local use without changing deps):**
-
-```bash
+# Install once (system-wide executable via uv)
 uv tool install ruff
 uv tool install ty
 
-uv tool run ruff check .
-uv tool run ruff format .
-uv tool run ty check .
+# Run directly
+ruff check .
+ruff format .
+ty check .
 ```
+
+**One-off runs (no install):**
+
+```bash
+uvx ruff check .
+uvx ruff format .
+uvx ty check .
+```
+
+If a tool should be part of the project's standard workflow, add it to dev dependencies with `uv add --dev` as well (so CI and other contributors have it via the project).
 
 ### Dependency Management
 
@@ -234,9 +230,9 @@ MODAL_TOKEN_SECRET="your_modal_token_secret"
 
 ## Testing & Quality Assurance
 
-- Linting: `uv run ruff check .` (or `uvx ruff check .` for one-off runs)
-- Formatting: `uv run ruff format .` (or `uvx ruff format .` for one-off runs)
-- Type checking: `uv run ty check .` (or `uvx ty check .` for one-off runs; using [ty](https://docs.astral.sh/ty/) - modern type checker from Astral)
+- Linting: `ruff check .` (preferred; install via `uv tool install ruff` if missing, or `uvx ruff check .` for one-off runs)
+- Formatting: `ruff format .` (preferred; install via `uv tool install ruff` if missing, or `uvx ruff format .` for one-off runs)
+- Type checking: `ty check .` (preferred; install via `uv tool install ty` if missing, or `uvx ty check .` for one-off runs; using [ty](https://docs.astral.sh/ty/) - modern type checker from Astral)
 
 ## Documentation Resources
 
@@ -270,11 +266,12 @@ When working on this project, AI agents must follow these architectural principl
 
 #### 3. Code Quality
 
-- **ALWAYS** run `uv run ruff check .` before committing code
-- **ALWAYS** run `uv run ruff format .` to format code
-- Use `uv run ty check .` for type checking
+- **ALWAYS** run `ruff check .` before committing code (install via `uv tool install ruff` if missing)
+- **ALWAYS** run `ruff format .` to format code (install via `uv tool install ruff` if missing)
+- Use `ty check .` for type checking (install via `uv tool install ty` if missing)
 - Follow Google Python Style Guide for docstrings
 - Use type hints for all function signatures
+- Preferred local workflow: install `ruff` and `ty` via `uv tool install` and run `ruff ...` / `ty ...` directly; use `uvx` only for one-off runs when not installed.
 
 #### 4. Error Handling
 
