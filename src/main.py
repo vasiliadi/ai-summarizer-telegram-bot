@@ -42,7 +42,7 @@ from utils import clean_up
 if TYPE_CHECKING:
     from telebot.types import Message
 
-    from database import UsersOrm
+    from models import UsersOrm
 
 logger = logging.getLogger(__name__)
 
