@@ -33,6 +33,7 @@ test = [
     "fakeredis>=2.34.1",
     "pytest>=9.0.2",
     "pytest-mock>=3.15.1",
+    "pytest-cov>=6.0.0",
 ]
 
 [tool.ruff]
@@ -111,3 +112,24 @@ project-excludes = ["test/**"]
 
 [tool.ty.src]
 exclude = ["test"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+pythonpath = ["src"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["test/*", "migrations/*"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
