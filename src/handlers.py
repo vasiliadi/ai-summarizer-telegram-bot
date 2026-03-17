@@ -1,5 +1,5 @@
-import re
 from typing import TYPE_CHECKING, TypedDict
+from urllib.parse import urlsplit
 
 from config import bot
 from download import download_tg
@@ -13,12 +13,10 @@ if TYPE_CHECKING:
     from models import UsersOrm
 
 FILE_TOO_BIG_BYTES = 20 * 1024 * 1024
-YOUTUBE_OR_CASTRO_PATTERN = re.compile(
-    r"^https?:\/\/(www\.youtube\.com\/*|youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*",
-)
-OTHER_URL_PATTERN = re.compile(
-    r"^(?!https?:\/\/(www\.youtube\.com\/|youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*)https?[\S]*",
-)
+YOUTUBE_HOSTS = {"www.youtube.com", "youtube.com"}
+YOUTU_BE_HOST = "youtu.be"
+CASTRO_HOST = "castro.fm"
+SUPPORTED_WEB_SCHEMES = {"http", "https"}
 
 
 class SummaryKwargs(TypedDict):
@@ -86,9 +84,16 @@ def handle_video_like_media(
 
 def classify_url(url: str) -> str | None:
     """Classify URL types supported by the bot."""
-    if YOUTUBE_OR_CASTRO_PATTERN.match(url):
+    parsed_url = urlsplit(url)
+    host = parsed_url.hostname
+
+    if parsed_url.scheme not in SUPPORTED_WEB_SCHEMES or host is None:
+        return None
+    if host in YOUTUBE_HOSTS or host == YOUTU_BE_HOST:
         return "media"
-    if OTHER_URL_PATTERN.match(url):
+    if host == CASTRO_HOST and parsed_url.path.startswith("/episode/"):
+        return "media"
+    if parsed_url.netloc:
         return "webpage"
     return None
 

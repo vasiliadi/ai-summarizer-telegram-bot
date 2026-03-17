@@ -221,6 +221,38 @@ def test_handle_url_other_http_pattern(message_factory, mocker):
     assert mock_summarize_webpage.call_args.kwargs["content"] == url
 
 
+def test_handle_url_evil_youtube_prefix_host_is_not_treated_as_media(
+    message_factory,
+    mocker,
+):
+    """Test prefix-matching hosts do not route into supported media handling."""
+    url = "https://www.youtube.com.evil.tld/watch?v=dQw4w9WgXcQ"
+    msg = message_factory(content_type="text", text=url)
+    mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
+    mock_summarize = mocker.patch("handlers.summarize")
+    mock_summarize_webpage = mocker.patch("handlers.summarize_webpage")
+    mocker.patch("handlers.send_answer")
+
+    handle_message(msg)
+
+    mock_summarize.assert_not_called()
+    assert mock_summarize_webpage.call_args.kwargs["content"] == url
+
+
+def test_handle_url_invalid_httpss_scheme_is_rejected(message_factory, mocker):
+    """Test malformed schemes do not route into supported URL flows."""
+    url = "httpss://example.com/article"
+    msg = message_factory(content_type="text", text=url)
+    mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
+    mock_send_message = mocker.patch("main.bot.send_message")
+    mock_summarize_webpage = mocker.patch("handlers.summarize_webpage")
+
+    handle_message(msg)
+
+    mock_send_message.assert_called_once_with(msg.chat.id, "No data to proceed.")
+    mock_summarize_webpage.assert_not_called()
+
+
 def test_handle_voice_happy_path(message_factory, mocker):
     """Test successful voice message processing."""
     msg = message_factory(content_type="voice")
