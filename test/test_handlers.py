@@ -167,6 +167,21 @@ def test_handle_url_youtube_pattern_without_www(message_factory, mocker):
     assert mock_summarize.call_args.kwargs["data"] == url
 
 
+def test_handle_url_http_youtube_pattern_normalizes_to_https(message_factory, mocker):
+    """Test that http YouTube URLs still route through summarize()."""
+    url = "http://youtube.com/watch?v=dQw4w9WgXcQ"
+    msg = message_factory(content_type="text", text=url)
+    mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
+    mock_summarize = mocker.patch("handlers.summarize")
+    mocker.patch("handlers.send_answer")
+
+    handle_message(msg)
+
+    assert mock_summarize.call_args.kwargs["data"] == (
+        "https://youtube.com/watch?v=dQw4w9WgXcQ"
+    )
+
+
 def test_handle_url_castro_pattern(message_factory, mocker):
     """Test that Castro URLs trigger summarize."""
     url = "https://castro.fm/episode/123"
@@ -178,6 +193,19 @@ def test_handle_url_castro_pattern(message_factory, mocker):
     handle_message(msg)
 
     assert mock_summarize.call_args.kwargs["data"] == url
+
+
+def test_handle_url_http_castro_pattern_normalizes_to_https(message_factory, mocker):
+    """Test that http Castro URLs still route through summarize()."""
+    url = "http://castro.fm/episode/123"
+    msg = message_factory(content_type="text", text=url)
+    mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
+    mock_summarize = mocker.patch("handlers.summarize")
+    mocker.patch("handlers.send_answer")
+
+    handle_message(msg)
+
+    assert mock_summarize.call_args.kwargs["data"] == "https://castro.fm/episode/123"
 
 
 def test_handle_url_other_http_pattern(message_factory, mocker):
@@ -328,6 +356,37 @@ def test_handle_video_cleans_up_compressed_file_when_compression_fails(
             mocker.call(file="downloaded.mp4"),
         ],
     )
+
+
+def test_handle_video_does_not_double_clean_compressed_file_when_summarize_fails(
+    message_factory,
+    mocker,
+):
+    """Test summarize() owns compressed file cleanup once the call begins."""
+    msg = message_factory(content_type="video")
+    mocker.patch(
+        "main.select_user",
+        return_value=mocker.MagicMock(
+            approved=True,
+            use_transcription=False,
+            summarizing_model="model",
+            prompt_key_for_summary="prompt",
+            target_language="English",
+        ),
+    )
+    mock_file = mocker.MagicMock(spec=types.File)
+    mocker.patch("handlers.get_file_with_retry", return_value=mock_file)
+    mocker.patch("handlers.download_tg", return_value="downloaded.mp4")
+    mocker.patch("handlers.generate_temporary_name", return_value="compressed.ogg")
+    mocker.patch("handlers.compress_audio")
+    mocker.patch("handlers.summarize", side_effect=RuntimeError("summary failed"))
+    mocker.patch("main.capture_exception")
+    mocker.patch("main.bot.reply_to")
+    mock_clean_up = mocker.patch("handlers.clean_up")
+
+    handle_message(msg)
+
+    mock_clean_up.assert_called_once_with(file="downloaded.mp4")
 
 
 def test_handle_message_limit_exceeded(message_factory, mocker):
