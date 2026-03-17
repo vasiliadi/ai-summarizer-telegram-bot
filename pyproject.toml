@@ -36,6 +36,9 @@ test = [
     "pytest-cov>=6.0.0",
 ]
 
+[tool.uv]
+default-groups = ["dev", "test"]
+
 [tool.ruff]
 extend-exclude = ["temp", "migrations", "test"]
 line-length = 88
