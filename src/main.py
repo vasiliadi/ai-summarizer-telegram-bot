@@ -1,4 +1,3 @@
-import logging
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -43,8 +42,6 @@ if TYPE_CHECKING:
     from telebot.types import Message, User
 
     from models import UsersOrm
-
-logger = logging.getLogger(__name__)
 
 SUPPORTED_DOCUMENT_MIME_TYPES = (
     "application/pdf",
@@ -498,8 +495,6 @@ def process_message_content(message: "Message", user: "UsersOrm") -> None:
     elif is_supported_document_message(message):
         handle_document(message, user)
     else:
-        if message.content_type == "video_note":
-            logger.debug("video_note found. Starting video_note handle...")
         if message.text is None:
             bot.send_message(message.chat.id, "No text to process.")
             return

@@ -38,12 +38,12 @@ def get_summary_kwargs(user: "UsersOrm") -> SummaryKwargs:
     }
 
 
-def validate_media_file(
+def validate_media_file[TelegramMedia](
     message: "Message",
-    media: object,
+    media: TelegramMedia | None,
     missing_message: str,
-) -> str | None:
-    """Validate Telegram media metadata and return the file id if valid."""
+) -> tuple[TelegramMedia, str] | None:
+    """Validate Telegram media metadata and return the media object plus file id."""
     file_id = getattr(media, "file_id", None)
     file_size = getattr(media, "file_size", None)
     if media is None or file_id is None or file_size is None:
@@ -52,7 +52,7 @@ def validate_media_file(
     if file_size >= FILE_TOO_BIG_BYTES:
         bot.reply_to(message, "File is too big.")
         return None
-    return file_id
+    return media, file_id
 
 
 def summarize_telegram_file(file_id: str, user: "UsersOrm") -> str:
@@ -107,9 +107,14 @@ def normalize_media_url(url: str) -> str:
 
 def handle_audio(message: "Message", user: "UsersOrm") -> None:
     """Handle audio file processing."""
-    file_id = validate_media_file(message, message.audio, "No audio file found.")
-    if file_id is None:
+    validated_media = validate_media_file(
+        message,
+        message.audio,
+        "No audio file found.",
+    )
+    if validated_media is None:
         return
+    _, file_id = validated_media
 
     answer = summarize_telegram_file(file_id, user)
     send_answer(message, answer)
@@ -117,18 +122,28 @@ def handle_audio(message: "Message", user: "UsersOrm") -> None:
 
 def handle_video_note(message: "Message", user: "UsersOrm") -> None:
     """Handle video note file processing."""
-    file_id = validate_media_file(message, message.video_note, "No video note found.")
-    if file_id is None:
+    validated_media = validate_media_file(
+        message,
+        message.video_note,
+        "No video note found.",
+    )
+    if validated_media is None:
         return
+    _, file_id = validated_media
 
     handle_video_like_media(message, file_id, user)
 
 
 def handle_voice(message: "Message", user: "UsersOrm") -> None:
     """Handle voice file processing."""
-    file_id = validate_media_file(message, message.voice, "No voice message found.")
-    if file_id is None:
+    validated_media = validate_media_file(
+        message,
+        message.voice,
+        "No voice message found.",
+    )
+    if validated_media is None:
         return
+    _, file_id = validated_media
 
     answer = summarize_telegram_file(file_id, user)
     send_answer(message, answer)
@@ -136,21 +151,28 @@ def handle_voice(message: "Message", user: "UsersOrm") -> None:
 
 def handle_video(message: "Message", user: "UsersOrm") -> None:
     """Handle video file processing."""
-    file_id = validate_media_file(message, message.video, "No video file found.")
-    if file_id is None:
+    validated_media = validate_media_file(
+        message,
+        message.video,
+        "No video file found.",
+    )
+    if validated_media is None:
         return
+    _, file_id = validated_media
 
     handle_video_like_media(message, file_id, user)
 
 
 def handle_document(message: "Message", user: "UsersOrm") -> None:
     """Handle document file processing."""
-    document = message.document
-    file_id = validate_media_file(message, document, "No document found.")
-    if file_id is None:
+    validated_media = validate_media_file(
+        message,
+        message.document,
+        "No document found.",
+    )
+    if validated_media is None:
         return
-    if document is None:
-        return
+    document, file_id = validated_media
 
     data = get_file_with_retry(file_id)
     answer = summarize_with_document(

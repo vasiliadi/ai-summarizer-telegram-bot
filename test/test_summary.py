@@ -172,8 +172,8 @@ def test_summarize_genai_exception(mocker):
         )
 
 
-def test_summarize_with_document_polling(mocker):
-    """Test summarize_with_document with PROCESSING polling loop."""
+def test_summarize_with_document_upload_and_genai_call(mocker):
+    """Test summarize_with_document uploads, summarizes, and deletes the file."""
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
     mocker.patch("summary.clean_up")
