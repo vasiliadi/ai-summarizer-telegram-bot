@@ -40,11 +40,65 @@ from handlers import (
 from utils import clean_up
 
 if TYPE_CHECKING:
-    from telebot.types import Message
+    from telebot.types import Message, User
 
     from models import UsersOrm
 
 logger = logging.getLogger(__name__)
+
+SUPPORTED_DOCUMENT_MIME_TYPES = (
+    "application/pdf",
+    "text/plain",
+    "text/rtf",
+    "text/csv",
+    "audio/ogg",
+)
+
+
+def reply_missing_user(message: "Message") -> bool:
+    """Reply when Telegram user metadata is missing."""
+    if message.from_user is not None:
+        return False
+    bot.reply_to(message, "User information is missing.")
+    return True
+
+
+def get_message_user(message: "Message") -> "User | None":
+    """Return the Telegram user when present, otherwise reply and return None."""
+    if reply_missing_user(message):
+        return None
+    return message.from_user
+
+
+def send_selection_keyboard(
+    message: "Message",
+    prompt: str,
+    options: list[str],
+) -> ReplyKeyboardMarkup:
+    """Send a one-time keyboard with the provided options."""
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    buttons = [KeyboardButton(option) for option in options]
+    markup.add(*buttons)
+    bot.send_message(message.chat.id, prompt, reply_markup=markup)
+    return markup
+
+
+def finish_selection(message: "Message", confirmation: str) -> None:
+    """Send the final selection confirmation and remove the keyboard."""
+    bot.send_message(
+        message.chat.id,
+        confirmation,
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
+def is_supported_document_message(message: "Message") -> bool:
+    """Check whether the current message contains a supported document type."""
+    return (
+        message.content_type == "document"
+        and message.document is not None
+        and message.document.mime_type in SUPPORTED_DOCUMENT_MIME_TYPES
+    )
 
 
 # /start
@@ -64,14 +118,14 @@ def handle_start(message: "Message") -> None:
         None
 
     """
-    if message.from_user is None:
-        bot.reply_to(message, "User information is missing.")
+    user = get_message_user(message)
+    if user is None:
         return
     if register_user(
-        message.from_user.id,
-        message.from_user.first_name or "",
-        message.from_user.last_name or "",
-        message.from_user.username or "",
+        user.id,
+        user.first_name or "",
+        user.last_name or "",
+        user.username or "",
     ):
         bot.send_message(
             message.chat.id,
@@ -99,10 +153,10 @@ def handle_info(message: "Message") -> None:
         None
 
     """
-    if message.from_user is None:
-        bot.reply_to(message, "User information is missing.")
+    user = get_message_user(message)
+    if user is None:
         return
-    bot.send_message(message.chat.id, f"{message.from_user.id}")
+    bot.send_message(message.chat.id, f"{user.id}")
 
 
 # /myinfo
@@ -128,10 +182,10 @@ def handle_myinfo(message: "Message") -> None:
         None
 
     """
-    if message.from_user is None:
-        bot.reply_to(message, "User information is missing.")
+    telegram_user = get_message_user(message)
+    if telegram_user is None:
         return
-    user = select_user(message.from_user.id)
+    user = select_user(telegram_user.id)
     msg = dedent(f"""
                 UserId: {user.user_id}
                 Approved: {user.approved}
@@ -193,11 +247,11 @@ def handle_toggle_transcription(message: "Message") -> None:
         None
 
     """
-    if message.from_user is None:
-        bot.reply_to(message, "User information is missing.")
+    telegram_user = get_message_user(message)
+    if telegram_user is None:
         return
-    user = select_user(message.from_user.id)
-    toggle_transcription(message.from_user.id)
+    user = select_user(telegram_user.id)
+    toggle_transcription(telegram_user.id)
     bot.send_message(
         message.chat.id,
         (
@@ -230,11 +284,11 @@ def handle_toggle_yt_transcription(message: "Message") -> None:
         None
 
     """
-    if message.from_user is None:
-        bot.reply_to(message, "User information is missing.")
+    telegram_user = get_message_user(message)
+    if telegram_user is None:
         return
-    user = select_user(message.from_user.id)
-    toggle_yt_transcription(message.from_user.id)
+    user = select_user(telegram_user.id)
+    toggle_yt_transcription(telegram_user.id)
     bot.send_message(
         message.chat.id,
         (
@@ -268,11 +322,11 @@ def handle_set_target_language(message: "Message") -> None:
         None
 
     """
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    languages = [KeyboardButton(lang.title()) for lang in SUPPORTED_LANGUAGES]
-    markup.add(*languages)
-
-    bot.send_message(message.chat.id, "Select target language 👇", reply_markup=markup)
+    send_selection_keyboard(
+        message,
+        "Select target language 👇",
+        [lang.title() for lang in SUPPORTED_LANGUAGES],
+    )
     bot.register_next_step_handler(message, proceed_set_target_language)
 
 
@@ -302,12 +356,7 @@ def proceed_set_target_language(message: "Message") -> None:
         msg = "Unknown language"
         bot.send_message(message.chat.id, msg)
         return
-    markup = ReplyKeyboardRemove()
-    bot.send_message(
-        message.chat.id,
-        f"The target language is set to {message.text}.",
-        reply_markup=markup,
-    )
+    finish_selection(message, f"The target language is set to {message.text}.")
 
 
 # /set_summarizing_model
@@ -333,14 +382,10 @@ def handle_set_summarizing_model(message: "Message") -> None:
         None
 
     """
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    models = [KeyboardButton(model) for model in ALLOWED_MODELS_FOR_SUMMARY]
-    markup.add(*models)
-
-    bot.send_message(
-        message.chat.id,
+    send_selection_keyboard(
+        message,
         "Select summarizing model 👇",
-        reply_markup=markup,
+        list(ALLOWED_MODELS_FOR_SUMMARY),
     )
     bot.register_next_step_handler(message, proceed_set_summarizing_model)
 
@@ -368,12 +413,7 @@ def proceed_set_summarizing_model(message: "Message") -> None:
         msg = "Unknown model"
         bot.send_message(message.chat.id, msg)
         return
-    markup = ReplyKeyboardRemove()
-    bot.send_message(
-        message.chat.id,
-        f"The summarizing model is set to {message.text}.",
-        reply_markup=markup,
-    )
+    finish_selection(message, f"The summarizing model is set to {message.text}.")
 
 
 # /set_prompt_strategy
@@ -399,14 +439,10 @@ def handle_set_prompt_strategy(message: "Message") -> None:
         None
 
     """
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    strategies = [KeyboardButton(strategy) for strategy in ALLOWED_PROMPT_KEYS]
-    markup.add(*strategies)
-
-    bot.send_message(
-        message.chat.id,
+    send_selection_keyboard(
+        message,
         "Select summarization strategy 👇",
-        reply_markup=markup,
+        list(ALLOWED_PROMPT_KEYS),
     )
     bot.register_next_step_handler(message, proceed_set_prompt_strategy)
 
@@ -434,12 +470,7 @@ def proceed_set_prompt_strategy(message: "Message") -> None:
         msg = "Unknown strategy"
         bot.send_message(message.chat.id, msg)
         return
-    markup = ReplyKeyboardRemove()
-    bot.send_message(
-        message.chat.id,
-        f"The prompt strategy is set to {message.text}.",
-        reply_markup=markup,
-    )
+    finish_selection(message, f"The prompt strategy is set to {message.text}.")
 
 
 def process_message_content(message: "Message", user: "UsersOrm") -> None:
@@ -453,29 +484,21 @@ def process_message_content(message: "Message", user: "UsersOrm") -> None:
         None
 
     """
-    if message.content_type == "audio":
-        handle_audio(message, user)
-    elif (
-        message.content_type == "document"
-        and message.document is not None
-        and message.document.mime_type
-        in (
-            "application/pdf",
-            "text/plain",
-            "text/rtf",
-            "text/csv",
-            "audio/ogg",
-        )
-    ):
+    media_handlers = {
+        "audio": handle_audio,
+        "video_note": handle_video_note,
+        "voice": handle_voice,
+        "video": handle_video,
+    }
+    handler = media_handlers.get(message.content_type)
+
+    if handler is not None:
+        handler(message, user)
+    elif is_supported_document_message(message):
         handle_document(message, user)
-    elif message.content_type == "video_note":
-        logger.debug("video_note found. Starting video_note handle...")
-        handle_video_note(message, user)
-    elif message.content_type == "voice":
-        handle_voice(message, user)
-    elif message.content_type == "video":
-        handle_video(message, user)
     else:
+        if message.content_type == "video_note":
+            logger.debug("video_note found. Starting video_note handle...")
         if message.text is None:
             bot.send_message(message.chat.id, "No text to process.")
             return
@@ -509,10 +532,10 @@ def handle_message(message: "Message") -> None:
 
     """
     try:
-        if message.from_user is None:
-            bot.reply_to(message, "User information is missing.")
+        telegram_user = get_message_user(message)
+        if telegram_user is None:
             return
-        user = select_user(message.from_user.id)
+        user = select_user(telegram_user.id)
 
         if not user.approved:
             bot.send_message(message.chat.id, "You are not approved.")

@@ -177,17 +177,14 @@ def test_summarize_with_document_polling(mocker):
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
     mocker.patch("summary.clean_up")
-    mocker.patch("summary.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
-    mock_file_proc = SimpleNamespace(state="PROCESSING", name="files/doc123")
-    mock_file_active = SimpleNamespace(
+    mock_document_file = SimpleNamespace(
         state="ACTIVE",
         name="files/doc123",
         uri="https://mock.uri",
         mime_type="application/pdf",
     )
-    mock_client.files.upload.return_value = mock_file_proc
-    mock_client.files.get.return_value = mock_file_active
+    mocker.patch("summary.upload_and_wait_for_file", return_value=mock_document_file)
     mock_client.models.generate_content.return_value = mocker.MagicMock(
         text="Document summary",
     )
@@ -208,12 +205,12 @@ def test_summarize_with_document_polling(mocker):
 def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
     """Test summarize_with_document cleans up the downloaded file on failure."""
     mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch("tenacity.nap.time.sleep")
     mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
     mock_clean_up = mocker.patch("summary.clean_up")
-    mock_client = mocker.patch("summary.gemini_client")
-    mock_failed_file = SimpleNamespace(state="FAILED", name="files/doc123")
-    mock_client.files.upload.return_value = mock_failed_file
+    mocker.patch(
+        "summary.upload_and_wait_for_file",
+        side_effect=ValueError("FAILED"),
+    )
 
     with pytest.raises(ValueError, match="FAILED"):
         summarize_with_document(

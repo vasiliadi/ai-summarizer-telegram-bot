@@ -1,5 +1,4 @@
 import logging
-import time
 from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
@@ -26,6 +25,7 @@ from services import (
     get_gemini_config,
     resolve_mime_type,
     upload_and_wait_for_audio_file,
+    upload_and_wait_for_file,
 )
 from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
@@ -37,6 +37,60 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
+
+
+def get_prompt_text(prompt_key: str, content: str | None = None) -> str:
+    """Build prompt text from the configured prompt template."""
+    prompt = dedent(PROMPTS[prompt_key]).strip()
+    if content is None:
+        return prompt
+    return f"{prompt} {content}".strip()
+
+
+def generate_summary_response(
+    model: str,
+    contents: str | list[types.Content],
+    target_language: str,
+    tools: list[types.Tool] | None = None,
+) -> str:
+    """Generate content with Gemini and validate that text is present."""
+    config = get_gemini_config(target_language)
+    if tools is not None:
+        config = config.model_copy(update={"tools": tools})
+    response = gemini_client.models.generate_content(
+        model=model,
+        contents=contents,
+        config=config,
+    )
+    if response.text is None:
+        raise AttributeError
+    return response.text
+
+
+def build_file_contents(prompt: str, uploaded_file: types.File) -> list[types.Content]:
+    """Build Gemini file-based content payload."""
+    if uploaded_file.uri is None or uploaded_file.mime_type is None:
+        raise AttributeError
+    return [
+        types.Content(
+            role="user",
+            parts=[
+                types.Part.from_text(text=prompt),
+                types.Part.from_uri(
+                    file_uri=uploaded_file.uri,
+                    mime_type=uploaded_file.mime_type,
+                ),
+            ],
+        ),
+    ]
+
+
+def prefixed_summary(prefix: str, text: str) -> str:
+    """Prefix summary text with the expected emoji block."""
+    return dedent(f"""
+                  {prefix}
+                  {text}
+                  """).strip()
 
 
 @retry(
@@ -80,7 +134,7 @@ def summarize_with_file(
         up to 3 times with a 30-second wait between attempts.
 
     """
-    prompt = dedent(PROMPTS[prompt_key]).strip()
+    prompt = get_prompt_text(prompt_key)
     mime_type = resolve_mime_type(file)
     audio_file = upload_and_wait_for_audio_file(
         file=file,
@@ -91,26 +145,13 @@ def summarize_with_file(
         raise AttributeError
     audio_file_name = audio_file.name
     check_quota(quantity=1)
-    response = gemini_client.models.generate_content(
+    response_text = generate_summary_response(
         model=model,
-        contents=[
-            types.Content(
-                role="user",
-                parts=[
-                    types.Part.from_text(text=prompt),
-                    types.Part.from_uri(
-                        file_uri=audio_file.uri,
-                        mime_type=audio_file.mime_type,
-                    ),
-                ],
-            ),
-        ],
-        config=get_gemini_config(target_language),
+        contents=build_file_contents(prompt, audio_file),
+        target_language=target_language,
     )
     gemini_client.files.delete(name=audio_file_name)
-    if response.text is None:
-        raise AttributeError
-    return response.text
+    return response_text
 
 
 @retry(
@@ -151,16 +192,13 @@ def summarize_with_transcript(
         get_gemini_config for model configuration.
 
     """
-    prompt = (f"{dedent(PROMPTS[prompt_key])} {transcript}").strip()
+    prompt = get_prompt_text(prompt_key, transcript)
     check_quota(quantity=1)
-    response = gemini_client.models.generate_content(
+    return generate_summary_response(
         model=model,
         contents=prompt,
-        config=get_gemini_config(target_language),
+        target_language=target_language,
     )
-    if response.text is None:
-        raise AttributeError
-    return response.text
 
 
 @retry(
@@ -201,21 +239,15 @@ def summarize_webpage(
         get_gemini_config for model configuration.
 
     """
-    prompt = (f"{dedent(PROMPTS[prompt_key])} {content}").strip()
+    prompt = get_prompt_text(prompt_key, content)
     check_quota(quantity=1)
     tools = [types.Tool(url_context=types.UrlContext())]
-    response = gemini_client.models.generate_content(
+    return generate_summary_response(
         model=model,
         contents=prompt,
-        config=get_gemini_config(target_language).model_copy(
-            update={
-                "tools": tools,
-            },
-        ),
+        target_language=target_language,
+        tools=tools,
     )
-    if response.text is None:
-        raise AttributeError
-    return response.text
 
 
 @retry(
@@ -267,47 +299,26 @@ def summarize_with_document(  # noqa: PLR0913
     data: str | None = None
     try:
         data = download_tg(file)
-        prompt = dedent(PROMPTS[prompt_key]).strip()
-        document_file = gemini_client.files.upload(
+        prompt = get_prompt_text(prompt_key)
+        document_file = upload_and_wait_for_file(
             file=data,
-            config={"mime_type": mime_type},
+            mime_type=mime_type,
+            sleep_time=sleep_time,
         )
         if document_file.name is None:
             raise AttributeError
         document_file_name = document_file.name
-        while document_file.state == "PROCESSING":
-            time.sleep(sleep_time)
-            document_file = gemini_client.files.get(name=document_file_name)
-        if document_file.state == "FAILED":
-            raise ValueError(document_file.state)
-        if document_file.uri is None:
-            raise AttributeError
-        if document_file.mime_type is None:
-            raise AttributeError
         check_quota(quantity=1)
-        response = gemini_client.models.generate_content(
+        response_text = generate_summary_response(
             model=model,
-            contents=[
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_text(text=prompt),
-                        types.Part.from_uri(
-                            file_uri=document_file.uri,
-                            mime_type=document_file.mime_type,
-                        ),
-                    ],
-                ),
-            ],
-            config=get_gemini_config(target_language),
+            contents=build_file_contents(prompt, document_file),
+            target_language=target_language,
         )
         gemini_client.files.delete(name=document_file_name)
-        if response.text is None:
-            raise AttributeError
     finally:
         if data is not None:
             clean_up(file=data)
-    return response.text
+    return response_text
 
 
 def summarize(  # noqa: PLR0913
@@ -363,17 +374,15 @@ def summarize(  # noqa: PLR0913
             if use_yt_transcription:
                 try:
                     transcript = get_yt_transcript(data)
-                    return dedent(f"""
-                                  📹
-                                  {
+                    return prefixed_summary(
+                        "📹",
                         summarize_with_transcript(
                             transcript=transcript,
                             model=model,
                             prompt_key=prompt_key,
                             target_language=target_language,
-                        )
-                    }
-                                  """).strip()
+                        ),
+                    )
                 except (
                     TranscriptsDisabled,
                     RetryError,
@@ -398,17 +407,15 @@ def summarize(  # noqa: PLR0913
             try:
                 transcription = transcribe(new_file)
                 # If it fails, a RetryError will raise
-                return dedent(f"""
-                              📝
-                              {
+                return prefixed_summary(
+                    "📝",
                     summarize_with_transcript(
                         transcript=transcription,
                         model=model,
                         prompt_key=prompt_key,
                         target_language=target_language,
-                    )
-                }
-                              """).strip()
+                    ),
+                )
             finally:
                 clean_up(file=new_file)
         capture_exception(e)
