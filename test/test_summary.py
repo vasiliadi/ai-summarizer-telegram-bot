@@ -274,7 +274,10 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
 
 def test_summarize_fallback_to_transcription(mocker):
     """Test summarize() fallback to transcription (📝 prefix) when file summary fails."""
-    mocker.patch("summary.summarize_with_file", side_effect=RetryError("File summary failed"))
+    mocker.patch(
+        "summary.summarize_with_file",
+        side_effect=RetryError(mocker.MagicMock()),
+    )
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
     mocker.patch("summary.compress_audio")
     mocker.patch("summary.transcribe", return_value="Transcription text")
@@ -291,7 +294,12 @@ def test_summarize_fallback_to_transcription(mocker):
 
     assert result.startswith("📝")
     assert "Transcript Summary" in result
-    assert mock_clean_up.call_count == 2
+    mock_clean_up.assert_has_calls(
+        [
+            mocker.call(file="temp.ogg"),
+            mocker.call(file="local_audio.ogg"),
+        ],
+    )
 
 
 def test_summarize_reraises_when_transcription_fallback_disabled(mocker):
