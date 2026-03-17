@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 SUPPORTED_DOCUMENT_MIME_TYPES = (
     "application/pdf",
+    "application/rtf",
     "text/plain",
     "text/rtf",
     "text/csv",

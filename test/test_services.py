@@ -1,3 +1,4 @@
+from typing import cast
 
 import pytest
 
@@ -23,7 +24,7 @@ def test_reply_with_retry_with_entities(mocker):
     """Test reply_with_retry sends message with entities."""
     mock_bot = mocker.patch("services.bot")
     mock_msg = mocker.MagicMock()
-    entities = [{"type": "bold"}]
+    entities: list[dict[str, object]] = [{"type": "bold"}]
 
     reply_with_retry(mock_msg, "hello", entities=entities)
 
@@ -70,7 +71,7 @@ def test_send_answer_multi_chunk(mocker):
 def test_get_gemini_config_content():
     """Test get_gemini_config includes the correct language in instruction."""
     config = get_gemini_config("French")
-    assert "French" in config.system_instruction
+    assert "French" in cast("str", config.system_instruction)
 
 def test_upload_and_wait_for_audio_file_happy(mocker):
     """Test uploading file to Gemini when it's immediately ACTIVE."""

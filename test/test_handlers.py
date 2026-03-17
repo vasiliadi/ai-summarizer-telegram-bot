@@ -72,6 +72,21 @@ def test_process_message_content_dispatches_allowed_document(message_factory, mo
     mock_document.assert_called_once_with(msg, user)
 
 
+def test_process_message_content_dispatches_application_rtf_document(
+    message_factory,
+    mocker,
+):
+    """Test application/rtf documents route to handle_document."""
+    msg = message_factory(content_type="document")
+    msg.document.mime_type = "application/rtf"
+    user = mocker.MagicMock()
+    mock_document = mocker.patch("main.handle_document")
+
+    process_message_content(msg, user)
+
+    mock_document.assert_called_once_with(msg, user)
+
+
 def test_process_message_content_sends_textless_fallback(message_factory, mocker):
     """Test unsupported non-text messages produce a clear fallback response."""
     msg = message_factory(content_type="document")
@@ -129,6 +144,19 @@ def test_handle_url_unsupported_pattern(message_factory, mocker):
 def test_handle_url_youtube_pattern(message_factory, mocker):
     """Test that YouTube URLs trigger summarize."""
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    msg = message_factory(content_type="text", text=url)
+    mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
+    mock_summarize = mocker.patch("handlers.summarize")
+    mocker.patch("handlers.send_answer")
+
+    handle_message(msg)
+
+    assert mock_summarize.call_args.kwargs["data"] == url
+
+
+def test_handle_url_youtube_pattern_without_www(message_factory, mocker):
+    """Test that non-www YouTube URLs still trigger summarize."""
+    url = "https://youtube.com/watch?v=dQw4w9WgXcQ"
     msg = message_factory(content_type="text", text=url)
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
     mock_summarize = mocker.patch("handlers.summarize")
@@ -265,6 +293,41 @@ def test_handle_video_note_happy_path_cleans_up_download(message_factory, mocker
     handle_message(msg)
 
     mock_clean_up.assert_called_once_with(file="downloaded.mp4")
+
+
+def test_handle_video_cleans_up_compressed_file_when_compression_fails(
+    message_factory,
+    mocker,
+):
+    """Test video processing cleans up temp files when compression fails."""
+    msg = message_factory(content_type="video")
+    mocker.patch(
+        "main.select_user",
+        return_value=mocker.MagicMock(
+            approved=True,
+            use_transcription=False,
+            summarizing_model="model",
+            prompt_key_for_summary="prompt",
+            target_language="English",
+        ),
+    )
+    mock_file = mocker.MagicMock(spec=types.File)
+    mocker.patch("handlers.get_file_with_retry", return_value=mock_file)
+    mocker.patch("handlers.download_tg", return_value="downloaded.mp4")
+    mocker.patch("handlers.generate_temporary_name", return_value="compressed.ogg")
+    mocker.patch("handlers.compress_audio", side_effect=RuntimeError("compression failed"))
+    mocker.patch("main.capture_exception")
+    mocker.patch("main.bot.reply_to")
+    mock_clean_up = mocker.patch("handlers.clean_up")
+
+    handle_message(msg)
+
+    mock_clean_up.assert_has_calls(
+        [
+            mocker.call(file="compressed.ogg"),
+            mocker.call(file="downloaded.mp4"),
+        ],
+    )
 
 
 def test_handle_message_limit_exceeded(message_factory, mocker):

@@ -14,10 +14,10 @@ if TYPE_CHECKING:
 
 FILE_TOO_BIG_BYTES = 20 * 1024 * 1024
 YOUTUBE_OR_CASTRO_PATTERN = re.compile(
-    r"^https:\/\/(www\.youtube\.com\/*|youtu\.be\/|castro\.fm\/episode\/)[\S]*",
+    r"^https:\/\/(www\.youtube\.com\/*|youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*",
 )
 OTHER_URL_PATTERN = re.compile(
-    r"^(?!https:\/\/(www\.youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*)https?[\S]*",
+    r"^(?!https:\/\/(www\.youtube\.com\/|youtube\.com\/|youtu\.be\/|castro\.fm\/episode\/)[\S]*)https?[\S]*",
 )
 
 
@@ -72,11 +72,15 @@ def handle_video_like_media(
     data = get_file_with_retry(file_id)
     downloaded_file = download_tg(data, ext=".mp4")
     compressed_file = generate_temporary_name(ext=".ogg")
+    should_clean_compressed_file = True
     try:
         compress_audio(input_file=downloaded_file, output_file=compressed_file)
         answer = summarize(data=compressed_file, **get_summary_kwargs(user))
+        should_clean_compressed_file = False
         send_answer(message, answer)
     finally:
+        if should_clean_compressed_file:
+            clean_up(file=compressed_file)
         clean_up(file=downloaded_file)
 
 
