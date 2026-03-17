@@ -29,17 +29,17 @@ def test_resolve_mime_type():
 def test_summarize_with_file_upload_and_genai_call(mocker):
     """Test the complete summarize_with_file flow with mocked Gemini clients."""
     mocker.patch("summary.check_quota", return_value=True)
-    mock_services_client = mocker.patch("services.gemini_client")
-    mock_summary_client = mocker.patch("summary.gemini_client")
+    mock_client = mocker.patch("summary.gemini_client")
+    mocker.patch("services.gemini_client", mock_client)
     mock_uploaded_file = SimpleNamespace(
         name="files/mock123",
         uri="https://generativelanguage.googleapis.com/v1beta/files/mock123",
         mime_type="audio/ogg",
         state="ACTIVE",
     )
-    mock_services_client.files.upload.return_value = mock_uploaded_file
+    mock_client.files.upload.return_value = mock_uploaded_file
     mock_response = mocker.MagicMock(text="This is a mocked summary of the file.")
-    mock_summary_client.models.generate_content.return_value = mock_response
+    mock_client.models.generate_content.return_value = mock_response
 
     result = summarize_with_file(
         file="test_audio.ogg",
@@ -49,11 +49,11 @@ def test_summarize_with_file_upload_and_genai_call(mocker):
     )
 
     assert result == "This is a mocked summary of the file."
-    mock_services_client.files.upload.assert_called_once_with(
+    mock_client.files.upload.assert_called_once_with(
         file="test_audio.ogg",
         config={"mime_type": "audio/ogg"},
     )
-    mock_summary_client.files.delete.assert_called_once_with(name="files/mock123")
+    mock_client.files.delete.assert_called_once_with(name="files/mock123")
 
 
 def test_summarize_with_file_retries_on_empty_response(mocker):
@@ -66,8 +66,9 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
         mime_type="audio/ogg",
     )
     mocker.patch("summary.upload_and_wait_for_audio_file", return_value=mock_audio_file)
-    mock_summary_client = mocker.patch("summary.gemini_client")
-    mock_summary_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+    mock_client = mocker.patch("summary.gemini_client")
+    mocker.patch("services.gemini_client", mock_client)
+    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
 
     with pytest.raises(RetryError):
         summarize_with_file(
@@ -152,9 +153,14 @@ def test_summarize_genai_exception(mocker):
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
     mock_client.models.generate_content.side_effect = ClientError(
-        "GenAI unavailable",
         400,
-        {},
+        {
+            "error": {
+                "code": 400,
+                "status": "INVALID_ARGUMENT",
+                "message": "GenAI unavailable",
+            },
+        },
     )
 
     with pytest.raises(RetryError):

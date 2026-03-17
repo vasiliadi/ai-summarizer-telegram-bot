@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -35,12 +36,8 @@ def test_select_user_missing(mock_db_session):
     """Test select_user raises a clear error for unknown users."""
     mock_db_session.get.return_value = None
 
-    try:
+    with pytest.raises(ValueError, match="User not found"):
         select_user(999)
-    except ValueError as exc:
-        assert str(exc) == "User not found"
-    else:
-        raise AssertionError("Expected ValueError for an unknown user.")
 
 
 def test_toggle_transcription_persists(monkeypatch, tmp_path):
