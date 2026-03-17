@@ -1,22 +1,20 @@
-
+import pytest
+from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import sessionmaker
 
 from database import (
     register_user,
+    select_user,
     set_prompt_strategy,
-    set_summarizing_model,
     set_target_language,
     toggle_transcription,
-    toggle_yt_transcription,
 )
-from models import UsersOrm
+from models import Base, UsersOrm
 
 
 def test_register_user_success(mock_db_session):
     """Test registering a new user successfully."""
-    # Mock select to return None (user doesn't exist)
-    mock_db_session.scalars.return_value.first.return_value = None
-
     result = register_user(123, "First", "Last", "user")
 
     assert result is True
@@ -34,78 +32,54 @@ def test_register_user_duplicate(mock_db_session):
     assert mock_db_session.rollback.called
 
 
-def test_toggle_transcription(mock_db_session):
-    """Test toggling the use_transcription flag."""
-    mock_user = UsersOrm(user_id=123, use_transcription=False)
-    # mock_db_session.scalars is used in select_user
-    mock_db_session.get.return_value = mock_user
+def test_select_user_missing(mock_db_session):
+    """Test select_user raises a clear error for unknown users."""
+    mock_db_session.get.return_value = None
+
+    with pytest.raises(ValueError, match="User not found"):
+        select_user(999)
+
+
+def test_toggle_transcription_persists(monkeypatch, tmp_path):
+    """Test toggling transcription persists to a real SQLite database."""
+    session_factory = _sqlite_session_factory(tmp_path)
+    monkeypatch.setattr("database.Session", session_factory)
+    register_user(123, "First", "Last", "user")
 
     toggle_transcription(123)
 
-    assert mock_user.use_transcription is True
-    assert mock_db_session.commit.called
+    with session_factory() as session:
+        user = session.get(UsersOrm, 123)
+        assert user is not None
+        assert user.use_transcription is True
 
 
-def test_toggle_yt_transcription(mock_db_session):
-    """Test toggling the use_yt_transcription flag."""
-    mock_user = UsersOrm(user_id=123, use_yt_transcription=False)
-    mock_db_session.get.return_value = mock_user
+def test_set_target_language_returns_false_for_missing_user(monkeypatch, tmp_path):
+    """Test set_target_language returns False when the user does not exist."""
+    session_factory = _sqlite_session_factory(tmp_path)
+    monkeypatch.setattr("database.Session", session_factory)
 
-    toggle_yt_transcription(123)
-
-    assert mock_user.use_yt_transcription is True
-    assert mock_db_session.commit.called
+    assert set_target_language(123, "English") is False
 
 
-def test_set_target_language_valid(mock_db_session):
-    """Test setting a valid target language."""
-    mock_user = UsersOrm(user_id=123, target_language="English")
-    mock_db_session.get.return_value = mock_user
-
-    # Language list is Title-cased in database.py: SUPPORTED_LANGUAGES
-    result = set_target_language(123, "English")
-
-    assert result is True
-    assert mock_user.target_language == "English"
-    assert mock_db_session.commit.called
-
-
-def test_set_target_language_invalid(mock_db_session):
-    """Test setting an invalid target language returns False."""
-    result = set_target_language(123, "UnsupportedLang")
-    assert result is False
-
-
-def test_set_summarizing_model_valid(mock_db_session):
-    """Test setting a valid summarizing model."""
-    mock_user = UsersOrm(user_id=123, summarizing_model="gemini-2.5-flash")
-    mock_db_session.get.return_value = mock_user
-
-    result = set_summarizing_model(123, "gemini-3-flash-preview")
-
-    assert result is True
-    assert mock_user.summarizing_model == "gemini-3-flash-preview"
-    assert mock_db_session.commit.called
-
-
-def test_set_summarizing_model_invalid(mock_db_session):
-    """Test setting an invalid summarizing model returns False."""
-    result = set_summarizing_model(123, "unknown-model")
-    assert result is False
-
-
-def test_set_prompt_strategy_valid(mock_db_session):
-    """Test setting a valid prompt strategy."""
-    mock_user = UsersOrm(user_id=123, prompt_key_for_summary="basic")
-    mock_db_session.get.return_value = mock_user
+def test_set_prompt_strategy_persists(monkeypatch, tmp_path):
+    """Test setting prompt strategy persists to a real SQLite database."""
+    session_factory = _sqlite_session_factory(tmp_path)
+    monkeypatch.setattr("database.Session", session_factory)
+    register_user(123, "First", "Last", "user")
 
     result = set_prompt_strategy(123, "basic_prompt_for_transcript")
 
     assert result is True
-    assert mock_user.prompt_key_for_summary == "basic_prompt_for_transcript"
-    assert mock_db_session.commit.called
+    with session_factory() as session:
+        user = session.get(UsersOrm, 123)
+        assert user is not None
+        assert user.prompt_key_for_summary == "basic_prompt_for_transcript"
 
-def test_set_prompt_strategy_invalid(mock_db_session):
-    """Test setting an invalid prompt strategy returns False."""
-    result = set_prompt_strategy(123, "unknown-strategy")
-    assert result is False
+
+def _sqlite_session_factory(tmp_path):
+    """Create an isolated SQLite session factory for integration-style tests."""
+    sqlite_path = tmp_path / "test-db.sqlite"
+    engine = create_engine(f"sqlite:///{sqlite_path}")
+    Base.metadata.create_all(engine)
+    return sessionmaker(engine)

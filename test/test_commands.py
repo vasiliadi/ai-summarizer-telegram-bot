@@ -1,4 +1,3 @@
-
 from main import (
     handle_info,
     handle_limit,
@@ -18,7 +17,6 @@ from models import UsersOrm
 def test_handle_start_new_user(message_factory, mocker):
     """Test /start for a new user (registration)."""
     msg = message_factory(content_type="text", text="/start")
-    # register_user(user_id, first_name, last_name, username)
     mock_register = mocker.patch("main.register_user", return_value=True)
     mock_send = mocker.patch("main.bot.send_message")
 
@@ -27,6 +25,7 @@ def test_handle_start_new_user(message_factory, mocker):
     mock_register.assert_called_once()
     mock_send.assert_called_once()
     assert "Hi there" in mock_send.call_args[0][1]
+
 
 def test_handle_start_existing_user(message_factory, mocker):
     """Test /start for an existing user."""
@@ -38,6 +37,20 @@ def test_handle_start_existing_user(message_factory, mocker):
 
     assert "You are good to go!" in mock_send.call_args[0][1]
 
+
+def test_handle_start_missing_user(message_factory, mocker):
+    """Test /start rejects messages without Telegram user metadata."""
+    msg = message_factory(content_type="text", text="/start")
+    msg.from_user = None
+    mock_reply = mocker.patch("main.bot.reply_to")
+    mock_register = mocker.patch("main.register_user")
+
+    handle_start(msg)
+
+    mock_reply.assert_called_once_with(msg, "User information is missing.")
+    mock_register.assert_not_called()
+
+
 def test_handle_info(message_factory, mocker):
     """Test /info command."""
     msg = message_factory(content_type="text", text="/info")
@@ -46,6 +59,18 @@ def test_handle_info(message_factory, mocker):
     handle_info(msg)
 
     assert str(msg.from_user.id) in mock_send.call_args[0][1]
+
+
+def test_handle_info_missing_user(message_factory, mocker):
+    """Test /info rejects messages without Telegram user metadata."""
+    msg = message_factory(content_type="text", text="/info")
+    msg.from_user = None
+    mock_reply = mocker.patch("main.bot.reply_to")
+
+    handle_info(msg)
+
+    mock_reply.assert_called_once_with(msg, "User information is missing.")
+
 
 def test_handle_myinfo(message_factory, mocker):
     """Test /myinfo command."""
@@ -68,6 +93,18 @@ def test_handle_myinfo(message_factory, mocker):
     assert "Approved: True" in content
     assert "Target language: English" in content
 
+
+def test_handle_myinfo_missing_user(message_factory, mocker):
+    """Test /myinfo rejects messages without Telegram user metadata."""
+    msg = message_factory(content_type="text", text="/myinfo")
+    msg.from_user = None
+    mock_reply = mocker.patch("main.bot.reply_to")
+
+    handle_myinfo(msg)
+
+    mock_reply.assert_called_once_with(msg, "User information is missing.")
+
+
 def test_handle_limit(message_factory, mocker):
     """Test /limit command."""
     msg = message_factory(content_type="text", text="/limit")
@@ -78,6 +115,7 @@ def test_handle_limit(message_factory, mocker):
     handle_limit(msg)
 
     assert "Remaining limit: 15" in mock_send.call_args[0][1]
+
 
 def test_handle_toggle_transcription(message_factory, mocker):
     """Test /toggle_transcription."""
@@ -92,6 +130,20 @@ def test_handle_toggle_transcription(message_factory, mocker):
     mock_toggle.assert_called_once_with(msg.from_user.id)
     assert "Transcription enabled" in mock_send.call_args[0][1]
 
+
+def test_handle_toggle_transcription_missing_user(message_factory, mocker):
+    """Test /toggle_transcription rejects messages without Telegram user metadata."""
+    msg = message_factory(content_type="text")
+    msg.from_user = None
+    mock_reply = mocker.patch("main.bot.reply_to")
+    mock_toggle = mocker.patch("main.toggle_transcription")
+
+    handle_toggle_transcription(msg)
+
+    mock_reply.assert_called_once_with(msg, "User information is missing.")
+    mock_toggle.assert_not_called()
+
+
 def test_handle_set_target_language(message_factory, mocker):
     """Test /set_target_language shows keyboard."""
     msg = message_factory(content_type="text")
@@ -103,6 +155,7 @@ def test_handle_set_target_language(message_factory, mocker):
     assert "Select target language" in mock_send.call_args[0][1]
     assert mock_register.called
 
+
 def test_proceed_set_target_language_success(message_factory, mocker):
     """Test successful language selection."""
     msg = message_factory(content_type="text", text="Russian")
@@ -112,6 +165,31 @@ def test_proceed_set_target_language_success(message_factory, mocker):
     proceed_set_target_language(msg)
 
     assert "The target language is set to Russian" in mock_send.call_args[0][1]
+
+
+def test_proceed_set_target_language_missing_input(message_factory, mocker):
+    """Test target language selection fails fast when user or text is missing."""
+    msg = message_factory(content_type="text", text="Russian")
+    msg.text = None
+    mock_reply = mocker.patch("main.bot.reply_to")
+    mock_set_language = mocker.patch("main.set_target_language")
+
+    proceed_set_target_language(msg)
+
+    mock_reply.assert_called_once_with(msg, "User information or language is missing.")
+    mock_set_language.assert_not_called()
+
+
+def test_proceed_set_target_language_invalid_choice(message_factory, mocker):
+    """Test invalid target language returns a clear user-facing message."""
+    msg = message_factory(content_type="text", text="Klingon")
+    mocker.patch("main.set_target_language", return_value=False)
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed_set_target_language(msg)
+
+    mock_send.assert_called_once_with(msg.chat.id, "Unknown language")
+
 
 def test_handle_set_summarizing_model(message_factory, mocker):
     """Test /set_summarizing_model shows keyboard."""
@@ -124,6 +202,7 @@ def test_handle_set_summarizing_model(message_factory, mocker):
     assert "Select summarizing model" in mock_send.call_args[0][1]
     assert mock_register.called
 
+
 def test_proceed_set_summarizing_model_success(message_factory, mocker):
     """Test successful model selection."""
     msg = message_factory(content_type="text", text="gemini-2.5-flash")
@@ -133,6 +212,31 @@ def test_proceed_set_summarizing_model_success(message_factory, mocker):
     proceed_set_summarizing_model(msg)
 
     assert "The summarizing model is set to gemini-2.5-flash" in mock_send.call_args[0][1]
+
+
+def test_proceed_set_summarizing_model_missing_input(message_factory, mocker):
+    """Test model selection fails fast when user or text is missing."""
+    msg = message_factory(content_type="text", text="gemini-2.5-flash")
+    msg.from_user = None
+    mock_reply = mocker.patch("main.bot.reply_to")
+    mock_set_model = mocker.patch("main.set_summarizing_model")
+
+    proceed_set_summarizing_model(msg)
+
+    mock_reply.assert_called_once_with(msg, "User information or model is missing.")
+    mock_set_model.assert_not_called()
+
+
+def test_proceed_set_summarizing_model_invalid_choice(message_factory, mocker):
+    """Test invalid model returns a clear user-facing message."""
+    msg = message_factory(content_type="text", text="gemini-4-pro")
+    mocker.patch("main.set_summarizing_model", return_value=False)
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed_set_summarizing_model(msg)
+
+    mock_send.assert_called_once_with(msg.chat.id, "Unknown model")
+
 
 def test_handle_set_prompt_strategy(message_factory, mocker):
     """Test /set_prompt_strategy shows keyboard."""
@@ -145,6 +249,7 @@ def test_handle_set_prompt_strategy(message_factory, mocker):
     assert "Select summarization strategy" in mock_send.call_args[0][1]
     assert mock_register.called
 
+
 def test_proceed_set_prompt_strategy_success(message_factory, mocker):
     """Test successful strategy selection."""
     msg = message_factory(content_type="text", text="basic")
@@ -154,3 +259,27 @@ def test_proceed_set_prompt_strategy_success(message_factory, mocker):
     proceed_set_prompt_strategy(msg)
 
     assert "The prompt strategy is set to basic" in mock_send.call_args[0][1]
+
+
+def test_proceed_set_prompt_strategy_missing_input(message_factory, mocker):
+    """Test prompt selection fails fast when user or text is missing."""
+    msg = message_factory(content_type="text", text="basic")
+    msg.text = None
+    mock_reply = mocker.patch("main.bot.reply_to")
+    mock_set_strategy = mocker.patch("main.set_prompt_strategy")
+
+    proceed_set_prompt_strategy(msg)
+
+    mock_reply.assert_called_once_with(msg, "User information or strategy is missing.")
+    mock_set_strategy.assert_not_called()
+
+
+def test_proceed_set_prompt_strategy_invalid_choice(message_factory, mocker):
+    """Test invalid prompt strategy returns a clear user-facing message."""
+    msg = message_factory(content_type="text", text="enterprise")
+    mocker.patch("main.set_prompt_strategy", return_value=False)
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed_set_prompt_strategy(msg)
+
+    mock_send.assert_called_once_with(msg.chat.id, "Unknown strategy")
