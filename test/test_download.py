@@ -12,7 +12,7 @@ def test_download_tg_happy_path(mocker):
     mock_resp.iter_content.return_value = [b"test ", b"content"]
     mock_resp.status_code = 200
     mock_resp.__enter__.return_value = mock_resp
-    mocker.patch("download.requests.get", return_value=mock_resp)
+    mock_get = mocker.patch("download.requests.get", return_value=mock_resp)
 
     # Mock generate_temporary_name to return a fixed name
     mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
@@ -26,10 +26,38 @@ def test_download_tg_happy_path(mocker):
     result = download_tg(mock_file, ext=".ext")
 
     assert result == "temp_file.ext"
+    mock_get.assert_called_once_with(
+        "https://api.telegram.org/file/botTEST_TOKEN/path/to/file",
+        stream=True,
+        headers=mocker.ANY,
+        verify=True,
+        timeout=120,
+    )
     mock_resp.raise_for_status.assert_called_once()
     mock_path_open.assert_called_once_with("wb")
     mock_path_open().write.assert_any_call(b"test ")
     mock_path_open().write.assert_any_call(b"content")
+
+
+def test_download_tg_skips_empty_chunks(mocker):
+    """Test download_tg skips empty chunks from iter_content."""
+    mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")
+    mock_resp = mocker.MagicMock()
+    mock_resp.iter_content.return_value = [b"", b"data", b""]
+    mock_resp.status_code = 200
+    mock_resp.__enter__.return_value = mock_resp
+    mocker.patch("download.requests.get", return_value=mock_resp)
+    mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
+
+    mock_file = mocker.MagicMock()
+    mock_file.file_path = "path/to/file"
+
+    mock_path_open = mocker.patch("pathlib.Path.open", mocker.mock_open())
+
+    result = download_tg(mock_file, ext=".ext")
+
+    assert result == "temp_file.ext"
+    mock_path_open().write.assert_called_once_with(b"data")
 
 def test_download_tg_missing_file_path(mocker):
     """Test download_tg raises ValueError when file_path is missing."""
