@@ -103,6 +103,8 @@ def test_download_castro_happy_path(mocker):
     assert result == "temp_castro.mp3"
     mock_audio_resp.raise_for_status.assert_called_once()
     mock_path_open.assert_called_once_with("wb")
+    mock_path_open().write.assert_any_call(b"chunk1")
+    mock_path_open().write.assert_any_call(b"chunk2")
 
 def test_download_castro_missing_source_tag(mocker):
     """Test download_castro raises ValueError when <source> tag is missing."""
