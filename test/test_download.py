@@ -33,10 +33,16 @@ def test_download_tg_happy_path(mocker):
         verify=True,
         timeout=120,
     )
+    mock_resp.iter_content.assert_called_once_with(chunk_size=8192)
     mock_resp.raise_for_status.assert_called_once()
     mock_path_open.assert_called_once_with("wb")
-    mock_path_open().write.assert_any_call(b"test ")
-    mock_path_open().write.assert_any_call(b"content")
+    mock_path_open().write.assert_has_calls(
+        [
+            mocker.call(b"test "),
+            mocker.call(b"content"),
+        ],
+    )
+    assert mock_path_open().write.call_count == 2
 
 
 def test_download_tg_skips_empty_chunks(mocker):
@@ -57,7 +63,9 @@ def test_download_tg_skips_empty_chunks(mocker):
     result = download_tg(mock_file, ext=".ext")
 
     assert result == "temp_file.ext"
-    mock_path_open().write.assert_called_once_with(b"data")
+    mock_resp.iter_content.assert_called_once_with(chunk_size=8192)
+    mock_path_open().write.assert_has_calls([mocker.call(b"data")])
+    assert mock_path_open().write.call_count == 1
 
 def test_download_tg_missing_file_path(mocker):
     """Test download_tg raises ValueError when file_path is missing."""
@@ -101,10 +109,16 @@ def test_download_castro_happy_path(mocker):
     result = download_castro("https://castro.fm/episode/123")
 
     assert result == "temp_castro.mp3"
+    mock_audio_resp.iter_content.assert_called_once_with(chunk_size=8192)
     mock_audio_resp.raise_for_status.assert_called_once()
     mock_path_open.assert_called_once_with("wb")
-    mock_path_open().write.assert_any_call(b"chunk1")
-    mock_path_open().write.assert_any_call(b"chunk2")
+    mock_path_open().write.assert_has_calls(
+        [
+            mocker.call(b"chunk1"),
+            mocker.call(b"chunk2"),
+        ],
+    )
+    assert mock_path_open().write.call_count == 2
 
 def test_download_castro_missing_source_tag(mocker):
     """Test download_castro raises ValueError when <source> tag is missing."""
