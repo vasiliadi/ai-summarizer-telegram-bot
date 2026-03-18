@@ -12,5 +12,17 @@ repos:
       # Run the linter.
       - id: ruff-check
         args: [--fix]
+        files: ^src/
       # Run the formatter.
       - id: ruff-format
+        files: ^src/
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
+        always_run: false
+        files: ^(src|test)/
