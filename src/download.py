@@ -16,7 +16,7 @@ from tenacity import (
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import PROXY, bot, headers
+from config import PROXY, TG_API_TOKEN, headers
 from utils import generate_temporary_name
 
 if TYPE_CHECKING:
@@ -131,7 +131,9 @@ def download_castro(url: str) -> str:
             logger.error("%s: status code", r.status_code)
             raise
         with Path(temporary_file_name).open("wb") as f:
-            f.writelines(r.iter_content(chunk_size=8192))
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
     logger.debug("File downloaded...")
     return temporary_file_name
 
@@ -157,7 +159,21 @@ def download_tg(file_id: "File", ext: str = "") -> str:
     if file_id.file_path is None:
         msg = "Telegram file path is missing."
         raise ValueError(msg)
-    downloaded_file = bot.download_file(file_id.file_path)
-    with Path(temporary_file_name).open("wb") as f:
-        f.write(downloaded_file)
+    file_url = f"https://api.telegram.org/file/bot{TG_API_TOKEN}/{file_id.file_path}"
+    with requests.get(
+        file_url,
+        stream=True,
+        headers=headers,
+        verify=True,
+        timeout=120,
+    ) as response:
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            logger.error("%s: status code", response.status_code)
+            raise
+        with Path(temporary_file_name).open("wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
     return temporary_file_name

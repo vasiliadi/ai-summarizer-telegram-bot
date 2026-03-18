@@ -7,8 +7,12 @@ from download import download_castro, download_tg, download_yt
 
 def test_download_tg_happy_path(mocker):
     """Test downloading a file from Telegram successfully."""
-    mock_bot = mocker.patch("download.bot")
-    mock_bot.download_file.return_value = b"test content"
+    mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")
+    mock_resp = mocker.MagicMock()
+    mock_resp.iter_content.return_value = [b"test ", b"content"]
+    mock_resp.status_code = 200
+    mock_resp.__enter__.return_value = mock_resp
+    mock_get = mocker.patch("download.requests.get", return_value=mock_resp)
 
     # Mock generate_temporary_name to return a fixed name
     mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
@@ -22,9 +26,46 @@ def test_download_tg_happy_path(mocker):
     result = download_tg(mock_file, ext=".ext")
 
     assert result == "temp_file.ext"
-    mock_bot.download_file.assert_called_once_with("path/to/file")
+    mock_get.assert_called_once_with(
+        "https://api.telegram.org/file/botTEST_TOKEN/path/to/file",
+        stream=True,
+        headers=mocker.ANY,
+        verify=True,
+        timeout=120,
+    )
+    mock_resp.iter_content.assert_called_once_with(chunk_size=8192)
+    mock_resp.raise_for_status.assert_called_once()
     mock_path_open.assert_called_once_with("wb")
-    mock_path_open().write.assert_called_once_with(b"test content")
+    mock_path_open().write.assert_has_calls(
+        [
+            mocker.call(b"test "),
+            mocker.call(b"content"),
+        ],
+    )
+    assert mock_path_open().write.call_count == 2
+
+
+def test_download_tg_skips_empty_chunks(mocker):
+    """Test download_tg skips empty chunks from iter_content."""
+    mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")
+    mock_resp = mocker.MagicMock()
+    mock_resp.iter_content.return_value = [b"", b"data", b""]
+    mock_resp.status_code = 200
+    mock_resp.__enter__.return_value = mock_resp
+    mocker.patch("download.requests.get", return_value=mock_resp)
+    mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
+
+    mock_file = mocker.MagicMock()
+    mock_file.file_path = "path/to/file"
+
+    mock_path_open = mocker.patch("pathlib.Path.open", mocker.mock_open())
+
+    result = download_tg(mock_file, ext=".ext")
+
+    assert result == "temp_file.ext"
+    mock_resp.iter_content.assert_called_once_with(chunk_size=8192)
+    mock_path_open().write.assert_has_calls([mocker.call(b"data")])
+    assert mock_path_open().write.call_count == 1
 
 def test_download_tg_missing_file_path(mocker):
     """Test download_tg raises ValueError when file_path is missing."""
@@ -68,8 +109,16 @@ def test_download_castro_happy_path(mocker):
     result = download_castro("https://castro.fm/episode/123")
 
     assert result == "temp_castro.mp3"
+    mock_audio_resp.iter_content.assert_called_once_with(chunk_size=8192)
     mock_audio_resp.raise_for_status.assert_called_once()
     mock_path_open.assert_called_once_with("wb")
+    mock_path_open().write.assert_has_calls(
+        [
+            mocker.call(b"chunk1"),
+            mocker.call(b"chunk2"),
+        ],
+    )
+    assert mock_path_open().write.call_count == 2
 
 def test_download_castro_missing_source_tag(mocker):
     """Test download_castro raises ValueError when <source> tag is missing."""
