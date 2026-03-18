@@ -114,12 +114,16 @@ def send_answer(message: "Message", answer: str) -> None:
 
     """
     text, entities = convert(answer)
-    chunks = list(split_entities(text, entities, max_utf16_len=4096))
-    for index, (chunk_text, chunk_entities) in enumerate(chunks):
+    chunks_iter = iter(split_entities(text, entities, max_utf16_len=4096))
+    current = next(chunks_iter, None)
+    while current is not None:
+        chunk_text, chunk_entities = current
         serialized_entities = [entity.to_dict() for entity in chunk_entities]
         reply_with_retry(message, chunk_text, entities=serialized_entities)
-        if index < len(chunks) - 1:
+        next_chunk = next(chunks_iter, None)
+        if next_chunk is not None:
             time.sleep(1)
+        current = next_chunk
 
 
 @retry(

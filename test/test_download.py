@@ -7,8 +7,12 @@ from download import download_castro, download_tg, download_yt
 
 def test_download_tg_happy_path(mocker):
     """Test downloading a file from Telegram successfully."""
-    mock_bot = mocker.patch("download.bot")
-    mock_bot.download_file.return_value = b"test content"
+    mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")
+    mock_resp = mocker.MagicMock()
+    mock_resp.iter_content.return_value = [b"test ", b"content"]
+    mock_resp.status_code = 200
+    mock_resp.__enter__.return_value = mock_resp
+    mocker.patch("download.requests.get", return_value=mock_resp)
 
     # Mock generate_temporary_name to return a fixed name
     mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
@@ -22,9 +26,10 @@ def test_download_tg_happy_path(mocker):
     result = download_tg(mock_file, ext=".ext")
 
     assert result == "temp_file.ext"
-    mock_bot.download_file.assert_called_once_with("path/to/file")
+    mock_resp.raise_for_status.assert_called_once()
     mock_path_open.assert_called_once_with("wb")
-    mock_path_open().write.assert_called_once_with(b"test content")
+    mock_path_open().write.assert_any_call(b"test ")
+    mock_path_open().write.assert_any_call(b"content")
 
 def test_download_tg_missing_file_path(mocker):
     """Test download_tg raises ValueError when file_path is missing."""
