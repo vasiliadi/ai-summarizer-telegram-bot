@@ -42,7 +42,7 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(1),
-    retry=retry_if_exception_type(ApiTelegramException),
+    retry=retry_if_exception_type((ApiTelegramException, ReadTimeout)),
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=True,
 )
