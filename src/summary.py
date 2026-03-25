@@ -365,6 +365,7 @@ def summarize(  # noqa: PLR0913
                     transcript = get_yt_transcript(data)
                     return dedent(f"""
                                   📹
+                                  
                                   {
                         summarize_with_transcript(
                             transcript=transcript,
@@ -373,7 +374,7 @@ def summarize(  # noqa: PLR0913
                             target_language=target_language,
                         )
                     }
-                                  """).strip()
+                                  """).strip()  # noqa: W293
                 except (
                     TranscriptsDisabled,
                     RetryError,
@@ -400,6 +401,7 @@ def summarize(  # noqa: PLR0913
                 # If it fails, a RetryError will raise
                 return dedent(f"""
                               📝
+                              
                               {
                     summarize_with_transcript(
                         transcript=transcription,
@@ -408,7 +410,7 @@ def summarize(  # noqa: PLR0913
                         target_language=target_language,
                     )
                 }
-                              """).strip()
+                              """).strip()  # noqa: W293
             finally:
                 clean_up(file=new_file)
         capture_exception(e)
