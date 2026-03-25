@@ -372,7 +372,7 @@ def summarize(  # noqa: PLR0913
                             model=model,
                             prompt_key=prompt_key,
                             target_language=target_language,
-                        )
+                        ).strip()
                     }
                                   """).strip()  # noqa: W293
                 except (
@@ -408,7 +408,7 @@ def summarize(  # noqa: PLR0913
                         model=model,
                         prompt_key=prompt_key,
                         target_language=target_language,
-                    )
+                    ).strip()
                 }
                               """).strip()  # noqa: W293
             finally:
