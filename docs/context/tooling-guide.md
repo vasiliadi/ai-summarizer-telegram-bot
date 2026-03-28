@@ -107,7 +107,7 @@ Required variables in `.env`:
 TG_API_TOKEN="your_telegram_bot_token"
 GEMINI_API_KEY="your_gemini_api_key"
 REPLICATE_API_TOKEN="your_replicate_token"
-DB_URL="postgresql+driver://user:password@host:port/database"
+DSN="postgresql+driver://user:password@host:port/database"
 REDIS_URL="rediss://default:password@host:port"
 SENTRY_DSN="your_sentry_dsn"
 PROXY=""
@@ -160,7 +160,7 @@ The report will be available in the `htmlcov/` directory.
 
 ## Tooling Rules for AI Agents
 
-### Package Management
+### Python Command Rules
 
 - **ALWAYS** use `uv run` prefix for all Python commands
 - **NEVER** use bare `python`, `pip`, or direct script execution
