@@ -7,10 +7,9 @@ This style guide establishes consistent coding conventions, documentation standa
 1. [Python Code Formatting](#python-code-formatting)
 2. [Code Quality and Linting](#code-quality-and-linting)
 3. [Documentation Standards](#documentation-standards)
-4. [Git Conventions](#git-conventions)
-5. [Error Handling & Logging](#error-handling--logging)
-6. [Type Annotations](#type-annotations)
-7. [Testing Standards](#testing-standards)
+4. [Error Handling & Logging](#error-handling--logging)
+5. [Type Annotations](#type-annotations)
+6. [Testing Standards](#testing-standards)
 
 ---
 
@@ -26,8 +25,6 @@ We do not manually enforce line lengths, quote types, or import sorting rules in
 * **Classes:** `PascalCase`
 * **Constants:** `UPPER_SNAKE_CASE`
 * **Private Members:** `_leading_underscore`
-
-**Workflow:** Run `ruff format` before committing to automatically format your code.
 
 ---
 
@@ -64,32 +61,6 @@ All public functions, classes, and methods must have docstrings formatted in **G
 ### Inline Comments
 
 Use inline comments (`#`) sparingly. Code should be self-documenting through clear variable and function naming. Only use inline comments to explain *why* complex or non-obvious logic was implemented, not *what* the code is doing.
-
----
-
-## Git Conventions
-
-All commit messages must follow the **Conventional Commits** specification.
-
-**Format:**
-
-```text
-type(scope): subject
-
-[optional body]
-```
-
-**Valid Types:**
-
-* `feat`: A new feature
-* `fix`: A bug fix
-* `docs`: Documentation changes
-* `style`: Code formatting (no functional changes)
-* `refactor`: Code restructuring
-* `test`: Adding or updating tests
-* `chore`: Maintenance, dependencies, config updates
-
-*(Note: The use of Gitmoji like ✨ or 🐛 is accepted but optional).*
 
 ---
 
@@ -136,11 +107,3 @@ This project requires **100% type annotation coverage** for all function signatu
 * Write **Unit Tests** for isolated business logic, utilities, and data validation.
 * Write **Integration Tests** for database operations, API clients, and end-to-end flows.
 * Aim for high coverage on core business logic and edge cases.
-
-### Pre-Commit Checks
-
-Before committing, always ensure your code passes local checks:
-
-1. `ruff format`
-2. `ruff check`
-3. `pytest`
