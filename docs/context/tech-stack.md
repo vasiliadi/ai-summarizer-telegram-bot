@@ -1,93 +1,6 @@
 # Tech Stack
 
-## Package Management
-
-This project uses [uv](https://github.com/astral-sh/uv) as the package manager for fast, reliable Python dependency management.
-
-### Installation
-
-First, check if uv is already installed:
-
-```bash
-uv --version
-```
-
-If not installed, install uv using one of these methods:
-
-```bash
-# macOS/Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Using pip
-pip install uv
-
-# Using Homebrew (macOS)
-brew install uv
-```
-
-### Running Python Commands
-
-All Python commands should be executed through `uv run`:
-
-```bash
-# Run the main application
-uv run python src/main.py
-
-# Run database migrations
-uv run python scripts/db.py
-uv run alembic upgrade head
-
-# Generate new migration
-uv run alembic revision --autogenerate
-
-# Deploy cron jobs
-uv run modal deploy scripts/cron.py
-```
-
-### Using `uv tool` and `uvx` for Tooling
-
-Use `uv tool install` to install general-purpose developer tools (like linters, formatters, and type checkers) so the executables are available on your `PATH`. Once installed, run the tool directly (no `uvx` prefix needed).
-
-`uvx` is an alias for `uv tool run` and is best for one-off runs when you do not want to install the tool.
-
-**Preferred workflow for linting, formatting, and type checking:**
-
-```bash
-# Install once (system-wide executable via uv)
-uv tool install ruff
-uv tool install ty
-
-# Run directly
-ruff check .
-ruff format .
-ty check .
-```
-
-**One-off runs (no install):**
-
-```bash
-uvx ruff check .
-uvx ruff format .
-uvx ty check .
-```
-
-If a tool should be part of the project's standard workflow, add it to dev dependencies with `uv add --dev` as well (so CI and other contributors have it via the project).
-
-### Dependency Management
-
-```bash
-# Install dependencies
-uv sync
-
-# Add a new dependency
-uv add package-name
-
-# Add a development dependency
-uv add --dev package-name
-
-# Update dependencies
-uv lock --upgrade
-```
+This document lists the technologies used in the AI Summarizer Telegram Bot project. For command usage, developer workflow, and tool-specific setup, see `docs/context/tooling-guide.md`.
 
 ## Core Technologies
 
@@ -132,6 +45,9 @@ uv lock --upgrade
 - **Ruff** - Fast Python linter and formatter
 - **python-dotenv** - Environment variable management
 - **Modal** - Serverless function deployment for cron jobs
+- **pytest** - Test runner
+- **pytest-cov** - Coverage reporting
+- **ty** - Type checker
 
 ## Infrastructure
 
@@ -147,116 +63,6 @@ uv lock --upgrade
 - **Hosting**: Railway, or any Docker-compatible platform
 - **Monitoring**: Sentry (errors)
 
-## Code Quality
-
-### Linting & Formatting
-
-- **Ruff** - Primary linter with extensive rule set (see `pyproject.toml`)
-
-### Style Guidelines
-
-- **Google Python Style Guide** - Docstring format
-- **Conventional Commits** - Commit message format
-- **gitmoji** - Commit emoji conventions
-
-## Configuration Files
-
-- `pyproject.toml` - Project metadata, dependencies, and tool configuration
-- `.env` - Environment variables (API keys, database URLs, etc.)
-- `alembic.ini` - Database migration configuration
-- `compose.yaml` - Docker Compose configuration
-- `Dockerfile` - Container build instructions
-
-## API Keys Required
-
-1. **Telegram Bot Token** - [@BotFather](https://t.me/BotFather)
-2. **Gemini API Key** - [Google AI Studio](https://ai.google.dev/)
-3. **Replicate API Token** - [Replicate](https://replicate.com/account/api-tokens)
-4. **Sentry DSN** - [Sentry](https://sentry.io/signup/)
-5. **Modal Token** - [Modal](https://modal.com/)
-
-## Environment Variables
-
-Required variables in `.env`:
-
-```env
-TG_API_TOKEN="your_telegram_bot_token"
-GEMINI_API_KEY="your_gemini_api_key"
-REPLICATE_API_TOKEN="your_replicate_token"
-DB_URL="postgresql+driver://user:password@host:port/database"
-REDIS_URL="rediss://default:password@host:port"
-SENTRY_DSN="your_sentry_dsn"
-PROXY=""
-LOG_LEVEL="ERROR"
-MODAL_TOKEN_ID="your_modal_token_id"
-MODAL_TOKEN_SECRET="your_modal_token_secret"
-```
-
-## Project Structure
-
-```
-.
-├── src/                    # Main application code
-│   ├── main.py            # Bot entry point and command handlers
-│   ├── config.py          # Configuration and settings
-│   ├── database.py        # Database operations
-│   ├── handlers.py        # Message type handlers
-│   ├── services.py        # Business logic services
-│   ├── models.py          # SQLAlchemy models
-│   ├── prompts.py         # AI prompt templates
-│   ├── transcription.py   # Audio transcription logic
-│   ├── summary.py         # Summarization logic
-│   ├── download.py        # Media download utilities
-│   ├── utils.py           # Helper functions
-│   └── exceptions.py      # Custom exceptions
-├── migrations/            # Alembic database migrations
-├── scripts/               # Utility scripts
-│   ├── db.py             # Database initialization
-│   └── cron.py           # Modal cron jobs
-├── docs/                  # Documentation
-├── pyproject.toml        # Project configuration
-├── alembic.ini           # Migration configuration
-├── Dockerfile            # Container definition
-└── compose.yaml          # Docker Compose setup
-```
-
-## Development Workflow
-
-1. **Setup**: Install uv and run `uv sync` to install dependencies
-2. **Database**: Run `uv run python scripts/db.py` and `uv run alembic upgrade head`
-3. **Configuration**: Copy `.env.example` to `.env` and fill in API keys
-4. **Run**: Execute `uv run python src/main.py` to start the bot
-5. **Deploy Cron**: Run `uv run modal deploy scripts/cron.py` for rate limit resets
-
-## Testing & Quality Assurance
-
-The project uses `pytest` for unit testing and `pytest-cov` for coverage reporting.
-
-### Run tests
-
-```bash
-uv run pytest
-```
-
-### Generate coverage report
-
-```bash
-uv run pytest --cov=src --cov-report=term-missing
-```
-
-> [!NOTE]
-> If you encounter `unrecognized arguments: --cov=src`, ensure `pytest-cov` is installed by running `uv sync` or use `uv run --with pytest-cov pytest --cov=src`.
-
-The HTML report can also be generated:
-```bash
-uv run pytest --cov=src --cov-report=html
-```
-The report will be available in the `htmlcov/` directory.
-
-- Linting: `ruff check .` (preferred; install via `uv tool install ruff` if missing, or `uvx ruff check .` for one-off runs)
-- Formatting: `ruff format .` (preferred; install via `uv tool install ruff` if missing, or `uvx ruff format .` for one-off runs)
-- Type checking: `ty check .` (preferred; install via `uv tool install ty` if missing, or `uvx ty check .` for one-off runs; using [ty](https://docs.astral.sh/ty/) - modern type checker from Astral)
-
 ## Documentation Resources
 
 - [pyTelegramBotAPI](https://pytba.readthedocs.io/en/latest/)
@@ -267,102 +73,9 @@ The report will be available in the `htmlcov/` directory.
 - [Ruff Documentation](https://docs.astral.sh/ruff/)
 - [ty Documentation](https://docs.astral.sh/ty/)
 
-## Architecture Decisions
+## Technology-Specific Decisions
 
-### General Principles for AI Agents
-
-When working on this project, AI agents must follow these architectural principles:
-
-#### 1. Package Management
-
-- **ALWAYS** use `uv run` prefix for all Python commands
-- **NEVER** use bare `python`, `pip`, or direct script execution
-- Use `uv add` for adding dependencies, not manual `pyproject.toml` edits
-- Maintain dependency groups: production dependencies in `[project.dependencies]`, dev tools in `[dependency-groups.dev]`
-
-#### 2. Database Operations
-
-- **ALWAYS** use SQLAlchemy ORM for database operations
-- **NEVER** write raw SQL queries unless absolutely necessary
-- Create Alembic migrations for all schema changes: `uv run alembic revision --autogenerate`
-- Test migrations with `uv run alembic upgrade head` before committing
-
-#### 3. Code Quality
-
-- **ALWAYS** run `ruff check .` before committing code (install via `uv tool install ruff` if missing)
-- **ALWAYS** run `ruff format .` to format code (install via `uv tool install ruff` if missing)
-- Use `ty check .` for type checking (install via `uv tool install ty` if missing)
-- Follow Google Python Style Guide for docstrings
-- Use type hints for all function signatures
-- Preferred local workflow: install `ruff` and `ty` via `uv tool install` and run `ruff ...` / `ty ...` directly; use `uvx` only for one-off runs when not installed.
-
-#### 4. Error Handling
-
-- **ALWAYS** use Sentry's `capture_exception()` for error tracking
-- Use Tenacity's retry decorators for external API calls
-- Implement proper error messages for users (no stack traces in bot responses)
-- Log errors with appropriate levels (ERROR, WARNING, INFO, DEBUG)
-
-#### 5. Configuration
-
-- **NEVER** hardcode API keys, tokens, or sensitive data
-- **ALWAYS** use environment variables via `.env` file
-- Use `config.py` for application configuration
-- Document all required environment variables
-
-#### 6. Bot Development
-
-- Keep command handlers in `src/main.py`
-- Keep business logic in `src/handlers.py` and `src/services.py`
-- Use `check_auth()` decorator for protected commands
-- Implement rate limiting for all user-facing operations
-
-#### 7. AI Model Integration
-
-- Default to Google Gemini API for summarization
-- Implement fallback to Replicate when Gemini fails
-- Respect rate limits using Redis-backed rush library
-- Cache responses when appropriate to reduce API costs
-
-#### 8. Testing Strategy
-
-- Write property-based tests for critical business logic
-- Test database operations with transactions
-- Mock external API calls in tests
-- Use `temp/` directory for test artifacts (auto-cleaned)
-
-#### 9. Deployment
-
-- **ALWAYS** test Docker builds locally before deploying
-- Use `compose.yaml` for local development with dependencies
-- Deploy Modal cron jobs separately: `uv run modal deploy scripts/cron.py`
-- Verify environment variables are set in production
-
-#### 10. Dependencies
-
-- Prefer Astral ecosystem tools (uv, ruff, ty) for consistency
-- Minimize dependency count - evaluate if new dependencies are truly needed
-- Pin major versions, allow minor/patch updates
-- Review security advisories for dependencies regularly
-
-#### 11. File Organization
-
-- Source code in `src/`
-- Database migrations in `migrations/`
-- Utility scripts in `scripts/`
-- Documentation in `docs/`
-- Temporary files in `temp/` (gitignored)
-
-#### 12. Commit Standards
-
-- Use Conventional Commits format
-- Use gitmoji for commit prefixes
-- Write clear, descriptive commit messages
-- Reference issues/PRs when applicable
-
-### Technology-Specific Decisions
-
-#### Why uv as Package Manager?
+### Why uv as Package Manager?
 
 **Decision**: Use uv instead of pip/poetry/pipenv
 
@@ -370,7 +83,7 @@ When working on this project, AI agents must follow these architectural principl
 
 - 10-100x faster than pip for dependency resolution and installation
 - Built-in virtual environment management
-- Compatible with standard Python packaging (pyproject.toml)
+- Compatible with standard Python packaging (`pyproject.toml`)
 - Single tool for dependency management, virtual environments, and script running
 - Developed by Astral (same team as Ruff), ensuring ecosystem compatibility
 - Native support for lockfiles and reproducible builds
@@ -384,7 +97,7 @@ When working on this project, AI agents must follow these architectural principl
 - Lightweight and straightforward API wrapper
 - Synchronous design fits the application's polling-based architecture
 - Well-documented with active community support
-- Minimal overhead compared to async frameworks (python-telegram-bot)
+- Minimal overhead compared to async frameworks (`python-telegram-bot`)
 - Sufficient for the bot's use case (no need for webhooks or complex async patterns)
 
 ### Why Google Gemini as Primary AI Model?
@@ -409,7 +122,7 @@ When working on this project, AI agents must follow these architectural principl
 - Valkey: Redis-compatible, open-source alternative with better licensing
 - Clear separation of concerns: PostgreSQL for user data, Valkey for ephemeral data
 - Both have excellent managed service options (Supabase, Aiven)
-- Redis protocol for rate limiting (rush library) and caching
+- Redis protocol for rate limiting (`rush`) and caching
 
 ### Why SQLAlchemy 2.0?
 
