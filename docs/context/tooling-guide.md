@@ -46,34 +46,26 @@ uv run alembic revision --autogenerate
 uv run modal deploy scripts/cron.py
 ```
 
-### Using `uv tool` and `uvx` for Tooling
+### Using `uv tool` for Tooling
 
-Use `uv tool install` to install general-purpose developer tools (like linters, formatters, and type checkers) so the executables are available on your `PATH`. Once installed, run the tool directly (no `uvx` prefix needed).
+Use `uv tool install` to install general-purpose developer tools so the executables are available on your `PATH`. In this project, `ruff`, `ty`, and `pre-commit` should be installed as system-wide tools and run directly after installation.
 
-`uvx` is an alias for `uv tool run` and is best for one-off runs when you do not want to install the tool.
-
-**Preferred workflow for linting, formatting, and type checking:**
+**Preferred workflow for linting, formatting, hooks, and type checking:**
 
 ```bash
 # Install once (system-wide executable via uv)
 uv tool install ruff
 uv tool install ty
+uv tool install pre-commit
 
 # Run directly
 ruff check .
 ruff format .
 ty check .
+pre-commit run --all-files
 ```
 
-**One-off runs (no install):**
-
-```bash
-uvx ruff check .
-uvx ruff format .
-uvx ty check .
-```
-
-If a tool should be part of the project's standard workflow, add it to dev dependencies with `uv add --dev` as well (so CI and other contributors have it via the project).
+If one of these tools is missing locally, install it with `uv tool install <tool-name>` before continuing. If a tool should be part of the project's standard workflow, add it to dev dependencies with `uv add --dev` as well (so CI and other contributors have it via the project).
 
 ### Dependency Management
 
@@ -142,6 +134,8 @@ The project uses `pytest` for unit testing and `pytest-cov` for coverage reporti
 uv run pytest
 ```
 
+Run tests with `uv run pytest`, and run them before every commit.
+
 ### Generate coverage report
 
 ```bash
@@ -159,9 +153,10 @@ uv run pytest --cov=src --cov-report=html
 
 The report will be available in the `htmlcov/` directory.
 
-- Linting: `ruff check .` (preferred; install via `uv tool install ruff` if missing, or `uvx ruff check .` for one-off runs)
-- Formatting: `ruff format .` (preferred; install via `uv tool install ruff` if missing, or `uvx ruff format .` for one-off runs)
-- Type checking: `ty check .` (preferred; install via `uv tool install ty` if missing, or `uvx ty check .` for one-off runs; using [ty](https://docs.astral.sh/ty/) - modern type checker from Astral)
+- Linting: `ruff check .` (install via `uv tool install ruff` if missing)
+- Formatting: `ruff format .` (install via `uv tool install ruff` if missing)
+- Type checking: `ty check .` (install via `uv tool install ty` if missing; using [ty](https://docs.astral.sh/ty/) - modern type checker from Astral)
+- Commit hooks: `pre-commit run --all-files` (install via `uv tool install pre-commit` if missing)
 
 ## Tooling Rules for AI Agents
 
@@ -181,12 +176,14 @@ The report will be available in the `htmlcov/` directory.
 
 ### Code Quality
 
-- **ALWAYS** run `ruff check .` before committing code (install via `uv tool install ruff` if missing)
-- **ALWAYS** run `ruff format .` to format code (install via `uv tool install ruff` if missing)
-- Use `ty check .` for type checking (install via `uv tool install ty` if missing)
+- **ALWAYS** install `ruff`, `ty`, and `pre-commit` as system-wide tools with `uv tool install` if they are not already available
+- **ALWAYS** run `ruff check .` before every commit
+- **ALWAYS** run `ruff format .` before every commit
+- **ALWAYS** run `ty check .` before every commit
+- **ALWAYS** run `pre-commit run --all-files` before every commit
+- `pre-commit` is configured to run automatically on every `git commit`
 - Follow Google Python Style Guide for docstrings
 - Use type hints for all function signatures
-- Preferred local workflow: install `ruff` and `ty` via `uv tool install` and run `ruff ...` / `ty ...` directly; use `uvx` only for one-off runs when not installed.
 
 ### Error Handling
 
@@ -222,6 +219,7 @@ The report will be available in the `htmlcov/` directory.
 - Test database operations with transactions
 - Mock external API calls in tests
 - Use `temp/` directory for test artifacts (auto-cleaned)
+- **ALWAYS** run tests with `uv run pytest` before every commit
 
 ### Deployment
 
