@@ -1,0 +1,238 @@
+# Tooling Guide
+
+This document explains how to use the project's developer tools and local workflow. For the list of technologies used in the project, see `docs/context/tech-stack.md`.
+
+## Package Management
+
+This project uses [uv](https://github.com/astral-sh/uv) as the package manager for fast, reliable Python dependency management.
+
+### Installation
+
+First, check if uv is already installed:
+
+```bash
+uv --version
+```
+
+If not installed, install uv using one of these methods:
+
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Using pip
+pip install uv
+
+# Using Homebrew (macOS)
+brew install uv
+```
+
+### Running Python Commands
+
+All Python commands should be executed through `uv run`:
+
+```bash
+# Run the main application
+uv run python src/main.py
+
+# Run database migrations
+uv run python scripts/db.py
+uv run alembic upgrade head
+
+# Generate new migration
+uv run alembic revision --autogenerate
+
+# Deploy cron jobs
+uv run modal deploy scripts/cron.py
+```
+
+### Using `uv tool` and `uvx` for Tooling
+
+Use `uv tool install` to install general-purpose developer tools (like linters, formatters, and type checkers) so the executables are available on your `PATH`. Once installed, run the tool directly (no `uvx` prefix needed).
+
+`uvx` is an alias for `uv tool run` and is best for one-off runs when you do not want to install the tool.
+
+**Preferred workflow for linting, formatting, and type checking:**
+
+```bash
+# Install once (system-wide executable via uv)
+uv tool install ruff
+uv tool install ty
+
+# Run directly
+ruff check .
+ruff format .
+ty check .
+```
+
+**One-off runs (no install):**
+
+```bash
+uvx ruff check .
+uvx ruff format .
+uvx ty check .
+```
+
+If a tool should be part of the project's standard workflow, add it to dev dependencies with `uv add --dev` as well (so CI and other contributors have it via the project).
+
+### Dependency Management
+
+```bash
+# Install dependencies
+uv sync
+
+# Add a new dependency
+uv add package-name
+
+# Add a development dependency
+uv add --dev package-name
+
+# Update dependencies
+uv lock --upgrade
+```
+
+## Configuration Files
+
+- `pyproject.toml` - Project metadata, dependencies, and tool configuration
+- `.env` - Environment variables (API keys, database URLs, etc.)
+- `alembic.ini` - Database migration configuration
+- `compose.yaml` - Docker Compose configuration
+- `Dockerfile` - Container build instructions
+
+## API Keys Required
+
+1. **Telegram Bot Token** - [@BotFather](https://t.me/BotFather)
+2. **Gemini API Key** - [Google AI Studio](https://ai.google.dev/)
+3. **Replicate API Token** - [Replicate](https://replicate.com/account/api-tokens)
+4. **Sentry DSN** - [Sentry](https://sentry.io/signup/)
+5. **Modal Token** - [Modal](https://modal.com/)
+
+## Environment Variables
+
+Required variables in `.env`:
+
+```env
+TG_API_TOKEN="your_telegram_bot_token"
+GEMINI_API_KEY="your_gemini_api_key"
+REPLICATE_API_TOKEN="your_replicate_token"
+DB_URL="postgresql+driver://user:password@host:port/database"
+REDIS_URL="rediss://default:password@host:port"
+SENTRY_DSN="your_sentry_dsn"
+PROXY=""
+LOG_LEVEL="ERROR"
+MODAL_TOKEN_ID="your_modal_token_id"
+MODAL_TOKEN_SECRET="your_modal_token_secret"
+```
+
+## Development Workflow
+
+1. **Setup**: Install uv and run `uv sync` to install dependencies
+2. **Database**: Run `uv run python scripts/db.py` and `uv run alembic upgrade head`
+3. **Configuration**: Copy `.env.example` to `.env` and fill in API keys
+4. **Run**: Execute `uv run python src/main.py` to start the bot
+5. **Deploy Cron**: Run `uv run modal deploy scripts/cron.py` for rate limit resets
+
+## Testing & Quality Assurance
+
+The project uses `pytest` for unit testing and `pytest-cov` for coverage reporting.
+
+### Run tests
+
+```bash
+uv run pytest
+```
+
+### Generate coverage report
+
+```bash
+uv run pytest --cov=src --cov-report=term-missing
+```
+
+> [!NOTE]
+> If you encounter `unrecognized arguments: --cov=src`, ensure `pytest-cov` is installed by running `uv sync` or use `uv run --with pytest-cov pytest --cov=src`.
+
+The HTML report can also be generated:
+
+```bash
+uv run pytest --cov=src --cov-report=html
+```
+
+The report will be available in the `htmlcov/` directory.
+
+- Linting: `ruff check .` (preferred; install via `uv tool install ruff` if missing, or `uvx ruff check .` for one-off runs)
+- Formatting: `ruff format .` (preferred; install via `uv tool install ruff` if missing, or `uvx ruff format .` for one-off runs)
+- Type checking: `ty check .` (preferred; install via `uv tool install ty` if missing, or `uvx ty check .` for one-off runs; using [ty](https://docs.astral.sh/ty/) - modern type checker from Astral)
+
+## Tooling Rules for AI Agents
+
+### Package Management
+
+- **ALWAYS** use `uv run` prefix for all Python commands
+- **NEVER** use bare `python`, `pip`, or direct script execution
+- Use `uv add` for adding dependencies, not manual `pyproject.toml` edits
+- Maintain dependency groups: production dependencies in `[project.dependencies]`, dev tools in `[dependency-groups.dev]`
+
+### Database Operations
+
+- **ALWAYS** use SQLAlchemy ORM for database operations
+- **NEVER** write raw SQL queries unless absolutely necessary
+- Create Alembic migrations for all schema changes: `uv run alembic revision --autogenerate`
+- Test migrations with `uv run alembic upgrade head` before committing
+
+### Code Quality
+
+- **ALWAYS** run `ruff check .` before committing code (install via `uv tool install ruff` if missing)
+- **ALWAYS** run `ruff format .` to format code (install via `uv tool install ruff` if missing)
+- Use `ty check .` for type checking (install via `uv tool install ty` if missing)
+- Follow Google Python Style Guide for docstrings
+- Use type hints for all function signatures
+- Preferred local workflow: install `ruff` and `ty` via `uv tool install` and run `ruff ...` / `ty ...` directly; use `uvx` only for one-off runs when not installed.
+
+### Error Handling
+
+- **ALWAYS** use Sentry's `capture_exception()` for error tracking
+- Use Tenacity's retry decorators for external API calls
+- Implement proper error messages for users (no stack traces in bot responses)
+- Log errors with appropriate levels (`ERROR`, `WARNING`, `INFO`, `DEBUG`)
+
+### Configuration
+
+- **NEVER** hardcode API keys, tokens, or sensitive data
+- **ALWAYS** use environment variables via `.env` file
+- Use `config.py` for application configuration
+- Document all required environment variables
+
+### Bot Development
+
+- Keep command handlers in `src/main.py`
+- Keep business logic in `src/handlers.py` and `src/services.py`
+- Use `check_auth()` decorator for protected commands
+- Implement rate limiting for all user-facing operations
+
+### AI Model Integration
+
+- Default to Google Gemini API for summarization
+- Implement fallback to Replicate when Gemini fails
+- Respect rate limits using Redis-backed `rush` library
+- Cache responses when appropriate to reduce API costs
+
+### Testing Strategy
+
+- Write property-based tests for critical business logic
+- Test database operations with transactions
+- Mock external API calls in tests
+- Use `temp/` directory for test artifacts (auto-cleaned)
+
+### Deployment
+
+- **ALWAYS** test Docker builds locally before deploying
+- Use `compose.yaml` for local development with dependencies
+- Deploy Modal cron jobs separately: `uv run modal deploy scripts/cron.py`
+- Verify environment variables are set in production
+
+### Dependencies
+
+- Prefer Astral ecosystem tools (`uv`, `ruff`, `ty`) for consistency
+- Minimize dependency count - evaluate if new dependencies are truly needed
+- Pin major versions, allow minor/patch updates
+- Review security advisories for dependencies regularly
