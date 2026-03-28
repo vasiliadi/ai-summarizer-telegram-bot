@@ -179,6 +179,29 @@ def get_gemini_config(target_language: str) -> types.GenerateContentConfig:
     )
 
 
+def upload_and_wait_for_file(
+    file: str,
+    mime_type: str,
+    sleep_time: int,
+) -> types.File:
+    """Upload a file to Gemini and wait for processing to finish."""
+    uploaded_file = gemini_client.files.upload(
+        file=file,
+        config={"mime_type": mime_type},
+    )
+    if uploaded_file.name is None:
+        raise AttributeError
+    uploaded_file_name = uploaded_file.name
+    while uploaded_file.state == "PROCESSING":
+        time.sleep(sleep_time)
+        uploaded_file = gemini_client.files.get(name=uploaded_file_name)
+    if uploaded_file.state == "FAILED":
+        raise ValueError(uploaded_file.state)
+    if uploaded_file.uri is None or uploaded_file.mime_type is None:
+        raise AttributeError
+    return uploaded_file
+
+
 def resolve_mime_type(file: str) -> str:
     """Resolve the MIME type for a file path, with fallbacks."""
     mime_type = mimetypes.guess_type(file)[0]
@@ -201,15 +224,8 @@ def upload_and_wait_for_audio_file(
     sleep_time: int,
 ) -> types.File:
     """Upload a file to Gemini and wait for processing to finish."""
-    audio_file = gemini_client.files.upload(file=file, config={"mime_type": mime_type})
-    if audio_file.name is None:
-        raise AttributeError
-    audio_file_name = audio_file.name
-    while audio_file.state == "PROCESSING":
-        time.sleep(sleep_time)
-        audio_file = gemini_client.files.get(name=audio_file_name)
-    if audio_file.state == "FAILED":
-        raise ValueError(audio_file.state)
-    if audio_file.uri is None or audio_file.mime_type is None:
-        raise AttributeError
-    return audio_file
+    return upload_and_wait_for_file(
+        file=file,
+        mime_type=mime_type,
+        sleep_time=sleep_time,
+    )
