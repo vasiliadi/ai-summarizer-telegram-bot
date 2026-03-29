@@ -185,48 +185,12 @@ The report will be available in the `htmlcov/` directory.
 - Follow Google Python Style Guide for docstrings
 - Use type hints for all function signatures
 
-### Error Handling
-
-- **ALWAYS** use Sentry's `capture_exception()` for error tracking
-- Use Tenacity's retry decorators for external API calls
-- Implement proper error messages for users (no stack traces in bot responses)
-- Log errors with appropriate levels (`ERROR`, `WARNING`, `INFO`, `DEBUG`)
-
-### Configuration
-
-- **NEVER** hardcode API keys, tokens, or sensitive data
-- **ALWAYS** use environment variables via `.env` file
-- Use `config.py` for application configuration
-- Document all required environment variables
-
-### Bot Development
-
-- Keep command handlers in `src/main.py`
-- Keep business logic in `src/handlers.py` and `src/services.py`
-- Use `check_auth()` decorator for protected commands
-- Implement rate limiting for all user-facing operations
-
-### AI Model Integration
-
-- Default to Google Gemini API for summarization
-- Implement fallback to Replicate when Gemini fails
-- Respect rate limits using Redis-backed `rush` library
-- Cache responses when appropriate to reduce API costs
-
 ### Testing Strategy
 
 - Write property-based tests for critical business logic
 - Test database operations with transactions
 - Mock external API calls in tests
-- Use `temp/` directory for test artifacts (auto-cleaned)
 - **ALWAYS** run tests with `uv run pytest` before every commit
-
-### Deployment
-
-- **ALWAYS** test Docker builds locally before deploying
-- Use `compose.yaml` for local development with dependencies
-- Deploy Modal cron jobs separately: `uv run modal deploy scripts/cron.py`
-- Verify environment variables are set in production
 
 ### Dependencies
 
