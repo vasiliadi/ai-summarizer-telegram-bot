@@ -190,7 +190,6 @@ The report will be available in the `htmlcov/` directory.
 - Write property-based tests for critical business logic
 - Test database operations with transactions
 - Mock external API calls in tests
-- Use `temp/` directory for test artifacts (auto-cleaned)
 - **ALWAYS** run tests with `uv run pytest` before every commit
 
 ### Dependencies
