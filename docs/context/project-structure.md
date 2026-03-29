@@ -19,7 +19,7 @@ project-root/
 │   ├── download.py                   # Media download utilities
 │   ├── utils.py                      # Helper functions
 │   └── exceptions.py                 # Custom exceptions
-├── test/                             ← Unit and integration tests
+├── tests/                            ← Unit and integration tests
 ├── migrations/                       ← Alembic database migrations
 ├── scripts/                          ← Utility scripts (db init, etc.)
 ├── docs/                             ← Documentation
@@ -35,5 +35,5 @@ project-root/
 ## New Project Scaffold
 
 ```bash
-mkdir -p src test migrations scripts docs/context docs/summaries docs/archive templates
+mkdir -p src tests migrations scripts docs/context docs/summaries docs/archive templates
 ```

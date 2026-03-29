@@ -40,7 +40,7 @@ test = [
 default-groups = ["dev", "test"]
 
 [tool.ruff]
-extend-exclude = ["temp", "migrations", "test"]
+extend-exclude = ["temp", "migrations", "tests"]
 line-length = 88
 indent-width = 4
 target-version = "py313"
@@ -111,19 +111,19 @@ docstring-code-line-length = "dynamic"
 
 [tool.pyrefly]
 project-includes = ["**/*.py*", "**/*.ipynb"]
-project-excludes = ["test/**"]
+project-excludes = ["tests/**"]
 
 [tool.ty.src]
-exclude = ["test"]
+exclude = ["tests"]
 
 [tool.pytest.ini_options]
-testpaths = ["test"]
+testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
 source = ["src"]
-omit = ["test/*", "migrations/*"]
+omit = ["tests/*", "migrations/*"]
 
 [tool.coverage.report]
 show_missing = true
