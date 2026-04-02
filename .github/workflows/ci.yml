@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run ruff check
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: "check src/"
+
+      - name: Run ruff format check
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: "format --check src/"
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version-file: ".python-version"
+
+      - name: Install dependencies
+        run: uv sync --group test
+
+      - name: Run tests
+        run: uv run pytest
