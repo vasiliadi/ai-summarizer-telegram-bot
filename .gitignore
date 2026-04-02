@@ -192,3 +192,6 @@ docs/strategy
 docs/archive
 docs/summaries
 output/
+
+# Kilo
+.kilo/
