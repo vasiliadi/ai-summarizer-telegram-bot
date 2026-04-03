@@ -4,3 +4,5 @@ exclude_paths:
   - ".agents/**"
   - ".github/**"
   - "migrations/**"
+  - "scripts/**"
+  - "uv.lock"
