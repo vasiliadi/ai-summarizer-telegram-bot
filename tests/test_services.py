@@ -53,6 +53,7 @@ def test_send_answer_single_chunk(mocker):
     send_answer(mock_msg, "short answer")
 
     mock_convert.assert_called_once_with("short answer")
+    mock_split.assert_called_once_with("text", [], max_utf16_len=4096)
     mock_reply.assert_called_once_with(mock_msg, "text", entities=[{"type": "bold"}])
 
 def test_send_answer_multi_chunk(mocker):
