@@ -2,3 +2,5 @@
 exclude_paths:
   - "tests/**"
   - ".agents/**"
+  - ".github/**"
+  - "migrations/**"
