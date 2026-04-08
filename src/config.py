@@ -62,11 +62,10 @@ bot = telebot.TeleBot(token=TG_API_TOKEN, disable_web_page_preview=True)
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 ALLOWED_MODELS_FOR_SUMMARY = [
-    "gemini-2.5-flash",
     "gemini-3-flash-preview",
 ]
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
-DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-2.5-flash"
+DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3-flash-preview"
 SAFETY_SETTINGS = [
     types.SafetySetting(
         category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -89,7 +88,7 @@ GEMINI_CONFIG = types.GenerateContentConfig(
     system_instruction=None,
     safety_settings=SAFETY_SETTINGS,
     response_mime_type="text/plain",
-    thinking_config=types.ThinkingConfig(thinking_budget=-1),
+    thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.HIGH),
 )
 
 
@@ -122,7 +121,7 @@ DAILY_LIMIT = 20
 per_minute_limit = throttle.Throttle(
     limiter=periodic.PeriodicLimiter(
         store=redis_store.RedisStore(
-            url=RATE_LIMITER_URL,  # ty:ignore[invalid-argument-type]
+            url=RATE_LIMITER_URL,
             client=redis_store.redis.StrictRedis.from_url(
                 url=RATE_LIMITER_URL,
                 decode_responses=True,
@@ -136,7 +135,7 @@ per_minute_limit = throttle.Throttle(
 per_day_limit = throttle.Throttle(
     limiter=periodic.PeriodicLimiter(
         store=redis_store.RedisStore(
-            url=RATE_LIMITER_URL,  # ty:ignore[invalid-argument-type]
+            url=RATE_LIMITER_URL,
             client=redis_store.redis.StrictRedis.from_url(
                 url=RATE_LIMITER_URL,
                 decode_responses=True,
@@ -175,42 +174,106 @@ PROTECTED_FILES = (
 DEFAULT_LANG = "English"
 # https://ai.google.dev/gemini-api/docs/models/gemini#available-languages
 SUPPORTED_LANGUAGES = [
+    "Afrikaans",
+    "Albanian",
+    "Amharic",
     "Arabic",
+    "Armenian",
+    "Assamese",
+    "Azerbaijani",
+    "Basque",
+    "Belarusian",
     "Bengali",
+    "Bosnian",
     "Bulgarian",
-    "Chinese",
+    "Catalan",
+    "Cebuano",
+    "Corsican",
     "Croatian",
     "Czech",
     "Danish",
+    "Dhivehi",
     "Dutch",
     "English",
+    "Esperanto",
     "Estonian",
     "Finnish",
     "French",
+    "Frisian",
+    "Galician",
+    "Georgian",
     "German",
     "Greek",
+    "Gujarati",
+    "Haitian Creole",
+    "Hausa",
+    "Hawaiian",
     "Hebrew",
     "Hindi",
+    "Hmong",
     "Hungarian",
+    "Icelandic",
+    "Igbo",
     "Indonesian",
+    "Irish",
     "Italian",
     "Japanese",
+    "Javanese",
+    "Kannada",
+    "Kazakh",
+    "Khmer",
     "Korean",
+    "Krio",
+    "Kurdish",
+    "Kyrgyz",
+    "Lao",
+    "Latin",
     "Latvian",
     "Lithuanian",
+    "Luxembourgish",
+    "Macedonian",
+    "Malagasy",
+    "Malay",
+    "Malayalam",
+    "Maltese",
+    "Maori",
+    "Marathi",
+    "Mongolian",
+    "Nepali",
     "Norwegian",
+    "Pashto",
+    "Persian",
     "Polish",
     "Portuguese",
+    "Punjabi",
     "Romanian",
     "Russian",
+    "Samoan",
+    "Scots Gaelic",
     "Serbian",
+    "Sesotho",
+    "Shona",
+    "Sindhi",
     "Slovak",
     "Slovenian",
+    "Somali",
     "Spanish",
+    "Sundanese",
     "Swahili",
     "Swedish",
+    "Tajik",
+    "Tamil",
+    "Telugu",
     "Thai",
     "Turkish",
     "Ukrainian",
+    "Urdu",
+    "Uyghur",
+    "Uzbek",
     "Vietnamese",
+    "Welsh",
+    "Xhosa",
+    "Yiddish",
+    "Yoruba",
+    "Zulu",
 ]
