@@ -32,7 +32,7 @@ def clear_limit() -> "RateLimitResult":
     per_day_limit = throttle.Throttle(
         limiter=periodic.PeriodicLimiter(
             store=redis_store.RedisStore(
-                url=RATE_LIMITER_URL,  # ty:ignore[invalid-argument-type]
+                url=RATE_LIMITER_URL,
                 client=redis_store.redis.StrictRedis.from_url(
                     url=RATE_LIMITER_URL,
                     decode_responses=True,
