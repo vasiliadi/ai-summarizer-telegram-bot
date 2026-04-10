@@ -168,13 +168,21 @@ def check_quota(quantity: int = 1) -> bool:
     return True
 
 
-def get_gemini_config(target_language: str) -> types.GenerateContentConfig:
+def get_gemini_config(
+    target_language: str,
+    extra_system_instruction: str | None = None,
+) -> types.GenerateContentConfig:
     """Get Gemini config with system instruction."""
+    system_instruction = dedent(
+        SYSTEM_INSTRUCTION.format(language=target_language),
+    ).strip()
+    if extra_system_instruction is not None:
+        system_instruction = (
+            f"{system_instruction}\n\n{extra_system_instruction.strip()}"
+        )
     return GEMINI_CONFIG.model_copy(
         update={
-            "system_instruction": dedent(
-                SYSTEM_INSTRUCTION.format(language=target_language),
-            ).strip(),
+            "system_instruction": system_instruction,
         },
     )
 
