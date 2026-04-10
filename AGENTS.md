@@ -29,6 +29,10 @@ You work with Andrii Vasiliadi, a software engineer building ai-summarizer-teleg
   - archive-rules.md — summary lifecycle and file archival rules
   - tech-stack.md — architecture decisions
   - style-guide.md — writing or coding conventions
+  - project-structure.md — repository layout reference
+  - git-guide.md — git workflow and repository conventions
+  - tooling-guide.md — tooling and local workflow guidance
+  - subagent-rules.md — rules for sub-agent usage and outputs
 - docs/archive/ — processed raw files. Do not read unless explicitly told.
 - output/deliverables/ — final outputs
 
