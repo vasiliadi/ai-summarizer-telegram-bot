@@ -175,14 +175,16 @@ poetry.toml
 !.env.vault
 !.env.example
 
-# Ruff
+# Cache
 .ruff_cache
+.uv-cache
 
-# Kiro
+# IDE
 .kiro/
 .zed/
 .vscode/
 .codex/
+.kilo/
 
 # AI
 docs/discovery
@@ -192,6 +194,3 @@ docs/strategy
 docs/archive
 docs/summaries
 output/
-
-# Kilo
-.kilo/
