@@ -24,14 +24,6 @@ project-root/
 ├── scripts/                          ← Utility scripts (db init, etc.)
 ├── docs/                             ← Documentation
 │   ├── context/                      ← Reusable domain knowledge
-│   │   ├── archive-rules.md         # Summary lifecycle and archival rules
-│   │   ├── git-guide.md             # Git workflow and repository conventions
-│   │   ├── processing-protocol.md   # Document processing workflow
-│   │   ├── project-structure.md     # Repository layout reference
-│   │   ├── style-guide.md           # Writing and coding conventions
-│   │   ├── subagent-rules.md        # Rules for sub-agent usage and outputs
-│   │   ├── tech-stack.md            # Architecture and technology decisions
-│   │   └── tooling-guide.md         # Tooling and local workflow guidance
 │   ├── summaries/                    ← Session state and handoffs
 │   └── archive/                      ← Processed raw files
 ├── pyproject.toml                    ← Project configuration
