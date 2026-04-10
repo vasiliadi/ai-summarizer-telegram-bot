@@ -135,7 +135,13 @@ def test_summarize_webpage(mocker):
     )
 
     assert result == "Webpage summary."
-    assert "config" in mock_client.models.generate_content.call_args.kwargs
+    config = mock_client.models.generate_content.call_args.kwargs["config"]
+    assert config.tools is not None
+    assert len(config.tools) == 1
+    assert config.tools[0].url_context is not None
+    assert config.system_instruction is not None
+    assert "MANDATORY TOOL USAGE" in config.system_instruction
+    assert "UrlContext" in config.system_instruction
 
 
 def test_summarize_with_file_upload_failure(mocker):

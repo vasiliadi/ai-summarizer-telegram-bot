@@ -73,6 +73,15 @@ def test_get_gemini_config_content():
     config = get_gemini_config("French")
     assert "French" in config.system_instruction
 
+def test_get_gemini_config_with_extra_system_instruction():
+    """Test get_gemini_config appends extra system instruction when provided."""
+    config = get_gemini_config(
+        "English",
+        extra_system_instruction="Use UrlContext before answering.",
+    )
+    assert "English" in config.system_instruction
+    assert "Use UrlContext before answering." in config.system_instruction
+
 def test_upload_and_wait_for_audio_file_happy(mocker):
     """Test uploading file to Gemini when it's immediately ACTIVE."""
     mock_client = mocker.patch("services.gemini_client")

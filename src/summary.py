@@ -208,13 +208,20 @@ def summarize_webpage(
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {content}").strip()
     check_quota(quantity=1)
-    tools = [types.Tool(url_context=types.UrlContext())]
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
-        config=get_gemini_config(target_language).model_copy(
+        config=get_gemini_config(
+            target_language,
+            extra_system_instruction=(
+                "MANDATORY TOOL USAGE: You MUST always use the `UrlContext` "
+                "tool to fetch and read the information from the provided "
+                "link before generating your summary. Do not attempt to "
+                "summarize the content without calling this tool first."
+            ),
+        ).model_copy(
             update={
-                "tools": tools,
+                "tools": [types.Tool(url_context=types.UrlContext())],
             },
         ),
     )
