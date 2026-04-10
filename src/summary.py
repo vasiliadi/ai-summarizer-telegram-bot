@@ -189,7 +189,7 @@ def summarize_webpage(
     and uses the Gemini API to generate a summary.
 
     Args:
-        content (str): The webpage content to be summarized
+        content (str): The webpage URL to be summarized
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
         target_language (str): The language to translate the text into.
