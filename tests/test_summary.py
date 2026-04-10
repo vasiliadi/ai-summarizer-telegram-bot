@@ -7,6 +7,7 @@ from youtube_transcript_api._errors import TranscriptsDisabled
 
 from services import resolve_mime_type
 from summary import (
+    format_prefixed_summary,
     summarize,
     summarize_webpage,
     summarize_with_document,
@@ -111,6 +112,11 @@ def test_summarize_with_transcript(mocker):
     )
 
     assert result == "Transcript summary."
+
+
+def test_format_prefixed_summary_preserves_blank_line():
+    """Test prefixed summaries always include exactly one blank line."""
+    assert format_prefixed_summary("📹", "\n- one\n- two\n") == "📹\n\n- one\n- two"
 
 
 def test_summarize_webpage(mocker):
@@ -233,7 +239,7 @@ def test_summarize_youtube_direct_transcript(mocker):
     mocker.patch("summary.get_yt_transcript", return_value="YT Transcript content")
     mock_sum_transcript = mocker.patch(
         "summary.summarize_with_transcript",
-        return_value="Summary Result",
+        return_value="- first point\n- second point",
     )
 
     result = summarize(
@@ -246,8 +252,29 @@ def test_summarize_youtube_direct_transcript(mocker):
     )
 
     assert result.startswith("📹")
-    assert "Summary Result" in result
+    assert result == "📹\n\n- first point\n- second point"
     mock_sum_transcript.assert_called_once()
+
+
+def test_summarize_youtube_direct_transcript_uses_blank_line_separator(mocker):
+    """Test YouTube transcript summaries keep a blank line after the prefix."""
+    url = "https://youtube.com/watch?v=123"
+    mocker.patch("summary.get_yt_transcript", return_value="YT Transcript content")
+    mocker.patch(
+        "summary.summarize_with_transcript",
+        return_value="- first point\n- second point",
+    )
+
+    result = summarize(
+        data=url,
+        use_transcription=True,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        use_yt_transcription=True,
+    )
+
+    assert result == "📹\n\n- first point\n- second point"
 
 
 def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
@@ -281,7 +308,10 @@ def test_summarize_fallback_to_transcription(mocker):
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
     mocker.patch("summary.compress_audio")
     mocker.patch("summary.transcribe", return_value="Transcription text")
-    mocker.patch("summary.summarize_with_transcript", return_value="Transcript Summary")
+    mocker.patch(
+        "summary.summarize_with_transcript",
+        return_value="- transcript point\n- follow-up point",
+    )
     mock_clean_up = mocker.patch("summary.clean_up")
 
     result = summarize(
@@ -293,7 +323,7 @@ def test_summarize_fallback_to_transcription(mocker):
     )
 
     assert result.startswith("📝")
-    assert "Transcript Summary" in result
+    assert result == "📝\n\n- transcript point\n- follow-up point"
     mock_clean_up.assert_has_calls(
         [
             mocker.call(file="temp.ogg"),

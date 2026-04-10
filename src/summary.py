@@ -39,6 +39,11 @@ logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 
+def format_prefixed_summary(prefix: str, summary: str) -> str:
+    """Format a prefixed summary with a stable blank line separator."""
+    return f"{prefix}\n\n{summary.strip()}"
+
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(30),
@@ -363,17 +368,15 @@ def summarize(  # noqa: PLR0913
             if use_yt_transcription:
                 try:
                     transcript = get_yt_transcript(data)
-                    return dedent(f"""
-                                  📹
-                                  {
+                    return format_prefixed_summary(
+                        "📹",
                         summarize_with_transcript(
                             transcript=transcript,
                             model=model,
                             prompt_key=prompt_key,
                             target_language=target_language,
-                        )
-                    }
-                                  """).strip()
+                        ),
+                    )
                 except (
                     TranscriptsDisabled,
                     RetryError,
@@ -398,17 +401,15 @@ def summarize(  # noqa: PLR0913
             try:
                 transcription = transcribe(new_file)
                 # If it fails, a RetryError will raise
-                return dedent(f"""
-                              📝
-                              {
+                return format_prefixed_summary(
+                    "📝",
                     summarize_with_transcript(
                         transcript=transcription,
                         model=model,
                         prompt_key=prompt_key,
                         target_language=target_language,
-                    )
-                }
-                              """).strip()
+                    ),
+                )
             finally:
                 clean_up(file=new_file)
         capture_exception(e)
