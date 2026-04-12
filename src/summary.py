@@ -23,6 +23,7 @@ from download import download_castro, download_tg, download_yt
 from prompts import PROMPTS
 from services import (
     check_quota,
+    format_prefixed_summary,
     get_gemini_config,
     resolve_mime_type,
     upload_and_wait_for_audio_file,
@@ -37,11 +38,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
-
-
-def format_prefixed_summary(prefix: str, summary: str) -> str:
-    """Format a prefixed summary with a stable blank line separator."""
-    return f"{prefix}\n\n{summary.strip()}"
 
 
 @retry(

@@ -203,6 +203,11 @@ def resolve_mime_type(file: str) -> str:
     return mime_type
 
 
+def format_prefixed_summary(prefix: str, summary: str) -> str:
+    """Format a prefixed summary with a stable blank line separator."""
+    return f"{prefix}\n\n{summary.strip()}"
+
+
 def upload_and_wait_for_audio_file(
     file: str,
     mime_type: str,
