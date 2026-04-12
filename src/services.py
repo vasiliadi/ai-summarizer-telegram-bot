@@ -177,6 +177,7 @@ def get_gemini_config(
     """Get Gemini config with system instruction.
 
     Selects a config with or without thinking support based on the model.
+
     """
     system_instruction = dedent(
         SYSTEM_INSTRUCTION.format(language=target_language),
