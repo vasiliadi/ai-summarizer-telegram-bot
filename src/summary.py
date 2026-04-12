@@ -106,7 +106,7 @@ def summarize_with_file(
                 ],
             ),
         ],
-        config=get_gemini_config(target_language),
+        config=get_gemini_config(target_language, model=model),
     )
     gemini_client.files.delete(name=audio_file_name)
     if response.text is None:
@@ -157,7 +157,7 @@ def summarize_with_transcript(
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
-        config=get_gemini_config(target_language),
+        config=get_gemini_config(target_language, model=model),
     )
     if response.text is None:
         raise AttributeError
@@ -209,6 +209,7 @@ def summarize_webpage(
         contents=prompt,
         config=get_gemini_config(
             target_language,
+            model=model,
             extra_system_instruction=(
                 "MANDATORY TOOL USAGE: You MUST always use the `UrlContext` "
                 "tool to fetch and read the information from the provided "
@@ -307,7 +308,7 @@ def summarize_with_document(  # noqa: PLR0913
                     ],
                 ),
             ],
-            config=get_gemini_config(target_language),
+            config=get_gemini_config(target_language, model=model),
         )
         gemini_client.files.delete(name=document_file_name)
         if response.text is None:

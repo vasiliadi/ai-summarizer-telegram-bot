@@ -21,6 +21,7 @@ from config import (
     DAILY_LIMIT_KEY,
     GEMINI_CONFIG,
     MINUTE_LIMIT_KEY,
+    MODELS_WITH_THINKING_SUPPORT,
     bot,
     gemini_client,
     per_day_limit,
@@ -170,9 +171,13 @@ def check_quota(quantity: int = 1) -> bool:
 
 def get_gemini_config(
     target_language: str,
+    model: str = "",
     extra_system_instruction: str | None = None,
 ) -> types.GenerateContentConfig:
-    """Get Gemini config with system instruction."""
+    """Get Gemini config with system instruction.
+
+    Selects a config with or without thinking support based on the model.
+    """
     system_instruction = dedent(
         SYSTEM_INSTRUCTION.format(language=target_language),
     ).strip()
@@ -183,6 +188,11 @@ def get_gemini_config(
     return GEMINI_CONFIG.model_copy(
         update={
             "system_instruction": system_instruction,
+            "thinking_config": (
+                types.ThinkingConfig(thinking_level=types.ThinkingLevel.HIGH)
+                if model in MODELS_WITH_THINKING_SUPPORT
+                else None
+            ),
         },
     )
 

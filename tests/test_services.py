@@ -1,6 +1,6 @@
-
 import pytest
 
+from config import MODELS_WITH_THINKING_SUPPORT
 from services import (
     get_file_with_retry,
     get_gemini_config,
@@ -19,6 +19,7 @@ def test_reply_with_retry_happy_path(mocker):
 
     mock_bot.reply_to.assert_called_once_with(mock_msg, "hello")
 
+
 def test_reply_with_retry_with_entities(mocker):
     """Test reply_with_retry sends message with entities."""
     mock_bot = mocker.patch("services.bot")
@@ -28,6 +29,7 @@ def test_reply_with_retry_with_entities(mocker):
     reply_with_retry(mock_msg, "hello", entities=entities)
 
     mock_bot.reply_to.assert_called_once_with(mock_msg, "hello", entities=entities)
+
 
 def test_get_file_with_retry_success(mocker):
     """Test get_file_with_retry retrieves file info."""
@@ -39,13 +41,16 @@ def test_get_file_with_retry_success(mocker):
     assert result == "mock_file"
     mock_bot.get_file.assert_called_once_with("id123")
 
+
 def test_send_answer_single_chunk(mocker):
     """Test send_answer with a short message (single chunk)."""
     mock_convert = mocker.patch("services.convert", return_value=("text", []))
     # Mock split_entities to return one chunk
     mock_entity = mocker.MagicMock()
     mock_entity.to_dict.return_value = {"type": "bold"}
-    mock_split = mocker.patch("services.split_entities", return_value=[("text", [mock_entity])])
+    mock_split = mocker.patch(
+        "services.split_entities", return_value=[("text", [mock_entity])]
+    )
 
     mock_reply = mocker.patch("services.reply_with_retry")
     mock_msg = mocker.MagicMock()
@@ -55,6 +60,7 @@ def test_send_answer_single_chunk(mocker):
     mock_convert.assert_called_once_with("short answer")
     mock_split.assert_called_once_with("text", [], max_utf16_len=4096)
     mock_reply.assert_called_once_with(mock_msg, "text", entities=[{"type": "bold"}])
+
 
 def test_send_answer_multi_chunk(mocker):
     """Test send_answer with a long message (multiple chunks)."""
@@ -68,10 +74,12 @@ def test_send_answer_multi_chunk(mocker):
 
     assert mock_reply.call_count == 2
 
+
 def test_get_gemini_config_content():
     """Test get_gemini_config includes the correct language in instruction."""
     config = get_gemini_config("French")
     assert "French" in config.system_instruction
+
 
 def test_get_gemini_config_with_extra_system_instruction():
     """Test get_gemini_config appends extra system instruction when provided."""
@@ -81,6 +89,29 @@ def test_get_gemini_config_with_extra_system_instruction():
     )
     assert "English" in config.system_instruction
     assert "Use UrlContext before answering." in config.system_instruction
+
+
+def test_get_gemini_config_thinking_enabled_for_supported_model():
+    """Test that thinking config is set for models that support it."""
+    model = MODELS_WITH_THINKING_SUPPORT[0]
+    config = get_gemini_config("English", model=model)
+    assert config.thinking_config is not None
+
+
+def test_get_gemini_config_thinking_disabled_for_unsupported_model():
+    """Test that thinking config is None for models that do not support it."""
+    for model in ("gemini-2.5-flash", "gemma-4-26b-a4b-it", "gemma-4-31b-it"):
+        config = get_gemini_config("English", model=model)
+        assert config.thinking_config is None, (
+            f"Expected no thinking config for {model}"
+        )
+
+
+def test_get_gemini_config_thinking_disabled_when_no_model_given():
+    """Test that thinking config is None when model is omitted."""
+    config = get_gemini_config("English")
+    assert config.thinking_config is None
+
 
 def test_upload_and_wait_for_audio_file_happy(mocker):
     """Test uploading file to Gemini when it's immediately ACTIVE."""
@@ -97,6 +128,7 @@ def test_upload_and_wait_for_audio_file_happy(mocker):
 
     assert result == mock_file
     mock_client.files.upload.assert_called_once()
+
 
 def test_upload_and_wait_for_audio_file_polling(mocker):
     """Test uploading file to Gemini with polling (PROCESSING -> ACTIVE)."""
@@ -120,6 +152,7 @@ def test_upload_and_wait_for_audio_file_polling(mocker):
 
     assert result == mock_file_active
     mock_client.files.get.assert_called_once_with(name="name")
+
 
 def test_upload_and_wait_for_audio_file_failed(mocker):
     """Test upload_and_wait_for_audio_file raises ValueError on FAILED state."""
