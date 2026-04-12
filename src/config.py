@@ -64,8 +64,6 @@ gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 ALLOWED_MODELS_FOR_SUMMARY = [
     "gemini-3-flash-preview",
     "gemini-2.5-flash",
-    "gemma-4-26b-a4b-it",
-    "gemma-4-31b-it",
 ]
 MODELS_WITH_THINKING_SUPPORT = [
     "gemini-3-flash-preview",

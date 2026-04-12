@@ -100,11 +100,8 @@ def test_get_gemini_config_thinking_enabled_for_supported_model():
 
 def test_get_gemini_config_thinking_disabled_for_unsupported_model():
     """Test that thinking config is None for models that do not support it."""
-    for model in ("gemini-2.5-flash", "gemma-4-26b-a4b-it", "gemma-4-31b-it"):
-        config = get_gemini_config("English", model=model)
-        assert config.thinking_config is None, (
-            f"Expected no thinking config for {model}"
-        )
+    config = get_gemini_config("English", model="gemini-2.5-flash")
+    assert config.thinking_config is None
 
 
 def test_get_gemini_config_thinking_disabled_when_no_model_given():
