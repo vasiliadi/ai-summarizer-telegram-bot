@@ -63,6 +63,10 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 ALLOWED_MODELS_FOR_SUMMARY = [
     "gemini-3-flash-preview",
+    "gemini-2.5-flash",
+]
+MODELS_WITH_THINKING_SUPPORT = [
+    "gemini-3-flash-preview",
 ]
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
 DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3-flash-preview"
@@ -88,7 +92,6 @@ GEMINI_CONFIG = types.GenerateContentConfig(
     system_instruction=None,
     safety_settings=SAFETY_SETTINGS,
     response_mime_type="text/plain",
-    thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.HIGH),
 )
 
 
