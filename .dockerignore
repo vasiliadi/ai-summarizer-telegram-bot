@@ -30,3 +30,4 @@ poetry.toml
 **/.trunk
 **/.venv
 compose.yaml
+**/*.envrc
