@@ -194,3 +194,7 @@ docs/strategy
 docs/archive
 docs/summaries
 output/
+
+# pixi environments
+.pixi/*
+!.pixi/config.toml

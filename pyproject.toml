@@ -136,3 +136,27 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[tool.pixi.pypi-dependencies]
+ai-summarizer-telegram-bot = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
+test = { features = ["test", "dev"], solve-group = "default" }
+
+[tool.pixi.tasks]
+
+[tool.pixi.feature.dev.tasks]
+start = "python src/main.py"
+
+[tool.pixi.feature.test.tasks]
+test = "pytest"
+
+[tool.pixi.dependencies]
+python = "~=3.13.0"
+ffmpeg = ">=8.0.1,<9"
