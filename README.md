@@ -97,7 +97,7 @@ alembic revision --autogenerate
 
 #### Git hooks
 
-Insatll `pre-commit`.
+Install `pre-commit`.
 
 ```bash
 uv tool install pre-commit
