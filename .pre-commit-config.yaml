@@ -33,6 +33,6 @@ repos:
         name: uv-sync
         entry: uv sync
         language: system
-        stages: [post-merge]
+        stages: [post-merge, post-checkout, post-rewrite]
         always_run: true
         pass_filenames: false

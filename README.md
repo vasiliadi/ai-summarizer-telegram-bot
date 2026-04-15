@@ -108,6 +108,8 @@ Install pre-commit hooks.
 ```bash
 pre-commit install
 pre-commit install --hook-type post-merge
+pre-commit install --hook-type post-checkout
+pre-commit install --hook-type post-rewrite
 ```
 
 #### JavaScript rendering (depricated[^1])
