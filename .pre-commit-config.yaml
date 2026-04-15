@@ -26,3 +26,13 @@ repos:
         pass_filenames: false
         always_run: false
         files: ^(src|tests)/
+
+  - repo: local
+    hooks:
+      - id: uv-sync
+        name: uv-sync
+        entry: uv sync
+        language: system
+        stages: [post-merge]
+        always_run: true
+        pass_filenames: false

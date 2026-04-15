@@ -95,6 +95,21 @@ For developers, how to generate a migration.
 alembic revision --autogenerate
 ```
 
+#### Git hooks
+
+Install `pre-commit`.
+
+```bash
+uv tool install pre-commit
+```
+
+Install pre-commit hooks.
+
+```bash
+pre-commit install
+pre-commit install --hook-type post-merge
+```
+
 #### JavaScript rendering (depricated[^1])
 
 Many websites have protections against bots, and some content requires JavaScript to be rendered for visibility. To enable JavaScript rendering, I am using [Selenium WebDriver](https://www.selenium.dev/documentation/webdriver/), which requires the Chrome browser and ChromeDriver to be installed on the operating system.
