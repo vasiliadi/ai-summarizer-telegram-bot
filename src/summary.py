@@ -41,7 +41,7 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(2),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError, SSLError),
@@ -115,7 +115,7 @@ def summarize_with_file(
 
 
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(2),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError),
@@ -165,7 +165,7 @@ def summarize_with_transcript(
 
 
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(2),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError),
@@ -228,7 +228,7 @@ def summarize_webpage(
 
 
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(2),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError, SSLError),
