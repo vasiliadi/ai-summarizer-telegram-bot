@@ -110,6 +110,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/c1/3b/66777e39d3ae1ddc77ee606be4ec6d8cbd4c801f65e5a1b6f2b11b8346dd/charset_normalizer-3.4.7-cp313-cp313-macosx_10_13_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/0b/5d/4a8f770695d73be252331e60e526291e3df0c9b27556a90a6b47bccca4c2/cryptography-46.0.7-cp311-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/8d/44/ca1de5368b193c9819c57d505ff8ceb86dc38e2e87856b23c23b58abd234/deno-2.7.12-py3-none-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/73/76/d241a5c927433420507215df6cac1b1fa4ac0ba7a794df42a84326c68da8/google_auth-2.49.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/65/af/508e0528015240d710c6763f7c89ff44fab9a94a80b4377e265d692cbfd6/google_genai-1.73.1-py3-none-any.whl
@@ -530,7 +531,7 @@ packages:
 - pypi: ./
   name: ai-summarizer-telegram-bot
   version: 0.8.6
-  sha256: 60485fd9b14712c666beaeb6d66e9e39a78419ff0c7178674caf46fcfee5cf12
+  sha256: f94d0ef6bed0b352f507e4d0e661c42f3af4a4a36b8e433b8f5812a9bc09f3e1
   requires_dist:
   - beautifulsoup4>=4.13.4
   - google-genai>=1.25.0
