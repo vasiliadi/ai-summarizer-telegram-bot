@@ -78,7 +78,7 @@ def summarize_with_file(
 
     Note:
         This function is decorated with @retry and will attempt the operation
-        up to 3 times with a 30-second wait between attempts.
+        up to 2 times with a 30-second wait between attempts.
 
     """
     prompt = dedent(PROMPTS[prompt_key]).strip()
@@ -268,7 +268,7 @@ def summarize_with_document(  # noqa: PLR0913
 
     Note:
         - This function is decorated with @retry and will attempt the operation
-          up to 3 times with a 30-second wait between attempts.
+          up to 2 times with a 30-second wait between attempts.
         - Temporary files are automatically cleaned up after processing.
         - The function checks quota usage before making the API call.
 
