@@ -41,7 +41,7 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(2),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError, SSLError),
@@ -78,7 +78,7 @@ def summarize_with_file(
 
     Note:
         This function is decorated with @retry and will attempt the operation
-        up to 3 times with a 30-second wait between attempts.
+        up to 2 times with a 30-second wait between attempts.
 
     """
     prompt = dedent(PROMPTS[prompt_key]).strip()
@@ -115,7 +115,7 @@ def summarize_with_file(
 
 
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(2),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError),
@@ -165,7 +165,7 @@ def summarize_with_transcript(
 
 
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(2),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError),
@@ -228,7 +228,7 @@ def summarize_webpage(
 
 
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(2),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
         (ServerError, AttributeError, ClientError, SSLError),
@@ -268,7 +268,7 @@ def summarize_with_document(  # noqa: PLR0913
 
     Note:
         - This function is decorated with @retry and will attempt the operation
-          up to 3 times with a 30-second wait between attempts.
+          up to 2 times with a 30-second wait between attempts.
         - Temporary files are automatically cleaned up after processing.
         - The function checks quota usage before making the API call.
 
