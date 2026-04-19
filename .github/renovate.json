@@ -5,15 +5,16 @@
   "lockFileMaintenance": { "enabled": true, "automerge": true },
   "packageRules": [
     {
-      "description": "Force Renovate to evaluate patches independently of minors for Python",
+      "description": "Force Renovate to evaluate patches independently, but strictly IGNORE alphas/betas",
       "matchDepNames": ["python"],
       "separateMinorPatch": true,
-      "respectLatest": false
+      "respectLatest": false,
+      "ignoreUnstable": true
     },
     {
-      "description": "Disable minor and major updates for Python",
+      "description": "Disable minor, major, and prerelease updates for Python",
       "matchPackageNames": ["python"],
-      "matchUpdateTypes": ["minor", "major"],
+      "matchUpdateTypes": ["minor", "major", "prerelease"],
       "enabled": false
     }
   ]
