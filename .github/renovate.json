@@ -5,8 +5,14 @@
   "lockFileMaintenance": { "enabled": true, "automerge": true },
   "packageRules": [
     {
+      "description": "Force Renovate to evaluate patches independently of minors for Python",
+      "matchDepNames": ["python"],
+      "separateMinorPatch": true,
+      "respectLatest": false
+    },
+    {
       "description": "Disable minor and major updates for Python",
-      "matchPackageNames": ["python", "python/cpython"],
+      "matchPackageNames": ["python"],
       "matchUpdateTypes": ["minor", "major"],
       "enabled": false
     }
