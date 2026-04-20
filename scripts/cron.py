@@ -1,6 +1,6 @@
 import modal
 
-image = modal.Image.debian_slim(python_version="3.12").uv_pip_install("rush[redis]")
+image = modal.Image.debian_slim(python_version="3.14").uv_pip_install("rush[redis]")
 secrets = modal.Secret.from_name("resetlimit-secrets")
 
 app = modal.App(name="ResetLimit", image=image, secrets=[secrets])
@@ -21,7 +21,7 @@ with image.imports():
     schedule=modal.Cron("0 0 * * *", timezone="America/Los_Angeles"),  # PST8PDT
     retries=modal.Retries(max_retries=3),
 )
-def clear_limit() -> RateLimitResult:
+def clear_limit() -> "RateLimitResult":
     """Clear the per-day rate limit key in Redis."""
     # Duplicated from config.py
     redis_url = os.environ["REDIS_URL"]
