@@ -138,7 +138,7 @@ def download_castro(url: str) -> str:
     return temporary_file_name
 
 
-def download_tg(file_id: "File", ext: str = "") -> str:
+def download_tg(file_id: File, ext: str = "") -> str:
     """Download a file from Telegram and save it locally.
 
     Args:

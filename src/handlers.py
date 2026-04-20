@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from models import UsersOrm
 
 
-def handle_audio(message: "Message", user: "UsersOrm") -> None:
+def handle_audio(message: Message, user: UsersOrm) -> None:
     """Handle audio file processing."""
     audio = message.audio
     if audio is None or audio.file_size is None or audio.file_id is None:
@@ -36,7 +36,7 @@ def handle_audio(message: "Message", user: "UsersOrm") -> None:
     send_answer(message, answer)
 
 
-def handle_video_note(message: "Message", user: "UsersOrm") -> None:
+def handle_video_note(message: Message, user: UsersOrm) -> None:
     """Handle video note file processing."""
     video_note = message.video_note
     if video_note is None or video_note.file_size is None or video_note.file_id is None:
@@ -65,7 +65,7 @@ def handle_video_note(message: "Message", user: "UsersOrm") -> None:
         clean_up(file=downloaded_file)
 
 
-def handle_voice(message: "Message", user: "UsersOrm") -> None:
+def handle_voice(message: Message, user: UsersOrm) -> None:
     """Handle voice file processing."""
     voice = message.voice
     if voice is None or voice.file_size is None or voice.file_id is None:
@@ -88,7 +88,7 @@ def handle_voice(message: "Message", user: "UsersOrm") -> None:
     send_answer(message, answer)
 
 
-def handle_video(message: "Message", user: "UsersOrm") -> None:
+def handle_video(message: Message, user: UsersOrm) -> None:
     """Handle video file processing."""
     video = message.video
     if video is None or video.file_size is None or video.file_id is None:
@@ -117,7 +117,7 @@ def handle_video(message: "Message", user: "UsersOrm") -> None:
         clean_up(file=downloaded_file)
 
 
-def handle_document(message: "Message", user: "UsersOrm") -> None:
+def handle_document(message: Message, user: UsersOrm) -> None:
     """Handle document file processing."""
     document = message.document
     if document is None or document.file_size is None or document.file_id is None:
@@ -140,7 +140,7 @@ def handle_document(message: "Message", user: "UsersOrm") -> None:
     send_answer(message, answer)
 
 
-def handle_url(message: "Message", user: "UsersOrm", url: str) -> None:
+def handle_url(message: Message, user: UsersOrm, url: str) -> None:
     """Handle URL processing."""
     # YouTube/Castro pattern
     yt_castro_pattern = (

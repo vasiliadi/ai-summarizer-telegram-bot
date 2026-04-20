@@ -48,7 +48,7 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
     reraise=True,
 )
 def reply_with_retry(
-    message: "Message",
+    message: Message,
     text: str,
     entities: list[dict[str, object]] | None = None,
 ) -> None:
@@ -81,7 +81,7 @@ def reply_with_retry(
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=True,
 )
-def get_file_with_retry(file_id: str) -> "File":
+def get_file_with_retry(file_id: str) -> File:
     """Get file information from Telegram, with retries on timeout.
 
     Args:
@@ -94,7 +94,7 @@ def get_file_with_retry(file_id: str) -> "File":
     return bot.get_file(file_id)
 
 
-def send_answer(message: "Message", answer: str) -> None:
+def send_answer(message: Message, answer: str) -> None:
     """Send a response message to the user.
 
     This function handles sending messages through the Telegram bot, including:

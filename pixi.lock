@@ -540,7 +540,7 @@ packages:
 - pypi: ./
   name: ai-summarizer-telegram-bot
   version: 0.8.6
-  sha256: 194e3316e922d15024b3ec6a0a53e3de21e25786c87f9788b3445590985cccdf
+  sha256: aeb94ec7f77d049b36fe4104d178bec3e0cce573c6df343152e1d99370c6f79a
   requires_dist:
   - beautifulsoup4>=4.13.4
   - google-genai>=1.25.0
@@ -555,7 +555,7 @@ packages:
   - tenacity>=9.1.3
   - youtube-transcript-api>=1.1.1
   - yt-dlp[default]>=2025.6.30
-  requires_python: '>=3.13'
+  requires_python: '>=3.14'
 - pypi: https://files.pythonhosted.org/packages/0f/15/5bf3b99495fb160b63f95972b81750f18f7f4e02ad051373b669d17d44f2/aiohappyeyeballs-2.6.1-py3-none-any.whl
   name: aiohappyeyeballs
   version: 2.6.1
