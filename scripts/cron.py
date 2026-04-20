@@ -1,6 +1,6 @@
 import modal
 
-image = modal.Image.debian_slim(python_version="3.12").uv_pip_install("rush[redis]")
+image = modal.Image.debian_slim(python_version="3.14").uv_pip_install("rush[redis]")
 secrets = modal.Secret.from_name("resetlimit-secrets")
 
 app = modal.App(name="ResetLimit", image=image, secrets=[secrets])
@@ -24,24 +24,24 @@ with image.imports():
 def clear_limit() -> "RateLimitResult":
     """Clear the per-day rate limit key in Redis."""
     # Duplicated from config.py
-    REDIS_URL = os.environ["REDIS_URL"]
-    RATE_LIMITER_URL = f"{REDIS_URL}/0"
-    DAILY_LIMIT = 20
-    DAILY_LIMIT_KEY = "RPD"
+    redis_url = os.environ["REDIS_URL"]
+    rate_limiter_url = f"{redis_url}/0"
+    daily_limit = 20
+    daily_limit_key = "RPD"
 
     per_day_limit = throttle.Throttle(
         limiter=periodic.PeriodicLimiter(
             store=redis_store.RedisStore(
-                url=RATE_LIMITER_URL,
+                url=rate_limiter_url,
                 client=redis_store.redis.StrictRedis.from_url(
-                    url=RATE_LIMITER_URL,
+                    url=rate_limiter_url,
                     decode_responses=True,
                 ),
             ),
         ),
         rate=quota.Quota.per_day(
-            count=DAILY_LIMIT,
+            count=daily_limit,
         ),
     )
     # End duplication
-    return per_day_limit.clear(DAILY_LIMIT_KEY)
+    return per_day_limit.clear(daily_limit_key)

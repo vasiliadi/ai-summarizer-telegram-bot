@@ -1,6 +1,6 @@
 # AI Summarizer - telegram bot
 
-![Python](https://img.shields.io/badge/Python-3.13-blue)
+![Python](https://img.shields.io/badge/Python-3.14-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
 ![Valkey](https://img.shields.io/badge/Valkey-8.0-blue)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/e215a12081084eed95c60e5e80480218)](https://app.codacy.com/gh/vasiliadi/ai-summarizer-telegram-bot/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
@@ -126,6 +126,8 @@ Now uses `Url context` tool.
 #### Remote functions
 
 To avoid multiple docker images, I use a [Modal](https://modal.com/) for cron jobs to reset the Gemini rate limit. [Modal Secrets](https://modal.com/docs/guide/secrets) should include `REDIS_URL`.
+
+Modal Image Builder Version required to be `2025.06`. Set in Settings -> Image Builder Version.
 
 #### Docstrings
 

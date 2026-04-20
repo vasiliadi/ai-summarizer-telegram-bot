@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 # /start
 @bot.message_handler(commands=["start"])
-def handle_start(message: "Message") -> None:
+def handle_start(message: Message) -> None:
     """Handle the /start command for the bot.
 
     This function registers new users and sends a welcome message. If the user is
@@ -86,7 +86,7 @@ def handle_start(message: "Message") -> None:
 
 # /info
 @bot.message_handler(commands=["info"])
-def handle_info(message: "Message") -> None:
+def handle_info(message: Message) -> None:
     """Handle the /info command for the bot.
 
     This function sends back the user's Telegram ID when they use the /info command.
@@ -112,7 +112,7 @@ def handle_info(message: "Message") -> None:
         message.from_user is not None and check_auth(message.from_user.id)
     ),
 )
-def handle_myinfo(message: "Message") -> None:
+def handle_myinfo(message: Message) -> None:
     """Handle the /myinfo command for the bot.
 
     This function retrieves and sends detailed information about the user.
@@ -151,7 +151,7 @@ def handle_myinfo(message: "Message") -> None:
         message.from_user is not None and check_auth(message.from_user.id)
     ),
 )
-def handle_limit(message: "Message") -> None:
+def handle_limit(message: Message) -> None:
     """Handle the /limit command for the bot.
 
     This function checks the user's remaining daily limit and sends a message
@@ -178,7 +178,7 @@ def handle_limit(message: "Message") -> None:
         message.from_user is not None and check_auth(message.from_user.id)
     ),
 )
-def handle_toggle_transcription(message: "Message") -> None:
+def handle_toggle_transcription(message: Message) -> None:
     """Handle the /toggle_transcription command for the bot.
 
     This function toggles the transcription setting for the authenticated user.
@@ -215,7 +215,7 @@ def handle_toggle_transcription(message: "Message") -> None:
         message.from_user is not None and check_auth(message.from_user.id)
     ),
 )
-def handle_toggle_yt_transcription(message: "Message") -> None:
+def handle_toggle_yt_transcription(message: Message) -> None:
     """Handle the /toggle_yt_transcription command for the bot.
 
     This function toggles the YouTube transcription setting for the authenticated user.
@@ -252,7 +252,7 @@ def handle_toggle_yt_transcription(message: "Message") -> None:
         message.from_user is not None and check_auth(message.from_user.id)
     ),
 )
-def handle_set_target_language(message: "Message") -> None:
+def handle_set_target_language(message: Message) -> None:
     """Handle the /set_target_language command for the bot.
 
     This function presents the user with a keyboard of supported languages
@@ -276,7 +276,7 @@ def handle_set_target_language(message: "Message") -> None:
     bot.register_next_step_handler(message, proceed_set_target_language)
 
 
-def proceed_set_target_language(message: "Message") -> None:
+def proceed_set_target_language(message: Message) -> None:
     """Process the target language selection and update user settings.
 
     This function is called after the user selects a language from the keyboard markup.
@@ -317,7 +317,7 @@ def proceed_set_target_language(message: "Message") -> None:
         message.from_user is not None and check_auth(message.from_user.id)
     ),
 )
-def handle_set_summarizing_model(message: "Message") -> None:
+def handle_set_summarizing_model(message: Message) -> None:
     """Handle the /set_summarizing_model command for the bot.
 
     This function presents the user with a keyboard of allowed summarizing models
@@ -345,7 +345,7 @@ def handle_set_summarizing_model(message: "Message") -> None:
     bot.register_next_step_handler(message, proceed_set_summarizing_model)
 
 
-def proceed_set_summarizing_model(message: "Message") -> None:
+def proceed_set_summarizing_model(message: Message) -> None:
     """Process the summarizing model selection and update user settings.
 
     This function is called after the user selects a model from the keyboard markup.
@@ -383,7 +383,7 @@ def proceed_set_summarizing_model(message: "Message") -> None:
         message.from_user is not None and check_auth(message.from_user.id)
     ),
 )
-def handle_set_prompt_strategy(message: "Message") -> None:
+def handle_set_prompt_strategy(message: Message) -> None:
     """Handle the /set_prompt_strategy command for the bot.
 
     This function presents the user with a keyboard of allowed prompt strategies
@@ -411,7 +411,7 @@ def handle_set_prompt_strategy(message: "Message") -> None:
     bot.register_next_step_handler(message, proceed_set_prompt_strategy)
 
 
-def proceed_set_prompt_strategy(message: "Message") -> None:
+def proceed_set_prompt_strategy(message: Message) -> None:
     """Process the prompt strategy selection and update user settings.
 
     This function is called after the user selects a strategy from the keyboard markup.
@@ -442,7 +442,7 @@ def proceed_set_prompt_strategy(message: "Message") -> None:
     )
 
 
-def process_message_content(message: "Message", user: "UsersOrm") -> None:
+def process_message_content(message: Message, user: UsersOrm) -> None:
     """Process the content of a validated message.
 
     Args:
@@ -487,7 +487,7 @@ def process_message_content(message: "Message", user: "UsersOrm") -> None:
 @bot.message_handler(
     content_types=["text", "audio", "document", "video_note", "voice", "video"],
 )
-def handle_message(message: "Message") -> None:
+def handle_message(message: Message) -> None:
     """Universal message handler for the bot.
 
     This function processes various types of content:
