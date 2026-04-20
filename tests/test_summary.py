@@ -283,6 +283,31 @@ def test_summarize_youtube_direct_transcript_uses_blank_line_separator(mocker):
     assert result == "📹\n\n- first point\n- second point"
 
 
+def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
+    """Test transcript summary retry errors do not trigger audio fallback paths."""
+    url = "https://youtube.com/watch?v=123"
+    retry_error = RetryError(mocker.MagicMock())
+    mocker.patch("summary.get_yt_transcript", return_value="YT Transcript content")
+    mock_download = mocker.patch("summary.download_yt")
+    mock_file_summary = mocker.patch("summary.summarize_with_file")
+    mock_transcribe = mocker.patch("summary.transcribe")
+    mocker.patch("summary.summarize_with_transcript", side_effect=retry_error)
+
+    with pytest.raises(RetryError):
+        summarize(
+            data=url,
+            use_transcription=True,
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            use_yt_transcription=True,
+        )
+
+    mock_download.assert_not_called()
+    mock_file_summary.assert_not_called()
+    mock_transcribe.assert_not_called()
+
+
 def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
     """Test summarize() falls back to downloading YouTube audio when transcript fetch fails."""
     url = "https://youtube.com/watch?v=123"
