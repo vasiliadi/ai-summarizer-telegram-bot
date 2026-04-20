@@ -372,7 +372,7 @@ def summarize(  # noqa: PLR0913
             if use_yt_transcription:
                 try:
                     transcript = get_yt_transcript(data)
-                except (TranscriptsDisabled, RetryError):
+                except TranscriptsDisabled, RetryError:
                     pass
                 else:
                     return format_prefixed_summary(
