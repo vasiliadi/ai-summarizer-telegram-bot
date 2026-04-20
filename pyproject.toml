@@ -3,7 +3,7 @@ name = "ai-summarizer-telegram-bot"
 version = "0.8.6"
 description = "Bot to summarize video from youtube.com and podcasts from castro.fm"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "beautifulsoup4>=4.13.4",
     "google-genai>=1.25.0",
@@ -43,7 +43,7 @@ default-groups = ["dev", "test"]
 extend-exclude = ["temp", "migrations", "tests"]
 line-length = 88
 indent-width = 4
-target-version = "py313"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = [
@@ -164,5 +164,5 @@ db-migrate = "alembic revision --autogenerate"
 test = "pytest"
 
 [tool.pixi.dependencies]
-python = "~=3.13.0"
+python = "~=3.14.0"
 ffmpeg = ">=8.0.1,<9"
