@@ -372,6 +372,9 @@ def summarize(  # noqa: PLR0913
             if use_yt_transcription:
                 try:
                     transcript = get_yt_transcript(data)
+                except (TranscriptsDisabled, RetryError):
+                    pass
+                else:
                     return format_prefixed_summary(
                         "📹",
                         summarize_with_transcript(
@@ -381,11 +384,6 @@ def summarize(  # noqa: PLR0913
                             target_language=target_language,
                         ),
                     )
-                except (
-                    TranscriptsDisabled,
-                    RetryError,
-                ):
-                    pass
             data = download_yt(data)
     if isinstance(data, File):
         data = download_tg(data, ext=".ogg")
