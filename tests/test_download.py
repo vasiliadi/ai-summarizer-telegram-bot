@@ -127,8 +127,8 @@ def test_choose_yt_audio_format_falls_back_when_no_audio_only_formats():
     assert result == "bestaudio/worst[acodec!=none]"
 
 
-def test_choose_yt_audio_format_ranks_unknown_bitrates_last():
-    """Test formats with unknown bitrates lose to known low bitrate audio."""
+def test_choose_yt_audio_format_ranks_missing_bitrates_last():
+    """Test choose_yt_audio_format keeps numeric 0 bitrates ahead of missing values."""
     info = {
         "formats": [
             {"format_id": "unknown", "acodec": "opus", "vcodec": "none"},
