@@ -1,8 +1,7 @@
-
-
 import pytest
 
 from download import download_castro, download_tg, download_yt
+from services import choose_yt_audio_format
 
 
 def test_download_tg_happy_path(mocker):
@@ -80,10 +79,52 @@ def test_download_yt_happy_path(mocker):
     mock_ydl = mocker.patch("download.YoutubeDL")
     mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
 
+    info_ydl = mocker.MagicMock()
+    info_ydl.extract_info.return_value = {
+        "formats": [
+            {"format_id": "251", "acodec": "opus", "vcodec": "none", "abr": 111, "tbr": 111},
+            {"format_id": "139", "acodec": "mp4a.40.5", "vcodec": "none", "abr": 49, "tbr": 49},
+        ],
+    }
+    download_ydl = mocker.MagicMock()
+    mock_ydl.side_effect = [
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
+    ]
+
     result = download_yt("https://youtube.com/watch?v=123")
 
     assert result == "temp_yt.mp3"
-    mock_ydl.return_value.__enter__.return_value.download.assert_called_once_with("https://youtube.com/watch?v=123")
+    info_ydl.extract_info.assert_called_once_with("https://youtube.com/watch?v=123", download=False)
+    mock_ydl.assert_any_call({"proxy": mocker.ANY, "nocheckcertificate": False})
+    mock_ydl.assert_any_call(
+        {
+            "format": "139",
+            "outtmpl": "temp_yt",
+            "nocheckcertificate": False,
+            "proxy": mocker.ANY,
+            "postprocessors": [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                },
+            ],
+        },
+    )
+    download_ydl.download.assert_called_once_with("https://youtube.com/watch?v=123")
+
+
+def test_choose_yt_audio_format_falls_back_when_no_audio_only_formats():
+    """Test selector fallback when yt-dlp has no audio-only format ids."""
+    info = {
+        "formats": [
+            {"format_id": "18", "acodec": "mp4a.40.2", "vcodec": "avc1.42001E", "abr": 44, "tbr": 365},
+        ],
+    }
+
+    result = choose_yt_audio_format(info)
+
+    assert result == "bestaudio/worst[acodec!=none]"
 
 def test_download_castro_happy_path(mocker):
     """Test downloading a Castro podcast successfully."""

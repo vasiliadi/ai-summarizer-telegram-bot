@@ -1,5 +1,3 @@
-
-
 import pytest
 from replicate.exceptions import ModelError
 from youtube_transcript_api._errors import NoTranscriptFound
