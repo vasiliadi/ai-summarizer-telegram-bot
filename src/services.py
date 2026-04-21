@@ -1,4 +1,5 @@
 import logging
+import math
 import mimetypes
 import time
 from textwrap import dedent
@@ -58,9 +59,12 @@ def choose_yt_audio_format(info: dict[str, Any]) -> str:
         return "bestaudio/worst[acodec!=none]"
 
     def sort_key(fmt: dict[str, Any]) -> tuple[float, float]:
-        abr = fmt.get("abr") or 0
-        tbr = fmt.get("tbr") or 0
-        return (float(abr), float(tbr))
+        abr = fmt.get("abr")
+        tbr = fmt.get("tbr")
+        return (
+            float(abr) if abr is not None else math.inf,
+            float(tbr) if tbr is not None else math.inf,
+        )
 
     return str(min(audio_only_formats, key=sort_key)["format_id"])
 

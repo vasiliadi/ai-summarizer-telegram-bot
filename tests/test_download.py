@@ -126,6 +126,21 @@ def test_choose_yt_audio_format_falls_back_when_no_audio_only_formats():
 
     assert result == "bestaudio/worst[acodec!=none]"
 
+
+def test_choose_yt_audio_format_ranks_unknown_bitrates_last():
+    """Test formats with unknown bitrates lose to known low bitrate audio."""
+    info = {
+        "formats": [
+            {"format_id": "unknown", "acodec": "opus", "vcodec": "none"},
+            {"format_id": "zero", "acodec": "mp4a.40.5", "vcodec": "none", "abr": 0, "tbr": 0},
+            {"format_id": "known", "acodec": "mp4a.40.5", "vcodec": "none", "abr": 49, "tbr": 49},
+        ],
+    }
+
+    result = choose_yt_audio_format(info)
+
+    assert result == "zero"
+
 def test_download_castro_happy_path(mocker):
     """Test downloading a Castro podcast successfully."""
     mocker.patch("download.generate_temporary_name", return_value="temp_castro.mp3")
