@@ -2,7 +2,7 @@ import logging
 import mimetypes
 import time
 from textwrap import dedent
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from google.genai import types
 from requests.exceptions import ReadTimeout
@@ -38,6 +38,31 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
+
+
+def choose_yt_audio_format(info: dict[str, Any]) -> str:
+    """Return the most suitable audio format id for a YouTube video.
+
+    Prefer audio-only formats when yt-dlp exposes them. Fall back to the
+    combined format selector when the extractor does not provide a concrete
+    audio-only id.
+
+    """
+    formats = info.get("formats") or []
+    audio_only_formats = [
+        fmt
+        for fmt in formats
+        if fmt.get("acodec") not in (None, "none") and fmt.get("vcodec") == "none"
+    ]
+    if not audio_only_formats:
+        return "bestaudio/worst[acodec!=none]"
+
+    def sort_key(fmt: dict[str, Any]) -> tuple[float, float]:
+        abr = fmt.get("abr") or 0
+        tbr = fmt.get("tbr") or 0
+        return (float(abr), float(tbr))
+
+    return str(min(audio_only_formats, key=sort_key)["format_id"])
 
 
 @retry(
