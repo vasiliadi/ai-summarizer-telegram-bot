@@ -259,3 +259,23 @@ def test_check_quota_raises_when_daily_redis_counter_exhausted(mocker):
 
     with pytest.raises(LimitExceededError):
         check_quota(user_id=789, daily_limit=3)
+
+
+def test_check_quota_sleeps_when_per_minute_limited(mocker):
+    """check_quota sleeps for reset_after seconds when the per-minute limit is hit."""
+    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
+    mock_throttle_instance = mock_throttle_cls.return_value
+    mock_throttle_instance.check.return_value = mocker.MagicMock(limited=False)
+    mock_reset_after = mocker.MagicMock()
+    mock_reset_after.total_seconds.return_value = 7.5
+    mocker.patch(
+        "services.per_minute_limit.check",
+        return_value=mocker.MagicMock(limited=True, reset_after=mock_reset_after),
+    )
+    mock_sleep = mocker.patch("services.time.sleep")
+
+    result = check_quota(user_id=321, daily_limit=5)
+
+    assert result is True
+    mock_sleep.assert_called_once_with(7.5)
+    mock_throttle_instance.check.assert_called_once_with("RPD:321", quantity=1)
