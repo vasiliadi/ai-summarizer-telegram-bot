@@ -85,6 +85,7 @@ def summarize_with_file(
         up to 2 times with a 30-second wait between attempts.
 
     """
+    check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
     prompt = dedent(PROMPTS[prompt_key]).strip()
     mime_type = resolve_mime_type(file)
     audio_file = upload_and_wait_for_audio_file(
@@ -95,27 +96,29 @@ def summarize_with_file(
     if audio_file.name is None or audio_file.uri is None:
         raise AttributeError
     audio_file_name = audio_file.name
-    check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-    response = gemini_client.models.generate_content(
-        model=model,
-        contents=[
-            types.Content(
-                role="user",
-                parts=[
-                    types.Part.from_text(text=prompt),
-                    types.Part.from_uri(
-                        file_uri=audio_file.uri,
-                        mime_type=audio_file.mime_type,
-                    ),
-                ],
-            ),
-        ],
-        config=get_gemini_config(target_language, model=model),
-    )
-    gemini_client.files.delete(name=audio_file_name)
-    if response.text is None:
-        raise AttributeError
-    return response.text
+    try:
+        check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
+        response = gemini_client.models.generate_content(
+            model=model,
+            contents=[
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=prompt),
+                        types.Part.from_uri(
+                            file_uri=audio_file.uri,
+                            mime_type=audio_file.mime_type,
+                        ),
+                    ],
+                ),
+            ],
+            config=get_gemini_config(target_language, model=model),
+        )
+        if response.text is None:
+            raise AttributeError
+        return response.text
+    finally:
+        gemini_client.files.delete(name=audio_file_name)
 
 
 @retry(
@@ -290,7 +293,9 @@ def summarize_with_document(
 
     """
     data: str | None = None
+    document_file_name: str | None = None
     try:
+        check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
         data = download_tg(file)
         prompt = dedent(PROMPTS[prompt_key]).strip()
         document_file = gemini_client.files.upload(
@@ -326,10 +331,11 @@ def summarize_with_document(
             ],
             config=get_gemini_config(target_language, model=model),
         )
-        gemini_client.files.delete(name=document_file_name)
         if response.text is None:
             raise AttributeError
     finally:
+        if document_file_name is not None:
+            gemini_client.files.delete(name=document_file_name)
         if data is not None:
             clean_up(file=data)
     return response.text
@@ -383,6 +389,7 @@ def summarize(
         5. Cleans up temporary files after processing
 
     """
+    check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
     if isinstance(data, str):
         if data.startswith("https://castro.fm/episode/"):
             data = download_castro(data)
