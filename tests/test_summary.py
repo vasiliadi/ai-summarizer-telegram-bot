@@ -477,7 +477,7 @@ def test_summarize_with_file_deletes_gemini_file_when_quota_check_fails(mocker):
     mock_client = mocker.patch("summary.gemini_client")
     mocker.patch("summary.check_quota", side_effect=[True, LimitExceededError])
 
-    with pytest.raises((LimitExceededError, RetryError)):
+    with pytest.raises(LimitExceededError):
         summarize_with_file(
             file="test_audio.ogg",
             model="test-model",
