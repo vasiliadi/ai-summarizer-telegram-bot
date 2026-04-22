@@ -191,6 +191,9 @@ def check_quota(user_id: int, daily_limit: int, quantity: int = 1) -> bool:
         - Daily limits cannot be bypassed and will raise an exception
 
     """
+    if daily_limit <= 0:
+        msg = "The daily limit for requests has been exceeded"
+        raise LimitExceededError(msg)
     per_day_limit = throttle.Throttle(
         limiter=periodic.PeriodicLimiter(
             store=rate_limiter_store,
@@ -221,6 +224,8 @@ def get_remaining_quota(user_id: int, daily_limit: int) -> int:
         int: Number of requests still available today.
 
     """
+    if daily_limit <= 0:
+        return 0
     per_day_limit = throttle.Throttle(
         limiter=periodic.PeriodicLimiter(
             store=rate_limiter_store,

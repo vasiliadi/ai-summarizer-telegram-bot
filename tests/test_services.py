@@ -215,6 +215,26 @@ def test_get_remaining_quota(mocker):
     mock_throttle_instance.check.assert_called_once_with("RPD:123", quantity=0)
 
 
+def test_check_quota_raises_immediately_when_daily_limit_zero(mocker):
+    """check_quota raises LimitExceededError without touching Redis when limit is 0."""
+    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
+
+    with pytest.raises(LimitExceededError):
+        check_quota(user_id=1, daily_limit=0)
+
+    mock_throttle_cls.assert_not_called()
+
+
+def test_get_remaining_quota_returns_zero_when_daily_limit_zero(mocker):
+    """get_remaining_quota returns 0 without touching Redis when limit is 0."""
+    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
+
+    result = get_remaining_quota(user_id=1, daily_limit=0)
+
+    assert result == 0
+    mock_throttle_cls.assert_not_called()
+
+
 def test_check_quota_uses_per_user_redis_key(mocker):
     """check_quota checks the Redis key scoped to the user (RPD:{user_id})."""
     mock_throttle_cls = mocker.patch("services.throttle.Throttle")
