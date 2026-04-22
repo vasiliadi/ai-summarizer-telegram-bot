@@ -75,7 +75,7 @@ select = [
     "ICN",   # flake8-import-conventions
     "T20",   # flake8-print
     "RSE",   # flake8-raise
-    "TCH",   # flake8-type-checking
+    "TC",   # flake8-type-checking
     "ARG",   # flake8-unused-arguments
     "FIX",   # flake8-fixme
     "ERA",   # eradicate
@@ -98,7 +98,7 @@ select = [
     "PGH",   # pygrep-hooks
     "DOC",   # pydoclint
 ]
-ignore = ["S603", "S607", "D100", "D401"]
+ignore = ["S603", "S607", "D100", "D401", "PLR0913"]
 exclude = ["scripts"]
 
 [tool.ruff.format]

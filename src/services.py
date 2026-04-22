@@ -7,7 +7,9 @@ from typing import TYPE_CHECKING, Any, cast
 
 from google.genai import types
 from requests.exceptions import ReadTimeout
+from rush import quota, throttle
 from rush.exceptions import DataChangedInStoreError, MismatchedDataError
+from rush.limiters import periodic
 from telebot.apihelper import ApiTelegramException
 from telegramify_markdown import convert, split_entities
 from tenacity import (
@@ -25,8 +27,8 @@ from config import (
     MODELS_WITH_THINKING_SUPPORT,
     bot,
     gemini_client,
-    per_day_limit,
     per_minute_limit,
+    rate_limiter_store,
 )
 from exceptions import LimitExceededError
 from prompts import SYSTEM_INSTRUCTION
@@ -165,14 +167,16 @@ def send_answer(message: Message, answer: str) -> None:
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
-def check_quota(quantity: int = 1) -> bool:
+def check_quota(user_id: int, daily_limit: int, quantity: int = 1) -> bool:
     """Check if the request is within rate limits and handle any delays.
 
-    This function checks both daily and per-minute rate limits. If the daily limit
-    is exceeded, it raises an exception. If the per-minute limit is exceeded, it
-    waits until the limit resets.
+    This function checks both daily (per-user) and per-minute (global) rate limits.
+    If the daily limit is exceeded, it raises an exception. If the per-minute limit
+    is exceeded, it waits until the limit resets.
 
     Args:
+        user_id (int): Telegram user ID whose daily cap to enforce.
+        daily_limit (int): The user's configured daily request cap.
         quantity (int, optional): Number of quota units to check. Defaults to 1.
 
     Returns:
@@ -187,7 +191,15 @@ def check_quota(quantity: int = 1) -> bool:
         - Daily limits cannot be bypassed and will raise an exception
 
     """
-    rpd = per_day_limit.check(DAILY_LIMIT_KEY, quantity=quantity)
+    per_day_limit = throttle.Throttle(
+        limiter=periodic.PeriodicLimiter(
+            store=rate_limiter_store,
+        ),
+        rate=quota.Quota.per_day(
+            count=daily_limit,
+        ),
+    )
+    rpd = per_day_limit.check(f"{DAILY_LIMIT_KEY}:{user_id}", quantity=quantity)
     if rpd.limited:
         msg = "The daily limit for requests has been exceeded"
         raise LimitExceededError(msg)
@@ -196,6 +208,29 @@ def check_quota(quantity: int = 1) -> bool:
         time_to_reset = max(0, rpm.reset_after.total_seconds())
         time.sleep(time_to_reset)
     return True
+
+
+def get_remaining_quota(user_id: int, daily_limit: int) -> int:
+    """Return remaining daily requests for a user without consuming quota.
+
+    Args:
+        user_id (int): Telegram user ID.
+        daily_limit (int): The user's configured daily request cap.
+
+    Returns:
+        int: Number of requests still available today.
+
+    """
+    per_day_limit = throttle.Throttle(
+        limiter=periodic.PeriodicLimiter(
+            store=rate_limiter_store,
+        ),
+        rate=quota.Quota.per_day(
+            count=daily_limit,
+        ),
+    )
+    result = per_day_limit.check(f"{DAILY_LIMIT_KEY}:{user_id}", quantity=0)
+    return max(0, result.remaining)
 
 
 def get_gemini_config(

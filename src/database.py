@@ -17,7 +17,7 @@ engine = create_engine(DSN, echo=False, pool_pre_ping=True)
 Session = sessionmaker(engine)
 
 
-def register_user(  # noqa: PLR0913
+def register_user(
     user_id: int,
     first_name: str,
     last_name: str,

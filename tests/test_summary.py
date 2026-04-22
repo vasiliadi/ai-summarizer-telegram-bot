@@ -47,6 +47,8 @@ def test_summarize_with_file_upload_and_genai_call(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result == "This is a mocked summary of the file."
@@ -77,6 +79,8 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
         )
 
 
@@ -93,6 +97,8 @@ def test_summarize_with_file_retries_on_missing_upload_metadata(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
         )
 
 
@@ -109,6 +115,8 @@ def test_summarize_with_transcript(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result == "Transcript summary."
@@ -132,6 +140,8 @@ def test_summarize_webpage(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result == "Webpage summary."
@@ -156,6 +166,8 @@ def test_summarize_with_file_upload_failure(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
         )
 
 
@@ -181,6 +193,8 @@ def test_summarize_genai_exception(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
         )
 
 
@@ -211,6 +225,8 @@ def test_summarize_with_document_polling(mocker):
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
         mime_type="application/pdf",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result == "Document summary"
@@ -234,6 +250,8 @@ def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
             mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
         )
 
     mock_clean_up.assert_called_once_with(file="temp_doc.pdf")
@@ -254,6 +272,8 @@ def test_summarize_youtube_direct_transcript(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
         use_yt_transcription=True,
     )
 
@@ -277,6 +297,8 @@ def test_summarize_youtube_direct_transcript_uses_blank_line_separator(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
         use_yt_transcription=True,
     )
 
@@ -300,6 +322,8 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
             use_yt_transcription=True,
         )
 
@@ -322,6 +346,8 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
         use_yt_transcription=True,
     )
 
@@ -351,6 +377,8 @@ def test_summarize_fallback_to_transcription(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result.startswith("📝")
@@ -377,6 +405,8 @@ def test_summarize_reraises_when_transcription_fallback_disabled(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
         )
 
     mock_capture.assert_called_once_with(retry_error)
@@ -396,6 +426,8 @@ def test_summarize_castro(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result == "Castro summary"

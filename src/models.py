@@ -23,6 +23,7 @@ class UsersOrm(Base):
         use_yt_transcription (bool): Flag for YouTube transcription, defaults to False.
         summarizing_model (str): Model for summary.
         prompt_key_for_summary (str): Prompt key for summarization strategy.
+        daily_limit (int): Max requests per day for this user, defaults to 0 (blocked).
 
     """
 
@@ -46,3 +47,4 @@ class UsersOrm(Base):
     prompt_key_for_summary: Mapped[str] = mapped_column(
         server_default="basic_prompt_for_transcript",
     )
+    daily_limit: Mapped[int] = mapped_column(server_default="0")

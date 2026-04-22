@@ -1,7 +1,9 @@
 import pytest
 
 from config import MODELS_WITH_THINKING_SUPPORT
+from exceptions import LimitExceededError
 from services import (
+    check_quota,
     get_file_with_retry,
     get_gemini_config,
     reply_with_retry,
@@ -161,3 +163,29 @@ def test_upload_and_wait_for_audio_file_failed(mocker):
 
     with pytest.raises(ValueError, match="FAILED"):
         upload_and_wait_for_audio_file("path", "audio/ogg", 1)
+
+
+def test_check_quota_uses_per_user_redis_key(mocker):
+    """check_quota checks the Redis key scoped to the user (RPD:{user_id})."""
+    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
+    mock_throttle_instance = mock_throttle_cls.return_value
+    mock_throttle_instance.check.return_value = mocker.MagicMock(limited=False)
+    mocker.patch(
+        "services.per_minute_limit.check",
+        return_value=mocker.MagicMock(limited=False),
+    )
+
+    result = check_quota(user_id=456, daily_limit=5)
+
+    assert result is True
+    mock_throttle_instance.check.assert_called_once_with("RPD:456", quantity=1)
+
+
+def test_check_quota_raises_when_daily_redis_counter_exhausted(mocker):
+    """check_quota raises LimitExceededError when Redis counter is at the cap."""
+    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
+    mock_throttle_instance = mock_throttle_cls.return_value
+    mock_throttle_instance.check.return_value = mocker.MagicMock(limited=True)
+
+    with pytest.raises(LimitExceededError):
+        check_quota(user_id=789, daily_limit=3)

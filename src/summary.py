@@ -54,6 +54,8 @@ def summarize_with_file(
     model: str,
     prompt_key: str,
     target_language: str,
+    user_id: int,
+    daily_limit: int,
     sleep_time: int = 10,
 ) -> str:
     """Summarize audio content using Gemini API with file upload.
@@ -66,6 +68,8 @@ def summarize_with_file(
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
         target_language (str): The language to translate the text into.
+        user_id (int): Telegram user ID for per-user quota enforcement.
+        daily_limit (int): The user's configured daily request cap.
         sleep_time (int, optional): Time between processing checks. Defaults to 10.
 
     Returns:
@@ -91,7 +95,7 @@ def summarize_with_file(
     if audio_file.name is None or audio_file.uri is None:
         raise AttributeError
     audio_file_name = audio_file.name
-    check_quota(quantity=1)
+    check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
     response = gemini_client.models.generate_content(
         model=model,
         contents=[
@@ -128,6 +132,8 @@ def summarize_with_transcript(
     model: str,
     prompt_key: str,
     target_language: str,
+    user_id: int,
+    daily_limit: int,
 ) -> str:
     """Generate a summary from a transcript using Gemini API.
 
@@ -139,6 +145,8 @@ def summarize_with_transcript(
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
         target_language (str): The language to translate the text into.
+        user_id (int): Telegram user ID for per-user quota enforcement.
+        daily_limit (int): The user's configured daily request cap.
 
     Returns:
         str: Generated summary text from the transcript
@@ -153,7 +161,7 @@ def summarize_with_transcript(
 
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {transcript}").strip()
-    check_quota(quantity=1)
+    check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
@@ -178,6 +186,8 @@ def summarize_webpage(
     model: str,
     prompt_key: str,
     target_language: str,
+    user_id: int,
+    daily_limit: int,
 ) -> str:
     """Generate a summary from webpage content using Gemini API.
 
@@ -189,6 +199,8 @@ def summarize_webpage(
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
         target_language (str): The language to translate the text into.
+        user_id (int): Telegram user ID for per-user quota enforcement.
+        daily_limit (int): The user's configured daily request cap.
 
     Returns:
         str: Generated summary text from the webpage content
@@ -203,7 +215,7 @@ def summarize_webpage(
 
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {content}").strip()
-    check_quota(quantity=1)
+    check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
@@ -236,12 +248,14 @@ def summarize_webpage(
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
-def summarize_with_document(  # noqa: PLR0913
+def summarize_with_document(
     file: File,
     model: str,
     prompt_key: str,
     target_language: str,
     mime_type: str,
+    user_id: int,
+    daily_limit: int,
     sleep_time: int = 10,
 ) -> str:
     """Summarize document content using Gemini API with file upload.
@@ -256,6 +270,8 @@ def summarize_with_document(  # noqa: PLR0913
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
         target_language (str): The language to translate the text into.
         mime_type (str): MIME type of the document being uploaded
+        user_id (int): Telegram user ID for per-user quota enforcement.
+        daily_limit (int): The user's configured daily request cap.
         sleep_time (int, optional): Time between processing checks. Defaults to 10.
 
     Returns:
@@ -293,7 +309,7 @@ def summarize_with_document(  # noqa: PLR0913
             raise AttributeError
         if document_file.mime_type is None:
             raise AttributeError
-        check_quota(quantity=1)
+        check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
         response = gemini_client.models.generate_content(
             model=model,
             contents=[
@@ -319,12 +335,14 @@ def summarize_with_document(  # noqa: PLR0913
     return response.text
 
 
-def summarize(  # noqa: PLR0913
+def summarize(
     data: str | File,
     use_transcription: bool,
     model: str,
     prompt_key: str,
     target_language: str,
+    user_id: int,
+    daily_limit: int,
     use_yt_transcription: bool = False,
 ) -> str:
     """Generate a summary from various input sources using Gemini API.
@@ -342,6 +360,8 @@ def summarize(  # noqa: PLR0913
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
         target_language (str): The language to translate the text into.
+        user_id (int): Telegram user ID for per-user quota enforcement.
+        daily_limit (int): The user's configured daily request cap.
         use_yt_transcription (bool, optional): Whether to attempt using YouTube's
             built-in transcripts for YouTube URLs. Defaults to False.
 
@@ -382,6 +402,8 @@ def summarize(  # noqa: PLR0913
                             model=model,
                             prompt_key=prompt_key,
                             target_language=target_language,
+                            user_id=user_id,
+                            daily_limit=daily_limit,
                         ),
                     )
             data = download_yt(data)
@@ -394,6 +416,8 @@ def summarize(  # noqa: PLR0913
             model=model,
             prompt_key=prompt_key,
             target_language=target_language,
+            user_id=user_id,
+            daily_limit=daily_limit,
         )
     except RetryError as e:
         logger.warning("Error occurred while summarizing with file: %s", e)
@@ -410,6 +434,8 @@ def summarize(  # noqa: PLR0913
                         model=model,
                         prompt_key=prompt_key,
                         target_language=target_language,
+                        user_id=user_id,
+                        daily_limit=daily_limit,
                     ),
                 )
             finally:

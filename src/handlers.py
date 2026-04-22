@@ -32,6 +32,8 @@ def handle_audio(message: Message, user: UsersOrm) -> None:
         model=user.summarizing_model,
         prompt_key=user.prompt_key_for_summary,
         target_language=user.target_language,
+        user_id=user.user_id,
+        daily_limit=user.daily_limit,
     )
     send_answer(message, answer)
 
@@ -59,6 +61,8 @@ def handle_video_note(message: Message, user: UsersOrm) -> None:
             model=user.summarizing_model,
             prompt_key=user.prompt_key_for_summary,
             target_language=user.target_language,
+            user_id=user.user_id,
+            daily_limit=user.daily_limit,
         )
         send_answer(message, answer)
     finally:
@@ -84,6 +88,8 @@ def handle_voice(message: Message, user: UsersOrm) -> None:
         model=user.summarizing_model,
         prompt_key=user.prompt_key_for_summary,
         target_language=user.target_language,
+        user_id=user.user_id,
+        daily_limit=user.daily_limit,
     )
     send_answer(message, answer)
 
@@ -111,6 +117,8 @@ def handle_video(message: Message, user: UsersOrm) -> None:
             model=user.summarizing_model,
             prompt_key=user.prompt_key_for_summary,
             target_language=user.target_language,
+            user_id=user.user_id,
+            daily_limit=user.daily_limit,
         )
         send_answer(message, answer)
     finally:
@@ -136,6 +144,8 @@ def handle_document(message: Message, user: UsersOrm) -> None:
         prompt_key=user.prompt_key_for_summary,
         target_language=user.target_language,
         mime_type=document.mime_type or "application/octet-stream",
+        user_id=user.user_id,
+        daily_limit=user.daily_limit,
     )
     send_answer(message, answer)
 
@@ -156,6 +166,8 @@ def handle_url(message: Message, user: UsersOrm, url: str) -> None:
             model=user.summarizing_model,
             prompt_key=user.prompt_key_for_summary,
             target_language=user.target_language,
+            user_id=user.user_id,
+            daily_limit=user.daily_limit,
             use_yt_transcription=user.use_yt_transcription,
         )
         send_answer(message, answer)
@@ -165,6 +177,8 @@ def handle_url(message: Message, user: UsersOrm, url: str) -> None:
             model=user.summarizing_model,
             prompt_key=user.prompt_key_for_summary,
             target_language=user.target_language,
+            user_id=user.user_id,
+            daily_limit=user.daily_limit,
         )
         send_answer(message, answer)
     else:

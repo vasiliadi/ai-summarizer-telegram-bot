@@ -83,8 +83,10 @@ def test_handle_myinfo(message_factory, mocker):
         prompt_key_for_summary="basic",
         use_yt_transcription=False,
         use_transcription=False,
+        daily_limit=10,
     )
     mocker.patch("main.select_user", return_value=mock_user)
+    mocker.patch("main.get_remaining_quota", return_value=7)
     mock_send = mocker.patch("main.bot.send_message")
 
     handle_myinfo(msg)
@@ -92,6 +94,8 @@ def test_handle_myinfo(message_factory, mocker):
     content = mock_send.call_args[0][1]
     assert "Approved: True" in content
     assert "Target language: English" in content
+    assert "Daily limit: 10" in content
+    assert "Remaining quota: 7" in content
 
 
 def test_handle_myinfo_missing_user(message_factory, mocker):
@@ -108,8 +112,9 @@ def test_handle_myinfo_missing_user(message_factory, mocker):
 def test_handle_limit(message_factory, mocker):
     """Test /limit command."""
     msg = message_factory(content_type="text", text="/limit")
-    mock_limit = mocker.patch("main.per_day_limit.check")
-    mock_limit.return_value.remaining = 15
+    mock_user = mocker.MagicMock(user_id=123, daily_limit=20)
+    mocker.patch("main.select_user", return_value=mock_user)
+    mocker.patch("main.get_remaining_quota", return_value=15)
     mock_send = mocker.patch("main.bot.send_message")
 
     handle_limit(msg)
