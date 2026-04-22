@@ -458,7 +458,7 @@ def test_summarize_preflight_blocks_before_download(mocker):
             daily_limit=0,
         )
 
-    mock_check.assert_called_once()
+    mock_check.assert_called_once_with(user_id=1, daily_limit=0, quantity=0)
     mock_download.assert_not_called()
 
 
@@ -475,7 +475,7 @@ def test_summarize_with_file_deletes_gemini_file_when_quota_check_fails(mocker):
     mocker.patch("summary.upload_and_wait_for_audio_file", return_value=mock_audio_file)
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
-    mocker.patch("summary.check_quota", side_effect=[True, LimitExceededError])
+    mock_check = mocker.patch("summary.check_quota", side_effect=[True, LimitExceededError])
 
     with pytest.raises(LimitExceededError):
         summarize_with_file(
@@ -487,6 +487,9 @@ def test_summarize_with_file_deletes_gemini_file_when_quota_check_fails(mocker):
             daily_limit=5,
         )
 
+    assert mock_check.call_count == 2
+    mock_check.assert_any_call(user_id=1, daily_limit=5, quantity=0)
+    mock_check.assert_any_call(user_id=1, daily_limit=5, quantity=1)
     mock_client.files.delete.assert_called_with(name="files/audio123")
 
 
@@ -508,5 +511,5 @@ def test_summarize_with_document_preflight_blocks_before_download(mocker):
             daily_limit=0,
         )
 
-    mock_check.assert_called_once()
+    mock_check.assert_called_once_with(user_id=1, daily_limit=0, quantity=0)
     mock_download.assert_not_called()
