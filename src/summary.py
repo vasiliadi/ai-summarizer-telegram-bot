@@ -93,10 +93,10 @@ def summarize_with_file(
         mime_type=mime_type,
         sleep_time=sleep_time,
     )
-    if audio_file.name is None or audio_file.uri is None:
-        raise AttributeError
     audio_file_name = audio_file.name
     try:
+        if audio_file.name is None or audio_file.uri is None:
+            raise AttributeError
         check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
         response = gemini_client.models.generate_content(
             model=model,
@@ -118,7 +118,8 @@ def summarize_with_file(
             raise AttributeError
         return response.text
     finally:
-        gemini_client.files.delete(name=audio_file_name)
+        if audio_file_name is not None:
+            gemini_client.files.delete(name=audio_file_name)
 
 
 @retry(
