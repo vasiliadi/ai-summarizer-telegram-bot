@@ -119,7 +119,14 @@ def summarize_with_file(
         return response.text
     finally:
         if audio_file_name is not None:
-            gemini_client.files.delete(name=audio_file_name)
+            try:
+                gemini_client.files.delete(name=audio_file_name)
+            except Exception as e:
+                logger.warning(
+                    "Failed to delete Gemini file %s: %s",
+                    audio_file_name,
+                    e,
+                )
 
 
 @retry(
@@ -336,7 +343,14 @@ def summarize_with_document(
             raise AttributeError
     finally:
         if document_file_name is not None:
-            gemini_client.files.delete(name=document_file_name)
+            try:
+                gemini_client.files.delete(name=document_file_name)
+            except Exception as e:
+                logger.warning(
+                    "Failed to delete Gemini file %s: %s",
+                    document_file_name,
+                    e,
+                )
         if data is not None:
             clean_up(file=data)
     return response.text
