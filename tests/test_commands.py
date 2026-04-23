@@ -7,6 +7,7 @@ from main import (
     handle_set_target_language,
     handle_start,
     handle_toggle_transcription,
+    handle_toggle_yt_transcription,
     proceed_set_prompt_strategy,
     proceed_set_summarizing_model,
     proceed_set_target_language,
@@ -83,8 +84,10 @@ def test_handle_myinfo(message_factory, mocker):
         prompt_key_for_summary="basic",
         use_yt_transcription=False,
         use_transcription=False,
+        daily_limit=10,
     )
     mocker.patch("main.select_user", return_value=mock_user)
+    mocker.patch("main.get_remaining_quota", return_value=7)
     mock_send = mocker.patch("main.bot.send_message")
 
     handle_myinfo(msg)
@@ -92,6 +95,8 @@ def test_handle_myinfo(message_factory, mocker):
     content = mock_send.call_args[0][1]
     assert "Approved: True" in content
     assert "Target language: English" in content
+    assert "Daily limit: 10" in content
+    assert "Remaining quota: 7" in content
 
 
 def test_handle_myinfo_missing_user(message_factory, mocker):
@@ -108,13 +113,25 @@ def test_handle_myinfo_missing_user(message_factory, mocker):
 def test_handle_limit(message_factory, mocker):
     """Test /limit command."""
     msg = message_factory(content_type="text", text="/limit")
-    mock_limit = mocker.patch("main.per_day_limit.check")
-    mock_limit.return_value.remaining = 15
+    mock_user = mocker.MagicMock(user_id=123, daily_limit=20)
+    mocker.patch("main.select_user", return_value=mock_user)
+    mocker.patch("main.get_remaining_quota", return_value=15)
     mock_send = mocker.patch("main.bot.send_message")
 
     handle_limit(msg)
 
     assert "Remaining limit: 15" in mock_send.call_args[0][1]
+
+
+def test_handle_limit_missing_user(message_factory, mocker):
+    """Test /limit silently returns when Telegram user metadata is absent."""
+    msg = message_factory(content_type="text", text="/limit")
+    msg.from_user = None
+    mock_select = mocker.patch("main.select_user")
+
+    handle_limit(msg)
+
+    mock_select.assert_not_called()
 
 
 def test_handle_toggle_transcription(message_factory, mocker):
@@ -139,6 +156,33 @@ def test_handle_toggle_transcription_missing_user(message_factory, mocker):
     mock_toggle = mocker.patch("main.toggle_transcription")
 
     handle_toggle_transcription(msg)
+
+    mock_reply.assert_called_once_with(msg, "User information is missing.")
+    mock_toggle.assert_not_called()
+
+
+def test_handle_toggle_yt_transcription(message_factory, mocker):
+    """Test /toggle_yt_transcription."""
+    msg = message_factory(content_type="text")
+    mock_user = UsersOrm(user_id=123, use_yt_transcription=False)
+    mocker.patch("main.select_user", return_value=mock_user)
+    mock_toggle = mocker.patch("main.toggle_yt_transcription")
+    mock_send = mocker.patch("main.bot.send_message")
+
+    handle_toggle_yt_transcription(msg)
+
+    mock_toggle.assert_called_once_with(msg.from_user.id)
+    assert "YT transcription enabled" in mock_send.call_args[0][1]
+
+
+def test_handle_toggle_yt_transcription_missing_user(message_factory, mocker):
+    """Test /toggle_yt_transcription rejects messages without Telegram user metadata."""
+    msg = message_factory(content_type="text")
+    msg.from_user = None
+    mock_reply = mocker.patch("main.bot.reply_to")
+    mock_toggle = mocker.patch("main.toggle_yt_transcription")
+
+    handle_toggle_yt_transcription(msg)
 
     mock_reply.assert_called_once_with(msg, "User information is missing.")
     mock_toggle.assert_not_called()

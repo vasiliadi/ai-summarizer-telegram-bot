@@ -120,33 +120,20 @@ headers = {
 MINUTE_LIMIT_KEY = "RPM"
 DAILY_LIMIT_KEY = "RPD"
 MINUTE_LIMIT = 5
-DAILY_LIMIT = 20
+rate_limiter_redis = redis_store.redis.StrictRedis.from_url(
+    url=RATE_LIMITER_URL,
+    decode_responses=True,
+)
+rate_limiter_store = redis_store.RedisStore(
+    url=RATE_LIMITER_URL,
+    client=rate_limiter_redis,
+)
 per_minute_limit = throttle.Throttle(
     limiter=periodic.PeriodicLimiter(
-        store=redis_store.RedisStore(
-            url=RATE_LIMITER_URL,
-            client=redis_store.redis.StrictRedis.from_url(
-                url=RATE_LIMITER_URL,
-                decode_responses=True,
-            ),
-        ),
+        store=rate_limiter_store,
     ),
     rate=quota.Quota.per_minute(
         count=MINUTE_LIMIT,
-    ),
-)
-per_day_limit = throttle.Throttle(
-    limiter=periodic.PeriodicLimiter(
-        store=redis_store.RedisStore(
-            url=RATE_LIMITER_URL,
-            client=redis_store.redis.StrictRedis.from_url(
-                url=RATE_LIMITER_URL,
-                decode_responses=True,
-            ),
-        ),
-    ),
-    rate=quota.Quota.per_day(
-        count=DAILY_LIMIT,
     ),
 )
 

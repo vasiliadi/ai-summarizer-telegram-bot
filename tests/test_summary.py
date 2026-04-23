@@ -47,6 +47,8 @@ def test_summarize_with_file_upload_and_genai_call(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result == "This is a mocked summary of the file."
@@ -77,6 +79,8 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
         )
 
 
@@ -93,6 +97,8 @@ def test_summarize_with_file_retries_on_missing_upload_metadata(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
         )
 
 
@@ -109,6 +115,8 @@ def test_summarize_with_transcript(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result == "Transcript summary."
@@ -132,6 +140,8 @@ def test_summarize_webpage(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result == "Webpage summary."
@@ -156,6 +166,8 @@ def test_summarize_with_file_upload_failure(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
         )
 
 
@@ -181,6 +193,8 @@ def test_summarize_genai_exception(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
         )
 
 
@@ -211,6 +225,8 @@ def test_summarize_with_document_polling(mocker):
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
         mime_type="application/pdf",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result == "Document summary"
@@ -234,6 +250,8 @@ def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
             mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
         )
 
     mock_clean_up.assert_called_once_with(file="temp_doc.pdf")
@@ -242,6 +260,7 @@ def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
 def test_summarize_youtube_direct_transcript(mocker):
     """Test summarize() using direct YouTube transcript (📹 prefix)."""
     url = "https://youtube.com/watch?v=123"
+    mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.get_yt_transcript", return_value="YT Transcript content")
     mock_sum_transcript = mocker.patch(
         "summary.summarize_with_transcript",
@@ -254,6 +273,8 @@ def test_summarize_youtube_direct_transcript(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
         use_yt_transcription=True,
     )
 
@@ -265,6 +286,7 @@ def test_summarize_youtube_direct_transcript(mocker):
 def test_summarize_youtube_direct_transcript_uses_blank_line_separator(mocker):
     """Test YouTube transcript summaries keep a blank line after the prefix."""
     url = "https://youtube.com/watch?v=123"
+    mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.get_yt_transcript", return_value="YT Transcript content")
     mocker.patch(
         "summary.summarize_with_transcript",
@@ -277,6 +299,8 @@ def test_summarize_youtube_direct_transcript_uses_blank_line_separator(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
         use_yt_transcription=True,
     )
 
@@ -287,6 +311,7 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
     """Test transcript summary retry errors do not trigger audio fallback paths."""
     url = "https://youtube.com/watch?v=123"
     retry_error = RetryError(mocker.MagicMock())
+    mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.get_yt_transcript", return_value="YT Transcript content")
     mock_download = mocker.patch("summary.download_yt")
     mock_file_summary = mocker.patch("summary.summarize_with_file")
@@ -300,6 +325,8 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
             use_yt_transcription=True,
         )
 
@@ -311,6 +338,7 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
 def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
     """Test summarize() falls back to downloading YouTube audio when transcript fetch fails."""
     url = "https://youtube.com/watch?v=123"
+    mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.get_yt_transcript", side_effect=TranscriptsDisabled("123"))
     mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
     mocker.patch("summary.summarize_with_file", return_value="File summary")
@@ -322,6 +350,8 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
         use_yt_transcription=True,
     )
 
@@ -332,6 +362,7 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
 
 def test_summarize_fallback_to_transcription(mocker):
     """Test summarize() fallback to transcription (📝 prefix) when file summary fails."""
+    mocker.patch("summary.check_quota", return_value=True)
     mocker.patch(
         "summary.summarize_with_file",
         side_effect=RetryError(mocker.MagicMock()),
@@ -351,6 +382,8 @@ def test_summarize_fallback_to_transcription(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result.startswith("📝")
@@ -366,6 +399,7 @@ def test_summarize_fallback_to_transcription(mocker):
 def test_summarize_reraises_when_transcription_fallback_disabled(mocker):
     """Test summarize() re-raises file-summary failures when transcription is disabled."""
     retry_error = RetryError(mocker.MagicMock())
+    mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.summarize_with_file", side_effect=retry_error)
     mock_capture = mocker.patch("summary.capture_exception")
     mock_clean_up = mocker.patch("summary.clean_up")
@@ -377,6 +411,8 @@ def test_summarize_reraises_when_transcription_fallback_disabled(mocker):
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
+            user_id=123,
+            daily_limit=10,
         )
 
     mock_capture.assert_called_once_with(retry_error)
@@ -386,6 +422,7 @@ def test_summarize_reraises_when_transcription_fallback_disabled(mocker):
 def test_summarize_castro(mocker):
     """Test summarize() with Castro.fm URL."""
     url = "https://castro.fm/episode/123"
+    mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.download_castro", return_value="downloaded.mp3")
     mocker.patch("summary.summarize_with_file", return_value="Castro summary")
     mocker.patch("summary.clean_up")
@@ -396,6 +433,308 @@ def test_summarize_castro(mocker):
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
+        user_id=123,
+        daily_limit=10,
     )
 
     assert result == "Castro summary"
+
+
+def test_summarize_preflight_blocks_before_download(mocker):
+    """Test summarize() blocks zero-quota users before any network IO."""
+    from exceptions import LimitExceededError
+
+    mock_check = mocker.patch("summary.check_quota", side_effect=LimitExceededError)
+    mock_download = mocker.patch("summary.download_castro")
+
+    with pytest.raises(LimitExceededError):
+        summarize(
+            data="https://castro.fm/episode/123",
+            use_transcription=False,
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            user_id=1,
+            daily_limit=0,
+        )
+
+    mock_check.assert_called_once_with(user_id=1, daily_limit=0, quantity=0)
+    mock_download.assert_not_called()
+
+
+def test_summarize_with_file_deletes_gemini_file_when_quota_check_fails(mocker):
+    """Test summarize_with_file cleans up the uploaded Gemini file if consuming check fails."""
+    from exceptions import LimitExceededError
+    from types import SimpleNamespace
+
+    mock_audio_file = SimpleNamespace(
+        name="files/audio123",
+        uri="https://mock.uri",
+        mime_type="audio/ogg",
+    )
+    mocker.patch("summary.upload_and_wait_for_audio_file", return_value=mock_audio_file)
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_check = mocker.patch("summary.check_quota", side_effect=[True, LimitExceededError])
+
+    with pytest.raises(LimitExceededError):
+        summarize_with_file(
+            file="test_audio.ogg",
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            user_id=1,
+            daily_limit=5,
+        )
+
+    assert mock_check.call_count == 2
+    mock_check.assert_any_call(user_id=1, daily_limit=5, quantity=0)
+    mock_check.assert_any_call(user_id=1, daily_limit=5, quantity=1)
+    mock_client.files.delete.assert_called_with(name="files/audio123")
+
+
+def test_summarize_with_document_preflight_blocks_before_download(mocker):
+    """Test summarize_with_document blocks zero-quota users before download or upload."""
+    from exceptions import LimitExceededError
+
+    mock_check = mocker.patch("summary.check_quota", side_effect=LimitExceededError)
+    mock_download = mocker.patch("summary.download_tg")
+
+    with pytest.raises(LimitExceededError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=1,
+            daily_limit=0,
+        )
+
+    mock_check.assert_called_once_with(user_id=1, daily_limit=0, quantity=0)
+    mock_download.assert_not_called()
+
+
+def test_summarize_with_file_logs_warning_on_delete_failure(mocker):
+    """Test summarize_with_file logs a warning when Gemini file deletion fails but still returns the result."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mock_audio_file = SimpleNamespace(
+        name="files/audio123",
+        uri="https://mock.uri",
+        mime_type="audio/ogg",
+    )
+    mocker.patch("summary.upload_and_wait_for_audio_file", return_value=mock_audio_file)
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_client.models.generate_content.return_value = mocker.MagicMock(text="summary text")
+    mock_client.files.delete.side_effect = Exception("delete failed")
+    mock_logger = mocker.patch("summary.logger")
+
+    result = summarize_with_file(
+        file="test_audio.ogg",
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+    )
+
+    assert result == "summary text"
+    mock_client.files.delete.assert_called_once_with(name="files/audio123")
+    mock_logger.warning.assert_called_once()
+
+
+def test_summarize_with_transcript_raises_on_empty_response(mocker):
+    """Test summarize_with_transcript raises RetryError on repeated empty Gemini responses."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+
+    with pytest.raises(RetryError):
+        summarize_with_transcript(
+            transcript="Hello world",
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            user_id=123,
+            daily_limit=10,
+        )
+
+
+def test_summarize_webpage_raises_on_empty_response(mocker):
+    """Test summarize_webpage raises RetryError on repeated empty Gemini responses."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+
+    with pytest.raises(RetryError):
+        summarize_webpage(
+            content="https://example.com",
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            user_id=123,
+            daily_limit=10,
+        )
+
+
+def test_summarize_with_document_raises_when_upload_name_none(mocker):
+    """Test summarize_with_document raises RetryError and skips file delete when upload name is None."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = mocker.MagicMock()
+    mock_file.name = None
+    mock_client.files.upload.return_value = mock_file
+
+    with pytest.raises(RetryError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+        )
+
+    mock_client.files.delete.assert_not_called()
+
+
+def test_summarize_with_document_raises_when_uri_none(mocker):
+    """Test summarize_with_document raises RetryError and deletes Gemini file when uri is None."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = SimpleNamespace(
+        state="ACTIVE", name="files/doc123", uri=None, mime_type="application/pdf"
+    )
+    mock_client.files.upload.return_value = mock_file
+
+    with pytest.raises(RetryError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+        )
+
+    mock_client.files.delete.assert_called_with(name="files/doc123")
+
+
+def test_summarize_with_document_raises_when_mime_type_none(mocker):
+    """Test summarize_with_document raises RetryError and deletes Gemini file when mime_type is None."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = SimpleNamespace(
+        state="ACTIVE", name="files/doc123", uri="https://mock.uri", mime_type=None
+    )
+    mock_client.files.upload.return_value = mock_file
+
+    with pytest.raises(RetryError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+        )
+
+    mock_client.files.delete.assert_called_with(name="files/doc123")
+
+
+def test_summarize_with_document_raises_on_empty_response(mocker):
+    """Test summarize_with_document raises RetryError when Gemini returns empty response."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = SimpleNamespace(
+        state="ACTIVE",
+        name="files/doc123",
+        uri="https://mock.uri",
+        mime_type="application/pdf",
+    )
+    mock_client.files.upload.return_value = mock_file
+    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+
+    with pytest.raises(RetryError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+        )
+
+
+def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
+    """Test summarize_with_document logs a warning when Gemini file deletion fails but still returns the result."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = SimpleNamespace(
+        state="ACTIVE",
+        name="files/doc123",
+        uri="https://mock.uri",
+        mime_type="application/pdf",
+    )
+    mock_client.files.upload.return_value = mock_file
+    mock_client.models.generate_content.return_value = mocker.MagicMock(text="document summary")
+    mock_client.files.delete.side_effect = Exception("delete failed")
+    mock_logger = mocker.patch("summary.logger")
+
+    result = summarize_with_document(
+        file=mocker.MagicMock(),
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        mime_type="application/pdf",
+        user_id=123,
+        daily_limit=10,
+    )
+
+    assert result == "document summary"
+    mock_client.files.delete.assert_called_once_with(name="files/doc123")
+    mock_logger.warning.assert_called_once()
+
+
+def test_summarize_with_telegram_file(mocker):
+    """Test summarize() downloads a Telegram File object before summarizing."""
+    from telebot.types import File
+
+    mocker.patch("summary.check_quota", return_value=True)
+    mock_download_tg = mocker.patch("summary.download_tg", return_value="downloaded.ogg")
+    mocker.patch("summary.summarize_with_file", return_value="Telegram file summary")
+    mocker.patch("summary.clean_up")
+    mock_tg_file = mocker.MagicMock(spec=File)
+
+    result = summarize(
+        data=mock_tg_file,
+        use_transcription=False,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+    )
+
+    assert result == "Telegram file summary"
+    mock_download_tg.assert_called_once_with(mock_tg_file, ext=".ogg")

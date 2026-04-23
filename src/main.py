@@ -13,10 +13,8 @@ from tenacity import RetryError
 from config import (
     ALLOWED_MODELS_FOR_SUMMARY,
     ALLOWED_PROMPT_KEYS,
-    DAILY_LIMIT_KEY,
     SUPPORTED_LANGUAGES,
     bot,
-    per_day_limit,
 )
 from database import (
     check_auth,
@@ -37,6 +35,7 @@ from handlers import (
     handle_video_note,
     handle_voice,
 )
+from services import get_remaining_quota
 from utils import clean_up
 
 if TYPE_CHECKING:
@@ -140,6 +139,8 @@ def handle_myinfo(message: Message) -> None:
                 Target language: {user.target_language}
                 Summarizing model: {user.summarizing_model}
                 Prompt strategy: {user.prompt_key_for_summary}
+                Daily limit: {user.daily_limit}
+                Remaining quota: {get_remaining_quota(user.user_id, user.daily_limit)}
                 """).strip()
     bot.send_message(message.chat.id, msg)
 
@@ -166,8 +167,11 @@ def handle_limit(message: Message) -> None:
         None
 
     """
-    rpd = per_day_limit.check(DAILY_LIMIT_KEY, quantity=0)
-    msg = f"Remaining limit: {rpd.remaining}"
+    if message.from_user is None:
+        return
+    user = select_user(message.from_user.id)
+    remaining = get_remaining_quota(user.user_id, user.daily_limit)
+    msg = f"Remaining limit: {remaining}"
     bot.send_message(message.chat.id, msg)
 
 

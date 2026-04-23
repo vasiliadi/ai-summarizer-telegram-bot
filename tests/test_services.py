@@ -1,10 +1,14 @@
 import pytest
 
 from config import MODELS_WITH_THINKING_SUPPORT
+from exceptions import LimitExceededError
 from services import (
+    check_quota,
     get_file_with_retry,
     get_gemini_config,
+    get_remaining_quota,
     reply_with_retry,
+    resolve_mime_type,
     send_answer,
     upload_and_wait_for_audio_file,
 )
@@ -161,3 +165,117 @@ def test_upload_and_wait_for_audio_file_failed(mocker):
 
     with pytest.raises(ValueError, match="FAILED"):
         upload_and_wait_for_audio_file("path", "audio/ogg", 1)
+
+
+def test_resolve_mime_type_fallback_when_mimetypes_returns_none(mocker):
+    """resolve_mime_type falls back to extension matching when mimetypes returns None."""
+    mocker.patch("services.mimetypes.guess_type", return_value=(None, None))
+
+    assert resolve_mime_type("audio.ogg") == "audio/ogg"
+    assert resolve_mime_type("audio.opus") == "audio/ogg"
+    assert resolve_mime_type("audio.mp3") == "audio/mpeg"
+    assert resolve_mime_type("audio.wav") == "audio/wav"
+    assert resolve_mime_type("video.mp4") == "video/mp4"
+    assert resolve_mime_type("unknown.bin") == "application/octet-stream"
+
+
+def test_upload_and_wait_for_audio_file_name_none(mocker):
+    """upload_and_wait_for_audio_file raises AttributeError when upload returns no name."""
+    mock_client = mocker.patch("services.gemini_client")
+    mock_file = mocker.MagicMock()
+    mock_file.name = None
+    mock_client.files.upload.return_value = mock_file
+
+    with pytest.raises(AttributeError):
+        upload_and_wait_for_audio_file("path", "audio/ogg", 1)
+
+
+def test_upload_and_wait_for_audio_file_missing_uri(mocker):
+    """upload_and_wait_for_audio_file raises AttributeError when uri or mime_type is None."""
+    mock_client = mocker.patch("services.gemini_client")
+    mock_file = mocker.MagicMock()
+    mock_file.name = "name"
+    mock_file.state = "ACTIVE"
+    mock_file.uri = None
+    mock_client.files.upload.return_value = mock_file
+
+    with pytest.raises(AttributeError):
+        upload_and_wait_for_audio_file("path", "audio/ogg", 1)
+
+
+def test_get_remaining_quota(mocker):
+    """get_remaining_quota probes Redis with quantity=0 and returns remaining count."""
+    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
+    mock_throttle_instance = mock_throttle_cls.return_value
+    mock_throttle_instance.check.return_value = mocker.MagicMock(remaining=7)
+
+    result = get_remaining_quota(user_id=123, daily_limit=10)
+
+    assert result == 7
+    mock_throttle_instance.check.assert_called_once_with("RPD:123", quantity=0)
+
+
+def test_check_quota_raises_immediately_when_daily_limit_zero(mocker):
+    """check_quota raises LimitExceededError without touching Redis when limit is 0."""
+    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
+
+    with pytest.raises(LimitExceededError):
+        check_quota(user_id=1, daily_limit=0)
+
+    mock_throttle_cls.assert_not_called()
+
+
+def test_get_remaining_quota_returns_zero_when_daily_limit_zero(mocker):
+    """get_remaining_quota returns 0 without touching Redis when limit is 0."""
+    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
+
+    result = get_remaining_quota(user_id=1, daily_limit=0)
+
+    assert result == 0
+    mock_throttle_cls.assert_not_called()
+
+
+def test_check_quota_uses_per_user_redis_key(mocker):
+    """check_quota checks the Redis key scoped to the user (RPD:{user_id})."""
+    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
+    mock_throttle_instance = mock_throttle_cls.return_value
+    mock_throttle_instance.check.return_value = mocker.MagicMock(limited=False)
+    mocker.patch(
+        "services.per_minute_limit.check",
+        return_value=mocker.MagicMock(limited=False),
+    )
+
+    result = check_quota(user_id=456, daily_limit=5)
+
+    assert result is True
+    mock_throttle_instance.check.assert_called_once_with("RPD:456", quantity=1)
+
+
+def test_check_quota_raises_when_daily_redis_counter_exhausted(mocker):
+    """check_quota raises LimitExceededError when Redis counter is at the cap."""
+    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
+    mock_throttle_instance = mock_throttle_cls.return_value
+    mock_throttle_instance.check.return_value = mocker.MagicMock(limited=True)
+
+    with pytest.raises(LimitExceededError):
+        check_quota(user_id=789, daily_limit=3)
+
+
+def test_check_quota_sleeps_when_per_minute_limited(mocker):
+    """check_quota sleeps for reset_after seconds when the per-minute limit is hit."""
+    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
+    mock_throttle_instance = mock_throttle_cls.return_value
+    mock_throttle_instance.check.return_value = mocker.MagicMock(limited=False)
+    mock_reset_after = mocker.MagicMock()
+    mock_reset_after.total_seconds.return_value = 7.5
+    mocker.patch(
+        "services.per_minute_limit.check",
+        return_value=mocker.MagicMock(limited=True, reset_after=mock_reset_after),
+    )
+    mock_sleep = mocker.patch("services.time.sleep")
+
+    result = check_quota(user_id=321, daily_limit=5)
+
+    assert result is True
+    mock_sleep.assert_called_once_with(7.5)
+    mock_throttle_instance.check.assert_called_once_with("RPD:321", quantity=1)

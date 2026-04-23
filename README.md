@@ -71,6 +71,8 @@ set_prompt_strategy - Choose which prompt strategy to use for summary
 toggle_transcription - Toggle transcription for summary (fallback on failure)
 toggle_yt_transcription - Toggle YouTube transcription
 set_target_language - Choose which language you want to translate into
+limit - Show remaining limit
+myinfo - Show my settings
 ```
 
 ## Deploy
@@ -198,10 +200,6 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 ### Logs
 
 [Logtail](https://logs.betterstack.com/), [Papertrail](https://papertrailapp.com/)
-
-## Known problems
-
-- Limits. Different models have different limits; while switching models, the limits remain for the default model.
 
 ## Possible improvements
 
