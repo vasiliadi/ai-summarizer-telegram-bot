@@ -97,6 +97,40 @@ For developers, how to generate a migration.
 alembic revision --autogenerate
 ```
 
+#### Developer tools
+
+Install `uv`:
+
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Homebrew (macOS)
+brew install uv
+```
+
+Optionally, install [pixi](https://pixi.sh) for local development when `ffmpeg` is required (e.g. running tests that depend on it):
+
+```bash
+# macOS/Linux
+curl -fsSL https://pixi.sh/install.sh | sh
+
+# Homebrew (macOS)
+brew install pixi
+```
+
+```bash
+pixi run test  # run tests with ffmpeg available
+```
+
+Install `ruff`, `ty`, and `pytest` as system-wide tools:
+
+```bash
+uv tool install ruff
+uv tool install ty
+uv tool install pytest
+```
+
 #### Git hooks
 
 Install `pre-commit`.
