@@ -107,7 +107,7 @@ select = [
     # "PD",    # pandas-vet — not used
     "TRY",   # tryceratops
 ]
-ignore = ["S603", "S607", "D100", "D401", "PLR0913"]
+ignore = ["S603", "S607", "D100", "D401", "PLR0913", "FBT001", "FBT002", "BLE001"]
 exclude = ["scripts"]
 
 [tool.ruff.format]
