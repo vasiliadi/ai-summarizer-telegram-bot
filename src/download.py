@@ -134,7 +134,7 @@ def download_castro(url: str) -> str:
         try:
             r.raise_for_status()
         except requests.exceptions.HTTPError:
-            logger.error("%s: status code", r.status_code)
+            logger.exception("%s: status code", r.status_code)
             raise
         with Path(temporary_file_name).open("wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
@@ -176,7 +176,7 @@ def download_tg(file_id: File, ext: str = "") -> str:
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError:
-            logger.error("%s: status code", response.status_code)
+            logger.exception("%s: status code", response.status_code)
             raise
         with Path(temporary_file_name).open("wb") as f:
             for chunk in response.iter_content(chunk_size=8192):

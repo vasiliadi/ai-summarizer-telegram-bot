@@ -66,10 +66,11 @@ def register_user(
             )
             session.add(stmt)
             session.commit()
-            return True
         except IntegrityError:
             session.rollback()
             return False  # already registered user
+        else:
+            return True
 
 
 def select_user(user_id: int) -> UsersOrm:

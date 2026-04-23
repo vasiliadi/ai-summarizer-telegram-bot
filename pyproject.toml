@@ -70,7 +70,7 @@ select = [
     "N",     # pep8-naming
     "A",     # flake8-builtins
     "COM",   # flake8-commas
-    "CPY",   # flake8-copyright
+    # "CPY",   # flake8-copyright — not used
     "C4",    # flake8-comprehensions
     "ICN",   # flake8-import-conventions
     "T20",   # flake8-print
@@ -83,7 +83,7 @@ select = [
     "FLY",   # flynt
     "D",     # pydocstyle
     "ANN",   # flake8-annotations
-    "ASYNC", # flake8-async
+    # "ASYNC", # flake8-async — not used
     "T10",   # flake8-debugger
     "EM",    # flake8-errmsg
     "EXE",   # flake8-executable
@@ -97,9 +97,17 @@ select = [
     "INT",   # flake8-gettext
     "PGH",   # pygrep-hooks
     "DOC",   # pydoclint
+    # "FAST",  # FastAPI — not used
+    "YTT",   # flake8-2020
+    "BLE",   # flake8-blind-except
+    "FBT",   # flake8-boolean-trap
+    # "DJ",    # flake8-django — not used
+    "TD",    # flake8-todos
+    # "NPY",   # NumPy-specific rules — not used
+    # "PD",    # pandas-vet — not used
+    "TRY",   # tryceratops
 ]
-ignore = ["S603", "S607", "D100", "D401", "PLR0913"]
-exclude = ["scripts"]
+ignore = ["S603", "S607", "D100", "D401", "PLR0913", "FBT001", "FBT002", "BLE001"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -146,17 +154,16 @@ ai-summarizer-telegram-bot = { path = ".", editable = true }
 deno = ">=2.7.12"
 
 [tool.pixi.environments]
-default = { solve-group = "default" }
-# default = { features = ["dev", "test"], solve-group = "default" }
-# prod = { features = [], solve-group = "default" }
+# default = { solve-group = "default" }
+default = { features = ["dev", "test"], solve-group = "default" }
+prod = { features = [], solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
 test = { features = ["test", "dev"], solve-group = "default" }
 
 [tool.pixi.tasks]
-prod = "python src/main.py"
+start = "python src/main.py"
 
 [tool.pixi.feature.dev.tasks]
-start = "python src/main.py"
 db-upgrade = "alembic upgrade head"
 db-migrate = "alembic revision --autogenerate"
 

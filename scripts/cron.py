@@ -27,9 +27,9 @@ def clear_limit() -> int:
     deleted = 0
     for key in client.scan_iter(match=f"{daily_limit_key}:*", count=500):
         batch.append(key)
-        if len(batch) >= 500:
-            deleted += cast(int, client.unlink(*batch))
+        if len(batch) >= 500:  # noqa: PLR2004
+            deleted += cast("int", client.unlink(*batch))
             batch.clear()
     if batch:
-        deleted += cast(int, client.unlink(*batch))
+        deleted += cast("int", client.unlink(*batch))
     return deleted
