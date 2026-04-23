@@ -24,7 +24,12 @@ Run these directly (installed as system-wide executables):
 
 ## Testing & Quality Assurance
 
-The project uses `pytest` for unit testing.
+The project uses `pytest` for unit testing. Tests live in `tests/`, configured in `pyproject.toml` under `[tool.pytest.ini_options]` with `pythonpath = ["src"]`.
+
+### Structure
+
+- `tests/conftest.py` — shared fixtures
+- `tests/test_*.py` — one file per source module (commands, database, download, handlers, services, state, summary, transcription, utils)
 
 ### Run tests
 
