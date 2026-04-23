@@ -20,8 +20,20 @@ project-root/
 │   ├── utils.py                      # Helper functions
 │   └── exceptions.py                 # Custom exceptions
 ├── tests/                            ← Unit and integration tests
+│   ├── conftest.py                   # Shared fixtures
+│   ├── test_commands.py
+│   ├── test_database.py
+│   ├── test_download.py
+│   ├── test_handlers.py
+│   ├── test_services.py
+│   ├── test_state.py
+│   ├── test_summary.py
+│   ├── test_transcription.py
+│   └── test_utils.py
 ├── migrations/                       ← Alembic database migrations
-├── scripts/                          ← Utility scripts (db init, etc.)
+├── scripts/                          ← Utility scripts
+│   ├── db.py                        # Database initialisation
+│   └── cron.py                      # Modal cron job (rate limit reset)
 ├── docs/                             ← Documentation
 │   ├── context/                      ← Reusable domain knowledge
 │   ├── summaries/                    ← Session state and handoffs

@@ -31,12 +31,12 @@ Run `Dockerfile` or `compose.yaml`
 ### Without docker
 
 1. Apply [migrations](#migrations).
-2. Run `python main.py`
-3. To reset daily rate limit you must run `modal deploy cron/cron.py`. Otherwise, the daily limit may become inaccurate.
+2. Run `uv run python src/main.py`
+3. To reset daily rate limit you must run `uv run modal deploy scripts/cron.py`. Otherwise, the daily limit may become inaccurate.
 
 ### After start
 
-After `/start`, you need to set approved to `True` for wanted user IDs. Depending on your database, you can use [SQL Editor](https://supabase.com/docs/guides/database/overview) for [Supabase x Postgres](https://supabase.com/database) or any other SQL client for another database.
+After `/start`, you need to set approved to `True` for wanted user IDs and set a daily limit (default is 0). Depending on your database, you can use [SQL Editor](https://supabase.com/docs/guides/database/overview) for [Supabase x Postgres](https://supabase.com/database) or any other SQL client for another database.
 
 ## .env
 
@@ -59,7 +59,7 @@ Pass in an empty string to `PROXY` for direct connection. \
 Or use `schema`://`username`:`password`@`proxy_address`:`port` \
 For example `http://user:password@proxy.com:1234`
 
-Don't forget to enabble `RLS` if you use [Supabase x Postgres](https://supabase.com/database).
+Don't forget to enable `RLS` if you use [Supabase x Postgres](https://supabase.com/database).
 
 After completing these steps, you are ready to send youtube.com and castro.fm links to the bot and receive summary.
 
@@ -86,15 +86,55 @@ myinfo - Show my settings
 
 Apply migrations before first run.
 
-```text
-python db.py
-alembic upgrade head
+```bash
+uv run python scripts/db.py
+uv run alembic upgrade head
 ```
 
 For developers, how to generate a migration.
 
-```text
-alembic revision --autogenerate
+```bash
+uv run alembic revision --autogenerate
+```
+
+#### Developer tools
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/):
+
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Homebrew (macOS)
+brew install uv
+```
+
+Optionally, install [pixi](https://pixi.sh) for local development when `ffmpeg` is required:
+
+```bash
+# macOS/Linux
+curl -fsSL https://pixi.sh/install.sh | sh
+
+# Homebrew (macOS)
+brew install pixi
+```
+
+```bash
+pixi run start  # ffmpeg available
+```
+
+Install `ruff`, `ty`, and `pytest` as system-wide tools:
+
+```bash
+uv tool install ruff
+uv tool install ty
+uv tool install pytest
+```
+
+Optionally, install [direnv](https://direnv.net/) to automatically load `.env` when entering the project directory:
+
+```bash
+brew install direnv
 ```
 
 #### Git hooks
@@ -114,7 +154,7 @@ pre-commit install --hook-type post-checkout
 pre-commit install --hook-type post-rewrite
 ```
 
-#### JavaScript rendering (depricated[^1])
+#### JavaScript rendering (deprecated[^1])
 
 Many websites have protections against bots, and some content requires JavaScript to be rendered for visibility. To enable JavaScript rendering, I am using [Selenium WebDriver](https://www.selenium.dev/documentation/webdriver/), which requires the Chrome browser and ChromeDriver to be installed on the operating system.
 

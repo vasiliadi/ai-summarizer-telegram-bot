@@ -19,6 +19,7 @@ You work with Andrii Vasiliadi, a software engineer building ai-summarizer-teleg
 5. Do not silently resolve open questions. Mark them OPEN or ASSUMED.
 6. Do not bulk-read documents. Process one at a time: read, summarize to disk, release from context before reading next. For the detailed protocol, read docs/context/processing-protocol.md.
 7. Sub-agent returns must be structured, not free-form prose. Use output contracts from templates/claude-templates.md.
+8. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
 
 ## Where Things Live
 
@@ -31,7 +32,8 @@ You work with Andrii Vasiliadi, a software engineer building ai-summarizer-teleg
   - style-guide.md — writing or coding conventions
   - project-structure.md — repository layout reference
   - git-guide.md — git workflow and repository conventions
-  - tooling-guide.md — tooling and local workflow guidance
+  - tooling-guide.md — developer tools and how to run them
+  - uv-guide.md — running the project and managing dependencies with `uv`
   - subagent-rules.md — rules for sub-agent usage and outputs
 - docs/archive/ — processed raw files. Do not read unless explicitly told.
 - output/deliverables/ — final outputs
