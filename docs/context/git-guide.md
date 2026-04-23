@@ -24,7 +24,7 @@ type(scope): subject
 * `test`: Adding or updating tests
 * `chore`: Maintenance, dependencies, config updates
 
-*(Note: The use of Gitmoji like ✨ or 🐛 is accepted but optional).*
+*(Note: Gitmoji is required. Always prefix the subject with the appropriate emoji, e.g. ✨ for feat, 🐛 for fix, 📝 for docs, 🎨 for style, ♻️ for refactor, ✅ for test, 🔧 for chore).*
 
 ---
 
