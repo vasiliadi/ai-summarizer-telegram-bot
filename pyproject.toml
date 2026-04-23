@@ -83,7 +83,7 @@ select = [
     "FLY",   # flynt
     "D",     # pydocstyle
     "ANN",   # flake8-annotations
-    "ASYNC", # flake8-async
+    # "ASYNC", # flake8-async — not used
     "T10",   # flake8-debugger
     "EM",    # flake8-errmsg
     "EXE",   # flake8-executable
@@ -97,14 +97,14 @@ select = [
     "INT",   # flake8-gettext
     "PGH",   # pygrep-hooks
     "DOC",   # pydoclint
-    "FAST",  # FastAPI
+    # "FAST",  # FastAPI — not used
     "YTT",   # flake8-2020
     "BLE",   # flake8-blind-except
     "FBT",   # flake8-boolean-trap
-    "DJ",    # flake8-django
+    # "DJ",    # flake8-django — not used
     "TD",    # flake8-todos
-    "NPY",   # NumPy-specific rules
-    "PD",    # pandas-vet
+    # "NPY",   # NumPy-specific rules — not used
+    # "PD",    # pandas-vet — not used
     "TRY",   # tryceratops
 ]
 ignore = ["S603", "S607", "D100", "D401", "PLR0913"]
