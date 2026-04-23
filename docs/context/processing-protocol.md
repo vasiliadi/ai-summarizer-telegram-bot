@@ -2,6 +2,15 @@
 
 Use this whenever you need to process multiple documents or large files.
 
+## Common Triggers in This Repo
+
+Apply this protocol (not just for research documents) when you hit any of these:
+
+- **External docs dump** — library API docs, RFCs, migration guides, changelogs when adopting or upgrading a dependency. Summarize to `docs/summaries/source-[library]-[topic].md`.
+- **Large PR / diff review** — a multi-hundred-line diff across many files. Read per-file, write per-file review to `docs/summaries/review-[pr]-[file].md`, then synthesize.
+- **Incident / stack trace investigation** — long logs or multi-service traces. Summarize findings per service to `docs/summaries/incident-[date]-[service].md`.
+- **Codebase exploration before refactor** — many files to understand before proposing changes. Grep/Glob first, read targeted files only, write `docs/summaries/refactor-notes-[area].md`.
+
 ## For 1-3 Short Documents (< 2K words each)
 
 Read sequentially. After each document, write a Source Document Summary (Template 1 from `templates/claude-templates.md`) to disk. Then proceed with work using summaries only.
