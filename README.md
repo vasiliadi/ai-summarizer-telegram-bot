@@ -31,8 +31,8 @@ Run `Dockerfile` or `compose.yaml`
 ### Without docker
 
 1. Apply [migrations](#migrations).
-2. Run `python main.py`
-3. To reset daily rate limit you must run `modal deploy cron/cron.py`. Otherwise, the daily limit may become inaccurate.
+2. Run `uv run python src/main.py`
+3. To reset daily rate limit you must run `uv run modal deploy scripts/cron.py`. Otherwise, the daily limit may become inaccurate.
 
 ### After start
 
@@ -86,15 +86,15 @@ myinfo - Show my settings
 
 Apply migrations before first run.
 
-```text
-python db.py
-alembic upgrade head
+```bash
+uv run python scripts/db.py
+uv run alembic upgrade head
 ```
 
 For developers, how to generate a migration.
 
-```text
-alembic revision --autogenerate
+```bash
+uv run alembic revision --autogenerate
 ```
 
 #### Developer tools
