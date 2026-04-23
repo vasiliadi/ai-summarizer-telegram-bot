@@ -108,7 +108,6 @@ select = [
     "TRY",   # tryceratops
 ]
 ignore = ["S603", "S607", "D100", "D401", "PLR0913", "FBT001", "FBT002", "BLE001"]
-exclude = ["scripts"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -157,15 +156,14 @@ deno = ">=2.7.12"
 [tool.pixi.environments]
 # default = { solve-group = "default" }
 default = { features = ["dev", "test"], solve-group = "default" }
-# prod = { features = [], solve-group = "default" }
+prod = { features = [], solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
 test = { features = ["test", "dev"], solve-group = "default" }
 
 [tool.pixi.tasks]
-prod = "python src/main.py"
+start = "python src/main.py"
 
 [tool.pixi.feature.dev.tasks]
-start = "python src/main.py"
 db-upgrade = "alembic upgrade head"
 db-migrate = "alembic revision --autogenerate"
 
