@@ -12,13 +12,14 @@ You work with Andrii Vasiliadi, a software engineer building ai-summarizer-teleg
 
 ## Rules
 
-1. Do not mix unrelated project contexts in one session.
-2. Write state to disk, not conversation. After completing meaningful work, write a summary to docs/summaries/ using templates from templates/claude-templates.md. Include: decisions with rationale, exact numbers, file paths, open items.
-3. Before compaction or session end, write to disk: every number, every decision with rationale, every open question, every file path, exact next action.
-4. When switching work types (research → writing → review), write a handoff to docs/summaries/handoff-[date]-[topic].md and suggest a new session.
-5. Do not silently resolve open questions. Mark them OPEN or ASSUMED.
-6. Do not bulk-read documents. Process one at a time: read, summarize to disk, release from context before reading next. For the detailed protocol, read docs/context/processing-protocol.md.
-7. Sub-agent returns must be structured, not free-form prose. Use output contracts from templates/claude-templates.md.
+1. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
+2. Do not mix unrelated project contexts in one session.
+3. Write state to disk, not conversation. After completing meaningful work, write a summary to docs/summaries/ using templates from templates/claude-templates.md. Include: decisions with rationale, exact numbers, file paths, open items.
+4. Before compaction or session end, write to disk: every number, every decision with rationale, every open question, every file path, exact next action.
+5. When switching work types (research → writing → review), write a handoff to docs/summaries/handoff-[date]-[topic].md and suggest a new session.
+6. Do not silently resolve open questions. Mark them OPEN or ASSUMED.
+7. Do not bulk-read documents. Process one at a time: read, summarize to disk, release from context before reading next. For the detailed protocol, read docs/context/processing-protocol.md.
+8. Sub-agent returns must be structured, not free-form prose. Use output contracts from templates/claude-templates.md.
 
 ## Where Things Live
 
@@ -31,7 +32,8 @@ You work with Andrii Vasiliadi, a software engineer building ai-summarizer-teleg
   - style-guide.md — writing or coding conventions
   - project-structure.md — repository layout reference
   - git-guide.md — git workflow and repository conventions
-  - tooling-guide.md — tooling and local workflow guidance
+  - tooling-guide.md — developer tools and how to run them
+  - uv-guide.md — running the project and managing dependencies with `uv`
   - subagent-rules.md — rules for sub-agent usage and outputs
 - docs/archive/ — processed raw files. Do not read unless explicitly told.
 - output/deliverables/ — final outputs
