@@ -49,6 +49,23 @@ This document lists the technologies used in the AI Summarizer Telegram Bot proj
 - **pytest-cov** - Coverage reporting
 - **ty** - Type checker
 
+## Environment Variables
+
+Required variables in `.env`:
+
+```env
+TG_API_TOKEN="your_telegram_bot_token"
+GEMINI_API_KEY="your_gemini_api_key"
+REPLICATE_API_TOKEN="your_replicate_token"
+DSN="postgresql+driver://user:password@host:port/database"
+REDIS_URL="rediss://default:password@host:port"
+SENTRY_DSN="your_sentry_dsn"
+PROXY=""
+LOG_LEVEL="ERROR"
+MODAL_TOKEN_ID="your_modal_token_id"
+MODAL_TOKEN_SECRET="your_modal_token_secret"
+```
+
 ## Infrastructure
 
 ### Deployment Options
