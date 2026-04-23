@@ -1,4 +1,5 @@
 import pytest
+import requests
 
 from download import download_castro, download_tg, download_yt
 from services import choose_yt_audio_format
@@ -195,3 +196,46 @@ def test_download_castro_missing_audio_url(mocker):
 
     with pytest.raises(ValueError, match="Audio URL not found in Castro page."):
         download_castro("https://castro.fm/episode/123")
+
+
+def test_download_castro_http_error(mocker):
+    """Test download_castro logs status code and re-raises HTTPError."""
+    mocker.patch("download.generate_temporary_name", return_value="temp_castro.mp3")
+
+    mock_page_resp = mocker.MagicMock()
+    mock_page_resp.content = b'<html><source src="https://audio.link/file.mp3"></html>'
+
+    mock_audio_resp = mocker.MagicMock()
+    mock_audio_resp.status_code = 500
+    mock_audio_resp.__enter__.return_value = mock_audio_resp
+    mock_audio_resp.raise_for_status.side_effect = requests.exceptions.HTTPError("500 Server Error")
+
+    mocker.patch("download.requests.get", side_effect=[mock_page_resp, mock_audio_resp])
+    mocker.patch("download.requests.utils.requote_uri", side_effect=lambda x: x)
+    mock_logger = mocker.patch("download.logger")
+
+    with pytest.raises(requests.exceptions.HTTPError):
+        download_castro("https://castro.fm/episode/123")
+
+    mock_logger.exception.assert_called_once_with("%s: status code", 500)
+
+
+def test_download_tg_http_error(mocker):
+    """Test download_tg logs status code and re-raises HTTPError."""
+    mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")
+    mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
+
+    mock_file = mocker.MagicMock()
+    mock_file.file_path = "path/to/file"
+
+    mock_resp = mocker.MagicMock()
+    mock_resp.status_code = 403
+    mock_resp.__enter__.return_value = mock_resp
+    mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError("403 Forbidden")
+    mocker.patch("download.requests.get", return_value=mock_resp)
+    mock_logger = mocker.patch("download.logger")
+
+    with pytest.raises(requests.exceptions.HTTPError):
+        download_tg(mock_file, ext=".ext")
+
+    mock_logger.exception.assert_called_once_with("%s: status code", 403)
