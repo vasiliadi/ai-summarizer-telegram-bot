@@ -59,7 +59,7 @@ Pass in an empty string to `PROXY` for direct connection. \
 Or use `schema`://`username`:`password`@`proxy_address`:`port` \
 For example `http://user:password@proxy.com:1234`
 
-Don't forget to enabble `RLS` if you use [Supabase x Postgres](https://supabase.com/database).
+Don't forget to enable `RLS` if you use [Supabase x Postgres](https://supabase.com/database).
 
 After completing these steps, you are ready to send youtube.com and castro.fm links to the bot and receive summary.
 
@@ -131,6 +131,12 @@ uv tool install ty
 uv tool install pytest
 ```
 
+Optionally, install [direnv](https://direnv.net/) to automatically load `.env` when entering the project directory:
+
+```bash
+brew install direnv
+```
+
 #### Git hooks
 
 Install `pre-commit`.
@@ -148,7 +154,7 @@ pre-commit install --hook-type post-checkout
 pre-commit install --hook-type post-rewrite
 ```
 
-#### JavaScript rendering (depricated[^1])
+#### JavaScript rendering (deprecated[^1])
 
 Many websites have protections against bots, and some content requires JavaScript to be rendered for visibility. To enable JavaScript rendering, I am using [Selenium WebDriver](https://www.selenium.dev/documentation/webdriver/), which requires the Chrome browser and ChromeDriver to be installed on the operating system.
 
