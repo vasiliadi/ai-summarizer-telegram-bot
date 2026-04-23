@@ -2,7 +2,9 @@ from typing import cast
 
 import modal
 
-image = modal.Image.debian_slim(python_version="3.14").uv_pip_install("redis")
+image = modal.Image.debian_slim(python_version="3.14").uv_sync(
+    extra_options="--only-group modal --no-cache",
+)
 secrets = modal.Secret.from_name("resetlimit-secrets")
 
 app = modal.App(name="ResetLimit", image=image, secrets=[secrets])

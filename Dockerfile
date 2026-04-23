@@ -1,13 +1,17 @@
 FROM python:3.14-slim AS builder
 ENV ENV=BUILD \
-    PYTHONDONTWRITEBYTECODE=1
+    PATH="/app/.venv/bin:$PATH"
 ARG DSN
 ARG MODAL_TOKEN_ID
 ARG MODAL_TOKEN_SECRET
 WORKDIR /app
 COPY . .
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
-RUN uv pip install --no-cache --system -r requirements-build.txt
+RUN uv sync \
+    --frozen \
+    --only-group build \
+    --no-cache \
+    --no-managed-python
 RUN python scripts/db.py \
     && alembic upgrade head \
     && modal deploy scripts/cron.py
@@ -23,8 +27,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
 COPY pyproject.toml uv.lock ./
 RUN uv sync \
     --frozen \
+    --no-cache \
     --no-group dev \
     --no-group test \
+    --no-group modal \
+    --no-group build \
     --compile-bytecode \
     --no-managed-python \
     && rm -f pyproject.toml uv.lock

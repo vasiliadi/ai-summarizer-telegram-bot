@@ -23,12 +23,21 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+build = [
+    { name = "alembic" },
+    { name = "modal" },
+    { name = "psycopg2-binary" },
+    { name = "sqlalchemy" },
+]
 dev = [
     { name = "alembic" },
     { name = "black" },
     { name = "modal" },
     { name = "python-dotenv" },
     { name = "yt-dlp", extra = ["deno"] },
+]
+modal = [
+    { name = "redis" },
 ]
 test = [
     { name = "coverage" },
@@ -56,6 +65,12 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
+build = [
+    { name = "alembic", specifier = ">=1.18.4" },
+    { name = "modal", specifier = ">=1.4.2" },
+    { name = "psycopg2-binary", specifier = ">=2.9.11" },
+    { name = "sqlalchemy", specifier = ">=2.0.49" },
+]
 dev = [
     { name = "alembic", specifier = ">=1.16.4" },
     { name = "black", specifier = ">=25.1.0" },
@@ -63,6 +78,7 @@ dev = [
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "yt-dlp", extras = ["deno"], specifier = ">=2026.1.29" },
 ]
+modal = [{ name = "redis", specifier = ">=7.4.0" }]
 test = [
     { name = "coverage", specifier = ">=7.13.4" },
     { name = "fakeredis", specifier = ">=2.34.1" },
