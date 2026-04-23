@@ -736,7 +736,7 @@ packages:
 - pypi: ./
   name: ai-summarizer-telegram-bot
   version: 0.9.3
-  sha256: 93effc4717bb43f229ae1ce2b47b6f0464f3b019c50039e2f4a6280e4f13e643
+  sha256: 057feb53f10b8d229990b656efb4a268917ac56117fd69e0ec86bc9047aa3958
   requires_dist:
   - beautifulsoup4>=4.13.4
   - google-genai>=1.25.0
