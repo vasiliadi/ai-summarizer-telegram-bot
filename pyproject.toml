@@ -70,7 +70,7 @@ select = [
     "N",     # pep8-naming
     "A",     # flake8-builtins
     "COM",   # flake8-commas
-    "CPY",   # flake8-copyright
+    # "CPY",   # flake8-copyright — not used
     "C4",    # flake8-comprehensions
     "ICN",   # flake8-import-conventions
     "T20",   # flake8-print
@@ -155,8 +155,8 @@ ai-summarizer-telegram-bot = { path = ".", editable = true }
 deno = ">=2.7.12"
 
 [tool.pixi.environments]
-default = { solve-group = "default" }
-# default = { features = ["dev", "test"], solve-group = "default" }
+# default = { solve-group = "default" }
+default = { features = ["dev", "test"], solve-group = "default" }
 # prod = { features = [], solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
 test = { features = ["test", "dev"], solve-group = "default" }
