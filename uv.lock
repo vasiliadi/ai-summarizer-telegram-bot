@@ -66,10 +66,10 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 build = [
-    { name = "alembic", specifier = "==1.18.4" },
-    { name = "modal", specifier = "==1.4.2" },
-    { name = "psycopg2-binary", specifier = "==2.9.11" },
-    { name = "sqlalchemy", specifier = "==2.0.49" },
+    { name = "alembic", specifier = ">=1.18.4" },
+    { name = "modal", specifier = ">=1.4.2" },
+    { name = "psycopg2-binary", specifier = ">=2.9.11" },
+    { name = "sqlalchemy", specifier = ">=2.0.49" },
 ]
 dev = [
     { name = "alembic", specifier = ">=1.16.4" },
