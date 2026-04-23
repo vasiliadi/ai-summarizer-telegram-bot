@@ -97,6 +97,15 @@ select = [
     "INT",   # flake8-gettext
     "PGH",   # pygrep-hooks
     "DOC",   # pydoclint
+    "FAST",  # FastAPI
+    "YTT",   # flake8-2020
+    "BLE",   # flake8-blind-except
+    "FBT",   # flake8-boolean-trap
+    "DJ",    # flake8-django
+    "TD",    # flake8-todos
+    "NPY",   # NumPy-specific rules
+    "PD",    # pandas-vet
+    "TRY",   # tryceratops
 ]
 ignore = ["S603", "S607", "D100", "D401", "PLR0913"]
 exclude = ["scripts"]
