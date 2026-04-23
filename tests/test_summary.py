@@ -513,3 +513,228 @@ def test_summarize_with_document_preflight_blocks_before_download(mocker):
 
     mock_check.assert_called_once_with(user_id=1, daily_limit=0, quantity=0)
     mock_download.assert_not_called()
+
+
+def test_summarize_with_file_logs_warning_on_delete_failure(mocker):
+    """Test summarize_with_file logs a warning when Gemini file deletion fails but still returns the result."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mock_audio_file = SimpleNamespace(
+        name="files/audio123",
+        uri="https://mock.uri",
+        mime_type="audio/ogg",
+    )
+    mocker.patch("summary.upload_and_wait_for_audio_file", return_value=mock_audio_file)
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_client.models.generate_content.return_value = mocker.MagicMock(text="summary text")
+    mock_client.files.delete.side_effect = Exception("delete failed")
+    mock_logger = mocker.patch("summary.logger")
+
+    result = summarize_with_file(
+        file="test_audio.ogg",
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+    )
+
+    assert result == "summary text"
+    mock_client.files.delete.assert_called_once_with(name="files/audio123")
+    mock_logger.warning.assert_called_once()
+
+
+def test_summarize_with_transcript_raises_on_empty_response(mocker):
+    """Test summarize_with_transcript raises RetryError on repeated empty Gemini responses."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+
+    with pytest.raises(RetryError):
+        summarize_with_transcript(
+            transcript="Hello world",
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            user_id=123,
+            daily_limit=10,
+        )
+
+
+def test_summarize_webpage_raises_on_empty_response(mocker):
+    """Test summarize_webpage raises RetryError on repeated empty Gemini responses."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+
+    with pytest.raises(RetryError):
+        summarize_webpage(
+            content="https://example.com",
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            user_id=123,
+            daily_limit=10,
+        )
+
+
+def test_summarize_with_document_raises_when_upload_name_none(mocker):
+    """Test summarize_with_document raises RetryError and skips file delete when upload name is None."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = mocker.MagicMock()
+    mock_file.name = None
+    mock_client.files.upload.return_value = mock_file
+
+    with pytest.raises(RetryError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+        )
+
+    mock_client.files.delete.assert_not_called()
+
+
+def test_summarize_with_document_raises_when_uri_none(mocker):
+    """Test summarize_with_document raises RetryError and deletes Gemini file when uri is None."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = SimpleNamespace(
+        state="ACTIVE", name="files/doc123", uri=None, mime_type="application/pdf"
+    )
+    mock_client.files.upload.return_value = mock_file
+
+    with pytest.raises(RetryError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+        )
+
+    mock_client.files.delete.assert_called_with(name="files/doc123")
+
+
+def test_summarize_with_document_raises_when_mime_type_none(mocker):
+    """Test summarize_with_document raises RetryError and deletes Gemini file when mime_type is None."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = SimpleNamespace(
+        state="ACTIVE", name="files/doc123", uri="https://mock.uri", mime_type=None
+    )
+    mock_client.files.upload.return_value = mock_file
+
+    with pytest.raises(RetryError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+        )
+
+    mock_client.files.delete.assert_called_with(name="files/doc123")
+
+
+def test_summarize_with_document_raises_on_empty_response(mocker):
+    """Test summarize_with_document raises RetryError when Gemini returns empty response."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = SimpleNamespace(
+        state="ACTIVE",
+        name="files/doc123",
+        uri="https://mock.uri",
+        mime_type="application/pdf",
+    )
+    mock_client.files.upload.return_value = mock_file
+    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+
+    with pytest.raises(RetryError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+        )
+
+
+def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
+    """Test summarize_with_document logs a warning when Gemini file deletion fails but still returns the result."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = SimpleNamespace(
+        state="ACTIVE",
+        name="files/doc123",
+        uri="https://mock.uri",
+        mime_type="application/pdf",
+    )
+    mock_client.files.upload.return_value = mock_file
+    mock_client.models.generate_content.return_value = mocker.MagicMock(text="document summary")
+    mock_client.files.delete.side_effect = Exception("delete failed")
+    mock_logger = mocker.patch("summary.logger")
+
+    result = summarize_with_document(
+        file=mocker.MagicMock(),
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        mime_type="application/pdf",
+        user_id=123,
+        daily_limit=10,
+    )
+
+    assert result == "document summary"
+    mock_client.files.delete.assert_called_once_with(name="files/doc123")
+    mock_logger.warning.assert_called_once()
+
+
+def test_summarize_with_telegram_file(mocker):
+    """Test summarize() downloads a Telegram File object before summarizing."""
+    from telebot.types import File
+
+    mocker.patch("summary.check_quota", return_value=True)
+    mock_download_tg = mocker.patch("summary.download_tg", return_value="downloaded.ogg")
+    mocker.patch("summary.summarize_with_file", return_value="Telegram file summary")
+    mocker.patch("summary.clean_up")
+    mock_tg_file = mocker.MagicMock(spec=File)
+
+    result = summarize(
+        data=mock_tg_file,
+        use_transcription=False,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+    )
+
+    assert result == "Telegram file summary"
+    mock_download_tg.assert_called_once_with(mock_tg_file, ext=".ogg")
