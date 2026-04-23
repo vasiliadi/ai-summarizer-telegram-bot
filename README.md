@@ -36,7 +36,7 @@ Run `Dockerfile` or `compose.yaml`
 
 ### After start
 
-After `/start`, you need to set approved to `True` for wanted user IDs. Depending on your database, you can use [SQL Editor](https://supabase.com/docs/guides/database/overview) for [Supabase x Postgres](https://supabase.com/database) or any other SQL client for another database.
+After `/start`, you need to set approved to `True` for wanted user IDs and set a daily limit (default is 0). Depending on your database, you can use [SQL Editor](https://supabase.com/docs/guides/database/overview) for [Supabase x Postgres](https://supabase.com/database) or any other SQL client for another database.
 
 ## .env
 
@@ -99,7 +99,7 @@ uv run alembic revision --autogenerate
 
 #### Developer tools
 
-Install `uv`:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/):
 
 ```bash
 # macOS/Linux
@@ -109,7 +109,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 brew install uv
 ```
 
-Optionally, install [pixi](https://pixi.sh) for local development when `ffmpeg` is required (e.g. running tests that depend on it):
+Optionally, install [pixi](https://pixi.sh) for local development when `ffmpeg` is required:
 
 ```bash
 # macOS/Linux
@@ -120,7 +120,7 @@ brew install pixi
 ```
 
 ```bash
-pixi run test  # run tests with ffmpeg available
+pixi run start  # ffmpeg available
 ```
 
 Install `ruff`, `ty`, and `pytest` as system-wide tools:
