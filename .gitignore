@@ -167,7 +167,6 @@ temp
 .DS_Store
 setup.cfg
 poetry.toml
-# .envrc
 
 # dotenv.com
 .env*
@@ -175,6 +174,7 @@ poetry.toml
 !.env.project
 !.env.vault
 !.env.example
+!.envrc
 
 # Cache
 .ruff_cache
