@@ -167,7 +167,6 @@ temp
 .DS_Store
 setup.cfg
 poetry.toml
-# .envrc
 
 # dotenv.com
 .env*
