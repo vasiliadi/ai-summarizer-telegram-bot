@@ -131,6 +131,12 @@ uv tool install ty
 uv tool install pytest
 ```
 
+To upgrade all installed tools to their latest versions:
+
+```bash
+uv tool upgrade --all
+```
+
 Optionally, install [direnv](https://direnv.net/) to automatically load `.env` when entering the project directory:
 
 ```bash
