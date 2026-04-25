@@ -56,7 +56,7 @@ uv lock --upgrade
 
 ## Development Workflow
 
-1. **Setup**: Run `uv sync` to install dependencies
+1. **Setup**: Run `uv sync` to install dependencies (installs `dev` and `test` groups by default)
 2. **Database**: Run `uv run python scripts/db.py` and `uv run alembic upgrade head`
 3. **Configuration**: Copy `.env.example` to `.env` and fill in API keys
 4. **Run**: Execute `uv run python src/main.py` to start the bot

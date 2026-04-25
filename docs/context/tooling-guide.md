@@ -43,10 +43,8 @@ Run tests before every commit.
 
 ### Code Quality
 
-- Run `ruff check .` before every commit
-- Run `ruff format .` before every commit
-- Run `ty check .` before every commit
-- Run `pre-commit run --all-files` before every commit
+Follow the pre-commit sequence in `docs/context/git-guide.md` before every commit.
+
 - Follow Google Python Style Guide for docstrings
 - Use type hints for all function signatures
 
@@ -55,7 +53,6 @@ Run tests before every commit.
 - Write property-based tests for critical business logic
 - Test database operations with transactions
 - Mock external API calls in tests
-- Run `uv run pytest` before every commit
 
 ### Dependencies
 

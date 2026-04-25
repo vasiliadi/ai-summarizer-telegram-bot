@@ -37,4 +37,4 @@ Pass these checks before each commit:
 3. `ty check .`
 4. `uv run pytest`
 
-**Workflow:** Run `ruff format` before committing to automatically format your code. Run `ruff check --fix` to automatically resolve fixable linting errors.
+**Workflow:** Run `ruff format .` before committing to automatically format your code. Run `ruff check --fix` to automatically resolve fixable linting errors.
