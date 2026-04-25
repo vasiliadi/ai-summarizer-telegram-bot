@@ -123,12 +123,11 @@ brew install pixi
 pixi run start  # ffmpeg available
 ```
 
-Install `ruff`, `ty`, and `pytest` as system-wide tools:
+Install `ruff` and `ty` as system-wide tools:
 
 ```bash
 uv tool install ruff
 uv tool install ty
-uv tool install pytest
 ```
 
 To upgrade all installed tools to their latest versions:
