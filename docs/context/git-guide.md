@@ -30,10 +30,11 @@ type(scope): subject
 
 ## Pre-Commit Checks
 
-Before committing, always ensure your code passes local checks:
+Pass these checks before each commit:
 
-1. `ruff format`
-2. `ruff check`
-3. `pytest`
+1. `ruff format .`
+2. `ruff check .`
+3. `ty check .`
+4. `uv run pytest`
 
 **Workflow:** Run `ruff format` before committing to automatically format your code. Run `ruff check --fix` to automatically resolve fixable linting errors.

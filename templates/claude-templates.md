@@ -237,19 +237,12 @@
 **Created:** [YYYY-MM-DD]
 **Last Updated:** [YYYY-MM-DD]
 
-## Client
-- **Name:** [client name]
-- **Industry:** [industry]
-- **Size:** [employee count / revenue if known]
-- **Relationship:** [through AutomatonsX / Lagrange Data / direct / other]
-- **Key Contacts:** [names and roles if known]
-
-## Engagement
-- **Type:** [proposal / workshop / competitive analysis / agent development / hybrid]
+## Project
+- **Name:** [project name]
+- **Repo:** [repo URL]
 - **Scope:** [one paragraph description]
 - **Target Deliverable:** [specific output expected]
-- **Timeline:** [deadline if known]
-- **Budget Context:** [if known — exact figures]
+- **Timeline:** [deadline if known, or "ongoing"]
 
 ## Input Documents
 | Document | Path | Processed? | Summary At |
@@ -405,39 +398,7 @@ STRENGTHS:
 
 ## Phase-Based Workflow Templates
 
-### Template A: Enterprise Sales Deliverable
-
-```
-Phase 1: Discovery & Input Processing
-├── Process all client documents → Source Document Summaries
-├── Identify gaps in information → flag as OPEN items
-├── Create Decision Records for any choices made
-├── Write: ./docs/summaries/01-discovery-complete.md (Handoff Template)
-├── → Suggest new session for Phase 2
-
-Phase 2: Strategy & Positioning
-├── Read summaries only (NOT source documents)
-├── Competitive positioning analysis → Analysis Summary
-├── Value proposition development
-├── ROI framework construction with EXACT numbers
-├── Write: ./docs/summaries/02-strategy-complete.md (Handoff Template)
-├── → Suggest new session for Phase 3
-
-Phase 3: Deliverable Creation
-├── Read strategy summary + project brief only
-├── Draft deliverable (proposal / deck / workshop plan)
-├── Output to: ./output/deliverables/
-├── Write: ./docs/summaries/03-deliverable-draft.md (Handoff Template)
-├── → Suggest new session for Phase 4
-
-Phase 4: Review & Polish
-├── Read draft deliverable + strategy summary
-├── Quality review using Review/QA Output Contract
-├── Final edits and formatting
-├── Output final version to: ./output/deliverables/
-```
-
-### Template B: Agent/Application Development
+### Agent/Application Development
 
 ```
 Phase 1: Requirements → Spec
@@ -471,16 +432,6 @@ Phase 4: Assembly → Package
 ├── Generate deployment/setup instructions
 ├── Output: ./output/deliverables/[project]-complete-package/
 ├── QA check against original spec using Review/QA Output Contract
-```
-
-### Template C: Hybrid (Sales + Agent Development)
-
-```
-Phase 1: Client Discovery → Summaries
-Phase 2: Solution Design → Architecture + Schema
-Phase 3a: Client-Facing Deliverable (proposal/deck)
-Phase 3b: Internal Technical Package (schemas/prompts)
-Phase 4: Review both tracks against each other for consistency
 ```
 
 ---
