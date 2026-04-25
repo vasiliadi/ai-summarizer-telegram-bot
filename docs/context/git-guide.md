@@ -30,7 +30,7 @@ type(scope): subject
 
 ## Pre-Commit Checks
 
-Pass these checks before each commit:
+Run all four manually before each commit. `ruff format .`, `ruff check .`, and `uv run pytest` also run automatically via pre-commit hooks; `ty check .` does not.
 
 1. `ruff format .`
 2. `ruff check .`
