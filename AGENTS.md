@@ -20,6 +20,7 @@ You work with Andrii Vasiliadi, a software engineer building ai-summarizer-teleg
 6. Do not bulk-read documents. Process one at a time: read, summarize to disk, release from context before reading next. For the detailed protocol, read docs/context/processing-protocol.md.
 7. Sub-agent returns must be structured, not free-form prose. Use output contracts from templates/claude-templates.md.
 8. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
+9. Before every commit, pass: `ruff format .`, `ruff check .`, `ty check .`, `uv run pytest`. See `docs/context/git-guide.md` for the full sequence.
 
 ## Where Things Live
 

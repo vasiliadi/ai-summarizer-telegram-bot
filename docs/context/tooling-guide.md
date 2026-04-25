@@ -20,7 +20,7 @@ Run these directly (installed as system-wide executables):
 - Type checking: `ty check .`
 - Commit hooks: `pre-commit run --all-files`
 
-`pre-commit` is configured to run automatically on every `git commit`.
+`pre-commit` runs automatically on every `git commit`.
 
 ## Testing & Quality Assurance
 
@@ -43,10 +43,8 @@ Run tests before every commit.
 
 ### Code Quality
 
-- **ALWAYS** run `ruff check .` before every commit
-- **ALWAYS** run `ruff format .` before every commit
-- **ALWAYS** run `ty check .` before every commit
-- **ALWAYS** run `pre-commit run --all-files` before every commit
+Follow the pre-commit sequence in `docs/context/git-guide.md` before every commit.
+
 - Follow Google Python Style Guide for docstrings
 - Use type hints for all function signatures
 
@@ -55,7 +53,6 @@ Run tests before every commit.
 - Write property-based tests for critical business logic
 - Test database operations with transactions
 - Mock external API calls in tests
-- **ALWAYS** run tests with `uv run pytest` before every commit
 
 ### Dependencies
 
