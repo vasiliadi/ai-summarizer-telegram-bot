@@ -34,7 +34,7 @@ The project uses `pytest` for unit testing. Tests live in `tests/`, configured i
 ### Run tests
 
 ```bash
-pytest
+uv run pytest
 ```
 
 Run tests before every commit.
@@ -55,7 +55,7 @@ Run tests before every commit.
 - Write property-based tests for critical business logic
 - Test database operations with transactions
 - Mock external API calls in tests
-- **ALWAYS** run tests with `pytest` before every commit
+- **ALWAYS** run tests with `uv run pytest` before every commit
 
 ### Dependencies
 
