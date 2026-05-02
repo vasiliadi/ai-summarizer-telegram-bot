@@ -128,7 +128,7 @@ docstring-code-line-length = "dynamic"
 
 [tool.pyrefly]
 project-includes = ["**/*.py*", "**/*.ipynb"]
-project-excludes = ["tests/**"]
+project-excludes = ["tests/**", "migrations/**"]
 
 [tool.ty.src]
 exclude = ["tests"]
