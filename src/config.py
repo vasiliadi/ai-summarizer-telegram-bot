@@ -100,7 +100,6 @@ GEMINI_CONFIG = types.GenerateContentConfig(
 DEFAULT_PROMPT_KEY = "basic_prompt_for_transcript"
 ALLOWED_PROMPT_KEYS = [
     "basic_prompt_for_transcript",
-    "soap_prompt_for_transcript",
     "key_points_for_transcript",
 ]
 
