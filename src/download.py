@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 import requests
 from bs4 import BeautifulSoup
@@ -21,6 +21,8 @@ from services import choose_yt_audio_format
 from utils import generate_temporary_name
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from telebot.types import File
     from tenacity import (
         _utils as tenacity_utils,
