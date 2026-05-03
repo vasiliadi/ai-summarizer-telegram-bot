@@ -85,6 +85,7 @@ def test_get_yt_transcript_fallback_languages(mocker):
 
 def test_get_yt_transcript_falls_back_to_ytdlp_on_api_failure(mocker, tmp_path):
     """Test get_yt_transcript falls back to yt-dlp when fetch_transcript_via_api exhausts retries."""
+    mocker.patch("time.sleep")
     mocker.patch(
         "transcription.fetch_transcript_via_api",
         side_effect=RetryError(mocker.MagicMock()),
@@ -109,7 +110,8 @@ def test_get_yt_transcript_falls_back_to_ytdlp_on_api_failure(mocker, tmp_path):
     vtt_file.write_text(vtt_content, encoding="utf-8")
 
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-    mocker.patch("transcription.YoutubeDL")
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    mock_ydl_inst = mock_ydl_cls.return_value.__enter__.return_value
     mocker.patch("transcription.clean_up")
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -119,20 +121,28 @@ def test_get_yt_transcript_falls_back_to_ytdlp_on_api_failure(mocker, tmp_path):
     assert "Goodbye" in result
     # Deduplication: "Hello world" appears twice in VTT but only once in output
     assert result.count("Hello world") == 1
+    # English pass found the VTT file — only one download attempt needed
+    mock_ydl_inst.download.assert_called_once_with([url])
 
 def test_get_yt_transcript_ytdlp_no_subs_raises(mocker, tmp_path):
     """Test get_yt_transcript raises DownloadError when yt-dlp finds no subtitles."""
+    mocker.patch("time.sleep")
     mocker.patch(
         "transcription.fetch_transcript_via_api",
         side_effect=RetryError(mocker.MagicMock()),
     )
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-    mocker.patch("transcription.YoutubeDL")
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    mock_ydl_inst = mock_ydl_cls.return_value.__enter__.return_value
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
         get_yt_transcript(url)
+
+    # Both English and all-languages passes must have been attempted
+    assert mock_ydl_inst.download.call_count == 2
+    mock_ydl_inst.download.assert_called_with([url])
 
 def test_vtt_to_text_dedupes_and_strips_tags(tmp_path):
     """Test vtt_to_text removes headers, timestamps, HTML tags, entities, and duplicates."""
@@ -256,11 +266,12 @@ def test_fetch_transcript_via_ytdlp_all_language_fallback(mocker, tmp_path):
         def __exit__(self, *args: object) -> None:
             pass
 
-        def extract_info(self, url: str, download: bool) -> None:  # noqa: FBT001
+        def download(self, url_list: list[str]) -> int:
             langs = self.opts.get("subtitleslangs", [])
             extract_calls.append(langs)
             if "all" in langs:
                 vtt_path.write_text(vtt_content, encoding="utf-8")
+            return 0
 
     mocker.patch("transcription.YoutubeDL", MockYDL)
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)

@@ -140,26 +140,32 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
         "quiet": True,
         "nocheckcertificate": False,
     }
-    with YoutubeDL(ydl_opts) as ydl:
-        ydl.extract_info(url, download=True)
+    try:
+        with YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
 
-    vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
-
-    if not vtt_files:
-        ydl_opts_all = {**ydl_opts, "subtitleslangs": ["all"]}
-        with YoutubeDL(ydl_opts_all) as ydl:
-            ydl.extract_info(url, download=True)
         vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
 
-    if not vtt_files:
-        msg = "No subtitles available via yt-dlp"
-        raise DownloadError(msg)
+        if not vtt_files:
+            ydl_opts_all = {**ydl_opts, "subtitleslangs": ["all"]}
+            with YoutubeDL(ydl_opts_all) as ydl:
+                ydl.download([url])
+            vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
 
-    vtt_path = vtt_files[0]
-    try:
-        return vtt_to_text(vtt_path)
+        if not vtt_files:
+            msg = "No subtitles available via yt-dlp"
+            raise DownloadError(msg)  # noqa: TRY301
+
+        return vtt_to_text(vtt_files[0])
+    except DownloadError as exc:
+        logger.warning("yt-dlp subtitle fetch failed: %s", exc)
+        raise
+    except Exception as exc:
+        logger.warning("yt-dlp subtitle fetch failed unexpectedly: %s", exc)
+        msg = "yt-dlp subtitle fetch failed"
+        raise DownloadError(msg) from exc
     finally:
-        for f in vtt_files:
+        for f in Path.cwd().glob(f"{temp_basename}.*.vtt"):
             clean_up(file=str(f))
 
 
