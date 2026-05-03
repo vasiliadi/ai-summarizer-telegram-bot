@@ -236,6 +236,36 @@ def test_vtt_to_text_keeps_nonconsecutive_duplicates(tmp_path):
 
     assert result == "Hello\nWorld\nHello"
 
+def test_fetch_transcript_via_api_uses_proxy_when_configured(mocker):
+    """Test fetch_transcript_via_api passes GenericProxyConfig when PROXY is set."""
+    mocker.patch("transcription.PROXY", "http://proxy:8080")
+    mock_proxy_cfg = mocker.patch("transcription.GenericProxyConfig")
+    mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
+    mocker.patch("transcription.TextFormatter").return_value.format_transcript.return_value = "Hello"
+    mock_ytt.return_value.fetch.return_value = []
+
+    result = fetch_transcript_via_api("vid")
+
+    assert result == "Hello"
+    mock_proxy_cfg.assert_called_once_with(https_url="http://proxy:8080")
+    mock_ytt.assert_called_once_with(proxy_config=mock_proxy_cfg.return_value)
+
+def test_fetch_transcript_via_ytdlp_unexpected_error_wrapped_as_download_error(mocker, tmp_path):
+    """Test fetch_transcript_via_ytdlp wraps non-DownloadError exceptions as DownloadError."""
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    mock_ydl_cls.return_value.__enter__.return_value.download.side_effect = ConnectionError("network failure")
+    mock_logger = mocker.patch("transcription.logger")
+
+    with pytest.raises(DownloadError, match="yt-dlp subtitle fetch failed"):
+        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+
+    mock_logger.warning.assert_called_once_with(
+        "yt-dlp subtitle fetch failed unexpectedly: %s",
+        mocker.ANY,
+    )
+
 def test_fetch_transcript_via_api_retries_on_ip_blocked(mocker):
     """Test fetch_transcript_via_api retries 3 times on IpBlocked then raises RetryError."""
     mocker.patch("time.sleep")
