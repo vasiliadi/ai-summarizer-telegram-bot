@@ -414,8 +414,11 @@ def summarize(
             if use_yt_transcription:
                 try:
                     transcript = get_yt_transcript(data)
-                except TranscriptsDisabled, RetryError:
-                    pass
+                except (TranscriptsDisabled, RetryError) as e:
+                    logger.warning(
+                        "get_yt_transcript failed, falling back to download: %s",
+                        e,
+                    )
                 else:
                     return format_prefixed_summary(
                         "📹",
