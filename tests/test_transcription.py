@@ -266,7 +266,7 @@ def test_fetch_transcript_via_ytdlp_unexpected_error_wrapped_as_download_error(m
     )
 
 def test_fetch_transcript_via_api_retries_on_ip_blocked(mocker):
-    """Test fetch_transcript_via_api retries 3 times on IpBlocked then raises RetryError."""
+    """Test fetch_transcript_via_api retries on IpBlocked then raises RetryError."""
     mocker.patch("time.sleep")
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
     mock_ytt.return_value.fetch.side_effect = IpBlocked("vid")
@@ -274,7 +274,7 @@ def test_fetch_transcript_via_api_retries_on_ip_blocked(mocker):
     with pytest.raises(RetryError):
         fetch_transcript_via_api("vid")
 
-    assert mock_ytt.return_value.fetch.call_count == 3
+    assert mock_ytt.return_value.fetch.call_count == 2
 
 def test_fetch_transcript_via_ytdlp_all_language_fallback(mocker, tmp_path):
     """Test fetch_transcript_via_ytdlp retries with all languages when English is unavailable."""

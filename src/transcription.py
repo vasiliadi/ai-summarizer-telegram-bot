@@ -78,7 +78,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
 
 
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(2),
     wait=wait_fixed(10),
     retry=retry_if_exception_type((ParseError, IpBlocked, RequestBlocked)),
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
@@ -157,13 +157,13 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
             raise DownloadError(msg)  # noqa: TRY301
 
         return vtt_to_text(vtt_files[0])
-    except DownloadError as exc:
-        logger.warning("yt-dlp subtitle fetch failed: %s", exc)
+    except DownloadError as e:
+        logger.warning("yt-dlp subtitle fetch failed: %s", e)
         raise
-    except Exception as exc:
-        logger.warning("yt-dlp subtitle fetch failed unexpectedly: %s", exc)
+    except Exception as e:
+        logger.warning("yt-dlp subtitle fetch failed unexpectedly: %s", e)
         msg = "yt-dlp subtitle fetch failed"
-        raise DownloadError(msg) from exc
+        raise DownloadError(msg) from e
     finally:
         for f in Path.cwd().glob(f"{temp_basename}.*.vtt"):
             clean_up(file=str(f))
@@ -215,9 +215,9 @@ def get_yt_transcript(url: str) -> str:
 
     try:
         return fetch_transcript_via_api(video_id)
-    except (NoTranscriptFound, RetryError) as api_err:
+    except (NoTranscriptFound, RetryError) as e:
         logger.warning(
             "youtube_transcript_api failed (%s); trying yt-dlp fallback",
-            api_err,
+            e,
         )
         return fetch_transcript_via_ytdlp(url)
