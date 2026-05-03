@@ -271,6 +271,17 @@ def test_proceed_set_summarizing_model_missing_input(message_factory, mocker):
     mock_set_model.assert_not_called()
 
 
+def test_proceed_set_summarizing_model_db_failure(message_factory, mocker):
+    """Test DB failure returns a clear user-facing message."""
+    msg = message_factory(content_type="text", text="Gemini 2.5 Flash")
+    mocker.patch("main.set_summarizing_model", return_value=False)
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed_set_summarizing_model(msg)
+
+    mock_send.assert_called_once_with(msg.chat.id, "Failed to update summarizing model.")
+
+
 def test_proceed_set_summarizing_model_invalid_choice(message_factory, mocker):
     """Test invalid label short-circuits before calling set_summarizing_model."""
     msg = message_factory(content_type="text", text="Gemini 4 Pro")
