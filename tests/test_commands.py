@@ -250,11 +250,12 @@ def test_handle_set_summarizing_model(message_factory, mocker):
 def test_proceed_set_summarizing_model_success(message_factory, mocker):
     """Test successful model selection."""
     msg = message_factory(content_type="text", text="Gemini 2.5 Flash")
-    mocker.patch("main.set_summarizing_model", return_value=True)
+    mock_set_model = mocker.patch("main.set_summarizing_model", return_value=True)
     mock_send = mocker.patch("main.bot.send_message")
 
     proceed_set_summarizing_model(msg)
 
+    mock_set_model.assert_called_once_with(msg.from_user.id, "gemini-2.5-flash")
     assert "The summarizing model is set to Gemini 2.5 Flash" in mock_send.call_args[0][1]
 
 
