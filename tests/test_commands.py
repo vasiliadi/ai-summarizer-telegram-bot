@@ -249,13 +249,14 @@ def test_handle_set_summarizing_model(message_factory, mocker):
 
 def test_proceed_set_summarizing_model_success(message_factory, mocker):
     """Test successful model selection."""
-    msg = message_factory(content_type="text", text="gemini-2.5-flash")
-    mocker.patch("main.set_summarizing_model", return_value=True)
+    msg = message_factory(content_type="text", text="Gemini 2.5 Flash")
+    mock_set_model = mocker.patch("main.set_summarizing_model", return_value=True)
     mock_send = mocker.patch("main.bot.send_message")
 
     proceed_set_summarizing_model(msg)
 
-    assert "The summarizing model is set to gemini-2.5-flash" in mock_send.call_args[0][1]
+    mock_set_model.assert_called_once_with(msg.from_user.id, "gemini-2.5-flash")
+    assert "The summarizing model is set to Gemini 2.5 Flash" in mock_send.call_args[0][1]
 
 
 def test_proceed_set_summarizing_model_missing_input(message_factory, mocker):
@@ -271,15 +272,27 @@ def test_proceed_set_summarizing_model_missing_input(message_factory, mocker):
     mock_set_model.assert_not_called()
 
 
-def test_proceed_set_summarizing_model_invalid_choice(message_factory, mocker):
-    """Test invalid model returns a clear user-facing message."""
-    msg = message_factory(content_type="text", text="gemini-4-pro")
+def test_proceed_set_summarizing_model_db_failure(message_factory, mocker):
+    """Test DB failure returns a clear user-facing message."""
+    msg = message_factory(content_type="text", text="Gemini 2.5 Flash")
     mocker.patch("main.set_summarizing_model", return_value=False)
     mock_send = mocker.patch("main.bot.send_message")
 
     proceed_set_summarizing_model(msg)
 
+    mock_send.assert_called_once_with(msg.chat.id, "Failed to update summarizing model.")
+
+
+def test_proceed_set_summarizing_model_invalid_choice(message_factory, mocker):
+    """Test invalid label short-circuits before calling set_summarizing_model."""
+    msg = message_factory(content_type="text", text="Gemini 4 Pro")
+    mock_set_model = mocker.patch("main.set_summarizing_model")
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed_set_summarizing_model(msg)
+
     mock_send.assert_called_once_with(msg.chat.id, "Unknown model")
+    mock_set_model.assert_not_called()
 
 
 def test_handle_set_prompt_strategy(message_factory, mocker):

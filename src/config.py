@@ -61,10 +61,11 @@ bot = telebot.TeleBot(token=TG_API_TOKEN, disable_web_page_preview=True)
 # Gemini config
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-ALLOWED_MODELS_FOR_SUMMARY = [
-    "gemini-3-flash-preview",
-    "gemini-2.5-flash",
-]
+MODEL_LABELS: dict[str, str] = {
+    "gemini-3-flash-preview": "Gemini 3 Flash",
+    "gemini-2.5-flash": "Gemini 2.5 Flash",
+}
+ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_LABELS.keys())
 MODELS_WITH_THINKING_SUPPORT = [
     "gemini-3-flash-preview",
 ]
