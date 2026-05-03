@@ -81,7 +81,7 @@ def test_handle_myinfo(message_factory, mocker):
         approved=True,
         target_language="English",
         summarizing_model="gemini-2.5-flash",
-        prompt_key_for_summary="basic",
+        prompt_key_for_summary="basic_prompt_for_transcript",
         use_yt_transcription=False,
         use_transcription=False,
         daily_limit=10,
@@ -97,6 +97,8 @@ def test_handle_myinfo(message_factory, mocker):
     assert "Target language: English" in content
     assert "Daily limit: 10" in content
     assert "Remaining quota: 7" in content
+    assert "Summarizing model: Gemini 2.5 Flash" in content
+    assert "Prompt strategy: Detailed Summary" in content
 
 
 def test_handle_myinfo_missing_user(message_factory, mocker):
