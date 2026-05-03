@@ -11,7 +11,7 @@ from telebot.types import (
 from tenacity import RetryError
 
 from config import (
-    ALLOWED_MODELS_FOR_SUMMARY,
+    MODEL_LABELS,
     PROMPT_STRATEGY_LABELS,
     SUPPORTED_LANGUAGES,
     bot,
@@ -338,7 +338,7 @@ def handle_set_summarizing_model(message: Message) -> None:
 
     """
     markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    models = [KeyboardButton(model) for model in ALLOWED_MODELS_FOR_SUMMARY]
+    models = [KeyboardButton(label) for label in MODEL_LABELS.values()]
     markup.add(*models)
 
     bot.send_message(
@@ -367,10 +367,13 @@ def proceed_set_summarizing_model(message: Message) -> None:
     if message.from_user is None or message.text is None:
         bot.reply_to(message, "User information or model is missing.")
         return
-    set_model = set_summarizing_model(message.from_user.id, message.text)
-    if not set_model:
-        msg = "Unknown model"
-        bot.send_message(message.chat.id, msg)
+    label_to_model = {v: k for k, v in MODEL_LABELS.items()}
+    model_id = label_to_model.get(message.text)
+    if model_id is None:
+        bot.send_message(message.chat.id, "Unknown model")
+        return
+    if not set_summarizing_model(message.from_user.id, model_id):
+        bot.send_message(message.chat.id, "Failed to update summarizing model.")
         return
     markup = ReplyKeyboardRemove()
     bot.send_message(
