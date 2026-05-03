@@ -79,10 +79,11 @@ def vtt_to_text(vtt_path: Path) -> str:
         str: Clean transcript text with duplicate lines removed.
 
     """
+    lines = vtt_path.read_text(encoding="utf-8").splitlines()
     out: list[str] = []
     prev = ""
     in_note = False
-    for raw in vtt_path.read_text(encoding="utf-8").splitlines():
+    for i, raw in enumerate(lines):
         line = raw.strip()
         if not line:
             in_note = False
@@ -95,6 +96,9 @@ def vtt_to_text(vtt_path: Path) -> str:
             continue
         if line.startswith("NOTE"):
             in_note = True
+            continue
+        next_line = lines[i + 1].strip() if i + 1 < len(lines) else ""
+        if "-->" in next_line:
             continue
         clean = re.sub(r"<[^>]*>", "", line)
         clean = clean.replace("&amp;", "&").replace("&gt;", ">").replace("&lt;", "<")

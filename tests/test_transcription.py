@@ -159,6 +159,26 @@ def test_vtt_to_text_dedupes_and_strips_tags(tmp_path):
 
     assert result == "Hello & world\nSecond line"
 
+def test_vtt_to_text_skips_cue_identifiers(tmp_path):
+    """Test vtt_to_text skips cue identifier lines (numeric or text) before timestamps."""
+    vtt_content = textwrap.dedent("""\
+        WEBVTT
+
+        1
+        00:00:01.000 --> 00:00:03.000
+        Hello
+
+        intro
+        00:00:03.000 --> 00:00:05.000
+        World
+    """)
+    vtt_path = tmp_path / "test.vtt"
+    vtt_path.write_text(vtt_content, encoding="utf-8")
+
+    result = vtt_to_text(vtt_path)
+
+    assert result == "Hello\nWorld"
+
 def test_vtt_to_text_skips_multiline_note_block(tmp_path):
     """Test vtt_to_text skips all lines inside a multiline NOTE block."""
     vtt_content = textwrap.dedent("""\
