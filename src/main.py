@@ -438,7 +438,9 @@ def proceed_set_prompt_strategy(message: Message) -> None:
     if prompt_key is None:
         bot.send_message(message.chat.id, "Unknown strategy")
         return
-    set_prompt_strategy(message.from_user.id, prompt_key)
+    if not set_prompt_strategy(message.from_user.id, prompt_key):
+        bot.send_message(message.chat.id, "Failed to update prompt strategy.")
+        return
     markup = ReplyKeyboardRemove()
     bot.send_message(
         message.chat.id,
