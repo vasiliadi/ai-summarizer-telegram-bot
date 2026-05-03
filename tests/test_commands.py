@@ -296,13 +296,13 @@ def test_handle_set_prompt_strategy(message_factory, mocker):
 
 def test_proceed_set_prompt_strategy_success(message_factory, mocker):
     """Test successful strategy selection."""
-    msg = message_factory(content_type="text", text="basic")
-    mocker.patch("main.set_prompt_strategy", return_value=True)
+    msg = message_factory(content_type="text", text="Detailed Summary")
+    mocker.patch("main.set_prompt_strategy")
     mock_send = mocker.patch("main.bot.send_message")
 
     proceed_set_prompt_strategy(msg)
 
-    assert "The prompt strategy is set to basic" in mock_send.call_args[0][1]
+    assert "The prompt strategy is set to Detailed Summary" in mock_send.call_args[0][1]
 
 
 def test_proceed_set_prompt_strategy_missing_input(message_factory, mocker):
@@ -321,9 +321,10 @@ def test_proceed_set_prompt_strategy_missing_input(message_factory, mocker):
 def test_proceed_set_prompt_strategy_invalid_choice(message_factory, mocker):
     """Test invalid prompt strategy returns a clear user-facing message."""
     msg = message_factory(content_type="text", text="enterprise")
-    mocker.patch("main.set_prompt_strategy", return_value=False)
+    mock_set_strategy = mocker.patch("main.set_prompt_strategy")
     mock_send = mocker.patch("main.bot.send_message")
 
     proceed_set_prompt_strategy(msg)
 
     mock_send.assert_called_once_with(msg.chat.id, "Unknown strategy")
+    mock_set_strategy.assert_not_called()

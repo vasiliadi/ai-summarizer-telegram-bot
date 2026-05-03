@@ -12,7 +12,7 @@ from tenacity import RetryError
 
 from config import (
     ALLOWED_MODELS_FOR_SUMMARY,
-    ALLOWED_PROMPT_KEYS,
+    PROMPT_STRATEGY_LABELS,
     SUPPORTED_LANGUAGES,
     bot,
 )
@@ -404,7 +404,7 @@ def handle_set_prompt_strategy(message: Message) -> None:
 
     """
     markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    strategies = [KeyboardButton(strategy) for strategy in ALLOWED_PROMPT_KEYS]
+    strategies = [KeyboardButton(label) for label in PROMPT_STRATEGY_LABELS.values()]
     markup.add(*strategies)
 
     bot.send_message(
@@ -433,11 +433,12 @@ def proceed_set_prompt_strategy(message: Message) -> None:
     if message.from_user is None or message.text is None:
         bot.reply_to(message, "User information or strategy is missing.")
         return
-    set_strategy = set_prompt_strategy(message.from_user.id, message.text)
-    if not set_strategy:
-        msg = "Unknown strategy"
-        bot.send_message(message.chat.id, msg)
+    label_to_key = {v: k for k, v in PROMPT_STRATEGY_LABELS.items()}
+    prompt_key = label_to_key.get(message.text)
+    if prompt_key is None:
+        bot.send_message(message.chat.id, "Unknown strategy")
         return
+    set_prompt_strategy(message.from_user.id, prompt_key)
     markup = ReplyKeyboardRemove()
     bot.send_message(
         message.chat.id,
