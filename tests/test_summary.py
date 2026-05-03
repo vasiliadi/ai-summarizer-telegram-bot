@@ -359,7 +359,10 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
     assert result == "File summary"
     mock_download.assert_called_once_with(url)
     mock_clean_up.assert_called_once_with(file="downloaded.ogg")
-    mock_logger.warning.assert_called_once()
+    mock_logger.warning.assert_called_once_with(
+        "get_yt_transcript failed, falling back to download: %s",
+        mocker.ANY,
+    )
 
 
 def test_summarize_youtube_transcript_retry_error_falls_back_to_download(mocker):
@@ -386,7 +389,10 @@ def test_summarize_youtube_transcript_retry_error_falls_back_to_download(mocker)
     assert result == "File summary"
     mock_download.assert_called_once_with(url)
     mock_clean_up.assert_called_once_with(file="downloaded.ogg")
-    mock_logger.warning.assert_called_once()
+    mock_logger.warning.assert_called_once_with(
+        "get_yt_transcript failed, falling back to download: %s",
+        mocker.ANY,
+    )
 
 
 def test_summarize_fallback_to_transcription(mocker):
