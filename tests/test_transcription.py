@@ -1,8 +1,13 @@
+import textwrap
+
 import pytest
 from replicate.exceptions import ModelError
-from youtube_transcript_api._errors import NoTranscriptFound
+from tenacity import RetryError
+from youtube_transcript_api._errors import IpBlocked, NoTranscriptFound
+from yt_dlp.utils import DownloadError
 
-from transcription import get_yt_transcript, transcribe
+from transcription import fetch_transcript_via_api, fetch_transcript_via_ytdlp, get_yt_transcript, transcribe
+from utils import vtt_to_text
 
 
 def test_get_yt_transcript_youtube_watch_url(mocker):
@@ -76,6 +81,234 @@ def test_get_yt_transcript_fallback_languages(mocker):
     assert calls[0].args == ("vid",)
     assert calls[1].args == ("vid",)
     assert calls[1].kwargs == {"languages": ["es"]}
+
+def test_get_yt_transcript_falls_back_to_ytdlp_on_api_failure(mocker, tmp_path):
+    """Test get_yt_transcript falls back to yt-dlp when fetch_transcript_via_api exhausts retries."""
+    mocker.patch("time.sleep")
+    mocker.patch(
+        "transcription.fetch_transcript_via_api",
+        side_effect=RetryError(mocker.MagicMock()),
+    )
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+
+    vtt_content = textwrap.dedent("""\
+        WEBVTT
+        Kind: captions
+        Language: en
+
+        00:00:01.000 --> 00:00:03.000
+        Hello world
+
+        00:00:03.000 --> 00:00:05.000
+        Hello world
+
+        00:00:05.000 --> 00:00:07.000
+        Goodbye
+    """)
+    vtt_file = tmp_path / "fake-uuid.en.vtt"
+    vtt_file.write_text(vtt_content, encoding="utf-8")
+
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    mock_ydl_inst = mock_ydl_cls.return_value.__enter__.return_value
+    mocker.patch("transcription.clean_up")
+
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    result = get_yt_transcript(url)
+
+    assert "Hello world" in result
+    assert "Goodbye" in result
+    # Deduplication: "Hello world" appears twice in VTT but only once in output
+    assert result.count("Hello world") == 1
+    # English pass found the VTT file — only one download attempt needed
+    mock_ydl_inst.download.assert_called_once_with([url])
+
+def test_get_yt_transcript_ytdlp_no_subs_raises(mocker, tmp_path):
+    """Test get_yt_transcript raises DownloadError when yt-dlp finds no subtitles."""
+    mocker.patch("time.sleep")
+    mocker.patch(
+        "transcription.fetch_transcript_via_api",
+        side_effect=RetryError(mocker.MagicMock()),
+    )
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    mock_ydl_inst = mock_ydl_cls.return_value.__enter__.return_value
+
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
+        get_yt_transcript(url)
+
+    # Both English and all-languages passes must have been attempted
+    assert mock_ydl_inst.download.call_count == 2
+    mock_ydl_inst.download.assert_called_with([url])
+
+def test_vtt_to_text_dedupes_and_strips_tags(tmp_path):
+    """Test vtt_to_text removes headers, timestamps, HTML tags, entities, and duplicates."""
+    vtt_content = textwrap.dedent("""\
+        WEBVTT
+        Kind: captions
+        Language: en
+
+        NOTE This is a note
+
+        00:00:01.000 --> 00:00:03.000
+        <00:00:01.500><c>Hello</c> &amp; world
+
+        00:00:03.000 --> 00:00:05.000
+        Hello &amp; world
+
+        00:00:05.000 --> 00:00:07.000
+        Second line
+    """)
+    vtt_path = tmp_path / "test.vtt"
+    vtt_path.write_text(vtt_content, encoding="utf-8")
+
+    result = vtt_to_text(vtt_path)
+
+    assert result == "Hello & world\nSecond line"
+
+def test_vtt_to_text_skips_cue_identifiers(tmp_path):
+    """Test vtt_to_text skips cue identifier lines (numeric or text) before timestamps."""
+    vtt_content = textwrap.dedent("""\
+        WEBVTT
+
+        1
+        00:00:01.000 --> 00:00:03.000
+        Hello
+
+        intro
+        00:00:03.000 --> 00:00:05.000
+        World
+    """)
+    vtt_path = tmp_path / "test.vtt"
+    vtt_path.write_text(vtt_content, encoding="utf-8")
+
+    result = vtt_to_text(vtt_path)
+
+    assert result == "Hello\nWorld"
+
+def test_vtt_to_text_skips_multiline_note_block(tmp_path):
+    """Test vtt_to_text skips all lines inside a multiline NOTE block."""
+    vtt_content = textwrap.dedent("""\
+        WEBVTT
+
+        NOTE
+        This comment should not appear
+        in the transcript output.
+
+        00:00:01.000 --> 00:00:03.000
+        Hello
+
+        NOTE This inline note also skipped
+
+        00:00:03.000 --> 00:00:05.000
+        World
+    """)
+    vtt_path = tmp_path / "test.vtt"
+    vtt_path.write_text(vtt_content, encoding="utf-8")
+
+    result = vtt_to_text(vtt_path)
+
+    assert result == "Hello\nWorld"
+    assert "comment" not in result
+    assert "inline" not in result
+
+def test_vtt_to_text_keeps_nonconsecutive_duplicates(tmp_path):
+    """Test vtt_to_text only skips consecutive duplicate lines, not non-consecutive ones."""
+    vtt_content = textwrap.dedent("""\
+        WEBVTT
+
+        00:00:01.000 --> 00:00:03.000
+        Hello
+
+        00:00:03.000 --> 00:00:05.000
+        World
+
+        00:00:05.000 --> 00:00:07.000
+        Hello
+    """)
+    vtt_path = tmp_path / "test.vtt"
+    vtt_path.write_text(vtt_content, encoding="utf-8")
+
+    result = vtt_to_text(vtt_path)
+
+    assert result == "Hello\nWorld\nHello"
+
+def test_fetch_transcript_via_api_uses_proxy_when_configured(mocker):
+    """Test fetch_transcript_via_api passes GenericProxyConfig when PROXY is set."""
+    mocker.patch("transcription.PROXY", "http://proxy:8080")
+    mock_proxy_cfg = mocker.patch("transcription.GenericProxyConfig")
+    mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
+    mocker.patch("transcription.TextFormatter").return_value.format_transcript.return_value = "Hello"
+    mock_ytt.return_value.fetch.return_value = []
+
+    result = fetch_transcript_via_api("vid")
+
+    assert result == "Hello"
+    mock_proxy_cfg.assert_called_once_with(https_url="http://proxy:8080")
+    mock_ytt.assert_called_once_with(proxy_config=mock_proxy_cfg.return_value)
+
+def test_fetch_transcript_via_ytdlp_unexpected_error_wrapped_as_download_error(mocker, tmp_path):
+    """Test fetch_transcript_via_ytdlp wraps non-DownloadError exceptions as DownloadError."""
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    mock_ydl_cls.return_value.__enter__.return_value.download.side_effect = ConnectionError("network failure")
+    mock_logger = mocker.patch("transcription.logger")
+
+    with pytest.raises(DownloadError, match="yt-dlp subtitle fetch failed"):
+        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+
+    mock_logger.warning.assert_called_once_with(
+        "yt-dlp subtitle fetch failed unexpectedly: %s",
+        mocker.ANY,
+    )
+
+def test_fetch_transcript_via_api_retries_on_ip_blocked(mocker):
+    """Test fetch_transcript_via_api retries 3 times on IpBlocked then raises RetryError."""
+    mocker.patch("time.sleep")
+    mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
+    mock_ytt.return_value.fetch.side_effect = IpBlocked("vid")
+
+    with pytest.raises(RetryError):
+        fetch_transcript_via_api("vid")
+
+    assert mock_ytt.return_value.fetch.call_count == 3
+
+def test_fetch_transcript_via_ytdlp_all_language_fallback(mocker, tmp_path):
+    """Test fetch_transcript_via_ytdlp retries with all languages when English is unavailable."""
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.clean_up")
+
+    vtt_content = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nBonjour\n"
+    vtt_path = tmp_path / "fake-uuid.fr.vtt"
+    extract_calls: list[list[str]] = []
+
+    class MockYDL:
+        def __init__(self, opts: object) -> None:
+            self.opts = opts
+
+        def __enter__(self) -> "MockYDL":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def download(self, url_list: list[str]) -> int:
+            langs = self.opts.get("subtitleslangs", [])
+            extract_calls.append(langs)
+            if "all" in langs:
+                vtt_path.write_text(vtt_content, encoding="utf-8")
+            return 0
+
+    mocker.patch("transcription.YoutubeDL", MockYDL)
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+
+    result = fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+
+    assert result == "Bonjour"
+    assert extract_calls == [["en.*", "en"], ["all"]]
 
 def test_transcribe_happy_path(mocker):
     """Test transcribing an audio file successfully via Replicate."""

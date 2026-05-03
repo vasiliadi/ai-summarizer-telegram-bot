@@ -7,6 +7,7 @@ from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError, ReplicateError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
+    RetryError,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -17,8 +18,11 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import IpBlocked, NoTranscriptFound, RequestBlocked
 from youtube_transcript_api.formatters import TextFormatter
 from youtube_transcript_api.proxies import GenericProxyConfig
+from yt_dlp import YoutubeDL
+from yt_dlp.utils import DownloadError
 
 from config import PROXY, replicate_client
+from utils import clean_up, generate_temporary_name, vtt_to_text
 
 if TYPE_CHECKING:
     from tenacity import (
@@ -76,14 +80,103 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(10),
+    retry=retry_if_exception_type((ParseError, IpBlocked, RequestBlocked)),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+    reraise=False,
+)
+def fetch_transcript_via_api(video_id: str) -> str:
+    """Retrieve and format a YouTube transcript via youtube_transcript_api.
+
+    Args:
+        video_id (str): The YouTube video ID.
+
+    Returns:
+        str: The formatted transcript text.
+
+    Raises:
+        NoTranscriptFound: If no transcript is found in any language.
+        RetryError: If IpBlocked, RequestBlocked, or ParseError persist after retries.
+
+    """
+    if PROXY:
+        ytt_api = YouTubeTranscriptApi(proxy_config=GenericProxyConfig(https_url=PROXY))
+    else:
+        ytt_api = YouTubeTranscriptApi()
+
+    try:
+        transcript = ytt_api.fetch(video_id)
+    except NoTranscriptFound:
+        transcript_list = ytt_api.list(video_id)
+        language_codes = [transcript.language_code for transcript in transcript_list]
+        transcript = ytt_api.fetch(video_id, languages=language_codes)
+    return TextFormatter().format_transcript(transcript)
+
+
+def fetch_transcript_via_ytdlp(url: str) -> str:
+    """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
+
+    Tries English subtitles first (manual then auto-generated), then falls
+    back to any available language. Always uses PROXY when configured.
+
+    Args:
+        url (str): The YouTube video URL.
+
+    Returns:
+        str: The transcript as plain text.
+
+    Raises:
+        DownloadError: If no subtitles are available or yt-dlp cannot fetch them.
+
+    """
+    temp_basename = generate_temporary_name()
+    ydl_opts: dict[str, object] = {
+        "proxy": PROXY,
+        "skip_download": True,
+        "writesubtitles": True,
+        "writeautomaticsub": True,
+        "subtitleslangs": ["en.*", "en"],
+        "subtitlesformat": "vtt",
+        "outtmpl": temp_basename,
+        "quiet": True,
+        "nocheckcertificate": False,
+    }
+    try:
+        with YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+
+        vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
+
+        if not vtt_files:
+            ydl_opts_all = {**ydl_opts, "subtitleslangs": ["all"]}
+            with YoutubeDL(ydl_opts_all) as ydl:
+                ydl.download([url])
+            vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
+
+        if not vtt_files:
+            msg = "No subtitles available via yt-dlp"
+            raise DownloadError(msg)  # noqa: TRY301
+
+        return vtt_to_text(vtt_files[0])
+    except DownloadError as exc:
+        logger.warning("yt-dlp subtitle fetch failed: %s", exc)
+        raise
+    except Exception as exc:
+        logger.warning("yt-dlp subtitle fetch failed unexpectedly: %s", exc)
+        msg = "yt-dlp subtitle fetch failed"
+        raise DownloadError(msg) from exc
+    finally:
+        for f in Path.cwd().glob(f"{temp_basename}.*.vtt"):
+            clean_up(file=str(f))
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(10),
     retry=retry_if_exception_type(
         (
             ProxyError,
             SSLError,
             ChunkedEncodingError,
-            ParseError,
-            IpBlocked,
-            RequestBlocked,
         ),
     ),
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
@@ -91,6 +184,10 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
 )
 def get_yt_transcript(url: str) -> str:
     """Retrieve and format the transcript from a YouTube video URL.
+
+    Tries youtube_transcript_api first. If blocked or unavailable, falls
+    back to yt-dlp subtitle download. Transient network errors are retried
+    up to 3 times before raising RetryError.
 
     Args:
         url (str): The YouTube video URL.
@@ -100,7 +197,8 @@ def get_yt_transcript(url: str) -> str:
 
     Raises:
         ValueError: If the URL format is not recognized.
-        RetryError: If proxy/SSL/XML errors persist after retries.
+        DownloadError: If both the API and yt-dlp fallback fail to retrieve subtitles.
+        RetryError: If proxy/SSL/network errors persist after all retry attempts.
 
     """
     if url.startswith("https://www.youtube.com/watch"):
@@ -115,15 +213,11 @@ def get_yt_transcript(url: str) -> str:
         msg = "Unknown URL"
         raise ValueError(msg)
 
-    if PROXY:
-        ytt_api = YouTubeTranscriptApi(proxy_config=GenericProxyConfig(https_url=PROXY))
-    else:
-        ytt_api = YouTubeTranscriptApi()
-
     try:
-        transcript = ytt_api.fetch(video_id)
-    except NoTranscriptFound:
-        transcript_list = ytt_api.list(video_id)
-        language_codes = [transcript.language_code for transcript in transcript_list]
-        transcript = ytt_api.fetch(video_id, languages=language_codes)
-    return TextFormatter().format_transcript(transcript)
+        return fetch_transcript_via_api(video_id)
+    except (NoTranscriptFound, RetryError) as api_err:
+        logger.warning(
+            "youtube_transcript_api failed (%s); trying yt-dlp fallback",
+            api_err,
+        )
+        return fetch_transcript_via_ytdlp(url)

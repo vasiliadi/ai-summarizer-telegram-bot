@@ -1,3 +1,4 @@
+import re
 import subprocess
 from pathlib import Path
 from uuid import uuid4
@@ -66,6 +67,45 @@ def compress_audio(input_file: str, output_file: str) -> None:
         capture_output=False,
         text=True,
     )
+
+
+def vtt_to_text(vtt_path: Path) -> str:
+    """Convert a VTT subtitle file to deduplicated plain text.
+
+    Args:
+        vtt_path (Path): Path to the .vtt file.
+
+    Returns:
+        str: Clean transcript text with duplicate lines removed.
+
+    """
+    lines = vtt_path.read_text(encoding="utf-8").splitlines()
+    out: list[str] = []
+    prev = ""
+    in_note = False
+    for i, raw in enumerate(lines):
+        line = raw.strip()
+        if not line:
+            in_note = False
+            continue
+        if in_note:
+            continue
+        if "-->" in line:
+            continue
+        if line.startswith(("WEBVTT", "Kind:", "Language:")):
+            continue
+        if line.startswith("NOTE"):
+            in_note = True
+            continue
+        next_line = lines[i + 1].strip() if i + 1 < len(lines) else ""
+        if "-->" in next_line:
+            continue
+        clean = re.sub(r"<[^>]*>", "", line)
+        clean = clean.replace("&amp;", "&").replace("&gt;", ">").replace("&lt;", "<")
+        if clean and clean != prev:
+            out.append(clean)
+            prev = clean
+    return "\n".join(out)
 
 
 def clean_up(file: str | None = None, all_downloads: bool = False) -> None:
