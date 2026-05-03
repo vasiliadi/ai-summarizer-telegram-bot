@@ -137,11 +137,11 @@ def handle_myinfo(message: Message) -> None:
                 YouTube transcript: {user.use_yt_transcription}
                 Audio transcript: {user.use_transcription}
                 Target language: {user.target_language}
-                Summarizing model: {user.summarizing_model}
-                Prompt strategy: {user.prompt_key_for_summary}
+                Summarizing model: {MODEL_LABELS.get(user.summarizing_model, user.summarizing_model)}
+                Prompt strategy: {PROMPT_STRATEGY_LABELS.get(user.prompt_key_for_summary, user.prompt_key_for_summary)}
                 Daily limit: {user.daily_limit}
                 Remaining quota: {get_remaining_quota(user.user_id, user.daily_limit)}
-                """).strip()
+                """).strip()  # noqa: E501
     bot.send_message(message.chat.id, msg)
 
 
