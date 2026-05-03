@@ -21,6 +21,8 @@ from services import choose_yt_audio_format
 from utils import generate_temporary_name
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from telebot.types import File
     from tenacity import (
         _utils as tenacity_utils,
@@ -61,7 +63,10 @@ def download_yt(url: str) -> str:
     # can fail on videos whose available formats do not satisfy yt-dlp's alias.
     with YoutubeDL({"proxy": PROXY, "nocheckcertificate": False}) as ydl:
         info = ydl.extract_info(url, download=False)
-    audio_format = choose_yt_audio_format(info)
+    if info is None:
+        msg = "Failed to extract info from YouTube URL."
+        raise DownloadError(msg)
+    audio_format = choose_yt_audio_format(cast("dict[str, Any]", info))
     ydl_opts = {
         "format": audio_format,
         "outtmpl": temporary_file_name.split(".", maxsplit=1)[0],
@@ -123,6 +128,9 @@ def download_castro(url: str) -> str:
     if not audio_url:
         msg = "Audio URL not found in Castro page."
         raise ValueError(msg)
+    if not isinstance(audio_url, str):
+        msg = "Audio URL is not a string."
+        raise TypeError(msg)
     logger.debug("URL parsed! Starting download...")
     with requests.get(
         requests.utils.requote_uri(audio_url),

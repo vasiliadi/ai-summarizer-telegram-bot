@@ -115,6 +115,22 @@ def test_download_yt_happy_path(mocker):
     download_ydl.download.assert_called_once_with("https://youtube.com/watch?v=123")
 
 
+def test_download_yt_extract_info_returns_none(mocker):
+    """Test download_yt raises RetryError when extract_info returns None."""
+    from tenacity import RetryError
+
+    mock_ydl = mocker.patch("download.YoutubeDL")
+    mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
+    mocker.patch("time.sleep")  # suppress tenacity wait between retries
+
+    info_ydl = mocker.MagicMock()
+    info_ydl.extract_info.return_value = None
+    mock_ydl.return_value.__enter__.return_value = info_ydl
+
+    with pytest.raises(RetryError):
+        download_yt("https://youtube.com/watch?v=123")
+
+
 def test_choose_yt_audio_format_falls_back_when_no_audio_only_formats():
     """Test selector fallback when yt-dlp has no audio-only format ids."""
     info = {
@@ -195,6 +211,23 @@ def test_download_castro_missing_audio_url(mocker):
     mocker.patch("download.requests.utils.requote_uri", side_effect=lambda x: x)
 
     with pytest.raises(ValueError, match="Audio URL not found in Castro page."):
+        download_castro("https://castro.fm/episode/123")
+
+
+def test_download_castro_non_string_audio_url(mocker):
+    """Test download_castro raises TypeError when src attribute is a list."""
+    mock_page_resp = mocker.MagicMock()
+    mock_page_resp.content = b'<html><source src="a.mp3 b.mp3"></html>'
+    mocker.patch("download.requests.get", return_value=mock_page_resp)
+    mocker.patch("download.requests.utils.requote_uri", side_effect=lambda x: x)
+
+    mock_source = mocker.MagicMock()
+    mock_source.get.return_value = ["a.mp3", "b.mp3"]
+    mock_soup = mocker.MagicMock()
+    mock_soup.source = mock_source
+    mocker.patch("download.BeautifulSoup", return_value=mock_soup)
+
+    with pytest.raises(TypeError, match="Audio URL is not a string."):
         download_castro("https://castro.fm/episode/123")
 
 
