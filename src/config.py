@@ -98,10 +98,11 @@ GEMINI_CONFIG = types.GenerateContentConfig(
 # Prompts
 # If you change DEFAULT_PROMPT_KEY, also change it in models.py.
 DEFAULT_PROMPT_KEY = "basic_prompt_for_transcript"
-ALLOWED_PROMPT_KEYS = [
-    "basic_prompt_for_transcript",
-    "key_points_for_transcript",
-]
+PROMPT_STRATEGY_LABELS: dict[str, str] = {
+    "basic_prompt_for_transcript": "Detailed Summary",
+    "key_points_for_transcript": "Key Points",
+}
+ALLOWED_PROMPT_KEYS = list(PROMPT_STRATEGY_LABELS.keys())
 
 
 # Replicate.com config
