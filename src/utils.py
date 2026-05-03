@@ -79,19 +79,28 @@ def vtt_to_text(vtt_path: Path) -> str:
         str: Clean transcript text with duplicate lines removed.
 
     """
-    seen: set[str] = set()
     out: list[str] = []
+    prev = ""
+    in_note = False
     for raw in vtt_path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
-        if not line or "-->" in line:
+        if not line:
+            in_note = False
             continue
-        if line.startswith(("WEBVTT", "Kind:", "Language:", "NOTE")):
+        if in_note:
+            continue
+        if "-->" in line:
+            continue
+        if line.startswith(("WEBVTT", "Kind:", "Language:")):
+            continue
+        if line.startswith("NOTE"):
+            in_note = True
             continue
         clean = re.sub(r"<[^>]*>", "", line)
         clean = clean.replace("&amp;", "&").replace("&gt;", ">").replace("&lt;", "<")
-        if clean and clean not in seen:
-            seen.add(clean)
+        if clean and clean != prev:
             out.append(clean)
+            prev = clean
     return "\n".join(out)
 
 

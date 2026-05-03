@@ -94,10 +94,8 @@ def fetch_transcript_via_api(video_id: str) -> str:
         str: The formatted transcript text.
 
     Raises:
-        NoTranscriptFound: If no transcript can be retrieved in any language.
-        IpBlocked: If the client IP is blocked by YouTube.
-        RequestBlocked: If the request is blocked by YouTube.
-        ParseError: If the XML transcript response is malformed.
+        NoTranscriptFound: If no transcript is found in any language.
+        RetryError: If IpBlocked, RequestBlocked, or ParseError persist after retries.
 
     """
     if PROXY:
