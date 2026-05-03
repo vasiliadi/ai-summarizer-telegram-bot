@@ -17,6 +17,7 @@ from tenacity import (
     wait_fixed,
 )
 from youtube_transcript_api._errors import TranscriptsDisabled
+from yt_dlp.utils import DownloadError
 
 from config import gemini_client
 from download import download_castro, download_tg, download_yt
@@ -414,7 +415,7 @@ def summarize(
             if use_yt_transcription:
                 try:
                     transcript = get_yt_transcript(data)
-                except (TranscriptsDisabled, RetryError) as e:
+                except (TranscriptsDisabled, RetryError, DownloadError) as e:
                     logger.warning(
                         "get_yt_transcript failed, falling back to download: %s",
                         e,

@@ -1,8 +1,14 @@
+import textwrap
+from pathlib import Path
+
 import pytest
 from replicate.exceptions import ModelError
+from tenacity import RetryError
 from youtube_transcript_api._errors import NoTranscriptFound
+from yt_dlp.utils import DownloadError
 
 from transcription import get_yt_transcript, transcribe
+from utils import vtt_to_text
 
 
 def test_get_yt_transcript_youtube_watch_url(mocker):
@@ -76,6 +82,82 @@ def test_get_yt_transcript_fallback_languages(mocker):
     assert calls[0].args == ("vid",)
     assert calls[1].args == ("vid",)
     assert calls[1].kwargs == {"languages": ["es"]}
+
+def test_get_yt_transcript_falls_back_to_ytdlp_on_api_failure(mocker, tmp_path):
+    """Test get_yt_transcript falls back to yt-dlp when fetch_transcript_via_api exhausts retries."""
+    mocker.patch(
+        "transcription.fetch_transcript_via_api",
+        side_effect=RetryError(mocker.MagicMock()),
+    )
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+
+    vtt_content = textwrap.dedent("""\
+        WEBVTT
+        Kind: captions
+        Language: en
+
+        00:00:01.000 --> 00:00:03.000
+        Hello world
+
+        00:00:03.000 --> 00:00:05.000
+        Hello world
+
+        00:00:05.000 --> 00:00:07.000
+        Goodbye
+    """)
+    vtt_file = tmp_path / "fake-uuid.en.vtt"
+    vtt_file.write_text(vtt_content, encoding="utf-8")
+
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    mocker.patch("transcription.YoutubeDL")
+    mocker.patch("transcription.clean_up")
+
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    result = get_yt_transcript(url)
+
+    assert "Hello world" in result
+    assert "Goodbye" in result
+    # Deduplication: "Hello world" appears twice in VTT but only once in output
+    assert result.count("Hello world") == 1
+
+def test_get_yt_transcript_ytdlp_no_subs_raises(mocker, tmp_path):
+    """Test get_yt_transcript raises DownloadError when yt-dlp finds no subtitles."""
+    mocker.patch(
+        "transcription.fetch_transcript_via_api",
+        side_effect=RetryError(mocker.MagicMock()),
+    )
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    mocker.patch("transcription.YoutubeDL")
+
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
+        get_yt_transcript(url)
+
+def test_vtt_to_text_dedupes_and_strips_tags(tmp_path):
+    """Test vtt_to_text removes headers, timestamps, HTML tags, entities, and duplicates."""
+    vtt_content = textwrap.dedent("""\
+        WEBVTT
+        Kind: captions
+        Language: en
+
+        NOTE This is a note
+
+        00:00:01.000 --> 00:00:03.000
+        <00:00:01.500><c>Hello</c> &amp; world
+
+        00:00:03.000 --> 00:00:05.000
+        Hello &amp; world
+
+        00:00:05.000 --> 00:00:07.000
+        Second line
+    """)
+    vtt_path = tmp_path / "test.vtt"
+    vtt_path.write_text(vtt_content, encoding="utf-8")
+
+    result = vtt_to_text(vtt_path)
+
+    assert result == "Hello & world\nSecond line"
 
 def test_transcribe_happy_path(mocker):
     """Test transcribing an audio file successfully via Replicate."""
