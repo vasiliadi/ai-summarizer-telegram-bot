@@ -3,7 +3,8 @@ import textwrap
 import pytest
 from replicate.exceptions import ModelError
 from tenacity import RetryError
-from youtube_transcript_api._errors import IpBlocked, NoTranscriptFound
+from defusedxml.ElementTree import ParseError
+from youtube_transcript_api._errors import IpBlocked, NoTranscriptFound, RequestBlocked
 from yt_dlp.utils import DownloadError
 
 from transcription import fetch_transcript_via_api, fetch_transcript_via_ytdlp, get_yt_transcript, transcribe
@@ -265,16 +266,30 @@ def test_fetch_transcript_via_ytdlp_unexpected_error_wrapped_as_download_error(m
         mocker.ANY,
     )
 
-def test_fetch_transcript_via_api_retries_on_ip_blocked(mocker):
-    """Test fetch_transcript_via_api retries 3 times on IpBlocked then raises RetryError."""
+def test_fetch_transcript_via_ytdlp_unexpected_error_preserves_cause(mocker, tmp_path):
+    """Test fetch_transcript_via_ytdlp sets original exception as __cause__ of raised DownloadError."""
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    original_exc = ConnectionError("network failure")
+    mock_ydl_cls.return_value.__enter__.return_value.download.side_effect = original_exc
+
+    with pytest.raises(DownloadError) as exc_info:
+        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+
+    assert exc_info.value.__cause__ is original_exc
+
+@pytest.mark.parametrize("exc", [IpBlocked("vid"), RequestBlocked("vid"), ParseError()])
+def test_fetch_transcript_via_api_retries_on_retryable_exception(mocker, exc):
+    """Test fetch_transcript_via_api retries on each retryable exception then raises RetryError."""
     mocker.patch("time.sleep")
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
-    mock_ytt.return_value.fetch.side_effect = IpBlocked("vid")
+    mock_ytt.return_value.fetch.side_effect = exc
 
     with pytest.raises(RetryError):
         fetch_transcript_via_api("vid")
 
-    assert mock_ytt.return_value.fetch.call_count == 3
+    assert mock_ytt.return_value.fetch.call_count == 2
 
 def test_fetch_transcript_via_ytdlp_all_language_fallback(mocker, tmp_path):
     """Test fetch_transcript_via_ytdlp retries with all languages when English is unavailable."""
