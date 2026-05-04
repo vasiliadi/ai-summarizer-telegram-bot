@@ -121,6 +121,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/ae/44/c1221527f6a71a01ec6fbad7fa78f1d50dfa02217385cf0fa3eec7087d59/click-8.3.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e2/3e/51dff36d99ae14639a133d9b164d63e628532e2974d8b1edb99dd1ebc733/coverage-7.13.5-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/a4/98/40dfe932134bdcae4f6ab5927c87488754bf9eb79297d7e0070b78dd58e9/cryptography-47.0.0-cp311-abi3-macosx_10_9_universal2.whl
+      - pypi: https://files.pythonhosted.org/packages/2c/1c/cdb4fb2d16a0e9de068e0e5bc02094e105ce58a687ff30b4c6f88e25a057/curl_cffi-0.13.0-cp39-abi3-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fe/1f/809cac7474d86ad41f2938b4713cf846b261bba7a1fdb5ab27b3fabc435e/deno-2.7.14-py3-none-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl
@@ -316,6 +317,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/97/c8/c67cb8c70e19ef1960b97b22ed2a1567711de46c4ddf19799923adc836c2/charset_normalizer-3.4.7-cp314-cp314-macosx_10_15_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/ae/44/c1221527f6a71a01ec6fbad7fa78f1d50dfa02217385cf0fa3eec7087d59/click-8.3.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/98/40dfe932134bdcae4f6ab5927c87488754bf9eb79297d7e0070b78dd58e9/cryptography-47.0.0-cp311-abi3-macosx_10_9_universal2.whl
+      - pypi: https://files.pythonhosted.org/packages/2c/1c/cdb4fb2d16a0e9de068e0e5bc02094e105ce58a687ff30b4c6f88e25a057/curl_cffi-0.13.0-cp39-abi3-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fe/1f/809cac7474d86ad41f2938b4713cf846b261bba7a1fdb5ab27b3fabc435e/deno-2.7.14-py3-none-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl
@@ -496,6 +498,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/59/dd/27e9fa567a23931c838c6b02d0764611c62290062a6d4e8ff7863daf9730/cffi-2.0.0-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/97/c8/c67cb8c70e19ef1960b97b22ed2a1567711de46c4ddf19799923adc836c2/charset_normalizer-3.4.7-cp314-cp314-macosx_10_15_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/a4/98/40dfe932134bdcae4f6ab5927c87488754bf9eb79297d7e0070b78dd58e9/cryptography-47.0.0-cp311-abi3-macosx_10_9_universal2.whl
+      - pypi: https://files.pythonhosted.org/packages/2c/1c/cdb4fb2d16a0e9de068e0e5bc02094e105ce58a687ff30b4c6f88e25a057/curl_cffi-0.13.0-cp39-abi3-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fe/1f/809cac7474d86ad41f2938b4713cf846b261bba7a1fdb5ab27b3fabc435e/deno-2.7.14-py3-none-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl
@@ -657,6 +660,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/ae/44/c1221527f6a71a01ec6fbad7fa78f1d50dfa02217385cf0fa3eec7087d59/click-8.3.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e2/3e/51dff36d99ae14639a133d9b164d63e628532e2974d8b1edb99dd1ebc733/coverage-7.13.5-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/a4/98/40dfe932134bdcae4f6ab5927c87488754bf9eb79297d7e0070b78dd58e9/cryptography-47.0.0-cp311-abi3-macosx_10_9_universal2.whl
+      - pypi: https://files.pythonhosted.org/packages/2c/1c/cdb4fb2d16a0e9de068e0e5bc02094e105ce58a687ff30b4c6f88e25a057/curl_cffi-0.13.0-cp39-abi3-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fe/1f/809cac7474d86ad41f2938b4713cf846b261bba7a1fdb5ab27b3fabc435e/deno-2.7.14-py3-none-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl
@@ -736,7 +740,7 @@ packages:
 - pypi: ./
   name: ai-summarizer-telegram-bot
   version: 0.9.4
-  sha256: f273e12944b40127e0aa209237c207b4ed0dc05e6330297f1a5f9102ba4ad6f5
+  sha256: 6a59bf135b3f705de29e4fd962879fda36232b3af61680e02a14efda268fa996
   requires_dist:
   - beautifulsoup4>=4.13.4
   - google-genai>=1.25.0
@@ -750,7 +754,7 @@ packages:
   - telegramify-markdown>=1.0.0
   - tenacity>=9.1.3
   - youtube-transcript-api>=1.1.1
-  - yt-dlp[default]>=2025.6.30
+  - yt-dlp[curl-cffi,default]>=2026.3.17,<2027
   requires_python: '>=3.14'
 - pypi: https://files.pythonhosted.org/packages/0f/15/5bf3b99495fb160b63f95972b81750f18f7f4e02ad051373b669d17d44f2/aiohappyeyeballs-2.6.1-py3-none-any.whl
   name: aiohappyeyeballs
@@ -954,6 +958,47 @@ packages:
   - typing-extensions>=4.13.2 ; python_full_version < '3.11'
   - bcrypt>=3.1.5 ; extra == 'ssh'
   requires_python: '>=3.8,!=3.9.0,!=3.9.1'
+- pypi: https://files.pythonhosted.org/packages/2c/1c/cdb4fb2d16a0e9de068e0e5bc02094e105ce58a687ff30b4c6f88e25a057/curl_cffi-0.13.0-cp39-abi3-macosx_11_0_arm64.whl
+  name: curl-cffi
+  version: 0.13.0
+  sha256: 59afa877a9ae09efa04646a7d068eeea48915a95d9add0a29854e7781679fcd7
+  requires_dist:
+  - cffi>=1.12.0
+  - certifi>=2024.2.2
+  - readability-lxml>=0.8.1 ; extra == 'extra'
+  - markdownify>=1.1.0 ; extra == 'extra'
+  - lxml-html-clean ; extra == 'extra'
+  - charset-normalizer>=3.3.2,<4.0 ; extra == 'dev'
+  - coverage>=6.4.1,<7.0 ; extra == 'dev'
+  - cryptography>=42.0.5,<43.0 ; extra == 'dev'
+  - httpx==0.23.1 ; extra == 'dev'
+  - mypy>=1.9.0,<2.0 ; extra == 'dev'
+  - pytest>=8.1.1,<9.0 ; extra == 'dev'
+  - pytest-asyncio>=0.23.6,<1.0 ; extra == 'dev'
+  - pytest-trio>=0.8.0,<1.0 ; extra == 'dev'
+  - ruff>=0.3.5,<1.0 ; extra == 'dev'
+  - trio>=0.25.0,<1.0 ; extra == 'dev'
+  - trustme>=1.1.0,<2.0 ; extra == 'dev'
+  - uvicorn>=0.29.0,<1.0 ; extra == 'dev'
+  - websockets>=12.0,<13.0 ; extra == 'dev'
+  - typing-extensions ; extra == 'dev'
+  - cibuildwheel ; extra == 'build'
+  - wheel ; extra == 'build'
+  - charset-normalizer>=3.3.2,<4.0 ; extra == 'test'
+  - cryptography>=42.0.5,<43.0 ; extra == 'test'
+  - fastapi==0.110.0,<1.0 ; extra == 'test'
+  - httpx==0.23.1 ; extra == 'test'
+  - proxy-py>=2.4.3,<3.0 ; extra == 'test'
+  - pytest>=8.1.1,<9.0 ; extra == 'test'
+  - pytest-asyncio>=0.23.6,<1.0 ; extra == 'test'
+  - pytest-trio>=0.8.0,<1.0 ; extra == 'test'
+  - python-multipart>=0.0.9,<1.0 ; extra == 'test'
+  - trio>=0.25.0,<1.0 ; extra == 'test'
+  - trustme>=1.1.0,<2.0 ; extra == 'test'
+  - uvicorn>=0.29.0,<1.0 ; extra == 'test'
+  - websockets>=12.0,<13.0 ; extra == 'test'
+  - typing-extensions ; extra == 'test'
+  requires_python: '>=3.9'
 - conda: https://conda.anaconda.org/conda-forge/osx-arm64/dav1d-1.2.1-hb547adb_0.conda
   sha256: 93e077b880a85baec8227e8c72199220c7f87849ad32d02c14fb3807368260b8
   md5: 5a74cdee497e6b65173e10d94582fae6
