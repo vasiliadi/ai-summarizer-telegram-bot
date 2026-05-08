@@ -14,9 +14,15 @@
       "ignoreUnstable": true
     },
     {
-      "description": "Disable minor, major, and prerelease updates for Python",
+      "description": "Disable minor, major, and prerelease updates for Python (pep621/pyenv managers)",
       "matchPackageNames": ["python"],
       "matchUpdateTypes": ["minor", "major", "prerelease"],
+      "enabled": false
+    },
+    {
+      "description": "Disable Python updates via pixi entirely to avoid pep440 range calculation failures on pre-releases",
+      "matchManagers": ["pixi"],
+      "matchPackageNames": ["python"],
       "enabled": false
     },
     {
