@@ -3,6 +3,7 @@
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "schedule": ["on sunday"],
   "minimumReleaseAge": "3 days",
+  "rangeStrategy": "widen",
   "lockFileMaintenance": { "enabled": true, "automerge": true },
   "packageRules": [
     {
@@ -17,6 +18,27 @@
       "matchPackageNames": ["python"],
       "matchUpdateTypes": ["minor", "major", "prerelease"],
       "enabled": false
+    },
+    {
+      "description": "Major bumps must be reviewed: dedicated PR editing pyproject.toml, never auto-merged",
+      "matchManagers": ["pep621"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "addLabels": ["dep:major"]
+    },
+    {
+      "description": "Minor/patch on pyproject deps: safe to auto-merge alongside lockfile maintenance",
+      "matchManagers": ["pep621"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "CalVer packages (yt-dlp YYYY.M.D, rush YYYY.M.D): year rollover is treated as major and gated for manual review",
+      "matchPackageNames": ["yt-dlp", "rush"],
+      "versioning": "pep440",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "addLabels": ["dep:major", "dep:calver"]
     }
   ]
 }
