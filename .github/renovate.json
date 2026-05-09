@@ -39,16 +39,16 @@
       "automerge": true
     },
     {
-      "description": "CalVer packages (yt-dlp YYYY.M.D, rush YYYY.M.D): use pep440 so the year component is treated as major",
+      "description": "CalVer packages (yt-dlp YYYY.M.D, rush YYYY.M.D): pin exactly so lockFileMaintenance cannot silently update them; use pep440 for correct version comparison",
       "matchPackageNames": ["yt-dlp", "rush"],
-      "versioning": "pep440"
+      "versioning": "pep440",
+      "rangeStrategy": "pin"
     },
     {
-      "description": "CalVer packages: year rollover (major) is gated for manual review",
+      "description": "CalVer packages: all updates require manual review regardless of version component",
       "matchPackageNames": ["yt-dlp", "rush"],
-      "matchUpdateTypes": ["major"],
       "automerge": false,
-      "addLabels": ["dep:major", "dep:calver"]
+      "addLabels": ["dep:calver"]
     }
   ]
 }
