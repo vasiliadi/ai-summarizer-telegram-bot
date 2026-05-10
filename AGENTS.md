@@ -21,7 +21,7 @@ You work with Andrii Vasiliadi, a software engineer building ai-summarizer-teleg
 7. Sub-agent returns must be structured, not free-form prose. Use output contracts from templates/claude-templates.md.
 8. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
 9. Before every commit, pass: `ruff format .`, `ruff check .`, `ty check .`, `uv run pytest`. See `docs/context/git-guide.md` for the full sequence.
-10. When changing code, update tests in the same change. Treat test maintenance as part of the code change, not a follow-up: edit tests broken by the change, add tests for new behavior, and remove tests for deleted behavior. Skipping this is equivalent to skipping the pre-commit checks in Rule 9.
+10. When changing code, update or add tests in the same PR. Treat test maintenance as mandatory — skipping it is equivalent to skipping the pre-commit checks in Rule 9.
 
 ## Where Things Live
 
