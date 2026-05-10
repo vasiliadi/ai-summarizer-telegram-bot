@@ -15,7 +15,12 @@ from tenacity import (
     wait_fixed,
 )
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import IpBlocked, NoTranscriptFound, RequestBlocked
+from youtube_transcript_api._errors import (
+    CouldNotRetrieveTranscript,
+    IpBlocked,
+    NoTranscriptFound,
+    RequestBlocked,
+)
 from youtube_transcript_api.formatters import TextFormatter
 from youtube_transcript_api.proxies import GenericProxyConfig
 from yt_dlp import YoutubeDL
@@ -95,6 +100,8 @@ def fetch_transcript_via_api(video_id: str) -> str:
 
     Raises:
         NoTranscriptFound: If no transcript is found in any language.
+        CouldNotRetrieveTranscript: Subclasses (TranscriptsDisabled, VideoUnavailable,
+            AgeRestricted, etc.) are logged at WARNING then re-raised.
         RetryError: If IpBlocked, RequestBlocked, or ParseError persist after retries.
 
     """
@@ -109,6 +116,9 @@ def fetch_transcript_via_api(video_id: str) -> str:
         transcript_list = ytt_api.list(video_id)
         language_codes = [transcript.language_code for transcript in transcript_list]
         transcript = ytt_api.fetch(video_id, languages=language_codes)
+    except CouldNotRetrieveTranscript as e:
+        logger.warning("youtube_transcript_api failed for video %s: %s", video_id, e)
+        raise
     return TextFormatter().format_transcript(transcript)
 
 
