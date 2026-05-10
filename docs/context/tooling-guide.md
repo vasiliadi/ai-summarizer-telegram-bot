@@ -58,5 +58,4 @@ Follow the pre-commit sequence in `docs/context/git-guide.md` before every commi
 
 - Prefer Astral ecosystem tools (`uv`, `ruff`, `ty`) for consistency
 - Minimize dependency count - evaluate if new dependencies are truly needed
-- Pin major versions, allow minor/patch updates
 - Review security advisories for dependencies regularly
