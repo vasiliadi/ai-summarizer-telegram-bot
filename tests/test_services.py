@@ -79,22 +79,6 @@ def test_send_answer_multi_chunk(mocker):
     assert mock_reply.call_count == 2
 
 
-def test_send_answer_skips_empty_chunks(mocker):
-    """Empty or whitespace-only chunks from split_entities must not be sent."""
-    mocker.patch("services.convert", return_value=("text", []))
-    mocker.patch(
-        "services.split_entities",
-        return_value=[("", []), ("  ", []), ("real content", [])],
-    )
-    mock_reply = mocker.patch("services.reply_with_retry")
-    mocker.patch("services.time.sleep")
-
-    mock_msg = mocker.MagicMock()
-    send_answer(mock_msg, "answer")
-
-    mock_reply.assert_called_once_with(mock_msg, "real content", entities=[])
-
-
 def test_get_gemini_config_content():
     """Test get_gemini_config includes the correct language in instruction."""
     config = get_gemini_config("French")

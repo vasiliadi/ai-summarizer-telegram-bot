@@ -150,9 +150,8 @@ def send_answer(message: Message, answer: str) -> None:
     current = next(chunks_iter, None)
     while current is not None:
         chunk_text, chunk_entities = current
-        if chunk_text.strip():
-            serialized_entities = [entity.to_dict() for entity in chunk_entities]
-            reply_with_retry(message, chunk_text, entities=serialized_entities)
+        serialized_entities = [entity.to_dict() for entity in chunk_entities]
+        reply_with_retry(message, chunk_text, entities=serialized_entities)
         next_chunk = next(chunks_iter, None)
         if next_chunk is not None:
             time.sleep(1)
