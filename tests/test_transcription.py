@@ -4,7 +4,7 @@ import pytest
 from replicate.exceptions import ModelError
 from tenacity import RetryError
 from defusedxml.ElementTree import ParseError
-from youtube_transcript_api._errors import IpBlocked, NoTranscriptFound, RequestBlocked
+from youtube_transcript_api._errors import IpBlocked, NoTranscriptFound, RequestBlocked, TranscriptsDisabled
 from yt_dlp.utils import DownloadError
 
 from transcription import fetch_transcript_via_api, fetch_transcript_via_ytdlp, get_yt_transcript, transcribe
@@ -278,6 +278,25 @@ def test_fetch_transcript_via_ytdlp_unexpected_error_preserves_cause(mocker, tmp
         fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
 
     assert exc_info.value.__cause__ is original_exc
+
+def test_fetch_transcript_via_api_logs_and_reraises_non_retryable_error(mocker, caplog):
+    """Test fetch_transcript_via_api logs a warning and re-raises CouldNotRetrieveTranscript subclasses."""
+    import logging
+
+    mocker.patch("transcription.PROXY", None)
+    mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
+    mock_ytt.return_value.fetch.side_effect = TranscriptsDisabled("vid")
+
+    with caplog.at_level(logging.WARNING, logger="transcription"):
+        with pytest.raises(TranscriptsDisabled):
+            fetch_transcript_via_api("vid")
+
+    assert any(
+        "vid" in r.message
+        for r in caplog.records
+        if r.levelno == logging.WARNING
+    )
+
 
 @pytest.mark.parametrize("exc", [IpBlocked("vid"), RequestBlocked("vid"), ParseError()])
 def test_fetch_transcript_via_api_retries_on_retryable_exception(mocker, exc):
