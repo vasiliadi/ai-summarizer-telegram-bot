@@ -4,6 +4,12 @@
   "schedule": ["on sunday"],
   "minimumReleaseAge": "3 days",
   "rangeStrategy": "widen",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "minimumReleaseAge": "0 days",
+    "schedule": ["at any time"]
+  },
   "lockFileMaintenance": { "enabled": true, "automerge": true },
   "packageRules": [
     {
