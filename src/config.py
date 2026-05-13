@@ -113,11 +113,11 @@ replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
 
 # Headers for requests https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
 headers = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",  # noqa: E501
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",  # noqa: E501
 }
 
 
-# Rate limits https://ai.google.dev/gemini-api/docs/models#gemini-2.5-pro-exp-03-25
+# Rate limits
 MINUTE_LIMIT_KEY = "RPM"
 DAILY_LIMIT_KEY = "RPD"
 MINUTE_LIMIT = 5
