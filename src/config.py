@@ -117,7 +117,7 @@ headers = {
 }
 
 
-# Rate limits https://ai.google.dev/gemini-api/docs/models#gemini-2.5-pro-exp-03-25
+# Rate limits
 MINUTE_LIMIT_KEY = "RPM"
 DAILY_LIMIT_KEY = "RPD"
 MINUTE_LIMIT = 5
