@@ -115,6 +115,7 @@ def fetch_transcript_via_api(video_id: str) -> str:
     except NoTranscriptFound:
         transcript_list = ytt_api.list(video_id)
         language_codes = [transcript.language_code for transcript in transcript_list]
+        time.sleep(60)
         transcript = ytt_api.fetch(video_id, languages=language_codes)
     except CouldNotRetrieveTranscript as e:
         logger.warning("youtube_transcript_api failed for video %s: %s", video_id, e)
