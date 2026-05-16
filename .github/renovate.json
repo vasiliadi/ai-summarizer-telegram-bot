@@ -13,17 +13,17 @@
   "lockFileMaintenance": { "enabled": true, "automerge": true },
   "packageRules": [
     {
+      "description": "Python pyenv (.python-version): don't gate on Docker Hub republish time",
+      "matchManagers": ["pyenv"],
+      "matchPackageNames": ["python"],
+      "minimumReleaseAge": "3 days"
+    },
+    {
       "description": "Force Renovate to evaluate patches independently, but strictly IGNORE alphas/betas",
       "matchDepNames": ["python"],
       "separateMinorPatch": true,
       "respectLatest": false,
       "ignoreUnstable": true
-    },
-    {
-      "description": "Python Docker tag: don't gate on Docker Hub republish time — the language release (PEP 745) is the real stability signal",
-      "matchManagers": ["dockerfile"],
-      "matchPackageNames": ["python"],
-      "minimumReleaseAge": "0 days"
     },
     {
       "description": "Disable minor, major, and prerelease updates for Python (pep621/pyenv managers)",
