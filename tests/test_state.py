@@ -1,4 +1,5 @@
 import pytest
+from limits.util import WindowStats
 
 from database import UsersOrm, check_auth
 from exceptions import LimitExceededError
@@ -43,8 +44,6 @@ def test_redis_rate_limiting_success(mocker):
 
 def test_redis_rate_limiting_minute_throttle(mocker):
     """Test that if a user exceeds the minute limit, it sleeps/throttles."""
-    from limits.util import WindowStats
-
     fixed_now = 1_000_000.0
     mocker.patch("services.time.time", return_value=fixed_now)
     mocker.patch(

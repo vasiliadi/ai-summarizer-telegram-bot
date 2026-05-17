@@ -2,11 +2,12 @@ import logging
 import math
 import mimetypes
 import time
+from functools import lru_cache
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, cast
 
 from google.genai import types
-from limits import parse as parse_rate_limit
+from limits import parse as _parse_rate_limit
 from requests.exceptions import ReadTimeout
 from telebot.apihelper import ApiTelegramException
 from telegramify_markdown import convert, split_entities
@@ -39,6 +40,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
+parse_rate_limit = lru_cache(maxsize=64)(_parse_rate_limit)
 
 
 def choose_yt_audio_format(info: dict[str, Any]) -> str:

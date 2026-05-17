@@ -1,4 +1,5 @@
 import pytest
+from limits.util import WindowStats
 
 from config import MODELS_WITH_THINKING_SUPPORT
 from exceptions import LimitExceededError
@@ -205,8 +206,6 @@ def test_upload_and_wait_for_audio_file_missing_uri(mocker):
 
 def test_get_remaining_quota(mocker):
     """get_remaining_quota returns remaining count from window stats."""
-    from limits.util import WindowStats
-
     mocker.patch(
         "services.rate_limiter.get_window_stats",
         return_value=WindowStats(reset_time=9999999999.0, remaining=7),
@@ -257,8 +256,6 @@ def test_check_quota_raises_when_daily_redis_counter_exhausted(mocker):
 
 def test_check_quota_sleeps_when_per_minute_limited(mocker):
     """check_quota sleeps until the window resets and retries the per-minute hit."""
-    from limits.util import WindowStats
-
     fixed_now = 1_000_000.0
     mocker.patch("services.time.time", return_value=fixed_now)
     mocker.patch(
