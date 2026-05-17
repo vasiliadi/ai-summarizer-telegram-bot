@@ -51,10 +51,9 @@ def mock_db_session(mocker):
 
 @pytest.fixture
 def redis_client(mocker):
-    """Fixture to provide a fakeredis instance and mock the actual redis client."""
-    fake_redis = fakeredis.FakeRedis()
-    # It mocks the redis client initialization in rush/config where appropriate
-    mocker.patch("rush.stores.redis.redis.StrictRedis.from_url", return_value=fake_redis)
+    """Fixture to provide a fakeredis instance and mock the limits Redis storage."""
+    fake_redis = fakeredis.FakeRedis(decode_responses=True)
+    mocker.patch("limits.storage.redis.Redis.from_url", return_value=fake_redis)
     return fake_redis
 
 

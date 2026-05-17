@@ -20,8 +20,8 @@ with image.imports():
     retries=modal.Retries(max_retries=3),
 )
 def clear_limit() -> int:
-    """Delete all per-user daily limit keys (RPD:*) from Redis."""
-    daily_limit_key = "RPD"
+    """Delete all per-user daily limit keys (LIMITER/RPD:*) from Redis."""
+    daily_limit_key = "LIMITER/RPD"
     rate_limiter_url = f"{os.environ['REDIS_URL']}/0"
     client = redis_lib.StrictRedis.from_url(url=rate_limiter_url, decode_responses=True)
 

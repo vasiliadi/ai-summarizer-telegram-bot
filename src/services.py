@@ -6,10 +6,8 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Any, cast
 
 from google.genai import types
+from limits import parse as parse_rate_limit
 from requests.exceptions import ReadTimeout
-from rush import quota, throttle
-from rush.exceptions import DataChangedInStoreError, MismatchedDataError
-from rush.limiters import periodic
 from telebot.apihelper import ApiTelegramException
 from telegramify_markdown import convert, split_entities
 from tenacity import (
@@ -27,8 +25,8 @@ from config import (
     MODELS_WITH_THINKING_SUPPORT,
     bot,
     gemini_client,
-    per_minute_limit,
-    rate_limiter_store,
+    per_minute_rate,
+    rate_limiter,
 )
 from exceptions import LimitExceededError
 from prompts import SYSTEM_INSTRUCTION
@@ -158,15 +156,6 @@ def send_answer(message: Message, answer: str) -> None:
         current = next_chunk
 
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_fixed(1),
-    retry=retry_if_exception_type(
-        (DataChangedInStoreError, MismatchedDataError),
-    ),
-    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
-    reraise=False,
-)
 def check_quota(user_id: int, daily_limit: int, quantity: int = 1) -> bool:
     """Check if the request is within rate limits and handle any delays.
 
@@ -184,7 +173,6 @@ def check_quota(user_id: int, daily_limit: int, quantity: int = 1) -> bool:
 
     Raises:
         LimitExceededError: If the daily request limit has been exceeded.
-        RetryError: If store data errors persist after all retry attempts.
 
     Note:
         - The function will automatically sleep if the per-minute limit is reached
@@ -194,21 +182,13 @@ def check_quota(user_id: int, daily_limit: int, quantity: int = 1) -> bool:
     if daily_limit <= 0:
         msg = "The daily limit for requests has been exceeded"
         raise LimitExceededError(msg)
-    per_day_limit = throttle.Throttle(
-        limiter=periodic.PeriodicLimiter(
-            store=rate_limiter_store,
-        ),
-        rate=quota.Quota.per_day(
-            count=daily_limit,
-        ),
-    )
-    rpd = per_day_limit.check(f"{DAILY_LIMIT_KEY}:{user_id}", quantity=quantity)
-    if rpd.limited:
+    daily_rate = parse_rate_limit(f"{daily_limit} per day")
+    if not rate_limiter.hit(daily_rate, f"{DAILY_LIMIT_KEY}:{user_id}", cost=quantity):
         msg = "The daily limit for requests has been exceeded"
         raise LimitExceededError(msg)
-    rpm = per_minute_limit.check(MINUTE_LIMIT_KEY, quantity=quantity)
-    if rpm.limited:
-        time_to_reset = max(0, rpm.reset_after.total_seconds())
+    if not rate_limiter.hit(per_minute_rate, MINUTE_LIMIT_KEY, cost=quantity):
+        stats = rate_limiter.get_window_stats(per_minute_rate, MINUTE_LIMIT_KEY)
+        time_to_reset = max(0.0, stats.reset_time - time.time())
         time.sleep(time_to_reset)
     return True
 
@@ -226,16 +206,9 @@ def get_remaining_quota(user_id: int, daily_limit: int) -> int:
     """
     if daily_limit <= 0:
         return 0
-    per_day_limit = throttle.Throttle(
-        limiter=periodic.PeriodicLimiter(
-            store=rate_limiter_store,
-        ),
-        rate=quota.Quota.per_day(
-            count=daily_limit,
-        ),
-    )
-    result = per_day_limit.check(f"{DAILY_LIMIT_KEY}:{user_id}", quantity=0)
-    return max(0, result.remaining)
+    daily_rate = parse_rate_limit(f"{daily_limit} per day")
+    stats = rate_limiter.get_window_stats(daily_rate, f"{DAILY_LIMIT_KEY}:{user_id}")
+    return max(0, stats.remaining)
 
 
 def get_gemini_config(
