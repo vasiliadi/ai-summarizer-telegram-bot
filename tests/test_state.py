@@ -49,7 +49,7 @@ def test_redis_rate_limiting_minute_throttle(mocker):
     mocker.patch("services.time.time", return_value=fixed_now)
     mocker.patch(
         "services.rate_limiter.hit",
-        side_effect=[True, False],  # daily passes, per-minute blocked
+        side_effect=[True, False, True],  # daily passes, per-minute blocked, retry ok
     )
     mocker.patch(
         "services.rate_limiter.get_window_stats",

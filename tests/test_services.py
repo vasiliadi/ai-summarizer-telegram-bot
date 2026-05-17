@@ -256,14 +256,14 @@ def test_check_quota_raises_when_daily_redis_counter_exhausted(mocker):
 
 
 def test_check_quota_sleeps_when_per_minute_limited(mocker):
-    """check_quota sleeps until window reset when the per-minute limit is hit."""
+    """check_quota sleeps until the window resets and retries the per-minute hit."""
     from limits.util import WindowStats
 
     fixed_now = 1_000_000.0
     mocker.patch("services.time.time", return_value=fixed_now)
     mocker.patch(
         "services.rate_limiter.hit",
-        side_effect=[True, False],  # daily passes, per-minute blocked
+        side_effect=[True, False, True],  # daily passes, per-minute blocked, retry ok
     )
     mocker.patch(
         "services.rate_limiter.get_window_stats",

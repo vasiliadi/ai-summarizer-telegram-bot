@@ -186,10 +186,9 @@ def check_quota(user_id: int, daily_limit: int, quantity: int = 1) -> bool:
     if not rate_limiter.hit(daily_rate, f"{DAILY_LIMIT_KEY}:{user_id}", cost=quantity):
         msg = "The daily limit for requests has been exceeded"
         raise LimitExceededError(msg)
-    if not rate_limiter.hit(per_minute_rate, MINUTE_LIMIT_KEY, cost=quantity):
+    while not rate_limiter.hit(per_minute_rate, MINUTE_LIMIT_KEY, cost=quantity):
         stats = rate_limiter.get_window_stats(per_minute_rate, MINUTE_LIMIT_KEY)
-        time_to_reset = max(0.0, stats.reset_time - time.time())
-        time.sleep(time_to_reset)
+        time.sleep(max(0.0, stats.reset_time - time.time()))
     return True
 
 
