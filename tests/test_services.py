@@ -244,9 +244,7 @@ def test_check_quota_uses_per_user_redis_key(mocker):
     result = check_quota(user_id=456, daily_limit=5)
 
     assert result is True
-    # First call is the daily key; identifiers are positional args after the rate item
-    daily_call_args = mock_hit.call_args_list[0][0]
-    assert "RPD:456" in daily_call_args
+    assert mock_hit.call_args_list[0].args[1] == "RPD:456"
 
 
 def test_check_quota_raises_when_daily_redis_counter_exhausted(mocker):

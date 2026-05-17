@@ -121,8 +121,7 @@ headers: dict[str, str | bytes] = {
 MINUTE_LIMIT_KEY = "RPM"
 DAILY_LIMIT_KEY = "RPD"
 MINUTE_LIMIT = 5
-rate_limiter_store = RedisStorage(RATE_LIMITER_URL)
-rate_limiter = FixedWindowRateLimiter(rate_limiter_store)
+rate_limiter = FixedWindowRateLimiter(RedisStorage(RATE_LIMITER_URL))
 per_minute_rate = parse_rate_limit(f"{MINUTE_LIMIT} per minute")
 
 

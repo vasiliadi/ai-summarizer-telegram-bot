@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 
-import fakeredis
 import pytest
 from telebot import TeleBot, types
 
@@ -47,14 +46,6 @@ def mock_db_session(mocker):
     # Also mock engine if accessed
     mocker.patch("database.engine", mocker.MagicMock())
     return session_mock
-
-
-@pytest.fixture
-def redis_client(mocker):
-    """Fixture to provide a fakeredis instance and mock the limits Redis storage."""
-    fake_redis = fakeredis.FakeRedis(decode_responses=True)
-    mocker.patch("limits.storage.redis.Redis.from_url", return_value=fake_redis)
-    return fake_redis
 
 
 @pytest.fixture
