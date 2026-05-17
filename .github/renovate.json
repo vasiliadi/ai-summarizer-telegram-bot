@@ -16,7 +16,7 @@
       "description": "Python pyenv (.python-version): don't gate on Docker Hub republish time",
       "matchManagers": ["pyenv"],
       "matchPackageNames": ["python"],
-      "minimumReleaseAge": "3 days"
+      "minimumReleaseAge": "0 days"
     },
     {
       "description": "Force Renovate to evaluate patches independently, but strictly IGNORE alphas/betas",
