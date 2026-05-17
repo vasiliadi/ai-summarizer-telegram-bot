@@ -45,9 +45,16 @@
       "addLabels": ["dep:major"]
     },
     {
-      "description": "Minor/patch on pyproject deps: safe to auto-merge alongside lockfile maintenance",
+      "description": "Minor bumps on pyproject deps: require manual review so new features in libraries get noticed",
       "matchManagers": ["pep621"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchUpdateTypes": ["minor"],
+      "automerge": false,
+      "addLabels": ["dep:minor"]
+    },
+    {
+      "description": "Patch bumps on pyproject deps: safe to auto-merge alongside lockfile maintenance",
+      "matchManagers": ["pep621"],
+      "matchUpdateTypes": ["patch"],
       "automerge": true
     },
     {
