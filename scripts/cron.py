@@ -20,7 +20,13 @@ with image.imports():
     retries=modal.Retries(max_retries=3),
 )
 def clear_limit() -> int:
-    """Delete all per-user daily limit keys (LIMITER/RPD:*) from Redis."""
+    """Delete all per-user daily limit keys (LIMITER/RPD:*) from Redis.
+
+    The ``LIMITER/`` prefix is the default key_prefix used by
+    ``limits.storage.RedisStorage`` (limits>=5). If the library or its
+    configuration ever changes that prefix, this pattern must be updated
+    to match.
+    """
     daily_limit_key = "LIMITER/RPD"
     rate_limiter_url = f"{os.environ['REDIS_URL']}/0"
     client = redis_lib.StrictRedis.from_url(url=rate_limiter_url, decode_responses=True)
