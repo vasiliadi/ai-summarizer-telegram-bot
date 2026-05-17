@@ -1,4 +1,5 @@
 import pytest
+from limits.util import WindowStats
 
 from database import UsersOrm, check_auth
 from exceptions import LimitExceededError
@@ -36,22 +37,23 @@ def test_db_unknown_user_permission(mock_db_session):
 
 def test_redis_rate_limiting_success(mocker):
     """Test that a user within limits can proceed."""
-    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
-    mock_throttle_cls.return_value.check.return_value = mocker.MagicMock(limited=False)
-    mocker.patch("services.per_minute_limit.check", return_value=mocker.MagicMock(limited=False))
+    mocker.patch("services.rate_limiter.hit", return_value=True)
 
     assert check_quota(user_id=123, daily_limit=10) is True
 
 
 def test_redis_rate_limiting_minute_throttle(mocker):
     """Test that if a user exceeds the minute limit, it sleeps/throttles."""
-    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
-    mock_throttle_cls.return_value.check.return_value = mocker.MagicMock(limited=False)
-
-    mock_rpm = mocker.MagicMock(limited=True)
-    mock_rpm.reset_after.total_seconds.return_value = 1.5
-    mocker.patch("services.per_minute_limit.check", return_value=mock_rpm)
-
+    fixed_now = 1_000_000.0
+    mocker.patch("services.time.time", return_value=fixed_now)
+    mocker.patch(
+        "services.rate_limiter.hit",
+        side_effect=[True, False, True],  # daily passes, per-minute blocked, retry ok
+    )
+    mocker.patch(
+        "services.rate_limiter.get_window_stats",
+        return_value=WindowStats(reset_time=fixed_now + 1.5, remaining=0),
+    )
     mock_sleep = mocker.patch("services.time.sleep")
 
     assert check_quota(user_id=123, daily_limit=10) is True
@@ -61,8 +63,7 @@ def test_redis_rate_limiting_minute_throttle(mocker):
 
 def test_redis_rate_limiting_daily_exceeded(mocker):
     """Test that if a user's daily counter is exhausted, it raises LimitExceededError."""
-    mock_throttle_cls = mocker.patch("services.throttle.Throttle")
-    mock_throttle_cls.return_value.check.return_value = mocker.MagicMock(limited=True)
+    mocker.patch("services.rate_limiter.hit", return_value=False)
 
     with pytest.raises(LimitExceededError, match="The daily limit for requests has been exceeded"):
         check_quota(user_id=123, daily_limit=5)

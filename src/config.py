@@ -8,9 +8,9 @@ import sentry_sdk
 import telebot
 from google import genai
 from google.genai import types
-from rush import quota, throttle
-from rush.limiters import periodic
-from rush.stores import redis as redis_store
+from limits import parse as parse_rate_limit
+from limits.storage import RedisStorage
+from limits.strategies import FixedWindowRateLimiter
 
 if os.environ.get("ENV") != "PROD":
     from dotenv import load_dotenv
@@ -112,7 +112,7 @@ replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
 
 
 # Headers for requests https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
-headers = {
+headers: dict[str, str | bytes] = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",  # noqa: E501
 }
 
@@ -121,22 +121,8 @@ headers = {
 MINUTE_LIMIT_KEY = "RPM"
 DAILY_LIMIT_KEY = "RPD"
 MINUTE_LIMIT = 5
-rate_limiter_redis = redis_store.redis.StrictRedis.from_url(
-    url=RATE_LIMITER_URL,
-    decode_responses=True,
-)
-rate_limiter_store = redis_store.RedisStore(
-    url=RATE_LIMITER_URL,
-    client=rate_limiter_redis,
-)
-per_minute_limit = throttle.Throttle(
-    limiter=periodic.PeriodicLimiter(
-        store=rate_limiter_store,
-    ),
-    rate=quota.Quota.per_minute(
-        count=MINUTE_LIMIT,
-    ),
-)
+rate_limiter = FixedWindowRateLimiter(RedisStorage(RATE_LIMITER_URL))
+per_minute_rate = parse_rate_limit(f"{MINUTE_LIMIT} per minute")
 
 
 # For cleanup

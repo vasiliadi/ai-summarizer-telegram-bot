@@ -1,7 +1,7 @@
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError, ReplicateError
@@ -140,7 +140,7 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
 
     """
     temp_basename = generate_temporary_name()
-    ydl_opts: dict[str, object] = {
+    ydl_opts: dict[str, Any] = {
         "proxy": PROXY,
         "skip_download": True,
         "writesubtitles": True,
@@ -152,14 +152,14 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
         "nocheckcertificate": False,
     }
     try:
-        with YoutubeDL(ydl_opts) as ydl:
+        with YoutubeDL(ydl_opts) as ydl:  # pyrefly: ignore[bad-argument-type]
             ydl.download([url])
 
         vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
 
         if not vtt_files:
             ydl_opts_all = {**ydl_opts, "subtitleslangs": ["all"]}
-            with YoutubeDL(ydl_opts_all) as ydl:
+            with YoutubeDL(ydl_opts_all) as ydl:  # pyrefly: ignore[bad-argument-type]
                 ydl.download([url])
             vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
 
