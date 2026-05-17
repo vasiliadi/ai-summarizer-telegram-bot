@@ -43,25 +43,23 @@ def test_redis_rate_limiting_success(mocker):
 
 def test_redis_rate_limiting_minute_throttle(mocker):
     """Test that if a user exceeds the minute limit, it sleeps/throttles."""
-    import time as time_mod
-
     from limits.util import WindowStats
 
-    future_reset = time_mod.time() + 1.5
+    fixed_now = 1_000_000.0
+    mocker.patch("services.time.time", return_value=fixed_now)
     mocker.patch(
         "services.rate_limiter.hit",
         side_effect=[True, False],  # daily passes, per-minute blocked
     )
     mocker.patch(
         "services.rate_limiter.get_window_stats",
-        return_value=WindowStats(reset_time=future_reset, remaining=0),
+        return_value=WindowStats(reset_time=fixed_now + 1.5, remaining=0),
     )
     mock_sleep = mocker.patch("services.time.sleep")
 
     assert check_quota(user_id=123, daily_limit=10) is True
 
-    slept = mock_sleep.call_args[0][0]
-    assert 1.0 <= slept <= 2.0
+    mock_sleep.assert_called_once_with(1.5)
 
 
 def test_redis_rate_limiting_daily_exceeded(mocker):
