@@ -8,30 +8,30 @@ from services import (
     get_file_with_retry,
     get_gemini_config,
     get_remaining_quota,
-    reply_with_retry,
+    _reply_with_retry,
     resolve_mime_type,
     send_answer,
-    upload_and_wait_for_audio_file,
+    upload_and_wait_for_file,
 )
 
 
-def test_reply_with_retry_happy_path(mocker):
-    """Test reply_with_retry sends message successfully."""
+def test__reply_with_retry_happy_path(mocker):
+    """Test _reply_with_retry sends message successfully."""
     mock_bot = mocker.patch("services.bot")
     mock_msg = mocker.MagicMock()
 
-    reply_with_retry(mock_msg, "hello")
+    _reply_with_retry(mock_msg, "hello")
 
     mock_bot.reply_to.assert_called_once_with(mock_msg, "hello")
 
 
-def test_reply_with_retry_with_entities(mocker):
-    """Test reply_with_retry sends message with entities."""
+def test__reply_with_retry_with_entities(mocker):
+    """Test _reply_with_retry sends message with entities."""
     mock_bot = mocker.patch("services.bot")
     mock_msg = mocker.MagicMock()
     entities = [{"type": "bold"}]
 
-    reply_with_retry(mock_msg, "hello", entities=entities)
+    _reply_with_retry(mock_msg, "hello", entities=entities)
 
     mock_bot.reply_to.assert_called_once_with(mock_msg, "hello", entities=entities)
 
@@ -57,7 +57,7 @@ def test_send_answer_single_chunk(mocker):
         "services.split_entities", return_value=[("text", [mock_entity])]
     )
 
-    mock_reply = mocker.patch("services.reply_with_retry")
+    mock_reply = mocker.patch("services._reply_with_retry")
     mock_msg = mocker.MagicMock()
 
     send_answer(mock_msg, "short answer")
@@ -71,7 +71,7 @@ def test_send_answer_multi_chunk(mocker):
     """Test send_answer with a long message (multiple chunks)."""
     mocker.patch("services.convert", return_value=("text", []))
     mocker.patch("services.split_entities", return_value=[("part1", []), ("part2", [])])
-    mock_reply = mocker.patch("services.reply_with_retry")
+    mock_reply = mocker.patch("services._reply_with_retry")
     mocker.patch("services.time.sleep")
 
     mock_msg = mocker.MagicMock()
@@ -115,7 +115,7 @@ def test_get_gemini_config_thinking_disabled_when_no_model_given():
     assert config.thinking_config is None
 
 
-def test_upload_and_wait_for_audio_file_happy(mocker):
+def test_upload_and_wait_for_file_happy(mocker):
     """Test uploading file to Gemini when it's immediately ACTIVE."""
     mock_client = mocker.patch("services.gemini_client")
     mock_file = mocker.MagicMock()
@@ -126,16 +126,16 @@ def test_upload_and_wait_for_audio_file_happy(mocker):
 
     mock_client.files.upload.return_value = mock_file
 
-    result = upload_and_wait_for_audio_file("path", "audio/ogg", 1)
+    result = upload_and_wait_for_file("path", "audio/ogg", 1)
 
     assert result == mock_file
     mock_client.files.upload.assert_called_once()
 
 
-def test_upload_and_wait_for_audio_file_polling(mocker):
+def test_upload_and_wait_for_file_polling(mocker):
     """Test uploading file to Gemini with polling (PROCESSING -> ACTIVE)."""
     mock_client = mocker.patch("services.gemini_client")
-    mocker.patch("services.time.sleep")
+    mock_sleep = mocker.patch("services.time.sleep")
 
     mock_file_proc = mocker.MagicMock()
     mock_file_proc.name = "name"
@@ -150,14 +150,15 @@ def test_upload_and_wait_for_audio_file_polling(mocker):
     mock_client.files.upload.return_value = mock_file_proc
     mock_client.files.get.return_value = mock_file_active
 
-    result = upload_and_wait_for_audio_file("path", "audio/ogg", 1)
+    result = upload_and_wait_for_file("path", "audio/ogg", 1)
 
     assert result == mock_file_active
+    mock_sleep.assert_called_once_with(1)
     mock_client.files.get.assert_called_once_with(name="name")
 
 
-def test_upload_and_wait_for_audio_file_failed(mocker):
-    """Test upload_and_wait_for_audio_file raises ValueError on FAILED state."""
+def test_upload_and_wait_for_file_failed(mocker):
+    """Test upload_and_wait_for_file raises ValueError on FAILED state."""
     mock_client = mocker.patch("services.gemini_client")
     mock_file = mocker.MagicMock()
     mock_file.name = "name"
@@ -165,7 +166,7 @@ def test_upload_and_wait_for_audio_file_failed(mocker):
     mock_client.files.upload.return_value = mock_file
 
     with pytest.raises(ValueError, match="FAILED"):
-        upload_and_wait_for_audio_file("path", "audio/ogg", 1)
+        upload_and_wait_for_file("path", "audio/ogg", 1)
 
 
 def test_resolve_mime_type_fallback_when_mimetypes_returns_none(mocker):
@@ -180,19 +181,19 @@ def test_resolve_mime_type_fallback_when_mimetypes_returns_none(mocker):
     assert resolve_mime_type("unknown.bin") == "application/octet-stream"
 
 
-def test_upload_and_wait_for_audio_file_name_none(mocker):
-    """upload_and_wait_for_audio_file raises AttributeError when upload returns no name."""
+def test_upload_and_wait_for_file_name_none(mocker):
+    """upload_and_wait_for_file raises AttributeError when upload returns no name."""
     mock_client = mocker.patch("services.gemini_client")
     mock_file = mocker.MagicMock()
     mock_file.name = None
     mock_client.files.upload.return_value = mock_file
 
     with pytest.raises(AttributeError):
-        upload_and_wait_for_audio_file("path", "audio/ogg", 1)
+        upload_and_wait_for_file("path", "audio/ogg", 1)
 
 
-def test_upload_and_wait_for_audio_file_missing_uri(mocker):
-    """upload_and_wait_for_audio_file raises AttributeError when uri or mime_type is None."""
+def test_upload_and_wait_for_file_missing_uri(mocker):
+    """upload_and_wait_for_file raises AttributeError when uri or mime_type is None."""
     mock_client = mocker.patch("services.gemini_client")
     mock_file = mocker.MagicMock()
     mock_file.name = "name"
@@ -201,7 +202,7 @@ def test_upload_and_wait_for_audio_file_missing_uri(mocker):
     mock_client.files.upload.return_value = mock_file
 
     with pytest.raises(AttributeError):
-        upload_and_wait_for_audio_file("path", "audio/ogg", 1)
+        upload_and_wait_for_file("path", "audio/ogg", 1)
 
 
 def test_get_remaining_quota(mocker):

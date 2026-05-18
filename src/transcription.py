@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import time
 from pathlib import Path
@@ -27,7 +29,12 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from config import PROXY, replicate_client
-from utils import clean_up, generate_temporary_name, vtt_to_text
+from utils import (
+    clean_up,
+    extract_youtube_video_id,
+    generate_temporary_name,
+    vtt_to_text,
+)
 
 if TYPE_CHECKING:
     from tenacity import (
@@ -61,7 +68,7 @@ def transcribe(file: str, sleep_time: int = 10) -> str:
 
     """
     model = replicate_client.models.get("victor-upmeet/whisperx")
-    version = model.versions.get(model.versions.list()[0].id)
+    version = model.versions.list()[0]
     with Path(file).open("rb") as audio:
         prediction = replicate_client.predictions.create(
             version=version,
@@ -212,15 +219,8 @@ def get_yt_transcript(url: str) -> str:
         RetryError: If proxy/SSL/network errors persist after all retry attempts.
 
     """
-    if url.startswith("https://www.youtube.com/watch"):
-        video_id = url.replace("https://www.youtube.com/watch?v=", "").split("?")[0]
-    elif url.startswith("https://youtube.com/watch"):
-        video_id = url.replace("https://youtube.com/watch?v=", "").split("?")[0]
-    elif url.startswith("https://youtu.be/"):
-        video_id = url.replace("https://youtu.be/", "").split("?")[0]
-    elif url.startswith("https://www.youtube.com/live/"):
-        video_id = url.replace("https://www.youtube.com/live/", "").split("?")[0]
-    else:
+    video_id = extract_youtube_video_id(url)
+    if video_id is None:
         msg = "Unknown URL"
         raise ValueError(msg)
 

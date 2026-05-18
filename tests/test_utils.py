@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from config import PROTECTED_FILES
-from utils import clean_up, compress_audio, generate_temporary_name
+from utils import clean_up, compress_audio, extract_youtube_video_id, generate_temporary_name
 
 
 def test_generate_temporary_name_no_ext():
@@ -118,3 +118,27 @@ def test_clean_up_all_downloads(mocker):
 
     # Only file1 should have been unlinked
     mock_unlink.assert_called_once_with(file1)
+
+
+def test_extract_youtube_video_id_uppercase_host():
+    """extract_youtube_video_id handles uppercase and mixed-case hostnames."""
+    assert extract_youtube_video_id("https://YOUTU.BE/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+    assert extract_youtube_video_id("https://WWW.YOUTUBE.COM/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+
+
+def test_extract_youtube_video_id_malformed_url():
+    """extract_youtube_video_id returns None for malformed URLs with no hostname."""
+    assert extract_youtube_video_id("not-a-url") is None
+    assert extract_youtube_video_id("https://") is None
+
+
+def test_extract_youtube_video_id_empty_path():
+    """extract_youtube_video_id returns None for youtu.be with no video ID and watch with no v param."""
+    assert extract_youtube_video_id("https://youtu.be/") is None
+    assert extract_youtube_video_id("https://www.youtube.com/watch") is None
+
+
+def test_extract_youtube_video_id_unrecognized_path():
+    """extract_youtube_video_id returns None for youtube.com URLs with unrecognized paths."""
+    assert extract_youtube_video_id("https://youtube.com/playlist?list=PLxxx") is None
+    assert extract_youtube_video_id("https://youtube.com/") is None

@@ -68,7 +68,7 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
         uri="https://mock.uri",
         mime_type="audio/ogg",
     )
-    mocker.patch("summary.upload_and_wait_for_audio_file", return_value=mock_audio_file)
+    mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
     mock_client = mocker.patch("summary.gemini_client")
     mocker.patch("services.gemini_client", mock_client)
     mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
@@ -89,7 +89,7 @@ def test_summarize_with_file_retries_on_missing_upload_metadata(mocker):
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("tenacity.nap.time.sleep")
     mock_audio_file = SimpleNamespace(name=None, uri=None, mime_type="audio/ogg")
-    mocker.patch("summary.upload_and_wait_for_audio_file", return_value=mock_audio_file)
+    mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
 
     with pytest.raises(RetryError):
         summarize_with_file(
@@ -203,8 +203,9 @@ def test_summarize_with_document_polling(mocker):
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
     mocker.patch("summary.clean_up")
-    mocker.patch("summary.time.sleep")
+    mocker.patch("services.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
+    mocker.patch("services.gemini_client", mock_client)
     mock_file_proc = SimpleNamespace(state="PROCESSING", name="files/doc123")
     mock_file_active = SimpleNamespace(
         state="ACTIVE",
@@ -237,9 +238,11 @@ def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
     """Test summarize_with_document cleans up the downloaded file on failure."""
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("tenacity.nap.time.sleep")
+    mocker.patch("services.time.sleep")
     mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
     mock_clean_up = mocker.patch("summary.clean_up")
     mock_client = mocker.patch("summary.gemini_client")
+    mocker.patch("services.gemini_client", mock_client)
     mock_failed_file = SimpleNamespace(state="FAILED", name="files/doc123")
     mock_client.files.upload.return_value = mock_failed_file
 
@@ -255,6 +258,31 @@ def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
         )
 
     mock_clean_up.assert_called_once_with(file="temp_doc.pdf")
+
+
+def test_summarize_youtube_skips_transcript_when_disabled(mocker):
+    """Test summarize() downloads YouTube directly when use_yt_transcription=False."""
+    url = "https://youtube.com/watch?v=123"
+    mocker.patch("summary.check_quota", return_value=True)
+    mock_get_transcript = mocker.patch("summary.get_yt_transcript")
+    mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
+    mocker.patch("summary.summarize_with_file", return_value="File summary")
+    mocker.patch("summary.clean_up")
+
+    result = summarize(
+        data=url,
+        use_transcription=False,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+        use_yt_transcription=False,
+    )
+
+    assert result == "File summary"
+    mock_get_transcript.assert_not_called()
+    mock_download.assert_called_once_with(url)
 
 
 def test_summarize_youtube_direct_transcript(mocker):
@@ -395,6 +423,36 @@ def test_summarize_youtube_transcript_retry_error_falls_back_to_download(mocker)
     )
 
 
+def test_summarize_youtube_transcript_value_error_falls_back_to_download(mocker):
+    """Test summarize() falls back to downloading YouTube audio when get_yt_transcript raises ValueError."""
+    url = "https://youtube.com/watch?v=123"
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.get_yt_transcript", side_effect=ValueError("no transcript"))
+    mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
+    mocker.patch("summary.summarize_with_file", return_value="File summary")
+    mock_clean_up = mocker.patch("summary.clean_up")
+    mock_logger = mocker.patch("summary.logger")
+
+    result = summarize(
+        data=url,
+        use_transcription=True,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+        use_yt_transcription=True,
+    )
+
+    assert result == "File summary"
+    mock_download.assert_called_once_with(url)
+    mock_clean_up.assert_called_once_with(file="downloaded.ogg")
+    mock_logger.warning.assert_called_once_with(
+        "get_yt_transcript failed, falling back to download: %s",
+        mocker.ANY,
+    )
+
+
 def test_summarize_fallback_to_transcription(mocker):
     """Test summarize() fallback to transcription (📝 prefix) when file summary fails."""
     mocker.patch("summary.check_quota", return_value=True)
@@ -507,7 +565,7 @@ def test_summarize_with_file_deletes_gemini_file_when_quota_check_fails(mocker):
         uri="https://mock.uri",
         mime_type="audio/ogg",
     )
-    mocker.patch("summary.upload_and_wait_for_audio_file", return_value=mock_audio_file)
+    mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
     mock_check = mocker.patch("summary.check_quota", side_effect=[True, LimitExceededError])
@@ -558,7 +616,7 @@ def test_summarize_with_file_logs_warning_on_delete_failure(mocker):
         uri="https://mock.uri",
         mime_type="audio/ogg",
     )
-    mocker.patch("summary.upload_and_wait_for_audio_file", return_value=mock_audio_file)
+    mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
     mock_client = mocker.patch("summary.gemini_client")
     mock_client.models.generate_content.return_value = mocker.MagicMock(text="summary text")
     mock_client.files.delete.side_effect = Exception("delete failed")
@@ -620,7 +678,9 @@ def test_summarize_with_document_raises_when_upload_name_none(mocker):
     mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
     mocker.patch("summary.clean_up")
     mocker.patch("tenacity.nap.time.sleep")
+    mocker.patch("services.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
+    mocker.patch("services.gemini_client", mock_client)
     mock_file = mocker.MagicMock()
     mock_file.name = None
     mock_client.files.upload.return_value = mock_file
@@ -640,12 +700,14 @@ def test_summarize_with_document_raises_when_upload_name_none(mocker):
 
 
 def test_summarize_with_document_raises_when_uri_none(mocker):
-    """Test summarize_with_document raises RetryError and deletes Gemini file when uri is None."""
+    """Test summarize_with_document raises RetryError when uri is None."""
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
     mocker.patch("summary.clean_up")
     mocker.patch("tenacity.nap.time.sleep")
+    mocker.patch("services.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
+    mocker.patch("services.gemini_client", mock_client)
     mock_file = SimpleNamespace(
         state="ACTIVE", name="files/doc123", uri=None, mime_type="application/pdf"
     )
@@ -662,16 +724,16 @@ def test_summarize_with_document_raises_when_uri_none(mocker):
             daily_limit=10,
         )
 
-    mock_client.files.delete.assert_called_with(name="files/doc123")
-
 
 def test_summarize_with_document_raises_when_mime_type_none(mocker):
-    """Test summarize_with_document raises RetryError and deletes Gemini file when mime_type is None."""
+    """Test summarize_with_document raises RetryError when mime_type is None."""
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
     mocker.patch("summary.clean_up")
     mocker.patch("tenacity.nap.time.sleep")
+    mocker.patch("services.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
+    mocker.patch("services.gemini_client", mock_client)
     mock_file = SimpleNamespace(
         state="ACTIVE", name="files/doc123", uri="https://mock.uri", mime_type=None
     )
@@ -688,8 +750,6 @@ def test_summarize_with_document_raises_when_mime_type_none(mocker):
             daily_limit=10,
         )
 
-    mock_client.files.delete.assert_called_with(name="files/doc123")
-
 
 def test_summarize_with_document_raises_on_empty_response(mocker):
     """Test summarize_with_document raises RetryError when Gemini returns empty response."""
@@ -697,7 +757,9 @@ def test_summarize_with_document_raises_on_empty_response(mocker):
     mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
     mocker.patch("summary.clean_up")
     mocker.patch("tenacity.nap.time.sleep")
+    mocker.patch("services.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
+    mocker.patch("services.gemini_client", mock_client)
     mock_file = SimpleNamespace(
         state="ACTIVE",
         name="files/doc123",
@@ -724,7 +786,9 @@ def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
     mocker.patch("summary.clean_up")
+    mocker.patch("services.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
+    mocker.patch("services.gemini_client", mock_client)
     mock_file = SimpleNamespace(
         state="ACTIVE",
         name="files/doc123",

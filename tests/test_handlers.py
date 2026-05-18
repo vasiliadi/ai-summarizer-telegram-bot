@@ -99,17 +99,40 @@ def test_handle_audio_file_too_large(message_factory, mocker):
     mock_summarize.assert_not_called()
 
 
-def test_handle_document_missing_file_info(message_factory, mocker):
-    """Test that documents missing required file info are rejected."""
+def test_handle_audio_happy_path(message_factory, mocker):
+    """Test successful audio file processing."""
+    msg = message_factory(content_type="audio")
+    mocker.patch(
+        "main.select_user",
+        return_value=mocker.MagicMock(
+            approved=True,
+            use_transcription=False,
+            summarizing_model="model",
+            prompt_key_for_summary="prompt",
+            target_language="English",
+        ),
+    )
+    mock_file = mocker.MagicMock(spec=types.File)
+    mocker.patch("handlers.get_file_with_retry", return_value=mock_file)
+    mock_summarize = mocker.patch("handlers.summarize")
+    mocker.patch("handlers.send_answer")
+
+    handle_message(msg)
+
+    assert mock_summarize.call_args.kwargs["data"] == mock_file
+
+
+def test_handle_document_missing_file_size(message_factory, mocker):
+    """Test that a document with no file_size is rejected."""
     msg = message_factory(content_type="document")
-    msg.document.file_id = None
+    msg.document.file_size = None
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
-    mock_reply_to = mocker.patch("main.bot.reply_to")
+    mock_bot_handlers = mocker.patch("handlers.bot")
     mock_summarize_with_document = mocker.patch("handlers.summarize_with_document")
 
     handle_message(msg)
 
-    mock_reply_to.assert_called_once_with(msg, "No document found.")
+    mock_bot_handlers.reply_to.assert_called_once_with(msg, "No document found.")
     mock_summarize_with_document.assert_not_called()
 
 
@@ -265,6 +288,30 @@ def test_handle_video_note_happy_path_cleans_up_download(message_factory, mocker
     handle_message(msg)
 
     mock_clean_up.assert_called_once_with(file="downloaded.mp4")
+
+
+def test_handle_video_note_file_too_large(message_factory, mocker):
+    """Test video note rejection when file exceeds 20MB limit."""
+    msg = message_factory(content_type="video_note")
+    msg.video_note.file_size = 21 * 1024 * 1024
+    mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
+    mock_bot_handlers = mocker.patch("handlers.bot")
+
+    handle_message(msg)
+
+    mock_bot_handlers.reply_to.assert_called_once_with(msg, "File is too big.")
+
+
+def test_handle_video_file_too_large(message_factory, mocker):
+    """Test video rejection when file exceeds 20MB limit."""
+    msg = message_factory(content_type="video")
+    msg.video.file_size = 21 * 1024 * 1024
+    mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
+    mock_bot_handlers = mocker.patch("handlers.bot")
+
+    handle_message(msg)
+
+    mock_bot_handlers.reply_to.assert_called_once_with(msg, "File is too big.")
 
 
 def test_handle_message_limit_exceeded(message_factory, mocker):

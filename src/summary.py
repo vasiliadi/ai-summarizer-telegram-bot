@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import logging
-import time
 from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
@@ -27,7 +28,7 @@ from services import (
     format_prefixed_summary,
     get_gemini_config,
     resolve_mime_type,
-    upload_and_wait_for_audio_file,
+    upload_and_wait_for_file,
 )
 from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
@@ -89,14 +90,14 @@ def summarize_with_file(
     check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
     prompt = dedent(PROMPTS[prompt_key]).strip()
     mime_type = resolve_mime_type(file)
-    audio_file = upload_and_wait_for_audio_file(
+    audio_file = upload_and_wait_for_file(
         file=file,
         mime_type=mime_type,
         sleep_time=sleep_time,
     )
     audio_file_name = audio_file.name
     try:
-        if audio_file.name is None or audio_file.uri is None:
+        if audio_file.uri is None or audio_file.mime_type is None:
             raise AttributeError
         check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
         response = gemini_client.models.generate_content(
@@ -128,6 +129,32 @@ def summarize_with_file(
                     audio_file_name,
                     e,
                 )
+
+
+def _generate_text(
+    prompt: str,
+    model: str,
+    target_language: str,
+    *,
+    extra_system_instruction: str | None = None,
+    tools: list[types.Tool] | None = None,
+) -> str:
+    """Run a single Gemini text-prompt generation with the standard config."""
+    config = get_gemini_config(
+        target_language,
+        model=model,
+        extra_system_instruction=extra_system_instruction,
+    )
+    if tools is not None:
+        config = config.model_copy(update={"tools": tools})
+    response = gemini_client.models.generate_content(
+        model=model,
+        contents=prompt,
+        config=config,
+    )
+    if response.text is None:
+        raise AttributeError
+    return response.text
 
 
 @retry(
@@ -174,14 +201,7 @@ def summarize_with_transcript(
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {transcript}").strip()
     check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-    response = gemini_client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=get_gemini_config(target_language, model=model),
-    )
-    if response.text is None:
-        raise AttributeError
-    return response.text
+    return _generate_text(prompt, model, target_language)
 
 
 @retry(
@@ -228,27 +248,18 @@ def summarize_webpage(
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {content}").strip()
     check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-    response = gemini_client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=get_gemini_config(
-            target_language,
-            model=model,
-            extra_system_instruction=(
-                "MANDATORY TOOL USAGE: You MUST always use the `UrlContext` "
-                "tool to fetch and read the information from the provided "
-                "link before generating your summary. Do not attempt to "
-                "summarize the content without calling this tool first."
-            ),
-        ).model_copy(
-            update={
-                "tools": [types.Tool(url_context=types.UrlContext())],
-            },
+    return _generate_text(
+        prompt,
+        model,
+        target_language,
+        extra_system_instruction=(
+            "MANDATORY TOOL USAGE: You MUST always use the `UrlContext` "
+            "tool to fetch and read the information from the provided "
+            "link before generating your summary. Do not attempt to "
+            "summarize the content without calling this tool first."
         ),
+        tools=[types.Tool(url_context=types.UrlContext())],
     )
-    if response.text is None:
-        raise AttributeError
-    return response.text
 
 
 @retry(
@@ -307,22 +318,12 @@ def summarize_with_document(
         check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
         data = download_tg(file)
         prompt = dedent(PROMPTS[prompt_key]).strip()
-        document_file = gemini_client.files.upload(
+        document_file = upload_and_wait_for_file(
             file=data,
-            config={"mime_type": mime_type},
+            mime_type=mime_type,
+            sleep_time=sleep_time,
         )
-        if document_file.name is None:
-            raise AttributeError
         document_file_name = document_file.name
-        while document_file.state == "PROCESSING":
-            time.sleep(sleep_time)
-            document_file = gemini_client.files.get(name=document_file_name)
-        if document_file.state == "FAILED":
-            raise ValueError(document_file.state)
-        if document_file.uri is None:
-            raise AttributeError
-        if document_file.mime_type is None:
-            raise AttributeError
         check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
         response = gemini_client.models.generate_content(
             model=model,
@@ -332,8 +333,8 @@ def summarize_with_document(
                     parts=[
                         types.Part.from_text(text=prompt),
                         types.Part.from_uri(
-                            file_uri=document_file.uri,
-                            mime_type=document_file.mime_type,
+                            file_uri=cast("str", document_file.uri),
+                            mime_type=cast("str", document_file.mime_type),
                         ),
                     ],
                 ),
@@ -415,7 +416,12 @@ def summarize(
             if use_yt_transcription:
                 try:
                     transcript = get_yt_transcript(data)
-                except (TranscriptsDisabled, RetryError, DownloadError) as e:
+                except (
+                    TranscriptsDisabled,
+                    RetryError,
+                    DownloadError,
+                    ValueError,
+                ) as e:
                     logger.warning(
                         "get_yt_transcript failed, falling back to download: %s",
                         e,
