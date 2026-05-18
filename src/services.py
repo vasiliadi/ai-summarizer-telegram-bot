@@ -78,7 +78,7 @@ def choose_yt_audio_format(info: dict[str, Any]) -> str:
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=True,
 )
-def reply_with_retry(
+def _reply_with_retry(
     message: Message,
     text: str,
     entities: list[dict[str, object]] | None = None,
@@ -151,7 +151,7 @@ def send_answer(message: Message, answer: str) -> None:
     while current is not None:
         chunk_text, chunk_entities = current
         serialized_entities = [entity.to_dict() for entity in chunk_entities]
-        reply_with_retry(message, chunk_text, entities=serialized_entities)
+        _reply_with_retry(message, chunk_text, entities=serialized_entities)
         next_chunk = next(chunks_iter, None)
         if next_chunk is not None:
             time.sleep(1)
@@ -241,20 +241,24 @@ def get_gemini_config(
     )
 
 
+_EXT_MIME_FALLBACK = {
+    ".ogg": "audio/ogg",
+    ".opus": "audio/ogg",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".mp4": "video/mp4",
+}
+
+
 def resolve_mime_type(file: str) -> str:
     """Resolve the MIME type for a file path, with fallbacks."""
     mime_type = mimetypes.guess_type(file)[0]
-    if mime_type is None:
-        if file.endswith((".ogg", ".opus")):
-            return "audio/ogg"
-        if file.endswith(".mp3"):
-            return "audio/mpeg"
-        if file.endswith(".wav"):
-            return "audio/wav"
-        if file.endswith(".mp4"):
-            return "video/mp4"
-        return "application/octet-stream"
-    return mime_type
+    if mime_type is not None:
+        return mime_type
+    for ext, mt in _EXT_MIME_FALLBACK.items():
+        if file.endswith(ext):
+            return mt
+    return "application/octet-stream"
 
 
 def format_prefixed_summary(prefix: str, summary: str) -> str:
@@ -262,21 +266,21 @@ def format_prefixed_summary(prefix: str, summary: str) -> str:
     return f"{prefix}\n\n{summary.strip()}"
 
 
-def upload_and_wait_for_audio_file(
+def upload_and_wait_for_file(
     file: str,
     mime_type: str,
     sleep_time: int,
 ) -> types.File:
     """Upload a file to Gemini and wait for processing to finish."""
-    audio_file = gemini_client.files.upload(file=file, config={"mime_type": mime_type})
-    if audio_file.name is None:
+    uploaded = gemini_client.files.upload(file=file, config={"mime_type": mime_type})
+    if uploaded.name is None:
         raise AttributeError
-    audio_file_name = audio_file.name
-    while audio_file.state == "PROCESSING":
+    file_name = uploaded.name
+    while uploaded.state == "PROCESSING":
         time.sleep(sleep_time)
-        audio_file = gemini_client.files.get(name=audio_file_name)
-    if audio_file.state == "FAILED":
-        raise ValueError(audio_file.state)
-    if audio_file.uri is None or audio_file.mime_type is None:
+        uploaded = gemini_client.files.get(name=file_name)
+    if uploaded.state == "FAILED":
+        raise ValueError(uploaded.state)
+    if uploaded.uri is None or uploaded.mime_type is None:
         raise AttributeError
-    return audio_file
+    return uploaded

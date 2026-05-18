@@ -204,7 +204,8 @@ While text transcripts can provide a solid foundation for understanding the cont
 [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \
 [Sentry](https://docs.sentry.io/platforms/python/) \
-[rush](https://rush.readthedocs.io/en/latest/)
+~~[rush](https://rush.readthedocs.io/en/latest/)~~ \
+[limits](https://github.com/alisaifee/limits)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \

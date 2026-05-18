@@ -65,6 +65,7 @@ MODEL_LABELS: dict[str, str] = {
     "gemini-3-flash-preview": "Gemini 3 Flash",
     "gemini-2.5-flash": "Gemini 2.5 Flash",
 }
+MODEL_LABELS_REVERSE: dict[str, str] = {v: k for k, v in MODEL_LABELS.items()}
 ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_LABELS.keys())
 MODELS_WITH_THINKING_SUPPORT = [
     "gemini-3-flash-preview",
@@ -103,6 +104,9 @@ PROMPT_STRATEGY_LABELS: dict[str, str] = {
     "basic_prompt_for_transcript": "Detailed Summary",
     "key_points_for_transcript": "Key Points",
 }
+PROMPT_STRATEGY_LABELS_REVERSE: dict[str, str] = {
+    v: k for k, v in PROMPT_STRATEGY_LABELS.items()
+}
 ALLOWED_PROMPT_KEYS = list(PROMPT_STRATEGY_LABELS.keys())
 
 
@@ -125,26 +129,29 @@ rate_limiter = FixedWindowRateLimiter(RedisStorage(RATE_LIMITER_URL))
 per_minute_rate = parse_rate_limit(f"{MINUTE_LIMIT} per minute")
 
 
-# For cleanup
-PROTECTED_FILES = (
-    os.listdir(Path.cwd())  # noqa: PTH208
-    if os.environ.get("ENV") != "PROD"
-    else [
-        "config.py",
-        "database.py",
-        "download.py",
-        "exceptions.py",
-        "handlers.py",
-        "main.py",
-        "models.py",
-        "parse.py",
-        "prompts.py",
-        "services.py",
-        "summary.py",
-        "transcription.py",
-        "utils.py",
-    ]
+# Telegram bot API caps incoming-file downloads at 20MB.
+# https://core.telegram.org/bots/api#getfile
+TG_MAX_FILE_SIZE = 20 * 1024 * 1024
+
+
+# MIME types accepted by /document handler.
+SUPPORTED_DOCUMENT_MIME_TYPES = (
+    "application/pdf",
+    "text/plain",
+    "text/rtf",
+    "text/csv",
+    "audio/ogg",
 )
+
+
+# YouTube host allow-list for URL routing.
+YT_HOSTS = frozenset({"youtu.be", "youtube.com", "www.youtube.com"})
+CASTRO_HOST = "castro.fm"
+
+
+# For cleanup: snapshot of files present at startup; treated as do-not-delete.
+# In PROD the container's working dir IS src/, so this also covers source files.
+PROTECTED_FILES = os.listdir(Path.cwd())  # noqa: PTH208
 
 
 # Translation

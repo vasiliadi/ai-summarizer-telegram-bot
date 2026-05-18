@@ -12,7 +12,10 @@ from tenacity import RetryError
 
 from config import (
     MODEL_LABELS,
+    MODEL_LABELS_REVERSE,
     PROMPT_STRATEGY_LABELS,
+    PROMPT_STRATEGY_LABELS_REVERSE,
+    SUPPORTED_DOCUMENT_MIME_TYPES,
     SUPPORTED_LANGUAGES,
     bot,
 )
@@ -39,6 +42,8 @@ from services import get_remaining_quota
 from utils import clean_up
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from telebot.types import Message
 
     from models import UsersOrm
@@ -249,6 +254,19 @@ def handle_toggle_yt_transcription(message: Message) -> None:
     )
 
 
+def _prompt_choice(
+    message: Message,
+    prompt: str,
+    labels: list[str],
+    next_step: Callable[[Message], None],
+) -> None:
+    """Send a one-time reply keyboard of `labels` and queue a next-step handler."""
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(*(KeyboardButton(label) for label in labels))
+    bot.send_message(message.chat.id, prompt, reply_markup=markup)
+    bot.register_next_step_handler(message, next_step)
+
+
 # /set_target_language
 @bot.message_handler(
     commands=["set_target_language"],
@@ -257,27 +275,13 @@ def handle_toggle_yt_transcription(message: Message) -> None:
     ),
 )
 def handle_set_target_language(message: Message) -> None:
-    """Handle the /set_target_language command for the bot.
-
-    This function presents the user with a keyboard of supported languages
-    to choose from. Once the user selects a language, the bot proceeds to
-    set the target language for the user. The function ensures that the user
-    is authenticated before allowing them to set a target language.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                           and chat details.
-
-    Returns:
-        None
-
-    """
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    languages = [KeyboardButton(lang.title()) for lang in SUPPORTED_LANGUAGES]
-    markup.add(*languages)
-
-    bot.send_message(message.chat.id, "Select target language 👇", reply_markup=markup)
-    bot.register_next_step_handler(message, proceed_set_target_language)
+    """Handle the /set_target_language command for the bot."""
+    _prompt_choice(
+        message,
+        "Select target language 👇",
+        [lang.title() for lang in SUPPORTED_LANGUAGES],
+        proceed_set_target_language,
+    )
 
 
 def proceed_set_target_language(message: Message) -> None:
@@ -322,31 +326,13 @@ def proceed_set_target_language(message: Message) -> None:
     ),
 )
 def handle_set_summarizing_model(message: Message) -> None:
-    """Handle the /set_summarizing_model command for the bot.
-
-    This function presents the user with a keyboard of allowed summarizing models
-    to choose from. Once the user selects a model, the bot proceeds to set the
-    summarizing model for the user. The function ensures that the user is
-    authenticated before allowing them to set a model.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                          and chat details.
-
-    Returns:
-        None
-
-    """
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    models = [KeyboardButton(label) for label in MODEL_LABELS.values()]
-    markup.add(*models)
-
-    bot.send_message(
-        message.chat.id,
+    """Handle the /set_summarizing_model command for the bot."""
+    _prompt_choice(
+        message,
         "Select summarizing model 👇",
-        reply_markup=markup,
+        list(MODEL_LABELS.values()),
+        proceed_set_summarizing_model,
     )
-    bot.register_next_step_handler(message, proceed_set_summarizing_model)
 
 
 def proceed_set_summarizing_model(message: Message) -> None:
@@ -367,8 +353,7 @@ def proceed_set_summarizing_model(message: Message) -> None:
     if message.from_user is None or message.text is None:
         bot.reply_to(message, "User information or model is missing.")
         return
-    label_to_model = {v: k for k, v in MODEL_LABELS.items()}
-    model_id = label_to_model.get(message.text)
+    model_id = MODEL_LABELS_REVERSE.get(message.text)
     if model_id is None:
         bot.send_message(message.chat.id, "Unknown model")
         return
@@ -391,31 +376,13 @@ def proceed_set_summarizing_model(message: Message) -> None:
     ),
 )
 def handle_set_prompt_strategy(message: Message) -> None:
-    """Handle the /set_prompt_strategy command for the bot.
-
-    This function presents the user with a keyboard of allowed prompt strategies
-    to choose from. Once the user selects a strategy, the bot proceeds to set the
-    prompt strategy for the user. The function ensures that the user is
-    authenticated before allowing them to set a strategy.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                          and chat details.
-
-    Returns:
-        None
-
-    """
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    strategies = [KeyboardButton(label) for label in PROMPT_STRATEGY_LABELS.values()]
-    markup.add(*strategies)
-
-    bot.send_message(
-        message.chat.id,
+    """Handle the /set_prompt_strategy command for the bot."""
+    _prompt_choice(
+        message,
         "Select summarization strategy 👇",
-        reply_markup=markup,
+        list(PROMPT_STRATEGY_LABELS.values()),
+        proceed_set_prompt_strategy,
     )
-    bot.register_next_step_handler(message, proceed_set_prompt_strategy)
 
 
 def proceed_set_prompt_strategy(message: Message) -> None:
@@ -436,8 +403,7 @@ def proceed_set_prompt_strategy(message: Message) -> None:
     if message.from_user is None or message.text is None:
         bot.reply_to(message, "User information or strategy is missing.")
         return
-    label_to_key = {v: k for k, v in PROMPT_STRATEGY_LABELS.items()}
-    prompt_key = label_to_key.get(message.text)
+    prompt_key = PROMPT_STRATEGY_LABELS_REVERSE.get(message.text)
     if prompt_key is None:
         bot.send_message(message.chat.id, "Unknown strategy")
         return
@@ -468,14 +434,7 @@ def process_message_content(message: Message, user: UsersOrm) -> None:
     elif (
         message.content_type == "document"
         and message.document is not None
-        and message.document.mime_type
-        in (
-            "application/pdf",
-            "text/plain",
-            "text/rtf",
-            "text/csv",
-            "audio/ogg",
-        )
+        and message.document.mime_type in SUPPORTED_DOCUMENT_MIME_TYPES
     ):
         handle_document(message, user)
     elif message.content_type == "video_note":

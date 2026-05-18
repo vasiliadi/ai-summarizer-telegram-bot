@@ -84,6 +84,26 @@ def download_yt(url: str) -> str:
     return temporary_file_name
 
 
+def _stream_to_file(url: str, dest: str, timeout: int = 120) -> None:
+    """GET `url` and stream the body to `dest` in 8KB chunks."""
+    with requests.get(
+        url,
+        stream=True,
+        headers=headers,
+        verify=True,
+        timeout=timeout,
+    ) as response:
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            logger.exception("%s: status code", response.status_code)
+            raise
+        with Path(dest).open("wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(10),
@@ -132,22 +152,7 @@ def download_castro(url: str) -> str:
         msg = "Audio URL is not a string."
         raise TypeError(msg)
     logger.debug("URL parsed! Starting download...")
-    with requests.get(
-        requests.utils.requote_uri(audio_url),
-        stream=True,
-        headers=headers,
-        verify=True,
-        timeout=120,
-    ) as r:
-        try:
-            r.raise_for_status()
-        except requests.exceptions.HTTPError:
-            logger.exception("%s: status code", r.status_code)
-            raise
-        with Path(temporary_file_name).open("wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
+    _stream_to_file(requests.utils.requote_uri(audio_url), temporary_file_name)
     logger.debug("File downloaded...")
     return temporary_file_name
 
@@ -174,20 +179,5 @@ def download_tg(file_id: File, ext: str = "") -> str:
         msg = "Telegram file path is missing."
         raise ValueError(msg)
     file_url = f"https://api.telegram.org/file/bot{TG_API_TOKEN}/{file_id.file_path}"
-    with requests.get(
-        file_url,
-        stream=True,
-        headers=headers,
-        verify=True,
-        timeout=120,
-    ) as response:
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError:
-            logger.exception("%s: status code", response.status_code)
-            raise
-        with Path(temporary_file_name).open("wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
+    _stream_to_file(file_url, temporary_file_name)
     return temporary_file_name

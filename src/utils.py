@@ -1,9 +1,32 @@
 import re
 import subprocess
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
-from config import PROTECTED_FILES
+from config import PROTECTED_FILES, YT_HOSTS
+
+
+def extract_youtube_video_id(url: str) -> str | None:
+    """Extract the 11-char video id from any supported YouTube URL form.
+
+    Returns None when the host is not a known YouTube host or the id cannot
+    be located in the path/query.
+
+    """
+    parts = urlsplit(url)
+    if parts.hostname not in YT_HOSTS:
+        return None
+    if parts.hostname == "youtu.be":
+        video_id = parts.path.lstrip("/").split("/", 1)[0]
+        return video_id or None
+    path_parts = [p for p in parts.path.split("/") if p]
+    prefixed_paths = ("live", "shorts", "embed")
+    if len(path_parts) >= 2 and path_parts[0] in prefixed_paths:  # noqa: PLR2004
+        return path_parts[1]
+    if path_parts and path_parts[0] == "watch":
+        return parse_qs(parts.query).get("v", [None])[0]
+    return None
 
 
 def generate_temporary_name(ext: str = "") -> str:
