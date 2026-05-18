@@ -49,10 +49,7 @@ def _fetch_media(
     the Telegram 20MB getFile cap.
 
     """
-    # file_id is declared non-Optional by telebot's stubs but can be missing
-    # at runtime for partially-deserialized messages; check defensively.
-    file_id = getattr(media, "file_id", None)
-    if media is None or media.file_size is None or file_id is None:
+    if media is None or media.file_size is None:
         bot.reply_to(message, missing_msg)
         return None
     if media.file_size > TG_MAX_FILE_SIZE:

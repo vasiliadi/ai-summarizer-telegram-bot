@@ -115,9 +115,10 @@ def _stream_to_file(
                 )
                 msg = f"Remote file too large: Content-Length {content_length} > {max_size}"  # noqa: E501
                 raise ValueError(msg)
+        dest_path = Path(dest)
         total = 0
         try:
-            with Path(dest).open("wb") as f:
+            with dest_path.open("wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         total += len(chunk)
@@ -131,7 +132,7 @@ def _stream_to_file(
                             raise ValueError(msg)  # noqa: TRY301
                         f.write(chunk)
         except ValueError:
-            Path(dest).unlink(missing_ok=True)
+            dest_path.unlink(missing_ok=True)
             raise
 
 

@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from config import PROTECTED_FILES
 from utils import clean_up, compress_audio, extract_youtube_video_id, generate_temporary_name
 
@@ -134,7 +132,13 @@ def test_extract_youtube_video_id_malformed_url():
     assert extract_youtube_video_id("https://") is None
 
 
-def test_extract_youtube_video_id_invalid_id():
-    """extract_youtube_video_id returns None when video ID fails 11-char validation."""
-    assert extract_youtube_video_id("https://youtu.be/short") is None
-    assert extract_youtube_video_id("https://www.youtube.com/watch?v=tooshort") is None
+def test_extract_youtube_video_id_empty_path():
+    """extract_youtube_video_id returns None for youtu.be with no video ID and watch with no v param."""
+    assert extract_youtube_video_id("https://youtu.be/") is None
+    assert extract_youtube_video_id("https://www.youtube.com/watch") is None
+
+
+def test_extract_youtube_video_id_unrecognized_path():
+    """extract_youtube_video_id returns None for youtube.com URLs with unrecognized paths."""
+    assert extract_youtube_video_id("https://youtube.com/playlist?list=PLxxx") is None
+    assert extract_youtube_video_id("https://youtube.com/") is None
