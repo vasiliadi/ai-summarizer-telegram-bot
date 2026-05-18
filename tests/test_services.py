@@ -135,7 +135,7 @@ def test_upload_and_wait_for_file_happy(mocker):
 def test_upload_and_wait_for_file_polling(mocker):
     """Test uploading file to Gemini with polling (PROCESSING -> ACTIVE)."""
     mock_client = mocker.patch("services.gemini_client")
-    mocker.patch("services.time.sleep")
+    mock_sleep = mocker.patch("services.time.sleep")
 
     mock_file_proc = mocker.MagicMock()
     mock_file_proc.name = "name"
@@ -153,6 +153,7 @@ def test_upload_and_wait_for_file_polling(mocker):
     result = upload_and_wait_for_file("path", "audio/ogg", 1)
 
     assert result == mock_file_active
+    mock_sleep.assert_called_once_with(1)
     mock_client.files.get.assert_called_once_with(name="name")
 
 

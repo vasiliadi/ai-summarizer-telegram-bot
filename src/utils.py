@@ -6,6 +6,14 @@ from uuid import uuid4
 
 from config import PROTECTED_FILES, YT_HOSTS
 
+_YT_ID_RE = re.compile(r"[A-Za-z0-9_-]{11}")
+
+
+def _valid_yt_id(candidate: str | None) -> str | None:
+    if candidate is None:
+        return None
+    return candidate if _YT_ID_RE.fullmatch(candidate) else None
+
 
 def extract_youtube_video_id(url: str) -> str | None:
     """Extract the 11-char video id from any supported YouTube URL form.
@@ -15,17 +23,19 @@ def extract_youtube_video_id(url: str) -> str | None:
 
     """
     parts = urlsplit(url)
-    if parts.hostname not in YT_HOSTS:
+    hostname = (parts.hostname or "").lower()
+    hostname = hostname.removeprefix("www.")
+    if hostname not in YT_HOSTS:
         return None
-    if parts.hostname == "youtu.be":
+    if hostname == "youtu.be":
         video_id = parts.path.lstrip("/").split("/", 1)[0]
-        return video_id or None
+        return _valid_yt_id(video_id or None)
     path_parts = [p for p in parts.path.split("/") if p]
     prefixed_paths = ("live", "shorts", "embed")
     if len(path_parts) >= 2 and path_parts[0] in prefixed_paths:  # noqa: PLR2004
-        return path_parts[1]
+        return _valid_yt_id(path_parts[1])
     if path_parts and path_parts[0] == "watch":
-        return parse_qs(parts.query).get("v", [None])[0]
+        return _valid_yt_id(parse_qs(parts.query).get("v", [None])[0])
     return None
 
 

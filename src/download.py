@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -16,7 +18,7 @@ from tenacity import (
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import PROXY, TG_API_TOKEN, headers
+from config import PROXY, TG_API_TOKEN, TG_MAX_FILE_SIZE, headers
 from services import choose_yt_audio_format
 from utils import generate_temporary_name
 
@@ -84,7 +86,12 @@ def download_yt(url: str) -> str:
     return temporary_file_name
 
 
-def _stream_to_file(url: str, dest: str, timeout: int = 120) -> None:
+def _stream_to_file(
+    url: str,
+    dest: str,
+    timeout: int = 120,
+    max_size: int | None = None,
+) -> None:
     """GET `url` and stream the body to `dest` in 8KB chunks."""
     with requests.get(
         url,
@@ -98,9 +105,29 @@ def _stream_to_file(url: str, dest: str, timeout: int = 120) -> None:
         except requests.exceptions.HTTPError:
             logger.exception("%s: status code", response.status_code)
             raise
+        if max_size is not None:
+            content_length = response.headers.get("Content-Length")
+            if content_length is not None and int(content_length) > max_size:
+                logger.warning(
+                    "Content-Length %s exceeds limit %s, aborting",
+                    content_length,
+                    max_size,
+                )
+                msg = f"Remote file too large: Content-Length {content_length} > {max_size}"  # noqa: E501
+                raise ValueError(msg)
+        total = 0
         with Path(dest).open("wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
+                    total += len(chunk)
+                    if max_size is not None and total > max_size:
+                        logger.warning(
+                            "Download exceeded limit %s after %s bytes, aborting",
+                            max_size,
+                            total,
+                        )
+                        msg = f"Remote file too large: exceeded {max_size} bytes"
+                        raise ValueError(msg)
                     f.write(chunk)
 
 
@@ -179,5 +206,5 @@ def download_tg(file_id: File, ext: str = "") -> str:
         msg = "Telegram file path is missing."
         raise ValueError(msg)
     file_url = f"https://api.telegram.org/file/bot{TG_API_TOKEN}/{file_id.file_path}"
-    _stream_to_file(file_url, temporary_file_name)
+    _stream_to_file(file_url, temporary_file_name, max_size=TG_MAX_FILE_SIZE)
     return temporary_file_name

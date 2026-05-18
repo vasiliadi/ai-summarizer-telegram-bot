@@ -73,14 +73,14 @@ def test_get_yt_transcript_fallback_languages(mocker):
 
     mock_formatter.return_value.format_transcript.return_value = "Hola"
 
-    url = "https://youtu.be/vid"
+    url = "https://youtu.be/dQw4w9WgXcQ"
     result = get_yt_transcript(url)
 
     assert result == "Hola"
     # Verify it was called twice, once without languages, once with languages
     calls = mock_ytt.return_value.fetch.call_args_list
-    assert calls[0].args == ("vid",)
-    assert calls[1].args == ("vid",)
+    assert calls[0].args == ("dQw4w9WgXcQ",)
+    assert calls[1].args == ("dQw4w9WgXcQ",)
     assert calls[1].kwargs == {"languages": ["es"]}
 
 def test_get_yt_transcript_falls_back_to_ytdlp_on_api_failure(mocker, tmp_path):

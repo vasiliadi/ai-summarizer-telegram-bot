@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from textwrap import dedent
 from typing import TYPE_CHECKING, cast
@@ -416,7 +418,12 @@ def summarize(
             if use_yt_transcription:
                 try:
                     transcript = get_yt_transcript(data)
-                except (TranscriptsDisabled, RetryError, DownloadError) as e:
+                except (
+                    TranscriptsDisabled,
+                    RetryError,
+                    DownloadError,
+                    ValueError,
+                ) as e:
                     logger.warning(
                         "get_yt_transcript failed, falling back to download: %s",
                         e,

@@ -138,7 +138,7 @@ TG_MAX_FILE_SIZE = 20 * 1024 * 1024
 SUPPORTED_DOCUMENT_MIME_TYPES = (
     "application/pdf",
     "text/plain",
-    "text/rtf",
+    "application/rtf",
     "text/csv",
     "audio/ogg",
 )

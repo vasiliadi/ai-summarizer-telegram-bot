@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, TypedDict
 from urllib.parse import urlsplit
 
@@ -53,7 +55,7 @@ def _fetch_media(
     if media is None or media.file_size is None or file_id is None:
         bot.reply_to(message, missing_msg)
         return None
-    if media.file_size >= TG_MAX_FILE_SIZE:
+    if media.file_size > TG_MAX_FILE_SIZE:
         bot.reply_to(message, "File is too big.")
         return None
     return get_file_with_retry(media.file_id)
@@ -99,6 +101,7 @@ def _handle_video_like(message: Message, user: UsersOrm, data: File) -> None:
         send_answer(message, answer)
     finally:
         clean_up(file=downloaded_file)
+        clean_up(file=compressed_file)
 
 
 def handle_video_note(message: Message, user: UsersOrm) -> None:
