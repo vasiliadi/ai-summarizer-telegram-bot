@@ -260,6 +260,31 @@ def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
     mock_clean_up.assert_called_once_with(file="temp_doc.pdf")
 
 
+def test_summarize_youtube_skips_transcript_when_disabled(mocker):
+    """Test summarize() downloads YouTube directly when use_yt_transcription=False."""
+    url = "https://youtube.com/watch?v=123"
+    mocker.patch("summary.check_quota", return_value=True)
+    mock_get_transcript = mocker.patch("summary.get_yt_transcript")
+    mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
+    mocker.patch("summary.summarize_with_file", return_value="File summary")
+    mocker.patch("summary.clean_up")
+
+    result = summarize(
+        data=url,
+        use_transcription=False,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+        use_yt_transcription=False,
+    )
+
+    assert result == "File summary"
+    mock_get_transcript.assert_not_called()
+    mock_download.assert_called_once_with(url)
+
+
 def test_summarize_youtube_direct_transcript(mocker):
     """Test summarize() using direct YouTube transcript (📹 prefix)."""
     url = "https://youtube.com/watch?v=123"

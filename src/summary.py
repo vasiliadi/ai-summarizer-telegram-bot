@@ -324,8 +324,6 @@ def summarize_with_document(
             sleep_time=sleep_time,
         )
         document_file_name = document_file.name
-        if document_file.uri is None or document_file.mime_type is None:
-            raise AttributeError
         check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
         response = gemini_client.models.generate_content(
             model=model,
@@ -335,8 +333,8 @@ def summarize_with_document(
                     parts=[
                         types.Part.from_text(text=prompt),
                         types.Part.from_uri(
-                            file_uri=document_file.uri,
-                            mime_type=document_file.mime_type,
+                            file_uri=cast("str", document_file.uri),
+                            mime_type=cast("str", document_file.mime_type),
                         ),
                     ],
                 ),
