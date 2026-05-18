@@ -101,7 +101,6 @@ def _handle_video_like(message: Message, user: UsersOrm, data: File) -> None:
         send_answer(message, answer)
     finally:
         clean_up(file=downloaded_file)
-        clean_up(file=compressed_file)
 
 
 def handle_video_note(message: Message, user: UsersOrm) -> None:
@@ -139,8 +138,8 @@ def _classify_url(url: str) -> str | None:
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https"):
         return None
-    host = parts.hostname
-    if host is None:
+    host = (parts.hostname or "").lower().removeprefix("www.")
+    if not host:
         return None
     if parts.scheme == "https" and host in YT_HOSTS:
         return "media"

@@ -237,9 +237,7 @@ def test_handle_video_happy_path_cleans_up_download(message_factory, mocker):
 
     handle_message(msg)
 
-    mock_clean_up.assert_any_call(file="downloaded.mp4")
-    mock_clean_up.assert_any_call(file="compressed.ogg")
-    assert mock_clean_up.call_count == 2
+    mock_clean_up.assert_called_once_with(file="downloaded.mp4")
 
 
 def test_handle_video_note_happy_path_cleans_up_download(message_factory, mocker):
@@ -266,9 +264,7 @@ def test_handle_video_note_happy_path_cleans_up_download(message_factory, mocker
 
     handle_message(msg)
 
-    mock_clean_up.assert_any_call(file="downloaded.mp4")
-    mock_clean_up.assert_any_call(file="compressed.ogg")
-    assert mock_clean_up.call_count == 2
+    mock_clean_up.assert_called_once_with(file="downloaded.mp4")
 
 
 def test_handle_message_limit_exceeded(message_factory, mocker):

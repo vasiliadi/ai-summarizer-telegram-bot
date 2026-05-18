@@ -145,7 +145,7 @@ SUPPORTED_DOCUMENT_MIME_TYPES = (
 
 
 # YouTube host allow-list for URL routing.
-YT_HOSTS = frozenset({"youtu.be", "youtube.com", "www.youtube.com"})
+YT_HOSTS = frozenset({"youtu.be", "youtube.com"})
 CASTRO_HOST = "castro.fm"
 
 

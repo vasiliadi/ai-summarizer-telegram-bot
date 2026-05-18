@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 import requests
 
@@ -272,3 +274,53 @@ def test_download_tg_http_error(mocker):
         download_tg(mock_file, ext=".ext")
 
     mock_logger.exception.assert_called_once_with("%s: status code", 403)
+
+
+def test_stream_to_file_content_length_exceeded(mocker, tmp_path):
+    """_stream_to_file raises ValueError and no file is created when Content-Length exceeds max_size."""
+    from download import _stream_to_file
+
+    dest = str(tmp_path / "out.bin")
+    mock_resp = mocker.MagicMock()
+    mock_resp.headers = {"Content-Length": "100"}
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.__enter__.return_value = mock_resp
+    mocker.patch("download.requests.get", return_value=mock_resp)
+
+    with pytest.raises(ValueError, match="Content-Length"):
+        _stream_to_file("https://example.com/file", dest, max_size=50)
+
+    assert not Path(dest).exists()
+
+
+def test_stream_to_file_mid_stream_exceeded_cleans_up(mocker, tmp_path):
+    """_stream_to_file raises ValueError and removes the partial file when streaming exceeds max_size."""
+    from download import _stream_to_file
+
+    dest = str(tmp_path / "out.bin")
+    mock_resp = mocker.MagicMock()
+    mock_resp.headers = {}
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.iter_content.return_value = [b"A" * 30, b"B" * 30]
+    mock_resp.__enter__.return_value = mock_resp
+    mocker.patch("download.requests.get", return_value=mock_resp)
+
+    with pytest.raises(ValueError, match="exceeded"):
+        _stream_to_file("https://example.com/file", dest, max_size=50)
+
+    assert not Path(dest).exists()
+
+
+def test_classify_url_uppercase_youtube_host(mocker):
+    """_classify_url normalises uppercase YouTube hostnames to 'media'."""
+    from handlers import _classify_url
+
+    assert _classify_url("https://YOUTU.BE/dQw4w9WgXcQ") == "media"
+    assert _classify_url("https://WWW.YOUTUBE.COM/watch?v=dQw4w9WgXcQ") == "media"
+
+
+def test_classify_url_malformed_no_host():
+    """_classify_url returns None for URLs with no parseable hostname."""
+    from handlers import _classify_url
+
+    assert _classify_url("https://") is None

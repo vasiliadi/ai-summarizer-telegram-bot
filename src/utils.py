@@ -10,6 +10,7 @@ _YT_ID_RE = re.compile(r"[A-Za-z0-9_-]{11}")
 
 
 def _valid_yt_id(candidate: str | None) -> str | None:
+    """Return candidate if it is a well-formed 11-char YouTube video ID, else None."""
     if candidate is None:
         return None
     return candidate if _YT_ID_RE.fullmatch(candidate) else None

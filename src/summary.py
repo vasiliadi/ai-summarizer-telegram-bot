@@ -97,7 +97,7 @@ def summarize_with_file(
     )
     audio_file_name = audio_file.name
     try:
-        if audio_file.name is None or audio_file.uri is None:
+        if audio_file.uri is None or audio_file.mime_type is None:
             raise AttributeError
         check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
         response = gemini_client.models.generate_content(

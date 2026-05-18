@@ -116,19 +116,23 @@ def _stream_to_file(
                 msg = f"Remote file too large: Content-Length {content_length} > {max_size}"  # noqa: E501
                 raise ValueError(msg)
         total = 0
-        with Path(dest).open("wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    total += len(chunk)
-                    if max_size is not None and total > max_size:
-                        logger.warning(
-                            "Download exceeded limit %s after %s bytes, aborting",
-                            max_size,
-                            total,
-                        )
-                        msg = f"Remote file too large: exceeded {max_size} bytes"
-                        raise ValueError(msg)
-                    f.write(chunk)
+        try:
+            with Path(dest).open("wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        total += len(chunk)
+                        if max_size is not None and total > max_size:
+                            logger.warning(
+                                "Download exceeded limit %s after %s bytes, aborting",
+                                max_size,
+                                total,
+                            )
+                            msg = f"Remote file too large: exceeded {max_size} bytes"
+                            raise ValueError(msg)  # noqa: TRY301
+                        f.write(chunk)
+        except ValueError:
+            Path(dest).unlink(missing_ok=True)
+            raise
 
 
 @retry(
