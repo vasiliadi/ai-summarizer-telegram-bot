@@ -62,16 +62,18 @@ bot = telebot.TeleBot(token=TG_API_TOKEN, disable_web_page_preview=True)
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 MODEL_LABELS: dict[str, str] = {
+    "gemini-3.5-flash": "Gemini 3.5 Flash",
     "gemini-3-flash-preview": "Gemini 3 Flash",
     "gemini-2.5-flash": "Gemini 2.5 Flash",
 }
 MODEL_LABELS_REVERSE: dict[str, str] = {v: k for k, v in MODEL_LABELS.items()}
 ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_LABELS.keys())
 MODELS_WITH_THINKING_SUPPORT = [
+    "gemini-3.5-flash",
     "gemini-3-flash-preview",
 ]
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
-DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3-flash-preview"
+DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.5-flash"
 SAFETY_SETTINGS = [
     types.SafetySetting(
         category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
