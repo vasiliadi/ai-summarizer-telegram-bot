@@ -10,7 +10,7 @@ PROMPTS = {
         Summarize the content below as a bulleted list of key points.
 
         Guidelines:
-        - Produce between 5 and 10 bullets, depending on the depth and length of the content. Short content may warrant fewer; do not pad.
+        - Produce at least 5 bullets. For content that is broad or detailed, use as many bullets as needed to cover it faithfully. Do not pad with filler to reach 5.
         - Each bullet must capture a distinct, significant idea — no overlap, no filler.
         - Output a plain markdown bulleted list, one key point per bullet, nothing else.
 
