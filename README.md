@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.14-blue)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue)
-![Valkey](https://img.shields.io/badge/Valkey-8-blue)
+![Valkey](https://img.shields.io/badge/Valkey-9-blue)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/e215a12081084eed95c60e5e80480218)](https://app.codacy.com/gh/vasiliadi/ai-summarizer-telegram-bot/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![codecov](https://codecov.io/github/vasiliadi/ai-summarizer-telegram-bot/graph/badge.svg?token=JLUAET14RE)](https://codecov.io/github/vasiliadi/ai-summarizer-telegram-bot)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fvasiliadi%2Fai-summarizer-telegram-bot.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fvasiliadi%2Fai-summarizer-telegram-bot?ref=badge_shield&issueType=license)
