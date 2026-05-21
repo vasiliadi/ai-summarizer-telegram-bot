@@ -1,11 +1,8 @@
 # ruff: noqa: E501
 
-# Prompts
 PROMPTS = {
     "basic_prompt_for_transcript": """
         Produce a detailed summary of the content below.
-
-        If the content is a transcript or audio, ignore non-verbal cues such as [music] or [laughter] and treat any recognition errors or missing punctuation as artifacts to look past rather than features to comment on.
 
         Here is the provided content:
         """,
@@ -16,7 +13,6 @@ PROMPTS = {
         - Produce between 5 and 10 bullets, depending on the depth and length of the content. Short content may warrant fewer; do not pad.
         - Each bullet must capture a distinct, significant idea — no overlap, no filler.
         - Output a plain markdown bulleted list, one key point per bullet, nothing else.
-        - If the content is a transcript or audio, ignore non-verbal cues like [music] or [laughter] and look past recognition errors or missing punctuation. Do not mention these artifacts in the output.
 
         Here is the provided content:
         """,
@@ -29,4 +25,5 @@ SYSTEM_INSTRUCTION = """
     - Respond in {language}.
     - Begin the response with the summary itself. No preamble, no acknowledgements, no meta-commentary about the task or the content's format.
     - Stay faithful to the source. Do not invent facts, speakers, timestamps, or structure that is not in the content.
+    - If the content is a transcript or audio, ignore non-verbal cues such as [music] or [laughter] and treat any recognition errors or missing punctuation as artifacts — do not mention them in the output.
 """
