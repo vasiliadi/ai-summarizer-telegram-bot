@@ -1,10 +1,16 @@
+import random
 import re
 import subprocess
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
-from config import PROTECTED_FILES, YT_HOSTS
+from config import PROTECTED_FILES, PROXIES, YT_HOSTS
+
+
+def get_proxy() -> str:
+    """Return a random proxy URL from PROXIES, or '' if none configured."""
+    return random.choice(PROXIES) if PROXIES else ""  # noqa: S311
 
 
 def extract_youtube_video_id(url: str) -> str | None:

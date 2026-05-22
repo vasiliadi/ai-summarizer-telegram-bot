@@ -28,11 +28,12 @@ from youtube_transcript_api.proxies import GenericProxyConfig
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import PROXY, replicate_client
+from config import replicate_client
 from utils import (
     clean_up,
     extract_youtube_video_id,
     generate_temporary_name,
+    get_proxy,
     vtt_to_text,
 )
 
@@ -112,8 +113,9 @@ def fetch_transcript_via_api(video_id: str) -> str:
         RetryError: If IpBlocked, RequestBlocked, or ParseError persist after retries.
 
     """
-    if PROXY:
-        ytt_api = YouTubeTranscriptApi(proxy_config=GenericProxyConfig(https_url=PROXY))
+    proxy = get_proxy()
+    if proxy:
+        ytt_api = YouTubeTranscriptApi(proxy_config=GenericProxyConfig(https_url=proxy))
     else:
         ytt_api = YouTubeTranscriptApi()
 
@@ -148,7 +150,7 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
     """
     temp_basename = generate_temporary_name()
     ydl_opts: dict[str, Any] = {
-        "proxy": PROXY,
+        "proxy": get_proxy(),
         "skip_download": True,
         "writesubtitles": True,
         "writeautomaticsub": True,

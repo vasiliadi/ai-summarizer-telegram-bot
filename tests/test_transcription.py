@@ -238,7 +238,7 @@ def test_vtt_to_text_keeps_nonconsecutive_duplicates(tmp_path):
 
 def test_fetch_transcript_via_api_uses_proxy_when_configured(mocker):
     """Test fetch_transcript_via_api passes GenericProxyConfig when PROXY is set."""
-    mocker.patch("transcription.PROXY", "http://proxy:8080")
+    mocker.patch("transcription.get_proxy", return_value="http://proxy:8080")
     mock_proxy_cfg = mocker.patch("transcription.GenericProxyConfig")
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
     mocker.patch("transcription.TextFormatter").return_value.format_transcript.return_value = "Hello"
@@ -283,7 +283,7 @@ def test_fetch_transcript_via_api_logs_and_reraises_non_retryable_error(mocker, 
     """Test fetch_transcript_via_api logs a warning and re-raises CouldNotRetrieveTranscript subclasses."""
     import logging
 
-    mocker.patch("transcription.PROXY", None)
+    mocker.patch("transcription.get_proxy", return_value="")
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
     mock_ytt.return_value.fetch.side_effect = TranscriptsDisabled("vid")
 
