@@ -653,6 +653,27 @@ def test_summarize_with_transcript_raises_on_empty_response(mocker):
         )
 
 
+def test_summarize_webpage_preflight_blocks_before_parse_url(mocker):
+    """Test summarize_webpage blocks over-quota users before any Tavily IO."""
+    from exceptions import LimitExceededError
+
+    mock_check = mocker.patch("summary.check_quota", side_effect=LimitExceededError)
+    mock_parse = mocker.patch("summary.parse_url")
+
+    with pytest.raises(LimitExceededError):
+        summarize_webpage(
+            content="https://example.com",
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            user_id=1,
+            daily_limit=0,
+        )
+
+    mock_check.assert_called_once_with(user_id=1, daily_limit=0, quantity=0)
+    mock_parse.assert_not_called()
+
+
 def test_summarize_webpage_raises_on_empty_response(mocker):
     """Test summarize_webpage raises RetryError on repeated empty Gemini responses."""
     mocker.patch("summary.check_quota", return_value=True)

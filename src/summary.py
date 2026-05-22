@@ -232,6 +232,7 @@ def summarize_webpage(
         RetryError: If transient Gemini or network errors persist after retries.
 
     """
+    check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
     parsed = parse_url(content)
     check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
     prompt = (f"{dedent(PROMPTS[prompt_key])} {parsed}").strip()
