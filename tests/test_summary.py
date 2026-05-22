@@ -128,8 +128,9 @@ def test_format_prefixed_summary_preserves_blank_line():
 
 
 def test_summarize_webpage(mocker):
-    """Test summarize_webpage functionality with URL context tools."""
+    """Test summarize_webpage parses the URL via Tavily and feeds text to Gemini."""
     mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.parse_url", return_value="Parsed page content.")
     mock_client = mocker.patch("summary.gemini_client")
     mock_client.models.generate_content.return_value = mocker.MagicMock(
         text="Webpage summary.",
@@ -145,13 +146,11 @@ def test_summarize_webpage(mocker):
     )
 
     assert result == "Webpage summary."
-    config = mock_client.models.generate_content.call_args.kwargs["config"]
-    assert config.tools is not None
-    assert len(config.tools) == 1
-    assert config.tools[0].url_context is not None
-    assert config.system_instruction is not None
-    assert "MANDATORY TOOL USAGE" in config.system_instruction
-    assert "UrlContext" in config.system_instruction
+    call_kwargs = mock_client.models.generate_content.call_args.kwargs
+    assert "Parsed page content." in call_kwargs["contents"]
+    config = call_kwargs["config"]
+    assert config.tools is None
+    assert "UrlContext" not in (config.system_instruction or "")
 
 
 def test_summarize_with_file_upload_failure(mocker):
@@ -657,6 +656,7 @@ def test_summarize_with_transcript_raises_on_empty_response(mocker):
 def test_summarize_webpage_raises_on_empty_response(mocker):
     """Test summarize_webpage raises RetryError on repeated empty Gemini responses."""
     mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.parse_url", return_value="Parsed page content.")
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
     mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)

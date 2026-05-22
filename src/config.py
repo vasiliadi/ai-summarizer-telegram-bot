@@ -11,6 +11,7 @@ from google.genai import types
 from limits import parse as parse_rate_limit
 from limits.storage import RedisStorage
 from limits.strategies import FixedWindowRateLimiter
+from tavily import TavilyClient
 
 if os.environ.get("ENV") != "PROD":
     from dotenv import load_dotenv
@@ -117,6 +118,11 @@ ALLOWED_PROMPT_KEYS = list(PROMPT_STRATEGY_LABELS.keys())
 # Replicate.com config
 REPLICATE_API_TOKEN = os.environ["REPLICATE_API_TOKEN"]
 replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
+
+
+# Tavily config
+TAVILY_API_KEY = os.environ["TAVILY_API_KEY"]
+tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
 
 
 # Headers for requests https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome

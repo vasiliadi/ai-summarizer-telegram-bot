@@ -19,7 +19,7 @@ A bot designed to summarize YouTube videos (via audio or transcripts), Castro.fm
 
 ### General settings
 
-1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/)
+1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/)
 2. Setup DB and Redis. For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
 4. Set up the [Modal Secrets](https://modal.com/secrets) with name `resetlimit-secrets`. Only `REDIS_URL` from `.env` needed.
@@ -46,6 +46,7 @@ Example of `.env` file:
 TG_API_TOKEN="your_api_key"
 GEMINI_API_KEY="your_api_key"
 REPLICATE_API_TOKEN="your_api_key"
+TAVILY_API_KEY="your_api_key"
 DSN="postgresql+driver://user:password@host:port/database"
 REDIS_URL="rediss://default:password@host:port"
 SENTRY_DSN="your_sentry_dsn"
@@ -165,16 +166,11 @@ pre-commit install --hook-type post-checkout
 pre-commit install --hook-type post-rewrite
 ```
 
-#### JavaScript rendering (deprecated[^1])
+#### Webpage parsing
 
-Many websites have protections against bots, and some content requires JavaScript to be rendered for visibility. To enable JavaScript rendering, I am using [Selenium WebDriver](https://www.selenium.dev/documentation/webdriver/), which requires the Chrome browser and ChromeDriver to be installed on the operating system.
+Webpage URLs are parsed into clean text via [Tavily](https://tavily.com) (`TavilyClient.extract`) before being passed to Gemini. This gives every model version identical, well-structured input and removes the variability introduced by Gemini's server-side `UrlContext` tool.
 
-`Selenium WebDriver` supports only proxy without authorization. For authorized access, use a local proxy server such as [tinyproxy](https://github.com/tinyproxy/tinyproxy) or [pproxy](https://github.com/qwj/python-proxy), or any other proxy server.
-Or even solution like [Browserbase](https://docs.browserbase.com/quickstart/selenium).
-
-Another approach (by default) is to use a special proxy. This approach requiring special proxy (`WEB_SCRAPE_PROXY`) solutions for web scraping, such as [ScrapingBee](https://www.scrapingbee.com/), [ScrapingAnt](https://scrapingant.com/), [WebScrapingAPI](https://www.webscrapingapi.com/), [scraperapi](https://www.scraperapi.com/), or others.
-
-Now uses `Url context` tool.
+Requires `TAVILY_API_KEY` in `.env`.
 
 #### Remote functions
 
@@ -253,5 +249,3 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 
 - [Gitflow workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
 - [NumPy Docstrings Style Guide | Docstrings](https://numpydoc.readthedocs.io/en/latest/format.html).
-
-[^1]: Use solutions for web scraping

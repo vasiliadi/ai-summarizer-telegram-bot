@@ -22,6 +22,7 @@ from yt_dlp.utils import DownloadError
 
 from config import gemini_client
 from download import download_castro, download_tg, download_yt
+from parsing import parse_url
 from prompts import PROMPTS
 from services import (
     check_quota,
@@ -131,22 +132,9 @@ def summarize_with_file(
                 )
 
 
-def _generate_text(
-    prompt: str,
-    model: str,
-    target_language: str,
-    *,
-    extra_system_instruction: str | None = None,
-    tools: list[types.Tool] | None = None,
-) -> str:
+def _generate_text(prompt: str, model: str, target_language: str) -> str:
     """Run a single Gemini text-prompt generation with the standard config."""
-    config = get_gemini_config(
-        target_language,
-        model=model,
-        extra_system_instruction=extra_system_instruction,
-    )
-    if tools is not None:
-        config = config.model_copy(update={"tools": tools})
+    config = get_gemini_config(target_language, model=model)
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
@@ -223,8 +211,9 @@ def summarize_webpage(
 ) -> str:
     """Generate a summary from webpage content using Gemini API.
 
-    This function takes webpage content, combines it with a predefined prompt template,
-    and uses the Gemini API to generate a summary.
+    The URL is parsed into clean text via Tavily before being passed to Gemini,
+    which removes the variability introduced by Gemini's server-side UrlContext
+    tool across model versions.
 
     Args:
         content (str): The webpage URL to be summarized
@@ -238,28 +227,15 @@ def summarize_webpage(
         str: Generated summary text from the webpage content
 
     Raises:
+        WebParseError: If the URL cannot be parsed into usable content.
         AttributeError: If Gemini returns an empty response.
         RetryError: If transient Gemini or network errors persist after retries.
 
-    Note:
-        The function checks quota usage before making the API call and uses
-        get_gemini_config for model configuration.
-
     """
-    prompt = (f"{dedent(PROMPTS[prompt_key])} {content}").strip()
+    parsed = parse_url(content)
     check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-    return _generate_text(
-        prompt,
-        model,
-        target_language,
-        extra_system_instruction=(
-            "MANDATORY TOOL USAGE: You MUST always use the `UrlContext` "
-            "tool to fetch and read the information from the provided "
-            "link before generating your summary. Do not attempt to "
-            "summarize the content without calling this tool first."
-        ),
-        tools=[types.Tool(url_context=types.UrlContext())],
-    )
+    prompt = (f"{dedent(PROMPTS[prompt_key])} {parsed}").strip()
+    return _generate_text(prompt, model, target_language)
 
 
 @retry(
