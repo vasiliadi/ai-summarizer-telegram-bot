@@ -170,8 +170,6 @@ pre-commit install --hook-type post-rewrite
 
 Webpage URLs are parsed into clean text via [Tavily](https://tavily.com) (`TavilyClient.extract`) before being passed to Gemini. This gives every model version identical, well-structured input and removes the variability introduced by Gemini's server-side `UrlContext` tool.
 
-Requires `TAVILY_API_KEY` in `.env`.
-
 #### Remote functions
 
 To avoid multiple docker images, I use a [Modal](https://modal.com/) for cron jobs to reset the Gemini rate limit. [Modal Secrets](https://modal.com/docs/guide/secrets) should include `REDIS_URL`.
@@ -207,7 +205,8 @@ While text transcripts can provide a solid foundation for understanding the cont
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \
 [Sentry](https://docs.sentry.io/platforms/python/) \
 ~~[rush](https://rush.readthedocs.io/en/latest/)~~ \
-[limits](https://github.com/alisaifee/limits)
+[limits](https://github.com/alisaifee/limits) \
+[tavily-python](https://docs.tavily.com/welcome)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
@@ -249,3 +248,4 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 
 - [Gitflow workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
 - [NumPy Docstrings Style Guide | Docstrings](https://numpydoc.readthedocs.io/en/latest/format.html).
+- Frontend to configure access.
