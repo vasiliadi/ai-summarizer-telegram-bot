@@ -84,7 +84,10 @@ def test_get_gemini_kwargs_content():
     """get_gemini_kwargs embeds the requested language in the system instruction."""
     kwargs = get_gemini_kwargs("French")
     assert "French" in kwargs["system_instruction"]
-    assert kwargs["response_mime_type"] == "text/plain"
+    # response_mime_type is intentionally absent — plain text is the default
+    # modality, and setting the MIME type requires a paired response_format
+    # (only used for structured output).
+    assert "response_mime_type" not in kwargs
 
 
 def test_get_gemini_kwargs_thinking_enabled_for_supported_model():

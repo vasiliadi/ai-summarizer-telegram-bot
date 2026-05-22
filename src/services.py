@@ -217,18 +217,12 @@ def get_gemini_kwargs(
     target_language: str,
     model: str = "",
 ) -> dict[str, Any]:
-    """Build the keyword arguments for `client.interactions.create`.
-
-    Returns a dict suitable for `**`-unpacking into the call: system
-    instruction, response MIME type, and a thinking-level generation config
-    that toggles based on whether the model supports high-quality thinking.
-    """
+    """Build kwargs for `client.interactions.create` with a thinking toggle."""
     system_instruction = dedent(
         SYSTEM_INSTRUCTION.format(language=target_language),
     ).strip()
     return {
         "system_instruction": system_instruction,
-        "response_mime_type": "text/plain",
         "generation_config": (
             {"thinking_level": "high"} if model in MODELS_WITH_THINKING_SUPPORT else {}
         ),
