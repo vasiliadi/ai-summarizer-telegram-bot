@@ -86,16 +86,6 @@ def test_get_gemini_config_content():
     assert "French" in config.system_instruction
 
 
-def test_get_gemini_config_with_extra_system_instruction():
-    """Test get_gemini_config appends extra system instruction when provided."""
-    config = get_gemini_config(
-        "English",
-        extra_system_instruction="Use UrlContext before answering.",
-    )
-    assert "English" in config.system_instruction
-    assert "Use UrlContext before answering." in config.system_instruction
-
-
 def test_get_gemini_config_thinking_enabled_for_supported_model():
     """Test that thinking config is set for models that support it."""
     model = MODELS_WITH_THINKING_SUPPORT[0]

@@ -217,7 +217,6 @@ def get_remaining_quota(user_id: int, daily_limit: int) -> int:
 def get_gemini_config(
     target_language: str,
     model: str = "",
-    extra_system_instruction: str | None = None,
 ) -> types.GenerateContentConfig:
     """Get Gemini config with system instruction.
 
@@ -227,10 +226,6 @@ def get_gemini_config(
     system_instruction = dedent(
         SYSTEM_INSTRUCTION.format(language=target_language),
     ).strip()
-    if extra_system_instruction is not None:
-        system_instruction = (
-            f"{system_instruction}\n\n{extra_system_instruction.strip()}"
-        )
     return GEMINI_CONFIG.model_copy(
         update={
             "system_instruction": system_instruction,
