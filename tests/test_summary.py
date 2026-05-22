@@ -39,8 +39,8 @@ def test_summarize_with_file_upload_and_genai_call(mocker):
         state="ACTIVE",
     )
     mock_client.files.upload.return_value = mock_uploaded_file
-    mock_response = mocker.MagicMock(text="This is a mocked summary of the file.")
-    mock_client.models.generate_content.return_value = mock_response
+    mock_response = mocker.MagicMock(output_text="This is a mocked summary of the file.")
+    mock_client.interactions.create.return_value = mock_response
 
     result = summarize_with_file(
         file="test_audio.ogg",
@@ -71,7 +71,7 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
     mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
     mock_client = mocker.patch("summary.gemini_client")
     mocker.patch("services.gemini_client", mock_client)
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text=None)
 
     with pytest.raises(RetryError):
         summarize_with_file(
@@ -106,8 +106,8 @@ def test_summarize_with_transcript(mocker):
     """Test summarize_with_transcript functionality."""
     mocker.patch("summary.check_quota", return_value=True)
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(
-        text="Transcript summary.",
+    mock_client.interactions.create.return_value = mocker.MagicMock(
+        output_text="Transcript summary.",
     )
 
     result = summarize_with_transcript(
@@ -132,8 +132,8 @@ def test_summarize_webpage(mocker):
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.parse_url", return_value="Parsed page content.")
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(
-        text="Webpage summary.",
+    mock_client.interactions.create.return_value = mocker.MagicMock(
+        output_text="Webpage summary.",
     )
 
     result = summarize_webpage(
@@ -146,11 +146,9 @@ def test_summarize_webpage(mocker):
     )
 
     assert result == "Webpage summary."
-    call_kwargs = mock_client.models.generate_content.call_args.kwargs
-    assert "Parsed page content." in call_kwargs["contents"]
-    config = call_kwargs["config"]
-    assert config.tools is None
-    assert "UrlContext" not in (config.system_instruction or "")
+    call_kwargs = mock_client.interactions.create.call_args.kwargs
+    assert "Parsed page content." in call_kwargs["input"]
+    assert "UrlContext" not in (call_kwargs.get("system_instruction") or "")
 
 
 def test_summarize_with_file_upload_failure(mocker):
@@ -175,7 +173,7 @@ def test_summarize_genai_exception(mocker):
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.side_effect = ClientError(
+    mock_client.interactions.create.side_effect = ClientError(
         400,
         {
             "error": {
@@ -214,8 +212,8 @@ def test_summarize_with_document_polling(mocker):
     )
     mock_client.files.upload.return_value = mock_file_proc
     mock_client.files.get.return_value = mock_file_active
-    mock_client.models.generate_content.return_value = mocker.MagicMock(
-        text="Document summary",
+    mock_client.interactions.create.return_value = mocker.MagicMock(
+        output_text="Document summary",
     )
     mock_tg_file = mocker.MagicMock()
 
@@ -617,7 +615,7 @@ def test_summarize_with_file_logs_warning_on_delete_failure(mocker):
     )
     mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text="summary text")
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text="summary text")
     mock_client.files.delete.side_effect = Exception("delete failed")
     mock_logger = mocker.patch("summary.logger")
 
@@ -640,7 +638,7 @@ def test_summarize_with_transcript_raises_on_empty_response(mocker):
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text=None)
 
     with pytest.raises(RetryError):
         summarize_with_transcript(
@@ -680,7 +678,7 @@ def test_summarize_webpage_raises_on_empty_response(mocker):
     mocker.patch("summary.parse_url", return_value="Parsed page content.")
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text=None)
 
     with pytest.raises(RetryError):
         summarize_webpage(
@@ -788,7 +786,7 @@ def test_summarize_with_document_raises_on_empty_response(mocker):
         mime_type="application/pdf",
     )
     mock_client.files.upload.return_value = mock_file
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text=None)
 
     with pytest.raises(RetryError):
         summarize_with_document(
@@ -817,7 +815,7 @@ def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
         mime_type="application/pdf",
     )
     mock_client.files.upload.return_value = mock_file
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text="document summary")
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text="document summary")
     mock_client.files.delete.side_effect = Exception("delete failed")
     mock_logger = mocker.patch("summary.logger")
 

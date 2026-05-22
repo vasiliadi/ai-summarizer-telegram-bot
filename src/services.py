@@ -8,7 +8,6 @@ from functools import lru_cache
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, cast
 
-from google.genai import types
 from limits import parse as _parse_rate_limit
 from requests.exceptions import ReadTimeout
 from telebot.apihelper import ApiTelegramException
@@ -23,7 +22,6 @@ from tenacity import (
 
 from config import (
     DAILY_LIMIT_KEY,
-    GEMINI_CONFIG,
     MINUTE_LIMIT_KEY,
     MODELS_WITH_THINKING_SUPPORT,
     bot,
@@ -35,6 +33,7 @@ from exceptions import LimitExceededError
 from prompts import SYSTEM_INSTRUCTION
 
 if TYPE_CHECKING:
+    from google.genai import types
     from telebot.types import File, Message
     from tenacity import (
         _utils as tenacity_utils,
@@ -214,28 +213,26 @@ def get_remaining_quota(user_id: int, daily_limit: int) -> int:
     return max(0, stats.remaining)
 
 
-def get_gemini_config(
+def get_gemini_kwargs(
     target_language: str,
     model: str = "",
-) -> types.GenerateContentConfig:
-    """Get Gemini config with system instruction.
+) -> dict[str, Any]:
+    """Build the keyword arguments for `client.interactions.create`.
 
-    Selects a config with or without thinking support based on the model.
-
+    Returns a dict suitable for `**`-unpacking into the call: system
+    instruction, response MIME type, and a thinking-level generation config
+    that toggles based on whether the model supports high-quality thinking.
     """
     system_instruction = dedent(
         SYSTEM_INSTRUCTION.format(language=target_language),
     ).strip()
-    return GEMINI_CONFIG.model_copy(
-        update={
-            "system_instruction": system_instruction,
-            "thinking_config": (
-                types.ThinkingConfig(thinking_level=types.ThinkingLevel.HIGH)
-                if model in MODELS_WITH_THINKING_SUPPORT
-                else None
-            ),
-        },
-    )
+    return {
+        "system_instruction": system_instruction,
+        "response_mime_type": "text/plain",
+        "generation_config": (
+            {"thinking_level": "high"} if model in MODELS_WITH_THINKING_SUPPORT else {}
+        ),
+    }
 
 
 _EXT_MIME_FALLBACK = {
