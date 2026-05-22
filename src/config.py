@@ -50,7 +50,11 @@ RATE_LIMITER_URL = f"{REDIS_URL}/0"
 
 
 # Proxy
-PROXY = os.environ.get("PROXY", "")
+# Accepts a single URL or a comma-separated list; one is picked at random
+# per call to mitigate IP blocking. Empty/unset means direct connection.
+PROXIES: list[str] = [
+    p.strip() for p in os.environ.get("PROXY", "").split(",") if p.strip()
+]
 
 
 # Telegram bot config

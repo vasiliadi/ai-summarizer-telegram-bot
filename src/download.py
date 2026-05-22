@@ -18,9 +18,9 @@ from tenacity import (
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import PROXY, TG_API_TOKEN, headers
+from config import TG_API_TOKEN, headers
 from services import choose_yt_audio_format
-from utils import generate_temporary_name
+from utils import generate_temporary_name, get_proxy
 
 if TYPE_CHECKING:
     from typing import Any
@@ -61,9 +61,10 @@ def download_yt(url: str) -> str:
 
     """
     temporary_file_name = generate_temporary_name(ext=".mp3")
+    proxy = get_proxy()
     # Resolve a real format id first because the abstract `worstaudio` selector
     # can fail on videos whose available formats do not satisfy yt-dlp's alias.
-    with YoutubeDL({"proxy": PROXY, "nocheckcertificate": False}) as ydl:
+    with YoutubeDL({"proxy": proxy, "nocheckcertificate": False}) as ydl:
         info = ydl.extract_info(url, download=False)
     if info is None:
         msg = "Failed to extract info from YouTube URL."
@@ -73,7 +74,7 @@ def download_yt(url: str) -> str:
         "format": audio_format,
         "outtmpl": temporary_file_name.split(".", maxsplit=1)[0],
         "nocheckcertificate": False,
-        "proxy": PROXY,
+        "proxy": proxy,
         "postprocessors": [
             {  # Extract audio using ffmpeg
                 "key": "FFmpegExtractAudio",

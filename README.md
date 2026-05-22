@@ -59,6 +59,12 @@ Pass in an empty string to `PROXY` for direct connection. \
 Or use `schema`://`username`:`password`@`proxy_address`:`port` \
 For example `http://user:password@proxy.com:1234`
 
+Multiple proxies can be supplied as a comma-separated list; one is picked at random per request to mitigate IP blocking. Whitespace around entries is trimmed.
+
+```env
+PROXY="http://user:password@proxy.com:1234,http://user:password@proxy.com:1235"
+```
+
 Don't forget to enable `RLS` if you use [Supabase x Postgres](https://supabase.com/database).
 
 After completing these steps, you are ready to send youtube.com and castro.fm links to the bot and receive summary.
