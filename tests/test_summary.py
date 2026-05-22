@@ -71,7 +71,7 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
     mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
     mock_client = mocker.patch("summary.gemini_client")
     mocker.patch("services.gemini_client", mock_client)
-    mock_client.interactions.create.return_value = mocker.MagicMock(output_text=None)
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text="")
 
     with pytest.raises(RetryError):
         summarize_with_file(
@@ -148,7 +148,7 @@ def test_summarize_webpage(mocker):
     assert result == "Webpage summary."
     call_kwargs = mock_client.interactions.create.call_args.kwargs
     assert "Parsed page content." in call_kwargs["input"]
-    assert "UrlContext" not in (call_kwargs.get("system_instruction") or "")
+    assert "tools" not in call_kwargs
 
 
 def test_summarize_with_file_upload_failure(mocker):
@@ -638,7 +638,7 @@ def test_summarize_with_transcript_raises_on_empty_response(mocker):
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.interactions.create.return_value = mocker.MagicMock(output_text=None)
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text="")
 
     with pytest.raises(RetryError):
         summarize_with_transcript(
@@ -678,7 +678,7 @@ def test_summarize_webpage_raises_on_empty_response(mocker):
     mocker.patch("summary.parse_url", return_value="Parsed page content.")
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.interactions.create.return_value = mocker.MagicMock(output_text=None)
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text="")
 
     with pytest.raises(RetryError):
         summarize_webpage(
@@ -786,7 +786,7 @@ def test_summarize_with_document_raises_on_empty_response(mocker):
         mime_type="application/pdf",
     )
     mock_client.files.upload.return_value = mock_file
-    mock_client.interactions.create.return_value = mocker.MagicMock(output_text=None)
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text="")
 
     with pytest.raises(RetryError):
         summarize_with_document(

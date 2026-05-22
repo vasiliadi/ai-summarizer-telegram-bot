@@ -113,7 +113,7 @@ def summarize_with_file(
             input=audio_input,
             **get_gemini_kwargs(target_language, model=model),
         )
-        if interaction.output_text is None:
+        if not interaction.output_text:
             raise AttributeError
         return interaction.output_text
     finally:
@@ -135,7 +135,7 @@ def _generate_text(prompt: str, model: str, target_language: str) -> str:
         input=prompt,
         **get_gemini_kwargs(target_language, model=model),
     )
-    if interaction.output_text is None:
+    if not interaction.output_text:
         raise AttributeError
     return interaction.output_text
 
@@ -310,7 +310,7 @@ def summarize_with_document(
             input=document_input,
             **get_gemini_kwargs(target_language, model=model),
         )
-        if interaction.output_text is None:
+        if not interaction.output_text:
             raise AttributeError
     finally:
         if document_file_name is not None:
