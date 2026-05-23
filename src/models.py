@@ -24,6 +24,8 @@ class UsersOrm(Base):
         summarizing_model (str): Model for summary.
         prompt_key_for_summary (str): Prompt key for summarization strategy.
         daily_limit (int): Max requests per day for this user, defaults to 0 (blocked).
+        yt_transcript_source (str): YouTube transcript source ("api" or "ytdlp"),
+            defaults to "api".
 
     """
 
@@ -48,3 +50,4 @@ class UsersOrm(Base):
         server_default="basic_prompt_for_transcript",
     )
     daily_limit: Mapped[int] = mapped_column(server_default="0")
+    yt_transcript_source: Mapped[str] = mapped_column(server_default="api")

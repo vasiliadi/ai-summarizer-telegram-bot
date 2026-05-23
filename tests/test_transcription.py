@@ -21,7 +21,7 @@ def test_get_yt_transcript_youtube_watch_url(mocker):
     mock_formatter.return_value.format_transcript.return_value = "Hello"
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    result = get_yt_transcript(url)
+    result = get_yt_transcript(url, source="api")
 
     assert result == "Hello"
     mock_ytt.return_value.fetch.assert_called_once_with("dQw4w9WgXcQ")
@@ -35,7 +35,7 @@ def test_get_yt_transcript_youtu_be_url(mocker):
     mock_formatter.return_value.format_transcript.return_value = "Hello short"
 
     url = "https://youtu.be/dQw4w9WgXcQ"
-    result = get_yt_transcript(url)
+    result = get_yt_transcript(url, source="api")
 
     assert result == "Hello short"
     mock_ytt.return_value.fetch.assert_called_once_with("dQw4w9WgXcQ")
@@ -49,7 +49,7 @@ def test_get_yt_transcript_youtube_live_url(mocker):
     mock_formatter.return_value.format_transcript.return_value = "Hello live"
 
     url = "https://www.youtube.com/live/dQw4w9WgXcQ"
-    result = get_yt_transcript(url)
+    result = get_yt_transcript(url, source="api")
 
     assert result == "Hello live"
     mock_ytt.return_value.fetch.assert_called_once_with("dQw4w9WgXcQ")
@@ -57,7 +57,7 @@ def test_get_yt_transcript_youtube_live_url(mocker):
 def test_get_yt_transcript_unknown_url():
     """Test get_yt_transcript raises ValueError for unknown URL formats."""
     with pytest.raises(ValueError, match="Unknown URL"):
-        get_yt_transcript("https://example.com/not-youtube")
+        get_yt_transcript("https://example.com/not-youtube", source="api")
 
 def test_get_yt_transcript_fallback_languages(mocker):
     """Test get_yt_transcript falls back to other languages if NoTranscriptFound."""
@@ -74,7 +74,7 @@ def test_get_yt_transcript_fallback_languages(mocker):
     mock_formatter.return_value.format_transcript.return_value = "Hola"
 
     url = "https://youtu.be/dQw4w9WgXcQ"
-    result = get_yt_transcript(url)
+    result = get_yt_transcript(url, source="api")
 
     assert result == "Hola"
     # Verify it was called twice, once without languages, once with languages
@@ -83,28 +83,16 @@ def test_get_yt_transcript_fallback_languages(mocker):
     assert calls[1].args == ("dQw4w9WgXcQ",)
     assert calls[1].kwargs == {"languages": ["es"]}
 
-def test_get_yt_transcript_falls_back_to_ytdlp_on_api_failure(mocker, tmp_path):
-    """Test get_yt_transcript falls back to yt-dlp when fetch_transcript_via_api exhausts retries."""
-    mocker.patch("time.sleep")
-    mocker.patch(
-        "transcription.fetch_transcript_via_api",
-        side_effect=RetryError(mocker.MagicMock()),
-    )
+def test_get_yt_transcript_source_ytdlp(mocker, tmp_path):
+    """Test get_yt_transcript with source='ytdlp' uses yt-dlp and does not touch the API."""
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.clean_up")
 
     vtt_content = textwrap.dedent("""\
         WEBVTT
-        Kind: captions
-        Language: en
 
         00:00:01.000 --> 00:00:03.000
         Hello world
-
-        00:00:03.000 --> 00:00:05.000
-        Hello world
-
-        00:00:05.000 --> 00:00:07.000
-        Goodbye
     """)
     vtt_file = tmp_path / "fake-uuid.en.vtt"
     vtt_file.write_text(vtt_content, encoding="utf-8")
@@ -112,37 +100,49 @@ def test_get_yt_transcript_falls_back_to_ytdlp_on_api_failure(mocker, tmp_path):
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
     mock_ydl_inst = mock_ydl_cls.return_value.__enter__.return_value
-    mocker.patch("transcription.clean_up")
+    mock_api = mocker.patch("transcription.fetch_transcript_via_api")
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    result = get_yt_transcript(url)
+    result = get_yt_transcript(url, source="ytdlp")
 
     assert "Hello world" in result
-    assert "Goodbye" in result
-    # Deduplication: "Hello world" appears twice in VTT but only once in output
-    assert result.count("Hello world") == 1
-    # English pass found the VTT file — only one download attempt needed
     mock_ydl_inst.download.assert_called_once_with([url])
+    mock_api.assert_not_called()
 
-def test_get_yt_transcript_ytdlp_no_subs_raises(mocker, tmp_path):
-    """Test get_yt_transcript raises DownloadError when yt-dlp finds no subtitles."""
+def test_get_yt_transcript_source_api_does_not_fall_back(mocker):
+    """Test get_yt_transcript with source='api' propagates errors without falling back to yt-dlp."""
     mocker.patch("time.sleep")
     mocker.patch(
         "transcription.fetch_transcript_via_api",
         side_effect=RetryError(mocker.MagicMock()),
     )
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
-    mock_ydl_inst = mock_ydl_cls.return_value.__enter__.return_value
+    mock_ytdlp = mocker.patch("transcription.fetch_transcript_via_ytdlp")
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
-        get_yt_transcript(url)
+    with pytest.raises(RetryError):
+        get_yt_transcript(url, source="api")
 
-    # Both English and all-languages passes must have been attempted
-    assert mock_ydl_inst.download.call_count == 2
-    mock_ydl_inst.download.assert_called_with([url])
+    mock_ytdlp.assert_not_called()
+
+def test_get_yt_transcript_source_ytdlp_does_not_fall_back(mocker):
+    """Test get_yt_transcript with source='ytdlp' propagates errors without falling back to the API."""
+    mocker.patch(
+        "transcription.fetch_transcript_via_ytdlp",
+        side_effect=DownloadError("no subs"),
+    )
+    mock_api = mocker.patch("transcription.fetch_transcript_via_api")
+
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    with pytest.raises(DownloadError):
+        get_yt_transcript(url, source="ytdlp")
+
+    mock_api.assert_not_called()
+
+def test_get_yt_transcript_unknown_source_raises_value_error():
+    """Test get_yt_transcript raises ValueError for an unknown source."""
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    with pytest.raises(ValueError, match="Unknown transcript source"):
+        get_yt_transcript(url, source="bogus")
 
 def test_vtt_to_text_dedupes_and_strips_tags(tmp_path):
     """Test vtt_to_text removes headers, timestamps, HTML tags, entities, and duplicates."""
@@ -279,23 +279,14 @@ def test_fetch_transcript_via_ytdlp_unexpected_error_preserves_cause(mocker, tmp
 
     assert exc_info.value.__cause__ is original_exc
 
-def test_fetch_transcript_via_api_logs_and_reraises_non_retryable_error(mocker, caplog):
-    """Test fetch_transcript_via_api logs a warning and re-raises CouldNotRetrieveTranscript subclasses."""
-    import logging
-
+def test_fetch_transcript_via_api_propagates_non_retryable_error(mocker):
+    """Test fetch_transcript_via_api propagates CouldNotRetrieveTranscript subclasses."""
     mocker.patch("transcription.get_proxy", return_value="")
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
     mock_ytt.return_value.fetch.side_effect = TranscriptsDisabled("vid")
 
-    with caplog.at_level(logging.WARNING, logger="transcription"):
-        with pytest.raises(TranscriptsDisabled):
-            fetch_transcript_via_api("vid")
-
-    assert any(
-        "vid" in r.message
-        for r in caplog.records
-        if r.levelno == logging.WARNING
-    )
+    with pytest.raises(TranscriptsDisabled):
+        fetch_transcript_via_api("vid")
 
 
 @pytest.mark.parametrize("exc", [IpBlocked("vid"), RequestBlocked("vid"), ParseError()])

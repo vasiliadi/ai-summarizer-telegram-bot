@@ -5,12 +5,14 @@ from main import (
     handle_set_prompt_strategy,
     handle_set_summarizing_model,
     handle_set_target_language,
+    handle_set_yt_transcript_source,
     handle_start,
     handle_toggle_transcription,
     handle_toggle_yt_transcription,
     proceed_set_prompt_strategy,
     proceed_set_summarizing_model,
     proceed_set_target_language,
+    proceed_set_yt_transcript_source,
 )
 from models import UsersOrm
 
@@ -85,6 +87,7 @@ def test_handle_myinfo(message_factory, mocker):
         use_yt_transcription=False,
         use_transcription=False,
         daily_limit=10,
+        yt_transcript_source="ytdlp",
     )
     mocker.patch("main.select_user", return_value=mock_user)
     mocker.patch("main.get_remaining_quota", return_value=7)
@@ -98,6 +101,7 @@ def test_handle_myinfo(message_factory, mocker):
     assert "Daily limit: 10" in content
     assert "Remaining quota: 7" in content
     assert "Summarizing model: Gemini 2.5 Flash" in content
+    assert "YT transcript source: yt-dlp" in content
     assert "Prompt strategy: Detailed Summary" in content
 
 
@@ -355,3 +359,69 @@ def test_proceed_set_prompt_strategy_invalid_choice(message_factory, mocker):
 
     mock_send.assert_called_once_with(msg.chat.id, "Unknown strategy")
     mock_set_strategy.assert_not_called()
+
+
+def test_handle_set_yt_transcript_source(message_factory, mocker):
+    """Test /set_yt_transcript_source shows keyboard."""
+    msg = message_factory(content_type="text")
+    mock_send = mocker.patch("main.bot.send_message")
+    mock_register = mocker.patch("main.bot.register_next_step_handler")
+
+    handle_set_yt_transcript_source(msg)
+
+    assert "Select YouTube transcript source" in mock_send.call_args[0][1]
+    assert mock_register.called
+
+
+def test_proceed_set_yt_transcript_source_success(message_factory, mocker):
+    """Test successful YouTube transcript source selection."""
+    msg = message_factory(content_type="text", text="yt-dlp")
+    mock_set = mocker.patch("main.set_yt_transcript_source", return_value=True)
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed_set_yt_transcript_source(msg)
+
+    mock_set.assert_called_once_with(msg.from_user.id, "ytdlp")
+    assert (
+        "The YouTube transcript source is set to yt-dlp"
+        in mock_send.call_args[0][1]
+    )
+
+
+def test_proceed_set_yt_transcript_source_missing_input(message_factory, mocker):
+    """Test source selection fails fast when user or text is missing."""
+    msg = message_factory(content_type="text", text="yt-dlp")
+    msg.text = None
+    mock_reply = mocker.patch("main.bot.reply_to")
+    mock_set = mocker.patch("main.set_yt_transcript_source")
+
+    proceed_set_yt_transcript_source(msg)
+
+    mock_reply.assert_called_once_with(msg, "User information or source is missing.")
+    mock_set.assert_not_called()
+
+
+def test_proceed_set_yt_transcript_source_invalid_choice(message_factory, mocker):
+    """Test invalid label short-circuits before calling set_yt_transcript_source."""
+    msg = message_factory(content_type="text", text="curl")
+    mock_set = mocker.patch("main.set_yt_transcript_source")
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed_set_yt_transcript_source(msg)
+
+    mock_send.assert_called_once_with(msg.chat.id, "Unknown source")
+    mock_set.assert_not_called()
+
+
+def test_proceed_set_yt_transcript_source_db_failure(message_factory, mocker):
+    """Test DB failure returns a clear user-facing message."""
+    msg = message_factory(content_type="text", text="yt-dlp")
+    mocker.patch("main.set_yt_transcript_source", return_value=False)
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed_set_yt_transcript_source(msg)
+
+    mock_send.assert_called_once_with(
+        msg.chat.id,
+        "Failed to update transcript source.",
+    )

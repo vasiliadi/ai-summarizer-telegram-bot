@@ -5,9 +5,11 @@ from sqlalchemy.orm import sessionmaker
 from config import (
     ALLOWED_MODELS_FOR_SUMMARY,
     ALLOWED_PROMPT_KEYS,
+    ALLOWED_YT_TRANSCRIPT_SOURCES,
     DEFAULT_LANG,
     DEFAULT_MODEL_ID_FOR_SUMMARY,
     DEFAULT_PROMPT_KEY,
+    DEFAULT_YT_TRANSCRIPT_SOURCE,
     DSN,
     SUPPORTED_LANGUAGES,
 )
@@ -28,6 +30,7 @@ def register_user(
     use_yt_transcription: bool = False,
     summarizing_model: str = DEFAULT_MODEL_ID_FOR_SUMMARY,
     prompt_key_for_summary: (str) = DEFAULT_PROMPT_KEY,
+    yt_transcript_source: str = DEFAULT_YT_TRANSCRIPT_SOURCE,
 ) -> bool:
     """Register a new user in the database.
 
@@ -42,6 +45,8 @@ def register_user(
         use_yt_transcription (bool, optional): Enable YouTube transcription.
         summarizing_model (str, optional): Model for summary.
         prompt_key_for_summary (str): Prompt key for summarization strategy.
+        yt_transcript_source (str, optional): YouTube transcript source ("api" or
+            "ytdlp").
 
     Returns:
         bool: True if registration is successful, False if the user already exists.
@@ -63,6 +68,7 @@ def register_user(
                 use_yt_transcription=use_yt_transcription,
                 summarizing_model=summarizing_model,
                 prompt_key_for_summary=prompt_key_for_summary,
+                yt_transcript_source=yt_transcript_source,
             )
             session.add(stmt)
             session.commit()
@@ -200,6 +206,33 @@ def set_summarizing_model(user_id: int, summarizing_model: str) -> bool:
         user = session.get(UsersOrm, user_id)
         if user is not None:
             user.summarizing_model = summarizing_model
+            session.commit()
+            return True
+        return False  # User not found
+
+
+def set_yt_transcript_source(user_id: int, yt_transcript_source: str) -> bool:
+    """Set the YouTube transcript source for a user.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+        yt_transcript_source (str): The transcript source key ("api" or "ytdlp")
+
+    Returns:
+        bool: True if source was set successfully, False if the value is not
+        supported or the user is not found.
+
+    Note:
+        The yt_transcript_source string is checked against
+        ALLOWED_YT_TRANSCRIPT_SOURCES.
+
+    """
+    if yt_transcript_source.lower() not in ALLOWED_YT_TRANSCRIPT_SOURCES:
+        return False  # source not supported
+    with Session() as session:
+        user = session.get(UsersOrm, user_id)
+        if user is not None:
+            user.yt_transcript_source = yt_transcript_source.lower()
             session.commit()
             return True
         return False  # User not found
