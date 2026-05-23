@@ -250,6 +250,25 @@ def test_fetch_transcript_via_api_uses_proxy_when_configured(mocker):
     mock_proxy_cfg.assert_called_once_with(https_url="http://proxy:8080")
     mock_ytt.assert_called_once_with(proxy_config=mock_proxy_cfg.return_value)
 
+def test_fetch_transcript_via_ytdlp_download_error_logged_and_reraised(mocker, tmp_path):
+    """Test fetch_transcript_via_ytdlp logs and re-raises DownloadError from yt-dlp."""
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    original_exc = DownloadError("Sign in to confirm")
+    mock_ydl_cls.return_value.__enter__.return_value.download.side_effect = original_exc
+    mock_logger = mocker.patch("transcription.logger")
+
+    with pytest.raises(DownloadError) as exc_info:
+        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+
+    assert exc_info.value is original_exc
+    mock_logger.warning.assert_called_once_with(
+        "yt-dlp subtitle fetch failed: %s: %s",
+        "DownloadError",
+        mocker.ANY,
+    )
+
 def test_fetch_transcript_via_ytdlp_unexpected_error_wrapped_as_download_error(mocker, tmp_path):
     """Test fetch_transcript_via_ytdlp wraps non-DownloadError exceptions as DownloadError."""
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
