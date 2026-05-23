@@ -6,7 +6,7 @@ import mimetypes
 import time
 from functools import lru_cache
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 from limits import parse as _parse_rate_limit
 from requests.exceptions import ReadTimeout
@@ -34,6 +34,7 @@ from prompts import SYSTEM_INSTRUCTION
 
 if TYPE_CHECKING:
     from google.genai import types
+    from google.genai._interactions.types import GenerationConfigParam
     from telebot.types import File, Message
     from tenacity import (
         _utils as tenacity_utils,
@@ -213,10 +214,17 @@ def get_remaining_quota(user_id: int, daily_limit: int) -> int:
     return max(0, stats.remaining)
 
 
+class GeminiKwargs(TypedDict):
+    """Keyword arguments accepted by `client.interactions.create`."""
+
+    system_instruction: str
+    generation_config: GenerationConfigParam
+
+
 def get_gemini_kwargs(
     target_language: str,
     model: str = "",
-) -> dict[str, Any]:
+) -> GeminiKwargs:
     """Build kwargs for `client.interactions.create` with a thinking toggle."""
     system_instruction = dedent(
         SYSTEM_INSTRUCTION.format(language=target_language),

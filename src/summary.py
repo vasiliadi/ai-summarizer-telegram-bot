@@ -296,13 +296,15 @@ def summarize_with_document(
             sleep_time=sleep_time,
         )
         document_file_name = document_file.name
+        if document_file.uri is None or document_file.mime_type is None:
+            raise AttributeError
         check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
         document_input: list[Any] = [
             {"type": "text", "text": prompt},
             {
                 "type": "document",
-                "uri": cast("str", document_file.uri),
-                "mime_type": cast("str", document_file.mime_type),
+                "uri": document_file.uri,
+                "mime_type": document_file.mime_type,
             },
         ]
         interaction = gemini_client.interactions.create(
