@@ -87,6 +87,7 @@ def test_handle_myinfo(message_factory, mocker):
         use_yt_transcription=False,
         use_transcription=False,
         daily_limit=10,
+        yt_transcript_source="ytdlp",
     )
     mocker.patch("main.select_user", return_value=mock_user)
     mocker.patch("main.get_remaining_quota", return_value=7)
@@ -100,6 +101,7 @@ def test_handle_myinfo(message_factory, mocker):
     assert "Daily limit: 10" in content
     assert "Remaining quota: 7" in content
     assert "Summarizing model: Gemini 2.5 Flash" in content
+    assert "YT transcript source: yt-dlp" in content
     assert "Prompt strategy: Detailed Summary" in content
 
 

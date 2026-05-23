@@ -17,7 +17,7 @@ from tenacity import (
     stop_after_attempt,
     wait_fixed,
 )
-from youtube_transcript_api._errors import TranscriptsDisabled
+from youtube_transcript_api._errors import CouldNotRetrieveTranscript
 from yt_dlp.utils import DownloadError
 
 from config import DEFAULT_YT_TRANSCRIPT_SOURCE, gemini_client
@@ -398,7 +398,7 @@ def summarize(
                 try:
                     transcript = get_yt_transcript(data, yt_transcript_source)
                 except (
-                    TranscriptsDisabled,
+                    CouldNotRetrieveTranscript,
                     RetryError,
                     DownloadError,
                     ValueError,

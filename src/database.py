@@ -227,12 +227,12 @@ def set_yt_transcript_source(user_id: int, yt_transcript_source: str) -> bool:
         ALLOWED_YT_TRANSCRIPT_SOURCES.
 
     """
-    if yt_transcript_source not in ALLOWED_YT_TRANSCRIPT_SOURCES:
+    if yt_transcript_source.lower() not in ALLOWED_YT_TRANSCRIPT_SOURCES:
         return False  # source not supported
     with Session() as session:
         user = session.get(UsersOrm, user_id)
         if user is not None:
-            user.yt_transcript_source = yt_transcript_source
+            user.yt_transcript_source = yt_transcript_source.lower()
             session.commit()
             return True
         return False  # User not found

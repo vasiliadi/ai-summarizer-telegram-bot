@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 from google.genai.errors import ClientError
 from tenacity import RetryError
-from youtube_transcript_api._errors import TranscriptsDisabled
+from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
 
 from services import resolve_mime_type
 from summary import (
@@ -448,6 +448,33 @@ def test_summarize_youtube_transcript_retry_error_falls_back_to_download(mocker)
         "get_yt_transcript failed, falling back to download: %s",
         mocker.ANY,
     )
+
+
+def test_summarize_youtube_no_transcript_found_falls_back_to_download(mocker):
+    """Test summarize() falls back to audio when get_yt_transcript raises NoTranscriptFound."""
+    url = "https://youtube.com/watch?v=123"
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch(
+        "summary.get_yt_transcript",
+        side_effect=NoTranscriptFound("123", "en", []),
+    )
+    mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
+    mocker.patch("summary.summarize_with_file", return_value="File summary")
+    mocker.patch("summary.clean_up")
+
+    result = summarize(
+        data=url,
+        use_transcription=True,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+        use_yt_transcription=True,
+    )
+
+    assert result == "File summary"
+    mock_download.assert_called_once_with(url)
 
 
 def test_summarize_youtube_transcript_value_error_falls_back_to_download(mocker):
