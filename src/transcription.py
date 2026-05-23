@@ -173,10 +173,14 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
 
         return vtt_to_text(vtt_files[0])
     except DownloadError as e:
-        logger.warning("yt-dlp subtitle fetch failed: %s", e)
+        logger.warning("yt-dlp subtitle fetch failed: %s: %s", type(e).__name__, e)
         raise
     except Exception as e:
-        logger.warning("yt-dlp subtitle fetch failed unexpectedly: %s", e)
+        logger.warning(
+            "yt-dlp subtitle fetch failed unexpectedly: %s: %s",
+            type(e).__name__,
+            e,
+        )
         msg = "yt-dlp subtitle fetch failed"
         raise DownloadError(msg) from e
     finally:

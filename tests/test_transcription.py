@@ -262,7 +262,8 @@ def test_fetch_transcript_via_ytdlp_unexpected_error_wrapped_as_download_error(m
         fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
 
     mock_logger.warning.assert_called_once_with(
-        "yt-dlp subtitle fetch failed unexpectedly: %s",
+        "yt-dlp subtitle fetch failed unexpectedly: %s: %s",
+        "ConnectionError",
         mocker.ANY,
     )
 
