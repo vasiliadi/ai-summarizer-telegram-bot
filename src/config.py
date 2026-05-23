@@ -115,6 +115,18 @@ PROMPT_STRATEGY_LABELS_REVERSE: dict[str, str] = {
 ALLOWED_PROMPT_KEYS = list(PROMPT_STRATEGY_LABELS.keys())
 
 
+# YouTube transcript source
+DEFAULT_YT_TRANSCRIPT_SOURCE = "api"
+YT_TRANSCRIPT_SOURCE_LABELS: dict[str, str] = {
+    "api": "YouTube Transcript API",
+    "ytdlp": "yt-dlp",
+}
+YT_TRANSCRIPT_SOURCE_LABELS_REVERSE: dict[str, str] = {
+    v: k for k, v in YT_TRANSCRIPT_SOURCE_LABELS.items()
+}
+ALLOWED_YT_TRANSCRIPT_SOURCES = list(YT_TRANSCRIPT_SOURCE_LABELS.keys())
+
+
 # Replicate.com config
 REPLICATE_API_TOKEN = os.environ["REPLICATE_API_TOKEN"]
 replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)

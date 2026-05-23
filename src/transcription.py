@@ -9,7 +9,6 @@ from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError, ReplicateError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
-    RetryError,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -18,7 +17,6 @@ from tenacity import (
 )
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import (
-    CouldNotRetrieveTranscript,
     IpBlocked,
     NoTranscriptFound,
     RequestBlocked,
@@ -109,7 +107,7 @@ def fetch_transcript_via_api(video_id: str) -> str:
     Raises:
         NoTranscriptFound: If no transcript is found in any language.
         CouldNotRetrieveTranscript: Subclasses (TranscriptsDisabled, VideoUnavailable,
-            AgeRestricted, etc.) are logged at WARNING then re-raised.
+            AgeRestricted, etc.) propagate to the caller.
         RetryError: If IpBlocked, RequestBlocked, or ParseError persist after retries.
 
     """
@@ -126,9 +124,6 @@ def fetch_transcript_via_api(video_id: str) -> str:
         language_codes = [transcript.language_code for transcript in transcript_list]
         time.sleep(60)
         transcript = ytt_api.fetch(video_id, languages=language_codes)
-    except CouldNotRetrieveTranscript as e:
-        logger.warning("youtube_transcript_api failed for video %s: %s", video_id, e)
-        raise
     return TextFormatter().format_transcript(transcript)
 
 
@@ -202,23 +197,31 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
-def get_yt_transcript(url: str) -> str:
+def get_yt_transcript(url: str, source: str) -> str:
     """Retrieve and format the transcript from a YouTube video URL.
 
-    Tries youtube_transcript_api first. If blocked or unavailable, falls
-    back to yt-dlp subtitle download. Transient network errors are retried
-    up to 3 times before raising RetryError.
+    Dispatches to a single transcript backend based on `source`; there is no
+    fallback between backends. Transient transport errors (proxy/SSL/network)
+    are retried up to 3 times before raising RetryError.
 
     Args:
         url (str): The YouTube video URL.
+        source (str): Transcript backend to use. Either "api"
+            (youtube_transcript_api) or "ytdlp" (yt-dlp subtitle download).
 
     Returns:
         str: The formatted transcript text from the video.
 
     Raises:
-        ValueError: If the URL format is not recognized.
-        DownloadError: If both the API and yt-dlp fallback fail to retrieve subtitles.
-        RetryError: If proxy/SSL/network errors persist after all retry attempts.
+        ValueError: If the URL format is not recognized, or if `source` is not
+            a known backend.
+        NoTranscriptFound: If the API backend cannot find a transcript.
+        CouldNotRetrieveTranscript: Subclasses raised by the API backend
+            (TranscriptsDisabled, VideoUnavailable, AgeRestricted, etc.).
+        DownloadError: If the yt-dlp backend cannot fetch subtitles.
+        RetryError: If proxy/SSL/network errors persist after all retry attempts,
+            or if API-internal retries (IpBlocked/RequestBlocked/ParseError) are
+            exhausted.
 
     """
     video_id = extract_youtube_video_id(url)
@@ -226,11 +229,9 @@ def get_yt_transcript(url: str) -> str:
         msg = "Unknown URL"
         raise ValueError(msg)
 
-    try:
+    if source == "api":
         return fetch_transcript_via_api(video_id)
-    except (NoTranscriptFound, RetryError) as e:
-        logger.warning(
-            "youtube_transcript_api failed (%s); trying yt-dlp fallback",
-            e,
-        )
+    if source == "ytdlp":
         return fetch_transcript_via_ytdlp(url)
+    msg = f"Unknown transcript source: {source}"
+    raise ValueError(msg)
