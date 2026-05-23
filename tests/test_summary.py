@@ -856,3 +856,29 @@ def test_summarize_with_telegram_file(mocker):
 
     assert result == "Telegram file summary"
     mock_download_tg.assert_called_once_with(mock_tg_file, ext=".ogg")
+
+
+def test_summarize_with_document_raises_when_upload_returns_none_uri(mocker):
+    """Test summarize_with_document raises RetryError when upload_and_wait_for_file
+    returns a file with uri=None, triggering the guard in summarize_with_document
+    before interactions.create is called."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = SimpleNamespace(name="files/doc123", uri=None, mime_type="application/pdf")
+    mocker.patch("summary.upload_and_wait_for_file", return_value=mock_file)
+
+    with pytest.raises(RetryError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+        )
+
+    mock_client.interactions.create.assert_not_called()
