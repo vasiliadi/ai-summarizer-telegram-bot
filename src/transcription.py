@@ -130,8 +130,7 @@ def fetch_transcript_via_api(video_id: str) -> str:
 def fetch_transcript_via_ytdlp(url: str) -> str:
     """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
-    Tries English subtitles first (manual then auto-generated), then falls
-    back to any available language. Always uses PROXY when configured.
+    Probes available tracks first, prefers English, converts to vtt via ffmpeg.
 
     Args:
         url (str): The YouTube video URL.
@@ -144,28 +143,48 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
 
     """
     temp_basename = generate_temporary_name()
-    ydl_opts: dict[str, Any] = {
-        "proxy": get_proxy(),
+    proxy = get_proxy()
+    probe_opts: dict[str, Any] = {
+        "proxy": proxy,
         "skip_download": True,
-        "writesubtitles": True,
-        "writeautomaticsub": True,
-        "subtitleslangs": ["en.*", "en"],
-        "subtitlesformat": "vtt",
-        "outtmpl": temp_basename,
         "quiet": True,
         "nocheckcertificate": False,
     }
     try:
+        with YoutubeDL(probe_opts) as ydl:  # pyrefly: ignore[bad-argument-type]
+            info = ydl.extract_info(url, download=False)
+
+        if info is None:
+            msg = "No subtitles available via yt-dlp"
+            raise DownloadError(msg)  # noqa: TRY301
+
+        manual = info.get("subtitles") or {}
+        auto = info.get("automatic_captions") or {}
+        available = list(dict.fromkeys([*manual.keys(), *auto.keys()]))
+
+        if not available:
+            msg = "No subtitles available via yt-dlp"
+            raise DownloadError(msg)  # noqa: TRY301
+
+        has_english = any(lang == "en" or lang.startswith("en") for lang in available)
+        chosen_langs = ["en.*", "en"] if has_english else [available[0]]
+
+        ydl_opts: dict[str, Any] = {
+            "proxy": proxy,
+            "skip_download": True,
+            "writesubtitles": True,
+            "writeautomaticsub": True,
+            "subtitleslangs": chosen_langs,
+            "subtitlesformat": "vtt/best",
+            "convertsubtitles": "vtt",
+            "outtmpl": temp_basename,
+            "quiet": True,
+            "nocheckcertificate": False,
+        }
         with YoutubeDL(ydl_opts) as ydl:  # pyrefly: ignore[bad-argument-type]
             ydl.download([url])
 
         vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
-
-        if not vtt_files:
-            ydl_opts_all = {**ydl_opts, "subtitleslangs": ["all"]}
-            with YoutubeDL(ydl_opts_all) as ydl:  # pyrefly: ignore[bad-argument-type]
-                ydl.download([url])
-            vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
 
         if not vtt_files:
             msg = "No subtitles available via yt-dlp"
