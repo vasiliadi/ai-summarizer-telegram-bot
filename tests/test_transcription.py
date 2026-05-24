@@ -356,6 +356,54 @@ def test_fetch_transcript_via_ytdlp_unexpected_error_preserves_cause(mocker, tmp
     assert exc_info.value.__cause__ is original_exc
 
 
+def test_fetch_transcript_via_ytdlp_probe_download_error_logged_with_probe_message(
+    mocker, tmp_path
+):
+    """Test fetch_transcript_via_ytdlp logs 'probe failed' (not 'subtitle fetch failed') when extract_info raises."""
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    ctx = mock_ydl_cls.return_value.__enter__.return_value
+    original_exc = DownloadError("Private video")
+    ctx.extract_info.side_effect = original_exc
+    mock_logger = mocker.patch("transcription.logger")
+
+    with pytest.raises(DownloadError) as exc_info:
+        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+
+    assert exc_info.value is original_exc
+    mock_logger.warning.assert_called_once_with(
+        "yt-dlp probe failed: %s: %s",
+        "DownloadError",
+        mocker.ANY,
+    )
+    ctx.download.assert_not_called()
+
+
+def test_fetch_transcript_via_ytdlp_probe_unexpected_error_wrapped_and_logged(
+    mocker, tmp_path
+):
+    """Test fetch_transcript_via_ytdlp wraps and logs unexpected errors from extract_info as probe failures."""
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    ctx = mock_ydl_cls.return_value.__enter__.return_value
+    original_exc = ValueError("unexpected extractor failure")
+    ctx.extract_info.side_effect = original_exc
+    mock_logger = mocker.patch("transcription.logger")
+
+    with pytest.raises(DownloadError, match="yt-dlp probe failed") as exc_info:
+        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+
+    assert exc_info.value.__cause__ is original_exc
+    mock_logger.warning.assert_called_once_with(
+        "yt-dlp probe failed unexpectedly: %s: %s",
+        "ValueError",
+        mocker.ANY,
+    )
+    ctx.download.assert_not_called()
+
+
 def test_fetch_transcript_via_api_propagates_non_retryable_error(mocker):
     """Test fetch_transcript_via_api propagates CouldNotRetrieveTranscript subclasses."""
     mocker.patch("transcription.get_proxy", return_value="")
@@ -496,7 +544,10 @@ def test_fetch_transcript_via_ytdlp_pins_proxy_across_probe_and_download(
     assert probe_opts["proxy"] == "http://proxy.example:8080"
     assert download_opts["proxy"] == "http://proxy.example:8080"
     assert download_opts["subtitlesformat"] == "vtt/best"
-    assert download_opts["convertsubtitles"] == "vtt"
+    assert any(
+        pp.get("key") == "FFmpegSubtitlesConvertor" and pp.get("format") == "vtt"
+        for pp in download_opts.get("postprocessors", [])
+    )
 
 
 def test_transcribe_happy_path(mocker):
