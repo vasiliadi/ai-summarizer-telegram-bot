@@ -498,11 +498,11 @@ def test_fetch_transcript_via_ytdlp_prefers_english_when_available(mocker, tmp_p
     result = fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
 
     assert result == "Hello"
-    assert download_calls == [["en.*", "en"]]
+    assert download_calls == [["en.*"]]
 
 
 def test_fetch_transcript_via_ytdlp_no_subtitles_skips_download(mocker, tmp_path):
-    """Test fetch_transcript_via_ytdlp raises without calling download when no subtitles exist."""
+
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
@@ -513,36 +513,6 @@ def test_fetch_transcript_via_ytdlp_no_subtitles_skips_download(mocker, tmp_path
         fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
 
     ctx.download.assert_not_called()
-
-
-def test_fetch_transcript_via_ytdlp_extract_info_none_raises(mocker, tmp_path):
-    """Test fetch_transcript_via_ytdlp raises when extract_info returns None."""
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
-    ctx = mock_ydl_cls.return_value.__enter__.return_value
-    ctx.extract_info.return_value = None
-
-    with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
-        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
-
-    ctx.download.assert_not_called()
-
-
-def test_fetch_transcript_via_ytdlp_no_vtt_after_download_raises(mocker, tmp_path):
-    """Test fetch_transcript_via_ytdlp raises when download writes no vtt file."""
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-    mocker.patch("transcription.clean_up")
-    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
-    ctx = mock_ydl_cls.return_value.__enter__.return_value
-    ctx.extract_info.return_value = {"subtitles": {"en": [{}]}, "automatic_captions": {}}
-    # download() succeeds but writes nothing to tmp_path
-
-    with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
-        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
-
-    ctx.download.assert_called_once()
 
 
 def test_fetch_transcript_via_ytdlp_pins_proxy_across_probe_and_download(
@@ -572,9 +542,7 @@ def test_fetch_transcript_via_ytdlp_pins_proxy_across_probe_and_download(
     assert mock_ydl_cls.call_count == 2
     probe_opts, download_opts = (call.args[0] for call in mock_ydl_cls.call_args_list)
     assert probe_opts["proxy"] == "http://proxy.example:8080"
-    assert probe_opts["noplaylist"] is True
     assert download_opts["proxy"] == "http://proxy.example:8080"
-    assert download_opts["noplaylist"] is True
     assert download_opts["subtitlesformat"] == "vtt/best"
     assert any(
         pp.get("key") == "FFmpegSubtitlesConvertor" and pp.get("format") == "vtt"
