@@ -498,7 +498,7 @@ def test_fetch_transcript_via_ytdlp_prefers_english_when_available(mocker, tmp_p
     result = fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
 
     assert result == "Hello"
-    assert download_calls == [["en.*", "en"]]
+    assert download_calls == [["en.*"]]
 
 
 def test_fetch_transcript_via_ytdlp_no_subtitles_skips_download(mocker, tmp_path):

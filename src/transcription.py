@@ -176,8 +176,8 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
         msg = "No subtitles available via yt-dlp"
         raise DownloadError(msg)
 
-    has_english = any(lang == "en" or lang.startswith("en") for lang in available)
-    chosen_langs = ["en.*", "en"] if has_english else [available[0]]
+    has_english = any(lang.startswith("en") for lang in available)
+    chosen_langs = ["en.*"] if has_english else [available[0]]
 
     ydl_opts: dict[str, Any] = {
         "proxy": proxy,
