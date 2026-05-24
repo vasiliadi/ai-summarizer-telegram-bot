@@ -146,6 +146,7 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
     proxy = get_proxy()
     probe_opts: dict[str, Any] = {
         "proxy": proxy,
+        "noplaylist": True,
         "skip_download": True,
         "quiet": True,
         "nocheckcertificate": False,
@@ -180,6 +181,7 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
 
     ydl_opts: dict[str, Any] = {
         "proxy": proxy,
+        "noplaylist": True,
         "skip_download": True,
         "writesubtitles": True,
         "writeautomaticsub": True,
@@ -208,7 +210,7 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
             msg = "No subtitles available via yt-dlp"
             raise DownloadError(msg)  # noqa: TRY301
 
-        return vtt_to_text(vtt_files[0])
+        return vtt_to_text(sorted(vtt_files)[0])
     except DownloadError as e:
         logger.warning("yt-dlp subtitle fetch failed: %s: %s", type(e).__name__, e)
         raise
