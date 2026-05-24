@@ -4,6 +4,7 @@
   "schedule": ["on sunday"],
   "minimumReleaseAge": "3 days",
   "rangeStrategy": "widen",
+  "prHourlyLimit": 0,
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
     "labels": ["security"],
