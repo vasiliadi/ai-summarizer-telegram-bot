@@ -130,8 +130,7 @@ def fetch_transcript_via_api(video_id: str) -> str:
 def fetch_transcript_via_ytdlp(url: str) -> str:
     """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
-    Tries English subtitles first (manual then auto-generated), then falls
-    back to any available language. Always uses PROXY when configured.
+    Probes available tracks first, prefers English, converts to vtt via ffmpeg.
 
     Args:
         url (str): The YouTube video URL.
@@ -144,17 +143,63 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
 
     """
     temp_basename = generate_temporary_name()
+    proxy = get_proxy()
+    probe_opts: dict[str, Any] = {
+        "proxy": proxy,
+        "noplaylist": True,
+        "skip_download": True,
+        "quiet": True,
+        "nocheckcertificate": False,
+    }
+
+    # Phase 1: probe available subtitle tracks (no download, no temp files written).
+    try:
+        with YoutubeDL(probe_opts) as ydl:  # pyrefly: ignore[bad-argument-type]
+            info = ydl.extract_info(url, download=False)
+    except DownloadError as e:
+        logger.warning("yt-dlp probe failed: %s: %s", type(e).__name__, e)
+        raise
+    except Exception as e:
+        logger.warning("yt-dlp probe failed unexpectedly: %s: %s", type(e).__name__, e)
+        msg = "yt-dlp probe failed"
+        raise DownloadError(msg) from e
+
+    if info is None:
+        msg = "No subtitles available via yt-dlp"
+        raise DownloadError(msg)
+
+    manual = info.get("subtitles") or {}
+    auto = info.get("automatic_captions") or {}
+    available = list(dict.fromkeys([*manual.keys(), *auto.keys()]))
+
+    if not available:
+        msg = "No subtitles available via yt-dlp"
+        raise DownloadError(msg)
+
+    has_english = any(lang == "en" or lang.startswith("en") for lang in available)
+    chosen_langs = ["en.*", "en"] if has_english else [available[0]]
+
     ydl_opts: dict[str, Any] = {
-        "proxy": get_proxy(),
+        "proxy": proxy,
+        "noplaylist": True,
         "skip_download": True,
         "writesubtitles": True,
         "writeautomaticsub": True,
-        "subtitleslangs": ["en.*", "en"],
-        "subtitlesformat": "vtt",
+        "subtitleslangs": chosen_langs,
+        "subtitlesformat": "vtt/best",
+        "postprocessors": [
+            {
+                "key": "FFmpegSubtitlesConvertor",
+                "format": "vtt",
+                "when": "before_dl",
+            },
+        ],
         "outtmpl": temp_basename,
         "quiet": True,
         "nocheckcertificate": False,
     }
+
+    # Phase 2: download and convert subtitles.
     try:
         with YoutubeDL(ydl_opts) as ydl:  # pyrefly: ignore[bad-argument-type]
             ydl.download([url])
@@ -162,16 +207,10 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
         vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
 
         if not vtt_files:
-            ydl_opts_all = {**ydl_opts, "subtitleslangs": ["all"]}
-            with YoutubeDL(ydl_opts_all) as ydl:  # pyrefly: ignore[bad-argument-type]
-                ydl.download([url])
-            vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
-
-        if not vtt_files:
             msg = "No subtitles available via yt-dlp"
             raise DownloadError(msg)  # noqa: TRY301
 
-        return vtt_to_text(vtt_files[0])
+        return vtt_to_text(sorted(vtt_files)[0])
     except DownloadError as e:
         logger.warning("yt-dlp subtitle fetch failed: %s: %s", type(e).__name__, e)
         raise
@@ -184,7 +223,7 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
         msg = "yt-dlp subtitle fetch failed"
         raise DownloadError(msg) from e
     finally:
-        for f in Path.cwd().glob(f"{temp_basename}.*.vtt"):
+        for f in Path.cwd().glob(f"{temp_basename}.*"):
             clean_up(file=str(f))
 
 
