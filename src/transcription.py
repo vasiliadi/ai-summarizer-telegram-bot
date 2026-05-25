@@ -128,6 +128,15 @@ def fetch_transcript_via_api(video_id: str) -> str:
     return TextFormatter().format_transcript(transcript)
 
 
+def _cleanup_temp_files(temp_basename: str) -> None:
+    """Remove all temp files matching temp_basename, ignoring OS errors."""
+    try:
+        for f in Path.cwd().glob(f"{temp_basename}.*"):
+            clean_up(file=str(f))
+    except Exception as e:
+        logger.warning("yt-dlp cleanup glob failed: %s: %s", type(e).__name__, e)
+
+
 @retry(
     stop=stop_after_attempt(2),
     wait=wait_fixed(10),
@@ -191,8 +200,9 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
         msg = "No subtitles available via yt-dlp"
         raise DownloadError(msg)
 
-    has_english = any(lang.startswith("en") for lang in available)
-    chosen_langs = ["en.*"] if has_english else [available[0]]
+    chosen_langs = (
+        ["en.*"] if any(lang.startswith("en") for lang in available) else [available[0]]
+    )
 
     ydl_opts: dict[str, Any] = {
         "proxy": proxy,
@@ -235,7 +245,12 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
             msg = "yt-dlp subtitle fetch failed"
             raise TranscriptDownloadError(msg) from e
 
-        vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
+        try:
+            vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
+        except Exception as e:
+            logger.warning("yt-dlp glob failed: %s: %s", type(e).__name__, e)
+            msg = "No subtitles available via yt-dlp"
+            raise DownloadError(msg) from e
 
         if not vtt_files:
             msg = "No subtitles available via yt-dlp"
@@ -243,8 +258,7 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
 
         return vtt_to_text(sorted(vtt_files)[0])
     finally:
-        for f in Path.cwd().glob(f"{temp_basename}.*"):
-            clean_up(file=str(f))
+        _cleanup_temp_files(temp_basename)
 
 
 @retry(
