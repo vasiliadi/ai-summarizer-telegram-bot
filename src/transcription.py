@@ -284,8 +284,9 @@ def get_yt_transcript(url: str, source: str) -> str:
             (TranscriptsDisabled, VideoUnavailable, AgeRestricted, etc.).
         DownloadError: If the yt-dlp backend cannot fetch subtitles.
         RetryError: If proxy/SSL/network errors persist after all retry attempts,
-            or if API-internal retries (IpBlocked/RequestBlocked/ParseError) are
-            exhausted.
+            if API-internal retries (IpBlocked/RequestBlocked/ParseError) are
+            exhausted, or if the yt-dlp backend's TranscriptDownloadError
+            retries are exhausted.
 
     """
     video_id = extract_youtube_video_id(url)
