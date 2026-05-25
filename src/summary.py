@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import logging
 from textwrap import dedent
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from google.genai import types
 from google.genai.errors import ClientError, ServerError
 from requests.exceptions import SSLError
 from sentry_sdk import capture_exception
@@ -27,7 +26,7 @@ from prompts import PROMPTS
 from services import (
     check_quota,
     format_prefixed_summary,
-    get_gemini_config,
+    get_gemini_kwargs,
     resolve_mime_type,
     upload_and_wait_for_file,
 )
@@ -101,25 +100,22 @@ def summarize_with_file(
         if audio_file.uri is None or audio_file.mime_type is None:
             raise AttributeError
         check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-        response = gemini_client.models.generate_content(
+        audio_input: list[Any] = [
+            {"type": "text", "text": prompt},
+            {
+                "type": "audio",
+                "uri": audio_file.uri,
+                "mime_type": audio_file.mime_type,
+            },
+        ]
+        interaction = gemini_client.interactions.create(
             model=model,
-            contents=[
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_text(text=prompt),
-                        types.Part.from_uri(
-                            file_uri=audio_file.uri,
-                            mime_type=audio_file.mime_type,
-                        ),
-                    ],
-                ),
-            ],
-            config=get_gemini_config(target_language, model=model),
+            input=audio_input,
+            **get_gemini_kwargs(target_language, model=model),
         )
-        if response.text is None:
+        if not interaction.output_text:
             raise AttributeError
-        return response.text
+        return interaction.output_text
     finally:
         if audio_file_name is not None:
             try:
@@ -134,15 +130,14 @@ def summarize_with_file(
 
 def _generate_text(prompt: str, model: str, target_language: str) -> str:
     """Run a single Gemini text-prompt generation with the standard config."""
-    config = get_gemini_config(target_language, model=model)
-    response = gemini_client.models.generate_content(
+    interaction = gemini_client.interactions.create(
         model=model,
-        contents=prompt,
-        config=config,
+        input=prompt,
+        **get_gemini_kwargs(target_language, model=model),
     )
-    if response.text is None:
+    if not interaction.output_text:
         raise AttributeError
-    return response.text
+    return interaction.output_text
 
 
 @retry(
@@ -184,7 +179,7 @@ def summarize_with_transcript(
 
     Note:
         The function checks quota usage before making the API call and uses
-        get_gemini_config for model configuration.
+        get_gemini_kwargs for model configuration.
 
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {transcript}").strip()
@@ -301,24 +296,23 @@ def summarize_with_document(
             sleep_time=sleep_time,
         )
         document_file_name = document_file.name
+        if document_file.uri is None or document_file.mime_type is None:
+            raise AttributeError
         check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-        response = gemini_client.models.generate_content(
+        document_input: list[Any] = [
+            {"type": "text", "text": prompt},
+            {
+                "type": "document",
+                "uri": document_file.uri,
+                "mime_type": document_file.mime_type,
+            },
+        ]
+        interaction = gemini_client.interactions.create(
             model=model,
-            contents=[
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_text(text=prompt),
-                        types.Part.from_uri(
-                            file_uri=cast("str", document_file.uri),
-                            mime_type=cast("str", document_file.mime_type),
-                        ),
-                    ],
-                ),
-            ],
-            config=get_gemini_config(target_language, model=model),
+            input=document_input,
+            **get_gemini_kwargs(target_language, model=model),
         )
-        if response.text is None:
+        if not interaction.output_text:
             raise AttributeError
     finally:
         if document_file_name is not None:
@@ -332,7 +326,7 @@ def summarize_with_document(
                 )
         if data is not None:
             clean_up(file=data)
-    return response.text
+    return interaction.output_text
 
 
 def summarize(

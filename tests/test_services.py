@@ -6,7 +6,7 @@ from exceptions import LimitExceededError
 from services import (
     check_quota,
     get_file_with_retry,
-    get_gemini_config,
+    get_gemini_kwargs,
     get_remaining_quota,
     _reply_with_retry,
     resolve_mime_type,
@@ -80,29 +80,33 @@ def test_send_answer_multi_chunk(mocker):
     assert mock_reply.call_count == 2
 
 
-def test_get_gemini_config_content():
-    """Test get_gemini_config includes the correct language in instruction."""
-    config = get_gemini_config("French")
-    assert "French" in config.system_instruction
+def test_get_gemini_kwargs_content():
+    """get_gemini_kwargs embeds the requested language in the system instruction."""
+    kwargs = get_gemini_kwargs("French")
+    assert "French" in kwargs["system_instruction"]
+    # response_mime_type is intentionally absent — plain text is the default
+    # modality, and setting the MIME type requires a paired response_format
+    # (only used for structured output).
+    assert "response_mime_type" not in kwargs
 
 
-def test_get_gemini_config_thinking_enabled_for_supported_model():
-    """Test that thinking config is set for models that support it."""
+def test_get_gemini_kwargs_thinking_enabled_for_supported_model():
+    """generation_config requests high thinking for models that support it."""
     model = MODELS_WITH_THINKING_SUPPORT[0]
-    config = get_gemini_config("English", model=model)
-    assert config.thinking_config is not None
+    kwargs = get_gemini_kwargs("English", model=model)
+    assert kwargs["generation_config"] == {"thinking_level": "high"}
 
 
-def test_get_gemini_config_thinking_disabled_for_unsupported_model():
-    """Test that thinking config is None for models that do not support it."""
-    config = get_gemini_config("English", model="gemini-2.5-flash")
-    assert config.thinking_config is None
+def test_get_gemini_kwargs_thinking_disabled_for_unsupported_model():
+    """generation_config is empty for models without thinking support."""
+    kwargs = get_gemini_kwargs("English", model="gemini-2.5-flash")
+    assert kwargs["generation_config"] == {}
 
 
-def test_get_gemini_config_thinking_disabled_when_no_model_given():
-    """Test that thinking config is None when model is omitted."""
-    config = get_gemini_config("English")
-    assert config.thinking_config is None
+def test_get_gemini_kwargs_thinking_disabled_when_no_model_given():
+    """generation_config is empty when no model is provided."""
+    kwargs = get_gemini_kwargs("English")
+    assert kwargs["generation_config"] == {}
 
 
 def test_upload_and_wait_for_file_happy(mocker):
