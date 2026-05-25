@@ -176,16 +176,59 @@ def test_handle_url_castro_pattern(message_factory, mocker):
 
 
 def test_handle_url_other_http_pattern(message_factory, mocker):
-    """Test that other URLs trigger summarize_webpage."""
+    """Test that other URLs preflight quota, parse, then summarize with parsed text."""
     url = "https://example.com/article"
     msg = message_factory(content_type="text", text=url)
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
+    mocker.patch("handlers.check_quota", return_value=True)
+    mock_parse_url = mocker.patch(
+        "handlers.parse_url",
+        return_value="Parsed page content.",
+    )
     mock_summarize_webpage = mocker.patch("handlers.summarize_webpage")
     mocker.patch("handlers.send_answer")
 
     handle_message(msg)
 
-    assert mock_summarize_webpage.call_args.kwargs["content"] == url
+    mock_parse_url.assert_called_once_with(url)
+    assert mock_summarize_webpage.call_args.kwargs["content"] == "Parsed page content."
+
+
+def test_handle_url_web_preflight_blocks_before_parse_url(message_factory, mocker):
+    """Test that quota preflight blocks Tavily IO for over-quota users."""
+    url = "https://example.com/article"
+    msg = message_factory(content_type="text", text=url)
+    mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
+    mocker.patch("handlers.check_quota", side_effect=LimitExceededError)
+    mock_parse_url = mocker.patch("handlers.parse_url")
+    mock_summarize_webpage = mocker.patch("handlers.summarize_webpage")
+    mocker.patch("handlers.send_answer")
+    mocker.patch("main.bot.reply_to")
+    mocker.patch("main.capture_exception")
+
+    handle_message(msg)
+
+    mock_parse_url.assert_not_called()
+    mock_summarize_webpage.assert_not_called()
+
+
+def test_handle_url_web_parse_error_skips_summarize(message_factory, mocker):
+    """Test that WebParseError from parse_url short-circuits before summarize_webpage."""
+    from exceptions import WebParseError
+
+    url = "https://example.com/article"
+    msg = message_factory(content_type="text", text=url)
+    mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
+    mocker.patch("handlers.check_quota", return_value=True)
+    mocker.patch("handlers.parse_url", side_effect=WebParseError("boom"))
+    mock_summarize_webpage = mocker.patch("handlers.summarize_webpage")
+    mocker.patch("handlers.send_answer")
+    mocker.patch("main.bot.reply_to")
+    mocker.patch("main.capture_exception")
+
+    handle_message(msg)
+
+    mock_summarize_webpage.assert_not_called()
 
 
 def test_handle_voice_happy_path(message_factory, mocker):
