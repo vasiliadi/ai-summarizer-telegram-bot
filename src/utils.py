@@ -1,3 +1,4 @@
+import logging
 import random
 import re
 import subprocess
@@ -5,7 +6,11 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
+from yt_dlp.utils import DownloadError
+
 from config import PROTECTED_FILES, PROXIES, YT_HOSTS
+
+logger = logging.getLogger(__name__)
 
 
 def get_proxy() -> str:
@@ -109,8 +114,16 @@ def vtt_to_text(vtt_path: Path) -> str:
     Returns:
         str: Clean transcript text with duplicate lines removed.
 
+    Raises:
+        DownloadError: If the file cannot be read or decoded.
+
     """
-    lines = vtt_path.read_text(encoding="utf-8").splitlines()
+    try:
+        lines = vtt_path.read_text(encoding="utf-8").splitlines()
+    except Exception as e:
+        logger.warning("yt-dlp vtt conversion failed: %s: %s", type(e).__name__, e)
+        msg = "yt-dlp vtt conversion failed"
+        raise DownloadError(msg) from e
     out: list[str] = []
     prev = ""
     in_note = False
