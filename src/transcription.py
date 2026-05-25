@@ -27,6 +27,7 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from config import replicate_client
+from exceptions import TranscriptDownloadError
 from utils import (
     clean_up,
     extract_youtube_video_id,
@@ -127,6 +128,13 @@ def fetch_transcript_via_api(video_id: str) -> str:
     return TextFormatter().format_transcript(transcript)
 
 
+@retry(
+    stop=stop_after_attempt(2),
+    wait=wait_fixed(10),
+    retry=retry_if_exception_type(TranscriptDownloadError),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+    reraise=False,
+)
 def fetch_transcript_via_ytdlp(url: str) -> str:
     """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
@@ -139,7 +147,14 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
         str: The transcript as plain text.
 
     Raises:
-        DownloadError: If no subtitles are available or yt-dlp cannot fetch them.
+        DownloadError: If no subtitles are available for the video (sentinel
+            paths: extract_info returned no data, no subtitle languages
+            offered, or no vtt file appeared after download), or if vtt
+            conversion/reading fails unexpectedly after a successful download.
+        TranscriptDownloadError: Wraps transient yt-dlp failures from
+            extract_info / download. Up to 2 total attempts (1 retry); on
+            exhaustion tenacity raises RetryError to the caller.
+        RetryError: If TranscriptDownloadError persists after all retries.
 
     """
     temp_basename = generate_temporary_name()
@@ -158,11 +173,11 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
             info = ydl.extract_info(url, download=False)
     except DownloadError as e:
         logger.warning("yt-dlp probe failed: %s: %s", type(e).__name__, e)
-        raise
+        raise TranscriptDownloadError(str(e)) from e
     except Exception as e:
         logger.warning("yt-dlp probe failed unexpectedly: %s: %s", type(e).__name__, e)
         msg = "yt-dlp probe failed"
-        raise DownloadError(msg) from e
+        raise TranscriptDownloadError(msg) from e
 
     if info is None:
         msg = "No subtitles available via yt-dlp"
@@ -176,8 +191,9 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
         msg = "No subtitles available via yt-dlp"
         raise DownloadError(msg)
 
-    has_english = any(lang.startswith("en") for lang in available)
-    chosen_langs = ["en.*"] if has_english else [available[0]]
+    chosen_langs = (
+        ["en.*"] if any(lang.startswith("en") for lang in available) else [available[0]]
+    )
 
     ydl_opts: dict[str, Any] = {
         "proxy": proxy,
@@ -201,27 +217,32 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
 
     # Phase 2: download and convert subtitles.
     try:
-        with YoutubeDL(ydl_opts) as ydl:  # pyrefly: ignore[bad-argument-type]
-            ydl.download([url])
+        try:
+            with YoutubeDL(ydl_opts) as ydl:  # pyrefly: ignore[bad-argument-type]
+                ydl.download([url])
+        except DownloadError as e:
+            logger.warning(
+                "yt-dlp subtitle fetch failed: %s: %s",
+                type(e).__name__,
+                e,
+            )
+            raise TranscriptDownloadError(str(e)) from e
+        except Exception as e:
+            logger.warning(
+                "yt-dlp subtitle fetch failed unexpectedly: %s: %s",
+                type(e).__name__,
+                e,
+            )
+            msg = "yt-dlp subtitle fetch failed"
+            raise TranscriptDownloadError(msg) from e
 
         vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
 
         if not vtt_files:
             msg = "No subtitles available via yt-dlp"
-            raise DownloadError(msg)  # noqa: TRY301
+            raise DownloadError(msg)
 
         return vtt_to_text(sorted(vtt_files)[0])
-    except DownloadError as e:
-        logger.warning("yt-dlp subtitle fetch failed: %s: %s", type(e).__name__, e)
-        raise
-    except Exception as e:
-        logger.warning(
-            "yt-dlp subtitle fetch failed unexpectedly: %s: %s",
-            type(e).__name__,
-            e,
-        )
-        msg = "yt-dlp subtitle fetch failed"
-        raise DownloadError(msg) from e
     finally:
         for f in Path.cwd().glob(f"{temp_basename}.*"):
             clean_up(file=str(f))
@@ -263,8 +284,9 @@ def get_yt_transcript(url: str, source: str) -> str:
             (TranscriptsDisabled, VideoUnavailable, AgeRestricted, etc.).
         DownloadError: If the yt-dlp backend cannot fetch subtitles.
         RetryError: If proxy/SSL/network errors persist after all retry attempts,
-            or if API-internal retries (IpBlocked/RequestBlocked/ParseError) are
-            exhausted.
+            if API-internal retries (IpBlocked/RequestBlocked/ParseError) are
+            exhausted, or if the yt-dlp backend's TranscriptDownloadError
+            retries are exhausted.
 
     """
     video_id = extract_youtube_video_id(url)
