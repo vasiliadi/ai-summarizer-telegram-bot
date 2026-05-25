@@ -22,7 +22,6 @@ from yt_dlp.utils import DownloadError
 
 from config import DEFAULT_YT_TRANSCRIPT_SOURCE, gemini_client
 from download import download_castro, download_tg, download_yt
-from parsing import parse_url
 from prompts import PROMPTS
 from services import (
     check_quota,
@@ -209,14 +208,10 @@ def summarize_webpage(
     user_id: int,
     daily_limit: int,
 ) -> str:
-    """Generate a summary from webpage content using Gemini API.
-
-    The URL is parsed into clean text via Tavily before being passed to Gemini,
-    which removes the variability introduced by Gemini's server-side UrlContext
-    tool across model versions.
+    """Generate a summary from pre-parsed webpage content using Gemini API.
 
     Args:
-        content (str): The webpage URL to be summarized
+        content (str): Pre-parsed webpage content (markdown text from Tavily).
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
         target_language (str): The language to translate the text into.
@@ -227,15 +222,12 @@ def summarize_webpage(
         str: Generated summary text from the webpage content
 
     Raises:
-        WebParseError: If the URL cannot be parsed into usable content.
         AttributeError: If Gemini returns an empty response.
         RetryError: If transient Gemini or network errors persist after retries.
 
     """
-    check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
-    parsed = parse_url(content)
+    prompt = (f"{dedent(PROMPTS[prompt_key])} {content}").strip()
     check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-    prompt = (f"{dedent(PROMPTS[prompt_key])} {parsed}").strip()
     return _generate_text(prompt, model, target_language)
 
 

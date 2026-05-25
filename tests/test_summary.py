@@ -128,16 +128,15 @@ def test_format_prefixed_summary_preserves_blank_line():
 
 
 def test_summarize_webpage(mocker):
-    """Test summarize_webpage parses the URL via Tavily and feeds text to Gemini."""
+    """Test summarize_webpage feeds pre-parsed content to Gemini."""
     mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch("summary.parse_url", return_value="Parsed page content.")
     mock_client = mocker.patch("summary.gemini_client")
     mock_client.models.generate_content.return_value = mocker.MagicMock(
         text="Webpage summary.",
     )
 
     result = summarize_webpage(
-        content="https://example.com",
+        content="Parsed page content.",
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -708,38 +707,16 @@ def test_summarize_with_transcript_raises_on_empty_response(mocker):
         )
 
 
-def test_summarize_webpage_preflight_blocks_before_parse_url(mocker):
-    """Test summarize_webpage blocks over-quota users before any Tavily IO."""
-    from exceptions import LimitExceededError
-
-    mock_check = mocker.patch("summary.check_quota", side_effect=LimitExceededError)
-    mock_parse = mocker.patch("summary.parse_url")
-
-    with pytest.raises(LimitExceededError):
-        summarize_webpage(
-            content="https://example.com",
-            model="test-model",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=1,
-            daily_limit=0,
-        )
-
-    mock_check.assert_called_once_with(user_id=1, daily_limit=0, quantity=0)
-    mock_parse.assert_not_called()
-
-
 def test_summarize_webpage_raises_on_empty_response(mocker):
     """Test summarize_webpage raises RetryError on repeated empty Gemini responses."""
     mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch("summary.parse_url", return_value="Parsed page content.")
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
     mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
 
     with pytest.raises(RetryError):
         summarize_webpage(
-            content="https://example.com",
+            content="Parsed page content.",
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
