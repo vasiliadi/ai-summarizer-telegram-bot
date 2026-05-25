@@ -128,15 +128,6 @@ def fetch_transcript_via_api(video_id: str) -> str:
     return TextFormatter().format_transcript(transcript)
 
 
-def _cleanup_temp_files(temp_basename: str) -> None:
-    """Remove all temp files matching temp_basename, ignoring OS errors."""
-    try:
-        for f in Path.cwd().glob(f"{temp_basename}.*"):
-            clean_up(file=str(f))
-    except Exception as e:
-        logger.warning("yt-dlp cleanup glob failed: %s: %s", type(e).__name__, e)
-
-
 @retry(
     stop=stop_after_attempt(2),
     wait=wait_fixed(10),
@@ -144,7 +135,7 @@ def _cleanup_temp_files(temp_basename: str) -> None:
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
-def fetch_transcript_via_ytdlp(url: str) -> str:
+def fetch_transcript_via_ytdlp(url: str) -> str:  # noqa: C901, PLR0915
     """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
     Probes available tracks first, prefers English, converts to vtt via ffmpeg.
@@ -258,7 +249,11 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
 
         return vtt_to_text(sorted(vtt_files)[0])
     finally:
-        _cleanup_temp_files(temp_basename)
+        try:
+            for f in Path.cwd().glob(f"{temp_basename}.*"):
+                clean_up(file=str(f))
+        except Exception as e:
+            logger.warning("yt-dlp cleanup glob failed: %s: %s", type(e).__name__, e)
 
 
 @retry(
