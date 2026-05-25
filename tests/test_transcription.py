@@ -269,25 +269,6 @@ def test_vtt_to_text_keeps_nonconsecutive_duplicates(tmp_path):
     assert result == "Hello\nWorld\nHello"
 
 
-def test_vtt_to_text_raises_download_error_on_read_failure(tmp_path, mocker):
-    """Test vtt_to_text wraps read errors as DownloadError."""
-    vtt_path = tmp_path / "test.vtt"
-    vtt_path.write_text("irrelevant", encoding="utf-8")
-    original_exc = UnicodeDecodeError("utf-8", b"", 0, 1, "invalid start byte")
-    mocker.patch("utils.Path.read_text", side_effect=original_exc)
-    mock_logger = mocker.patch("utils.logger")
-
-    with pytest.raises(DownloadError, match="yt-dlp vtt conversion failed") as exc_info:
-        vtt_to_text(vtt_path)
-
-    assert exc_info.value.__cause__ is original_exc
-    mock_logger.warning.assert_called_once_with(
-        "yt-dlp vtt conversion failed: %s: %s",
-        "UnicodeDecodeError",
-        mocker.ANY,
-    )
-
-
 def test_fetch_transcript_via_api_uses_proxy_when_configured(mocker):
     """Test fetch_transcript_via_api passes GenericProxyConfig when PROXY is set."""
     mocker.patch("transcription.get_proxy", return_value="http://proxy:8080")

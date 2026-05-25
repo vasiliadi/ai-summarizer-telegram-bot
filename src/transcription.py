@@ -135,7 +135,7 @@ def fetch_transcript_via_api(video_id: str) -> str:
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
-def fetch_transcript_via_ytdlp(url: str) -> str:  # noqa: C901, PLR0915
+def fetch_transcript_via_ytdlp(url: str) -> str:
     """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
     Probes available tracks first, prefers English, converts to vtt via ffmpeg.
@@ -236,12 +236,7 @@ def fetch_transcript_via_ytdlp(url: str) -> str:  # noqa: C901, PLR0915
             msg = "yt-dlp subtitle fetch failed"
             raise TranscriptDownloadError(msg) from e
 
-        try:
-            vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
-        except Exception as e:
-            logger.warning("yt-dlp glob failed: %s: %s", type(e).__name__, e)
-            msg = "No subtitles available via yt-dlp"
-            raise DownloadError(msg) from e
+        vtt_files = list(Path.cwd().glob(f"{temp_basename}.*.vtt"))
 
         if not vtt_files:
             msg = "No subtitles available via yt-dlp"
@@ -249,11 +244,8 @@ def fetch_transcript_via_ytdlp(url: str) -> str:  # noqa: C901, PLR0915
 
         return vtt_to_text(sorted(vtt_files)[0])
     finally:
-        try:
-            for f in Path.cwd().glob(f"{temp_basename}.*"):
-                clean_up(file=str(f))
-        except Exception as e:
-            logger.warning("yt-dlp cleanup glob failed: %s: %s", type(e).__name__, e)
+        for f in Path.cwd().glob(f"{temp_basename}.*"):
+            clean_up(file=str(f))
 
 
 @retry(
