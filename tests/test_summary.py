@@ -317,7 +317,15 @@ def test_summarize_youtube_direct_transcript(mocker):
 
     assert result.startswith("📹")
     assert result == "📹\n\n- first point\n- second point"
-    mock_sum_transcript.assert_called_once()
+    mock_sum_transcript.assert_called_once_with(
+        transcript="YT Transcript content",
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+        thinking_level="MINIMAL",
+    )
 
 
 def test_summarize_forwards_yt_transcript_source(mocker):

@@ -93,6 +93,20 @@ def test_get_gemini_config_thinking_enabled():
     assert config.thinking_config.thinking_level == types.ThinkingLevel.MEDIUM
 
 
+def test_get_gemini_config_invalid_thinking_level():
+    """Lock current behavior on unknown thinking levels.
+
+    ``google.genai.types.ThinkingLevel`` accepts unknown values, emits a
+    ``UserWarning``, and returns a dynamically-created enum member rather than
+    raising. ``get_gemini_config`` inherits that lenient behavior — it does not
+    validate or fall back. This test pins both halves of the contract so any
+    future change (added validation, silent fallback, or raise) is caught.
+    """
+    with pytest.warns(UserWarning, match="INVALID is not a valid ThinkingLevel"):
+        config = get_gemini_config("English", thinking_level="INVALID")
+    assert config.thinking_config is not None
+
+
 def test_upload_and_wait_for_file_happy(mocker):
     """Test uploading file to Gemini when it's immediately ACTIVE."""
     mock_client = mocker.patch("services.gemini_client")
