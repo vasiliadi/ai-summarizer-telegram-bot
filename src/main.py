@@ -19,6 +19,8 @@ from config import (
     PROMPT_STRATEGY_LABELS_REVERSE,
     SUPPORTED_DOCUMENT_MIME_TYPES,
     SUPPORTED_LANGUAGES,
+    THINKING_LEVEL_LABELS,
+    THINKING_LEVEL_LABELS_REVERSE,
     YT_TRANSCRIPT_SOURCE_LABELS,
     YT_TRANSCRIPT_SOURCE_LABELS_REVERSE,
     bot,
@@ -30,6 +32,7 @@ from database import (
     set_prompt_strategy,
     set_summarizing_model,
     set_target_language,
+    set_thinking_level,
     set_yt_transcript_source,
     toggle_transcription,
     toggle_yt_transcription,
@@ -150,6 +153,7 @@ def handle_myinfo(message: Message) -> None:
                 Target language: {user.target_language}
                 Summarizing model: {MODEL_LABELS.get(user.summarizing_model, user.summarizing_model)}
                 Prompt strategy: {PROMPT_STRATEGY_LABELS.get(user.prompt_key_for_summary, user.prompt_key_for_summary)}
+                Thinking level: {THINKING_LEVEL_LABELS.get(user.thinking_level, user.thinking_level)}
                 Daily limit: {user.daily_limit}
                 Remaining quota: {get_remaining_quota(user.user_id, user.daily_limit)}
                 """).strip()  # noqa: E501
@@ -471,6 +475,57 @@ def proceed_set_yt_transcript_source(message: Message) -> None:
     bot.send_message(
         message.chat.id,
         f"The YouTube transcript source is set to {message.text}.",
+        reply_markup=markup,
+    )
+
+
+# /set_thinking_level
+@bot.message_handler(
+    commands=["set_thinking_level"],
+    func=lambda message: (
+        message.from_user is not None and check_auth(message.from_user.id)
+    ),
+)
+def handle_set_thinking_level(message: Message) -> None:
+    """Handle the /set_thinking_level command for the bot."""
+    _prompt_choice(
+        message,
+        "Select thinking level 👇",
+        list(THINKING_LEVEL_LABELS.values()),
+        proceed_set_thinking_level,
+    )
+
+
+def proceed_set_thinking_level(message: Message) -> None:
+    """Process the thinking level selection and update user settings.
+
+    This function is called after the user selects a level from the keyboard markup.
+    It attempts to set the user's thinking level preference and sends a
+    confirmation message. If the selected level is not supported, it sends an
+    error message.
+
+    Args:
+        message (Message): The message object from Telegram containing the selected
+                           level and user information.
+
+    Returns:
+        None
+
+    """
+    if message.from_user is None or message.text is None:
+        bot.reply_to(message, "User information or level is missing.")
+        return
+    level_key = THINKING_LEVEL_LABELS_REVERSE.get(message.text)
+    if level_key is None:
+        bot.send_message(message.chat.id, "Unknown level")
+        return
+    if not set_thinking_level(message.from_user.id, level_key):
+        bot.send_message(message.chat.id, "Failed to update thinking level.")
+        return
+    markup = ReplyKeyboardRemove()
+    bot.send_message(
+        message.chat.id,
+        f"The thinking level is set to {message.text}.",
         reply_markup=markup,
     )
 

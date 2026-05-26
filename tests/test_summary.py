@@ -49,6 +49,7 @@ def test_summarize_with_file_upload_and_genai_call(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
     )
 
     assert result == "This is a mocked summary of the file."
@@ -81,6 +82,7 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
             target_language="English",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
 
@@ -99,6 +101,7 @@ def test_summarize_with_file_retries_on_missing_upload_metadata(mocker):
             target_language="English",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
 
@@ -117,6 +120,7 @@ def test_summarize_with_transcript(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
     )
 
     assert result == "Transcript summary."
@@ -142,6 +146,7 @@ def test_summarize_webpage(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
     )
 
     assert result == "Webpage summary."
@@ -166,6 +171,7 @@ def test_summarize_with_file_upload_failure(mocker):
             target_language="English",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
 
@@ -193,6 +199,7 @@ def test_summarize_genai_exception(mocker):
             target_language="English",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
 
@@ -226,6 +233,7 @@ def test_summarize_with_document_polling(mocker):
         mime_type="application/pdf",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
     )
 
     assert result == "Document summary"
@@ -253,6 +261,7 @@ def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
             mime_type="application/pdf",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
     mock_clean_up.assert_called_once_with(file="temp_doc.pdf")
@@ -275,6 +284,7 @@ def test_summarize_youtube_skips_transcript_when_disabled(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
         use_yt_transcription=False,
     )
 
@@ -301,6 +311,7 @@ def test_summarize_youtube_direct_transcript(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
         use_yt_transcription=True,
     )
 
@@ -330,6 +341,7 @@ def test_summarize_forwards_yt_transcript_source(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
         use_yt_transcription=True,
         yt_transcript_source="ytdlp",
     )
@@ -355,6 +367,7 @@ def test_summarize_youtube_direct_transcript_uses_blank_line_separator(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
         use_yt_transcription=True,
     )
 
@@ -381,6 +394,7 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
             target_language="English",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
             use_yt_transcription=True,
         )
 
@@ -407,6 +421,7 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
         use_yt_transcription=True,
     )
 
@@ -437,6 +452,7 @@ def test_summarize_youtube_transcript_retry_error_falls_back_to_download(mocker)
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
         use_yt_transcription=True,
     )
 
@@ -469,6 +485,7 @@ def test_summarize_youtube_no_transcript_found_falls_back_to_download(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
         use_yt_transcription=True,
     )
 
@@ -494,6 +511,7 @@ def test_summarize_youtube_transcript_value_error_falls_back_to_download(mocker)
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
         use_yt_transcription=True,
     )
 
@@ -530,6 +548,7 @@ def test_summarize_fallback_to_transcription(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
     )
 
     assert result.startswith("📝")
@@ -559,6 +578,7 @@ def test_summarize_reraises_when_transcription_fallback_disabled(mocker):
             target_language="English",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
     mock_capture.assert_called_once_with(retry_error)
@@ -581,6 +601,7 @@ def test_summarize_castro(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
     )
 
     assert result == "Castro summary"
@@ -602,6 +623,7 @@ def test_summarize_preflight_blocks_before_download(mocker):
             target_language="English",
             user_id=1,
             daily_limit=0,
+            thinking_level="MINIMAL",
         )
 
     mock_check.assert_called_once_with(user_id=1, daily_limit=0, quantity=0)
@@ -631,6 +653,7 @@ def test_summarize_with_file_deletes_gemini_file_when_quota_check_fails(mocker):
             target_language="English",
             user_id=1,
             daily_limit=5,
+            thinking_level="MINIMAL",
         )
 
     assert mock_check.call_count == 2
@@ -655,6 +678,7 @@ def test_summarize_with_document_preflight_blocks_before_download(mocker):
             mime_type="application/pdf",
             user_id=1,
             daily_limit=0,
+            thinking_level="MINIMAL",
         )
 
     mock_check.assert_called_once_with(user_id=1, daily_limit=0, quantity=0)
@@ -682,6 +706,7 @@ def test_summarize_with_file_logs_warning_on_delete_failure(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
     )
 
     assert result == "summary text"
@@ -704,6 +729,7 @@ def test_summarize_with_transcript_raises_on_empty_response(mocker):
             target_language="English",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
 
@@ -722,6 +748,7 @@ def test_summarize_webpage_raises_on_empty_response(mocker):
             target_language="English",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
 
@@ -747,6 +774,7 @@ def test_summarize_with_document_raises_when_upload_name_none(mocker):
             mime_type="application/pdf",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
     mock_client.files.delete.assert_not_called()
@@ -775,6 +803,7 @@ def test_summarize_with_document_raises_when_uri_none(mocker):
             mime_type="application/pdf",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
 
@@ -801,6 +830,7 @@ def test_summarize_with_document_raises_when_mime_type_none(mocker):
             mime_type="application/pdf",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
 
@@ -831,6 +861,7 @@ def test_summarize_with_document_raises_on_empty_response(mocker):
             mime_type="application/pdf",
             user_id=123,
             daily_limit=10,
+            thinking_level="MINIMAL",
         )
 
 
@@ -861,6 +892,7 @@ def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
         mime_type="application/pdf",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
     )
 
     assert result == "document summary"
@@ -886,6 +918,7 @@ def test_summarize_with_telegram_file(mocker):
         target_language="English",
         user_id=123,
         daily_limit=10,
+        thinking_level="MINIMAL",
     )
 
     assert result == "Telegram file summary"

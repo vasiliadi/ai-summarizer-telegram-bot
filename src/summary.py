@@ -20,7 +20,7 @@ from tenacity import (
 from youtube_transcript_api._errors import CouldNotRetrieveTranscript
 from yt_dlp.utils import DownloadError
 
-from config import DEFAULT_THINKING_LEVEL, DEFAULT_YT_TRANSCRIPT_SOURCE, gemini_client
+from config import DEFAULT_YT_TRANSCRIPT_SOURCE, gemini_client
 from download import download_castro, download_tg, download_yt
 from prompts import PROMPTS
 from services import (
@@ -58,6 +58,7 @@ def summarize_with_file(
     target_language: str,
     user_id: int,
     daily_limit: int,
+    thinking_level: str,
     sleep_time: int = 10,
 ) -> str:
     """Summarize audio content using Gemini API with file upload.
@@ -72,6 +73,7 @@ def summarize_with_file(
         target_language (str): The language to translate the text into.
         user_id (int): Telegram user ID for per-user quota enforcement.
         daily_limit (int): The user's configured daily request cap.
+        thinking_level (str): AI thinking level
         sleep_time (int, optional): Time between processing checks. Defaults to 10.
 
     Returns:
@@ -116,7 +118,7 @@ def summarize_with_file(
             ],
             config=get_gemini_config(
                 target_language,
-                thinking_level=DEFAULT_THINKING_LEVEL,
+                thinking_level=thinking_level,
             ),
         )
         if response.text is None:
@@ -134,9 +136,14 @@ def summarize_with_file(
                 )
 
 
-def _generate_text(prompt: str, model: str, target_language: str) -> str:
+def _generate_text(
+    prompt: str,
+    model: str,
+    target_language: str,
+    thinking_level: str,
+) -> str:
     """Run a single Gemini text-prompt generation with the standard config."""
-    config = get_gemini_config(target_language, thinking_level=DEFAULT_THINKING_LEVEL)
+    config = get_gemini_config(target_language, thinking_level=thinking_level)
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
@@ -163,6 +170,7 @@ def summarize_with_transcript(
     target_language: str,
     user_id: int,
     daily_limit: int,
+    thinking_level: str,
 ) -> str:
     """Generate a summary from a transcript using Gemini API.
 
@@ -176,6 +184,7 @@ def summarize_with_transcript(
         target_language (str): The language to translate the text into.
         user_id (int): Telegram user ID for per-user quota enforcement.
         daily_limit (int): The user's configured daily request cap.
+        thinking_level (str): AI thinking level
 
     Returns:
         str: Generated summary text from the transcript
@@ -191,7 +200,7 @@ def summarize_with_transcript(
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {transcript}").strip()
     check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-    return _generate_text(prompt, model, target_language)
+    return _generate_text(prompt, model, target_language, thinking_level)
 
 
 @retry(
@@ -210,6 +219,7 @@ def summarize_webpage(
     target_language: str,
     user_id: int,
     daily_limit: int,
+    thinking_level: str,
 ) -> str:
     """Generate a summary from pre-parsed webpage content using Gemini API.
 
@@ -220,6 +230,7 @@ def summarize_webpage(
         target_language (str): The language to translate the text into.
         user_id (int): Telegram user ID for per-user quota enforcement.
         daily_limit (int): The user's configured daily request cap.
+        thinking_level (str): AI thinking level
 
     Returns:
         str: Generated summary text from the webpage content
@@ -231,7 +242,7 @@ def summarize_webpage(
     """
     prompt = (f"{dedent(PROMPTS[prompt_key])} {content}").strip()
     check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-    return _generate_text(prompt, model, target_language)
+    return _generate_text(prompt, model, target_language, thinking_level)
 
 
 @retry(
@@ -251,6 +262,7 @@ def summarize_with_document(
     mime_type: str,
     user_id: int,
     daily_limit: int,
+    thinking_level: str,
     sleep_time: int = 10,
 ) -> str:
     """Summarize document content using Gemini API with file upload.
@@ -267,6 +279,7 @@ def summarize_with_document(
         mime_type (str): MIME type of the document being uploaded
         user_id (int): Telegram user ID for per-user quota enforcement.
         daily_limit (int): The user's configured daily request cap.
+        thinking_level (str): AI thinking level
         sleep_time (int, optional): Time between processing checks. Defaults to 10.
 
     Returns:
@@ -313,7 +326,7 @@ def summarize_with_document(
             ],
             config=get_gemini_config(
                 target_language,
-                thinking_level=DEFAULT_THINKING_LEVEL,
+                thinking_level=thinking_level,
             ),
         )
         if response.text is None:
@@ -341,6 +354,7 @@ def summarize(
     target_language: str,
     user_id: int,
     daily_limit: int,
+    thinking_level: str,
     use_yt_transcription: bool = False,
     yt_transcript_source: str = DEFAULT_YT_TRANSCRIPT_SOURCE,
 ) -> str:
@@ -361,6 +375,7 @@ def summarize(
         target_language (str): The language to translate the text into.
         user_id (int): Telegram user ID for per-user quota enforcement.
         daily_limit (int): The user's configured daily request cap.
+        thinking_level (str): AI thinking level
         use_yt_transcription (bool, optional): Whether to attempt using YouTube's
             built-in transcripts for YouTube URLs. Defaults to False.
         yt_transcript_source (str, optional): Backend used when
@@ -415,6 +430,7 @@ def summarize(
                             target_language=target_language,
                             user_id=user_id,
                             daily_limit=daily_limit,
+                            thinking_level=thinking_level,
                         ),
                     )
             data = download_yt(data)
@@ -429,6 +445,7 @@ def summarize(
             target_language=target_language,
             user_id=user_id,
             daily_limit=daily_limit,
+            thinking_level=thinking_level,
         )
     except RetryError as e:
         logger.warning("Error occurred while summarizing with file: %s", e)
@@ -447,6 +464,7 @@ def summarize(
                         target_language=target_language,
                         user_id=user_id,
                         daily_limit=daily_limit,
+                        thinking_level=thinking_level,
                     ),
                 )
             finally:

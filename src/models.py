@@ -26,6 +26,7 @@ class UsersOrm(Base):
         daily_limit (int): Max requests per day for this user, defaults to 0 (blocked).
         yt_transcript_source (str): YouTube transcript source ("api" or "ytdlp"),
             defaults to "api".
+        thinking_level (str): AI thinking level
 
     """
 
@@ -51,3 +52,4 @@ class UsersOrm(Base):
     )
     daily_limit: Mapped[int] = mapped_column(server_default="0")
     yt_transcript_source: Mapped[str] = mapped_column(server_default="api")
+    thinking_level: Mapped[str] = mapped_column(server_default="MINIMAL")

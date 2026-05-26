@@ -8,6 +8,7 @@ from database import (
     select_user,
     set_prompt_strategy,
     set_target_language,
+    set_thinking_level,
     set_yt_transcript_source,
     toggle_transcription,
 )
@@ -112,6 +113,42 @@ def test_set_yt_transcript_source_missing_user(monkeypatch, tmp_path):
     monkeypatch.setattr("database.Session", session_factory)
 
     assert set_yt_transcript_source(999, "ytdlp") is False
+
+
+def test_set_thinking_level_persists(monkeypatch, tmp_path):
+    """Test setting thinking level persists to a real SQLite database."""
+    session_factory = _sqlite_session_factory(tmp_path)
+    monkeypatch.setattr("database.Session", session_factory)
+    register_user(123, "First", "Last", "user")
+
+    result = set_thinking_level(123, "high")
+
+    assert result is True
+    with session_factory() as session:
+        user = session.get(UsersOrm, 123)
+        assert user is not None
+        assert user.thinking_level == "HIGH"
+
+
+def test_set_thinking_level_rejects_unknown_value(monkeypatch, tmp_path):
+    """Test set_thinking_level returns False for unsupported values."""
+    session_factory = _sqlite_session_factory(tmp_path)
+    monkeypatch.setattr("database.Session", session_factory)
+    register_user(123, "First", "Last", "user")
+
+    assert set_thinking_level(123, "bogus") is False
+    with session_factory() as session:
+        user = session.get(UsersOrm, 123)
+        assert user is not None
+        assert user.thinking_level == "MINIMAL"
+
+
+def test_set_thinking_level_missing_user(monkeypatch, tmp_path):
+    """Test set_thinking_level returns False when the user does not exist."""
+    session_factory = _sqlite_session_factory(tmp_path)
+    monkeypatch.setattr("database.Session", session_factory)
+
+    assert set_thinking_level(999, "HIGH") is False
 
 
 def _sqlite_session_factory(tmp_path):

@@ -82,13 +82,13 @@ def test_send_answer_multi_chunk(mocker):
 
 def test_get_gemini_config_content():
     """Test get_gemini_config includes the correct language in instruction."""
-    config = get_gemini_config("French", thinking_level=types.ThinkingLevel.HIGH)
+    config = get_gemini_config("French", thinking_level="HIGH")
     assert "French" in config.system_instruction
 
 
 def test_get_gemini_config_thinking_enabled():
     """Test that thinking config is set based on the passed thinking level."""
-    config = get_gemini_config("English", thinking_level=types.ThinkingLevel.MEDIUM)
+    config = get_gemini_config("English", thinking_level="MEDIUM")
     assert config.thinking_config is not None
     assert config.thinking_config.thinking_level == types.ThinkingLevel.MEDIUM
 
