@@ -82,7 +82,7 @@ def test_handle_myinfo(message_factory, mocker):
         user_id=123,
         approved=True,
         target_language="English",
-        summarizing_model="gemini-2.5-flash",
+        summarizing_model="gemini-3.5-flash",
         prompt_key_for_summary="basic_prompt_for_transcript",
         use_yt_transcription=False,
         use_transcription=False,
@@ -100,7 +100,7 @@ def test_handle_myinfo(message_factory, mocker):
     assert "Target language: English" in content
     assert "Daily limit: 10" in content
     assert "Remaining quota: 7" in content
-    assert "Summarizing model: Gemini 2.5 Flash" in content
+    assert "Summarizing model: Gemini 3.5 Flash" in content
     assert "YT transcript source: yt-dlp" in content
     assert "Prompt strategy: Detailed Summary" in content
 
@@ -255,19 +255,19 @@ def test_handle_set_summarizing_model(message_factory, mocker):
 
 def test_proceed_set_summarizing_model_success(message_factory, mocker):
     """Test successful model selection."""
-    msg = message_factory(content_type="text", text="Gemini 2.5 Flash")
+    msg = message_factory(content_type="text", text="Gemini 3.5 Flash")
     mock_set_model = mocker.patch("main.set_summarizing_model", return_value=True)
     mock_send = mocker.patch("main.bot.send_message")
 
     proceed_set_summarizing_model(msg)
 
-    mock_set_model.assert_called_once_with(msg.from_user.id, "gemini-2.5-flash")
-    assert "The summarizing model is set to Gemini 2.5 Flash" in mock_send.call_args[0][1]
+    mock_set_model.assert_called_once_with(msg.from_user.id, "gemini-3.5-flash")
+    assert "The summarizing model is set to Gemini 3.5 Flash" in mock_send.call_args[0][1]
 
 
 def test_proceed_set_summarizing_model_missing_input(message_factory, mocker):
     """Test model selection fails fast when user or text is missing."""
-    msg = message_factory(content_type="text", text="gemini-2.5-flash")
+    msg = message_factory(content_type="text", text="gemini-3.5-flash")
     msg.from_user = None
     mock_reply = mocker.patch("main.bot.reply_to")
     mock_set_model = mocker.patch("main.set_summarizing_model")
@@ -280,7 +280,7 @@ def test_proceed_set_summarizing_model_missing_input(message_factory, mocker):
 
 def test_proceed_set_summarizing_model_db_failure(message_factory, mocker):
     """Test DB failure returns a clear user-facing message."""
-    msg = message_factory(content_type="text", text="Gemini 2.5 Flash")
+    msg = message_factory(content_type="text", text="Gemini 3.5 Flash")
     mocker.patch("main.set_summarizing_model", return_value=False)
     mock_send = mocker.patch("main.bot.send_message")
 

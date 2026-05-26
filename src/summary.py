@@ -114,7 +114,7 @@ def summarize_with_file(
                     ],
                 ),
             ],
-            config=get_gemini_config(target_language, model=model),
+            config=get_gemini_config(target_language),
         )
         if response.text is None:
             raise AttributeError
@@ -133,7 +133,7 @@ def summarize_with_file(
 
 def _generate_text(prompt: str, model: str, target_language: str) -> str:
     """Run a single Gemini text-prompt generation with the standard config."""
-    config = get_gemini_config(target_language, model=model)
+    config = get_gemini_config(target_language)
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
@@ -308,7 +308,7 @@ def summarize_with_document(
                     ],
                 ),
             ],
-            config=get_gemini_config(target_language, model=model),
+            config=get_gemini_config(target_language),
         )
         if response.text is None:
             raise AttributeError
