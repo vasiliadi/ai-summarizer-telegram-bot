@@ -23,6 +23,7 @@ from tenacity import (
 
 from config import (
     DAILY_LIMIT_KEY,
+    DEFAULT_THINKING_LEVEL,
     GEMINI_CONFIG,
     MINUTE_LIMIT_KEY,
     bot,
@@ -215,7 +216,7 @@ def get_remaining_quota(user_id: int, daily_limit: int) -> int:
 
 def get_gemini_config(
     target_language: str,
-    thinking_level: types.ThinkingLevel,
+    thinking_level: types.ThinkingLevel = DEFAULT_THINKING_LEVEL,
 ) -> types.GenerateContentConfig:
     """Get Gemini config with system instruction and thinking enabled."""
     system_instruction = dedent(
