@@ -1,7 +1,6 @@
 import pytest
 from limits.util import WindowStats
 
-from config import MODELS_WITH_THINKING_SUPPORT
 from exceptions import LimitExceededError
 from services import (
     check_quota,
@@ -86,23 +85,10 @@ def test_get_gemini_config_content():
     assert "French" in config.system_instruction
 
 
-def test_get_gemini_config_thinking_enabled_for_supported_model():
-    """Test that thinking config is set for models that support it."""
-    model = MODELS_WITH_THINKING_SUPPORT[0]
-    config = get_gemini_config("English", model=model)
-    assert config.thinking_config is not None
-
-
-def test_get_gemini_config_thinking_disabled_for_unsupported_model():
-    """Test that thinking config is None for models that do not support it."""
-    config = get_gemini_config("English", model="gemini-2.5-flash")
-    assert config.thinking_config is None
-
-
-def test_get_gemini_config_thinking_disabled_when_no_model_given():
-    """Test that thinking config is None when model is omitted."""
+def test_get_gemini_config_thinking_enabled():
+    """Test that thinking config is always set."""
     config = get_gemini_config("English")
-    assert config.thinking_config is None
+    assert config.thinking_config is not None
 
 
 def test_upload_and_wait_for_file_happy(mocker):
