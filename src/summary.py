@@ -20,7 +20,7 @@ from tenacity import (
 from youtube_transcript_api._errors import CouldNotRetrieveTranscript
 from yt_dlp.utils import DownloadError
 
-from config import DEFAULT_YT_TRANSCRIPT_SOURCE, gemini_client
+from config import DEFAULT_THINKING_LEVEL, DEFAULT_YT_TRANSCRIPT_SOURCE, gemini_client
 from download import download_castro, download_tg, download_yt
 from prompts import PROMPTS
 from services import (
@@ -114,7 +114,10 @@ def summarize_with_file(
                     ],
                 ),
             ],
-            config=get_gemini_config(target_language),
+            config=get_gemini_config(
+                target_language,
+                thinking_level=DEFAULT_THINKING_LEVEL,
+            ),
         )
         if response.text is None:
             raise AttributeError
@@ -133,7 +136,7 @@ def summarize_with_file(
 
 def _generate_text(prompt: str, model: str, target_language: str) -> str:
     """Run a single Gemini text-prompt generation with the standard config."""
-    config = get_gemini_config(target_language)
+    config = get_gemini_config(target_language, thinking_level=DEFAULT_THINKING_LEVEL)
     response = gemini_client.models.generate_content(
         model=model,
         contents=prompt,
@@ -308,7 +311,10 @@ def summarize_with_document(
                     ],
                 ),
             ],
-            config=get_gemini_config(target_language),
+            config=get_gemini_config(
+                target_language,
+                thinking_level=DEFAULT_THINKING_LEVEL,
+            ),
         )
         if response.text is None:
             raise AttributeError
