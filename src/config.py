@@ -89,6 +89,9 @@ SAFETY_SETTINGS = [
         threshold=types.HarmBlockThreshold.BLOCK_NONE,
     ),
 ]
+DEFAULT_THINKING_LEVEL = types.ThinkingLevel(
+    os.environ.get("DEFAULT_THINKING_LEVEL", "MEDIUM").upper(),
+)
 GEMINI_CONFIG = types.GenerateContentConfig(
     system_instruction=None,
     safety_settings=SAFETY_SETTINGS,

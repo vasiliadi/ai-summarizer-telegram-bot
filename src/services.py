@@ -215,6 +215,7 @@ def get_remaining_quota(user_id: int, daily_limit: int) -> int:
 
 def get_gemini_config(
     target_language: str,
+    thinking_level: types.ThinkingLevel,
 ) -> types.GenerateContentConfig:
     """Get Gemini config with system instruction and thinking enabled."""
     system_instruction = dedent(
@@ -224,7 +225,7 @@ def get_gemini_config(
         update={
             "system_instruction": system_instruction,
             "thinking_config": types.ThinkingConfig(
-                thinking_level=types.ThinkingLevel.HIGH,
+                thinking_level=thinking_level,
             ),
         },
     )

@@ -81,14 +81,19 @@ def test_send_answer_multi_chunk(mocker):
 
 def test_get_gemini_config_content():
     """Test get_gemini_config includes the correct language in instruction."""
-    config = get_gemini_config("French")
+    from google.genai import types
+
+    config = get_gemini_config("French", thinking_level=types.ThinkingLevel.HIGH)
     assert "French" in config.system_instruction
 
 
 def test_get_gemini_config_thinking_enabled():
-    """Test that thinking config is always set."""
-    config = get_gemini_config("English")
+    """Test that thinking config is set based on the passed thinking level."""
+    from google.genai import types
+
+    config = get_gemini_config("English", thinking_level=types.ThinkingLevel.MEDIUM)
     assert config.thinking_config is not None
+    assert config.thinking_config.thinking_level == types.ThinkingLevel.MEDIUM
 
 
 def test_upload_and_wait_for_file_happy(mocker):
