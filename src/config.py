@@ -89,8 +89,12 @@ SAFETY_SETTINGS = [
         threshold=types.HarmBlockThreshold.BLOCK_NONE,
     ),
 ]
+THINKING_LEVEL_ENV = os.environ.get("DEFAULT_THINKING_LEVEL", "MEDIUM").upper()
+VALID_THINKING_LEVELS = {
+    m.value for m in types.ThinkingLevel if m.value != "THINKING_LEVEL_UNSPECIFIED"
+}
 DEFAULT_THINKING_LEVEL = types.ThinkingLevel(
-    os.environ.get("DEFAULT_THINKING_LEVEL", "MEDIUM").upper(),
+    THINKING_LEVEL_ENV if THINKING_LEVEL_ENV in VALID_THINKING_LEVELS else "MEDIUM",
 )
 GEMINI_CONFIG = types.GenerateContentConfig(
     system_instruction=None,
