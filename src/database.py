@@ -5,10 +5,12 @@ from sqlalchemy.orm import sessionmaker
 from config import (
     ALLOWED_MODELS_FOR_SUMMARY,
     ALLOWED_PROMPT_KEYS,
+    ALLOWED_THINKING_LEVELS,
     ALLOWED_YT_TRANSCRIPT_SOURCES,
     DEFAULT_LANG,
     DEFAULT_MODEL_ID_FOR_SUMMARY,
     DEFAULT_PROMPT_KEY,
+    DEFAULT_THINKING_LEVEL,
     DEFAULT_YT_TRANSCRIPT_SOURCE,
     DSN,
     SUPPORTED_LANGUAGES,
@@ -31,6 +33,7 @@ def register_user(
     summarizing_model: str = DEFAULT_MODEL_ID_FOR_SUMMARY,
     prompt_key_for_summary: (str) = DEFAULT_PROMPT_KEY,
     yt_transcript_source: str = DEFAULT_YT_TRANSCRIPT_SOURCE,
+    thinking_level: str = DEFAULT_THINKING_LEVEL,
 ) -> bool:
     """Register a new user in the database.
 
@@ -47,6 +50,7 @@ def register_user(
         prompt_key_for_summary (str): Prompt key for summarization strategy.
         yt_transcript_source (str, optional): YouTube transcript source ("api" or
             "ytdlp").
+        thinking_level (str, optional): AI thinking level.
 
     Returns:
         bool: True if registration is successful, False if the user already exists.
@@ -69,6 +73,7 @@ def register_user(
                 summarizing_model=summarizing_model,
                 prompt_key_for_summary=prompt_key_for_summary,
                 yt_transcript_source=yt_transcript_source,
+                thinking_level=thinking_level,
             )
             session.add(stmt)
             session.commit()
@@ -233,6 +238,34 @@ def set_yt_transcript_source(user_id: int, yt_transcript_source: str) -> bool:
         user = session.get(UsersOrm, user_id)
         if user is not None:
             user.yt_transcript_source = yt_transcript_source.lower()
+            session.commit()
+            return True
+        return False  # User not found
+
+
+def set_thinking_level(user_id: int, thinking_level: str) -> bool:
+    """Set the AI thinking level for a user.
+
+    Args:
+        user_id (int): Unique Telegram user ID
+        thinking_level (str): AI thinking level
+
+    Returns:
+        bool: True if the level was set successfully, False if the value is not
+        supported or the user is not found.
+
+    Note:
+        The thinking_level string is upper-cased and checked against
+        ALLOWED_THINKING_LEVELS.
+
+    """
+    normalized = thinking_level.upper()
+    if normalized not in ALLOWED_THINKING_LEVELS:
+        return False  # level not supported
+    with Session() as session:
+        user = session.get(UsersOrm, user_id)
+        if user is not None:
+            user.thinking_level = normalized
             session.commit()
             return True
         return False  # User not found

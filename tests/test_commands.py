@@ -5,6 +5,7 @@ from main import (
     handle_set_prompt_strategy,
     handle_set_summarizing_model,
     handle_set_target_language,
+    handle_set_thinking_level,
     handle_set_yt_transcript_source,
     handle_start,
     handle_toggle_transcription,
@@ -12,6 +13,7 @@ from main import (
     proceed_set_prompt_strategy,
     proceed_set_summarizing_model,
     proceed_set_target_language,
+    proceed_set_thinking_level,
     proceed_set_yt_transcript_source,
 )
 from models import UsersOrm
@@ -88,6 +90,7 @@ def test_handle_myinfo(message_factory, mocker):
         use_transcription=False,
         daily_limit=10,
         yt_transcript_source="ytdlp",
+        thinking_level="MINIMAL",
     )
     mocker.patch("main.select_user", return_value=mock_user)
     mocker.patch("main.get_remaining_quota", return_value=7)
@@ -102,6 +105,7 @@ def test_handle_myinfo(message_factory, mocker):
     assert "Remaining quota: 7" in content
     assert "Summarizing model: Gemini 3.5 Flash" in content
     assert "YT transcript source: yt-dlp" in content
+    assert "Thinking level: Minimal" in content
     assert "Prompt strategy: Detailed Summary" in content
 
 
@@ -424,4 +428,67 @@ def test_proceed_set_yt_transcript_source_db_failure(message_factory, mocker):
     mock_send.assert_called_once_with(
         msg.chat.id,
         "Failed to update transcript source.",
+    )
+
+
+def test_handle_set_thinking_level(message_factory, mocker):
+    """Test /set_thinking_level shows keyboard."""
+    msg = message_factory(content_type="text")
+    mock_send = mocker.patch("main.bot.send_message")
+    mock_register = mocker.patch("main.bot.register_next_step_handler")
+
+    handle_set_thinking_level(msg)
+
+    assert "Select thinking level" in mock_send.call_args[0][1]
+    assert mock_register.called
+
+
+def test_proceed_set_thinking_level_success(message_factory, mocker):
+    """Test successful thinking level selection."""
+    msg = message_factory(content_type="text", text="High")
+    mock_set = mocker.patch("main.set_thinking_level", return_value=True)
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed_set_thinking_level(msg)
+
+    mock_set.assert_called_once_with(msg.from_user.id, "HIGH")
+    assert "The thinking level is set to High" in mock_send.call_args[0][1]
+
+
+def test_proceed_set_thinking_level_missing_input(message_factory, mocker):
+    """Test thinking level selection fails fast when user or text is missing."""
+    msg = message_factory(content_type="text", text="High")
+    msg.text = None
+    mock_reply = mocker.patch("main.bot.reply_to")
+    mock_set = mocker.patch("main.set_thinking_level")
+
+    proceed_set_thinking_level(msg)
+
+    mock_reply.assert_called_once_with(msg, "User information or level is missing.")
+    mock_set.assert_not_called()
+
+
+def test_proceed_set_thinking_level_invalid_choice(message_factory, mocker):
+    """Test invalid label short-circuits before calling set_thinking_level."""
+    msg = message_factory(content_type="text", text="Ludicrous")
+    mock_set = mocker.patch("main.set_thinking_level")
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed_set_thinking_level(msg)
+
+    mock_send.assert_called_once_with(msg.chat.id, "Unknown level")
+    mock_set.assert_not_called()
+
+
+def test_proceed_set_thinking_level_db_failure(message_factory, mocker):
+    """Test DB failure returns a clear user-facing message."""
+    msg = message_factory(content_type="text", text="High")
+    mocker.patch("main.set_thinking_level", return_value=False)
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed_set_thinking_level(msg)
+
+    mock_send.assert_called_once_with(
+        msg.chat.id,
+        "Failed to update thinking level.",
     )

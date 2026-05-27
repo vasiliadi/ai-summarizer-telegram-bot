@@ -78,6 +78,7 @@ set_prompt_strategy - Choose which prompt strategy to use for summary
 toggle_transcription - Toggle transcription for summary (fallback on failure)
 toggle_yt_transcription - Toggle YouTube transcription
 set_yt_transcript_source - Choose YouTube transcript source (API or yt-dlp)
+set_thinking_level - Choose AI thinking level
 set_target_language - Choose which language you want to translate into
 limit - Show remaining limit
 myinfo - Show my settings

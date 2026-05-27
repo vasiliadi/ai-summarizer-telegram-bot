@@ -26,6 +26,7 @@ class SummaryKwargs(TypedDict):
     target_language: str
     user_id: int
     daily_limit: int
+    thinking_level: str
 
 
 def _summary_kwargs(user: UsersOrm) -> SummaryKwargs:
@@ -36,6 +37,7 @@ def _summary_kwargs(user: UsersOrm) -> SummaryKwargs:
         "target_language": user.target_language,
         "user_id": user.user_id,
         "daily_limit": user.daily_limit,
+        "thinking_level": user.thinking_level,
     }
 
 
