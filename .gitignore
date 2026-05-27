@@ -187,6 +187,11 @@ poetry.toml
 .codex/
 .kilo/
 
+# Skills
+skills-lock.json
+.claude/skills/
+.agents/skills/
+
 # AI
 docs/discovery
 docs/research
