@@ -19,7 +19,7 @@ dependencies = [
     "telegramify-markdown==1.1.5",
     "tenacity==9.1.4",
     "youtube-transcript-api==1.2.4",
-    "yt-dlp[curl-cffi,default]==2026.3.17",
+    "yt-dlp[default]==2026.3.17",
 ]
 
 [dependency-groups]
