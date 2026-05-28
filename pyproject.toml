@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "beautifulsoup4==4.14.3",
-    "curl-cffi==0.14.0",
+    "curl-cffi==0.15.0",
     "google-genai==2.5.0",
     "limits[redis]==5.8.0",
     "psycopg2-binary==2.9.12",
