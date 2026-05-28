@@ -10,7 +10,6 @@ dependencies = [
     "google-genai==2.5.0",
     "limits[redis]==5.8.0",
     "psycopg2-binary==2.9.12",
-    "pysocks==1.7.1",
     "pytelegrambotapi==4.33.0",
     "replicate==1.0.7",
     "sentry-sdk==2.60.0",

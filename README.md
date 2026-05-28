@@ -62,6 +62,8 @@ For example `http://user:password@proxy.com:1234`
 
 Multiple proxies can be supplied as a comma-separated list; one is picked at random per request to mitigate IP blocking. Whitespace around entries is trimmed.
 
+Only HTTP/HTTPS proxies are supported. The last version with SOCKS proxy support is 0.13.0.
+
 ```env
 PROXY="http://user:password@proxy.com:1234,http://user:password@proxy.com:1235"
 ```
@@ -210,7 +212,7 @@ While text transcripts can provide a solid foundation for understanding the cont
 [limits](https://github.com/alisaifee/limits) \
 [tavily-python](https://docs.tavily.com/welcome) \
 [curl_cffi](https://github.com/lexiforest/curl_cffi) \
-[PySocks](https://github.com/Anorov/PySocks)
+~~[PySocks](https://github.com/Anorov/PySocks)~~
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
