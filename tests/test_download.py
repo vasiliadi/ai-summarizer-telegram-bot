@@ -252,6 +252,22 @@ def test_download_castro_http_error(mocker):
     mock_logger.exception.assert_called_once_with("%s: status code", 500)
 
 
+def test_download_castro_page_http_error(mocker):
+    """Test download_castro surfaces an HTTP error from the page fetch."""
+    mock_page_resp = mocker.MagicMock()
+    mock_page_resp.raise_for_status.side_effect = HTTPError("404 Not Found")
+
+    mock_get = mocker.patch("download.requests.get", return_value=mock_page_resp)
+    mocker.patch("download.requote_uri", side_effect=lambda x: x)
+
+    with pytest.raises(HTTPError):
+        download_castro("https://castro.fm/episode/123")
+
+    # Only the page fetch happens; the audio download is never reached.
+    mock_get.assert_called_once()
+    mock_page_resp.close.assert_called_once()
+
+
 def test_download_tg_http_error(mocker):
     """Test download_tg logs status code and re-raises HTTPError."""
     mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")

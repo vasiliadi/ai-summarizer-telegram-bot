@@ -147,15 +147,17 @@ def download_castro(url: str) -> str:
     """
     temporary_file_name = generate_temporary_name(ext=".mp3")
     logger.debug("Parsing URL...")
-    soup = BeautifulSoup(
-        requests.get(
-            requote_uri(url),
-            impersonate="chrome",
-            verify=True,
-            timeout=30,
-        ).content,
-        "html.parser",
+    response = requests.get(
+        requote_uri(url),
+        impersonate="chrome",
+        verify=True,
+        timeout=30,
     )
+    try:
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, "html.parser")
+    finally:
+        response.close()
     source_tag = soup.source
     if source_tag is None:
         msg = "Audio source tag not found in Castro page."
