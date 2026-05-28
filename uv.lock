@@ -25,7 +25,7 @@ dependencies = [
     { name = "telegramify-markdown" },
     { name = "tenacity" },
     { name = "youtube-transcript-api" },
-    { name = "yt-dlp", extra = ["curl-cffi", "default"] },
+    { name = "yt-dlp", extra = ["default"] },
 ]
 
 [package.dev-dependencies]
@@ -69,7 +69,7 @@ requires-dist = [
     { name = "telegramify-markdown", specifier = "==1.1.5" },
     { name = "tenacity", specifier = "==9.1.4" },
     { name = "youtube-transcript-api", specifier = "==1.2.4" },
-    { name = "yt-dlp", extras = ["curl-cffi", "default"], specifier = "==2026.3.17" },
+    { name = "yt-dlp", extras = ["default"], specifier = "==2026.3.17" },
 ]
 
 [package.metadata.requires-dev]
@@ -1814,9 +1814,6 @@ wheels = [
 ]
 
 [package.optional-dependencies]
-curl-cffi = [
-    { name = "curl-cffi", marker = "implementation_name == 'cpython'" },
-]
 default = [
     { name = "brotli", marker = "implementation_name == 'cpython'" },
     { name = "brotlicffi", marker = "implementation_name != 'cpython'" },
