@@ -4,10 +4,11 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-import requests
 from bs4 import BeautifulSoup
-from requests.exceptions import ConnectionError as RequestsConnectionError
-from requests.exceptions import SSLError
+from curl_cffi import requests
+from curl_cffi.requests.exceptions import ConnectionError as RequestsConnectionError
+from curl_cffi.requests.exceptions import HTTPError, SSLError
+from curl_cffi.requests.utils import requote_uri
 from tenacity import (
     before_sleep_log,
     retry,
@@ -18,7 +19,7 @@ from tenacity import (
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import TG_API_TOKEN, headers
+from config import TG_API_TOKEN
 from services import choose_yt_audio_format
 from utils import generate_temporary_name, get_proxy
 
@@ -93,22 +94,25 @@ def _stream_to_file(
     timeout: int = 120,
 ) -> None:
     """GET `url` and stream the body to `dest` in 8KB chunks."""
-    with requests.get(
+    r = requests.get(
         url,
         stream=True,
-        headers=headers,
+        impersonate="chrome",
         verify=True,
         timeout=timeout,
-    ) as r:
+    )
+    try:
         try:
             r.raise_for_status()
-        except requests.exceptions.HTTPError:
+        except HTTPError:
             logger.exception("%s: status code", r.status_code)
             raise
         with Path(dest).open("wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
+    finally:
+        r.close()
 
 
 @retry(
@@ -143,10 +147,17 @@ def download_castro(url: str) -> str:
     """
     temporary_file_name = generate_temporary_name(ext=".mp3")
     logger.debug("Parsing URL...")
-    soup = BeautifulSoup(
-        requests.get(requests.utils.requote_uri(url), verify=True, timeout=30).content,
-        "html.parser",
+    response = requests.get(
+        requote_uri(url),
+        impersonate="chrome",
+        verify=True,
+        timeout=30,
     )
+    try:
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, "html.parser")
+    finally:
+        response.close()
     source_tag = soup.source
     if source_tag is None:
         msg = "Audio source tag not found in Castro page."
@@ -159,7 +170,7 @@ def download_castro(url: str) -> str:
         msg = "Audio URL is not a string."
         raise TypeError(msg)
     logger.debug("URL parsed! Starting download...")
-    _stream_to_file(requests.utils.requote_uri(audio_url), temporary_file_name)
+    _stream_to_file(requote_uri(audio_url), temporary_file_name)
     logger.debug("File downloaded...")
     return temporary_file_name
 

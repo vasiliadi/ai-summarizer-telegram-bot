@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-import requests
+from curl_cffi.requests.exceptions import HTTPError
 
 from download import download_castro, download_tg, download_yt
 from services import choose_yt_audio_format
@@ -13,7 +13,6 @@ def test_download_tg_happy_path(mocker):
     mock_resp = mocker.MagicMock()
     mock_resp.iter_content.return_value = [b"test ", b"content"]
     mock_resp.status_code = 200
-    mock_resp.__enter__.return_value = mock_resp
     mock_get = mocker.patch("download.requests.get", return_value=mock_resp)
 
     # Mock generate_temporary_name to return a fixed name
@@ -31,12 +30,13 @@ def test_download_tg_happy_path(mocker):
     mock_get.assert_called_once_with(
         "https://api.telegram.org/file/botTEST_TOKEN/path/to/file",
         stream=True,
-        headers=mocker.ANY,
+        impersonate="chrome",
         verify=True,
         timeout=120,
     )
     mock_resp.iter_content.assert_called_once_with(chunk_size=8192)
     mock_resp.raise_for_status.assert_called_once()
+    mock_resp.close.assert_called_once()
     mock_path_open.assert_called_once_with("wb")
     mock_path_open().write.assert_has_calls(
         [
@@ -53,7 +53,6 @@ def test_download_tg_skips_empty_chunks(mocker):
     mock_resp = mocker.MagicMock()
     mock_resp.iter_content.return_value = [b"", b"data", b""]
     mock_resp.status_code = 200
-    mock_resp.__enter__.return_value = mock_resp
     mocker.patch("download.requests.get", return_value=mock_resp)
     mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
 
@@ -174,9 +173,8 @@ def test_download_castro_happy_path(mocker):
     mock_audio_resp.status_code = 200
 
     # Side effect for the two requests.get calls
-    mock_audio_resp.__enter__.return_value = mock_audio_resp
     mocker.patch("download.requests.get", side_effect=[mock_page_resp, mock_audio_resp])
-    mocker.patch("download.requests.utils.requote_uri", side_effect=lambda x: x)
+    mocker.patch("download.requote_uri", side_effect=lambda x: x)
 
     # Mock Path.open
     mock_path_open = mocker.patch("pathlib.Path.open", mocker.mock_open())
@@ -200,7 +198,7 @@ def test_download_castro_missing_source_tag(mocker):
     mock_page_resp = mocker.MagicMock()
     mock_page_resp.content = b"<html><body>No source here</body></html>"
     mocker.patch("download.requests.get", return_value=mock_page_resp)
-    mocker.patch("download.requests.utils.requote_uri", side_effect=lambda x: x)
+    mocker.patch("download.requote_uri", side_effect=lambda x: x)
 
     with pytest.raises(ValueError, match="Audio source tag not found in Castro page."):
         download_castro("https://castro.fm/episode/123")
@@ -210,7 +208,7 @@ def test_download_castro_missing_audio_url(mocker):
     mock_page_resp = mocker.MagicMock()
     mock_page_resp.content = b"<html><source></html>"
     mocker.patch("download.requests.get", return_value=mock_page_resp)
-    mocker.patch("download.requests.utils.requote_uri", side_effect=lambda x: x)
+    mocker.patch("download.requote_uri", side_effect=lambda x: x)
 
     with pytest.raises(ValueError, match="Audio URL not found in Castro page."):
         download_castro("https://castro.fm/episode/123")
@@ -221,7 +219,7 @@ def test_download_castro_non_string_audio_url(mocker):
     mock_page_resp = mocker.MagicMock()
     mock_page_resp.content = b'<html><source src="a.mp3 b.mp3"></html>'
     mocker.patch("download.requests.get", return_value=mock_page_resp)
-    mocker.patch("download.requests.utils.requote_uri", side_effect=lambda x: x)
+    mocker.patch("download.requote_uri", side_effect=lambda x: x)
 
     mock_source = mocker.MagicMock()
     mock_source.get.return_value = ["a.mp3", "b.mp3"]
@@ -242,17 +240,32 @@ def test_download_castro_http_error(mocker):
 
     mock_audio_resp = mocker.MagicMock()
     mock_audio_resp.status_code = 500
-    mock_audio_resp.__enter__.return_value = mock_audio_resp
-    mock_audio_resp.raise_for_status.side_effect = requests.exceptions.HTTPError("500 Server Error")
+    mock_audio_resp.raise_for_status.side_effect = HTTPError("500 Server Error")
 
     mocker.patch("download.requests.get", side_effect=[mock_page_resp, mock_audio_resp])
-    mocker.patch("download.requests.utils.requote_uri", side_effect=lambda x: x)
+    mocker.patch("download.requote_uri", side_effect=lambda x: x)
     mock_logger = mocker.patch("download.logger")
 
-    with pytest.raises(requests.exceptions.HTTPError):
+    with pytest.raises(HTTPError):
         download_castro("https://castro.fm/episode/123")
 
     mock_logger.exception.assert_called_once_with("%s: status code", 500)
+
+
+def test_download_castro_page_http_error(mocker):
+    """Test download_castro surfaces an HTTP error from the page fetch."""
+    mock_page_resp = mocker.MagicMock()
+    mock_page_resp.raise_for_status.side_effect = HTTPError("404 Not Found")
+
+    mock_get = mocker.patch("download.requests.get", return_value=mock_page_resp)
+    mocker.patch("download.requote_uri", side_effect=lambda x: x)
+
+    with pytest.raises(HTTPError):
+        download_castro("https://castro.fm/episode/123")
+
+    # Only the page fetch happens; the audio download is never reached.
+    mock_get.assert_called_once()
+    mock_page_resp.close.assert_called_once()
 
 
 def test_download_tg_http_error(mocker):
@@ -265,12 +278,11 @@ def test_download_tg_http_error(mocker):
 
     mock_resp = mocker.MagicMock()
     mock_resp.status_code = 403
-    mock_resp.__enter__.return_value = mock_resp
-    mock_resp.raise_for_status.side_effect = requests.exceptions.HTTPError("403 Forbidden")
+    mock_resp.raise_for_status.side_effect = HTTPError("403 Forbidden")
     mocker.patch("download.requests.get", return_value=mock_resp)
     mock_logger = mocker.patch("download.logger")
 
-    with pytest.raises(requests.exceptions.HTTPError):
+    with pytest.raises(HTTPError):
         download_tg(mock_file, ext=".ext")
 
     mock_logger.exception.assert_called_once_with("%s: status code", 403)

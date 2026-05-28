@@ -4,6 +4,8 @@ import logging
 from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
+from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
+from curl_cffi.requests.exceptions import SSLError as CurlSSLError
 from google.genai import types
 from google.genai.errors import ClientError, ServerError
 from requests.exceptions import SSLError
@@ -249,7 +251,14 @@ def summarize_webpage(
     stop=stop_after_attempt(2),
     wait=wait_fixed(30),
     retry=retry_if_exception_type(
-        (ServerError, AttributeError, ClientError, SSLError),
+        (
+            ServerError,
+            AttributeError,
+            ClientError,
+            SSLError,
+            CurlSSLError,
+            CurlConnectionError,
+        ),
     ),
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
