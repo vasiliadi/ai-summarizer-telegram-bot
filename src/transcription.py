@@ -193,9 +193,13 @@ def fetch_transcript_via_ytdlp(url: str) -> str:  # noqa: C901, PLR0912, PLR0915
     manual_langs = [lang for lang in manual if lang != "live_chat"]
 
     if manual_langs:
-        # Human-uploaded tracks are genuine: prefer English, else the first offered.
+        # Human-uploaded tracks are genuine: prefer English, then the video's original
+        # language, then the first offered key.
         en_manual = next((lang for lang in manual_langs if lang.startswith("en")), None)
-        chosen_langs = [en_manual or manual_langs[0]]
+        orig = info.get("language")
+        chosen_langs = [
+            en_manual or (orig if orig in manual_langs else manual_langs[0]),
+        ]
     elif auto:
         # automatic_captions include machine translations for ~every language, so an
         # "en" key here is usually a translation, not a real track — request the
