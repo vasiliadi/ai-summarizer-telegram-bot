@@ -12,6 +12,7 @@
     "schedule": ["at any time"]
   },
   "lockFileMaintenance": { "enabled": true, "automerge": true },
+  "pre-commit": { "enabled": true },
   "packageRules": [
     {
       "description": "Python pyenv (.python-version): don't gate on Docker Hub republish time",
@@ -75,6 +76,11 @@
       "versioning": "pep440",
       "automerge": false,
       "addLabels": ["dep:calver"]
+    },
+    {
+      "description": "pre-commit hook bumps: auto-merge all update types",
+      "matchManagers": ["pre-commit"],
+      "automerge": true
     }
   ]
 }
