@@ -16,7 +16,6 @@ dependencies = [
     { name = "google-genai" },
     { name = "limits", extra = ["redis"] },
     { name = "psycopg2-binary" },
-    { name = "pysocks" },
     { name = "pytelegrambotapi" },
     { name = "replicate" },
     { name = "sentry-sdk" },
@@ -60,7 +59,6 @@ requires-dist = [
     { name = "google-genai", specifier = "==2.5.0" },
     { name = "limits", extras = ["redis"], specifier = "==5.8.0" },
     { name = "psycopg2-binary", specifier = "==2.9.12" },
-    { name = "pysocks", specifier = "==1.7.1" },
     { name = "pytelegrambotapi", specifier = "==4.33.0" },
     { name = "replicate", specifier = "==1.0.7" },
     { name = "sentry-sdk", specifier = "==2.60.0" },
@@ -1257,15 +1255,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/58/1f5a33d9854a4614ac555de4d3c12294005f12e0d2621f240a8310e2e390/pyromark-0.9.11-cp314-cp314t-win32.whl", hash = "sha256:134de0516db2ea8bb570a608383c4be443f48ec2a185b58935f053369971d94d", size = 260520, upload-time = "2026-05-24T22:23:08.187Z" },
     { url = "https://files.pythonhosted.org/packages/e9/99/59f011062c40670a98136180e6def19cb3a3f4e283ac3936520e8c091ff7/pyromark-0.9.11-cp314-cp314t-win_amd64.whl", hash = "sha256:d710e0577de792280df4b5fc05a90cc615b2226980a2db3ba0f3b428d78c09c1", size = 273172, upload-time = "2026-05-24T22:21:09.624Z" },
     { url = "https://files.pythonhosted.org/packages/af/57/da0a369bfb2910bf905b5a3687c7f4d7c4bd263a26b1d1d1055e67a7ad2b/pyromark-0.9.11-cp314-cp314t-win_arm64.whl", hash = "sha256:3c93e10dc4dc751e363494c75bf98ff3fbfdf2c5753bf49c04cc2339e512258f", size = 257990, upload-time = "2026-05-24T22:22:30.145Z" },
-]
-
-[[package]]
-name = "pysocks"
-version = "1.7.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/bd/11/293dd436aea955d45fc4e8a35b6ae7270f5b8e00b53cf6c024c83b657a11/PySocks-1.7.1.tar.gz", hash = "sha256:3f8804571ebe159c380ac6de37643bb4685970655d3bba243530d6558b799aa0", size = 284429, upload-time = "2019-09-20T02:07:35.714Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/59/b4572118e098ac8e46e399a1dd0f2d85403ce8bbaad9ec79373ed6badaf9/PySocks-1.7.1-py3-none-any.whl", hash = "sha256:2725bd0a9925919b9b51739eea5f9e2bae91e83288108a9ad338b2e3a4435ee5", size = 16725, upload-time = "2019-09-20T02:06:22.938Z" },
 ]
 
 [[package]]
