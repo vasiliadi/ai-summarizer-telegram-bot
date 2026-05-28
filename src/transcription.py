@@ -135,10 +135,12 @@ def fetch_transcript_via_api(video_id: str) -> str:
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
-def fetch_transcript_via_ytdlp(url: str) -> str:
+def fetch_transcript_via_ytdlp(url: str) -> str:  # noqa: C901, PLR0912, PLR0915
     """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
-    Probes available tracks first, prefers English, converts to vtt via ffmpeg.
+    Probes available tracks first, preferring genuine manual subtitles (English
+    when present) and otherwise the video's original-language automatic captions,
+    then converts to vtt via ffmpeg.
 
     Args:
         url (str): The YouTube video URL.
@@ -185,15 +187,32 @@ def fetch_transcript_via_ytdlp(url: str) -> str:
 
     manual = info.get("subtitles") or {}
     auto = info.get("automatic_captions") or {}
-    available = list(dict.fromkeys([*manual.keys(), *auto.keys()]))
 
-    if not available:
+    # yt-dlp lists "live_chat" under subtitles for live-stream replays; it is not a
+    # real subtitle track and cannot be converted to vtt, so drop it.
+    manual_langs = [lang for lang in manual if lang != "live_chat"]
+
+    if manual_langs:
+        # Human-uploaded tracks are genuine: prefer English, else the first offered.
+        en_manual = next((lang for lang in manual_langs if lang.startswith("en")), None)
+        chosen_langs = [en_manual or manual_langs[0]]
+    elif auto:
+        # automatic_captions include machine translations for ~every language, so an
+        # "en" key here is usually a translation, not a real track — request the
+        # video's original language and let the summarizer translate.
+        orig = info.get("language")
+        if orig and orig in auto:
+            chosen_langs = [orig]
+        else:
+            chosen_langs = [
+                next(
+                    (lang for lang in auto if lang.endswith("-orig")),
+                    next(iter(auto)),
+                ),
+            ]
+    else:
         msg = "No subtitles available via yt-dlp"
         raise DownloadError(msg)
-
-    chosen_langs = (
-        ["en.*"] if any(lang.startswith("en") for lang in available) else [available[0]]
-    )
 
     ydl_opts: dict[str, Any] = {
         "proxy": proxy,
