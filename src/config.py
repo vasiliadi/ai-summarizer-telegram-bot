@@ -142,12 +142,6 @@ TAVILY_API_KEY = os.environ["TAVILY_API_KEY"]
 tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
 
 
-# Headers for requests https://www.whatismybrowser.com/guides/the-latest-user-agent/chrome
-headers: dict[str, str | bytes] = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",  # noqa: E501
-}
-
-
 # Rate limits
 MINUTE_LIMIT_KEY = "RPM"
 DAILY_LIMIT_KEY = "RPD"
