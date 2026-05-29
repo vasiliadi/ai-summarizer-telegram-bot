@@ -200,7 +200,6 @@ While text transcripts can provide a solid foundation for understanding the cont
 [SQLAlchemy 2.0](https://docs.sqlalchemy.org/en/20/contents.html) \
 [Alembic](https://alembic.sqlalchemy.org/en/latest/tutorial.html) \
 [Google Gen AI SDK](https://github.com/googleapis/python-genai) \
-~~[Requests](https://requests.readthedocs.io/en/latest/)~~ \
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) \
 [beautifulsoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) \
 [Replicate](https://github.com/replicate/replicate-python) \
@@ -208,11 +207,9 @@ While text transcripts can provide a solid foundation for understanding the cont
 [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \
 [Sentry](https://docs.sentry.io/platforms/python/) \
-~~[rush](https://rush.readthedocs.io/en/latest/)~~ \
 [limits](https://github.com/alisaifee/limits) \
 [tavily-python](https://docs.tavily.com/welcome) \
-[curl_cffi](https://github.com/lexiforest/curl_cffi) \
-~~[PySocks](https://github.com/Anorov/PySocks)~~
+[curl_cffi](https://github.com/lexiforest/curl_cffi)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
