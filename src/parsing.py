@@ -43,8 +43,8 @@ def parse_url(url: str) -> str:
     Raises:
         WebParseError: If Tavily returns no successful results or empty content.
         RetryError: If Tavily keeps timing out after all retry attempts. The
-            function is decorated with @retry and retries TavilyTimeoutError up
-            to 2 times with a 5-second wait before raising RetryError.
+            function is decorated with @retry and makes 2 total attempts (1
+            retry with a 5-second wait) before raising RetryError.
 
     """
     response = tavily_client.extract(urls=[url], format="markdown")
