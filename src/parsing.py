@@ -25,8 +25,8 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 
 @retry(
-    stop=stop_after_attempt(3),
-    wait=wait_fixed(10),
+    stop=stop_after_attempt(2),
+    wait=wait_fixed(5),
     retry=retry_if_exception_type(TavilyTimeoutError),
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
@@ -44,7 +44,7 @@ def parse_url(url: str) -> str:
         WebParseError: If Tavily returns no successful results or empty content.
         RetryError: If Tavily keeps timing out after all retry attempts. The
             function is decorated with @retry and retries TavilyTimeoutError up
-            to 3 times with a 10-second wait before raising RetryError.
+            to 2 times with a 5-second wait before raising RetryError.
 
     """
     response = tavily_client.extract(urls=[url], format="markdown")

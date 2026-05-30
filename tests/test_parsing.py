@@ -90,4 +90,4 @@ def test_parse_url_raises_retry_error_when_timeout_persists(mocker):
     with pytest.raises(RetryError):
         parse_url("https://example.com")
 
-    assert mock_client.extract.call_count == 3
+    assert mock_client.extract.call_count == 2
