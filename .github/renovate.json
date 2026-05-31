@@ -81,6 +81,12 @@
       "description": "pre-commit hook bumps: auto-merge all update types",
       "matchManagers": ["pre-commit"],
       "automerge": true
+    },
+    {
+      "description": "github-actions minor bumps: safe to auto-merge (digests are pinned)",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor"],
+      "automerge": true
     }
   ]
 }
