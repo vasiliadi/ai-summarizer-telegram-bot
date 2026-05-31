@@ -12,7 +12,7 @@ dependencies = [
     "psycopg2-binary==2.9.12",
     "pytelegrambotapi==4.33.0",
     "replicate==1.0.7",
-    "sentry-sdk==2.60.0",
+    "sentry-sdk==2.61.0",
     "sqlalchemy==2.0.50",
     "tavily-python==0.7.24",
     "telegramify-markdown==1.1.5",
