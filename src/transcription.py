@@ -26,7 +26,7 @@ from youtube_transcript_api.proxies import GenericProxyConfig
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import replicate_client
+from config import YT_TRANSCRIPT_SOURCE, replicate_client
 from exceptions import TranscriptDownloadError
 from utils import (
     clean_up,
@@ -284,7 +284,7 @@ def fetch_transcript_via_ytdlp(url: str) -> str:  # noqa: C901, PLR0912, PLR0915
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
-def get_yt_transcript(url: str, source: str) -> str:
+def get_yt_transcript(url: str, source: str = YT_TRANSCRIPT_SOURCE) -> str:
     """Retrieve and format the transcript from a YouTube video URL.
 
     Dispatches to a single transcript backend based on `source`; there is no

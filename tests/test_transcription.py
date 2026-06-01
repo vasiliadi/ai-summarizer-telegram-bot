@@ -173,6 +173,22 @@ def test_get_yt_transcript_unknown_source_raises_value_error():
         get_yt_transcript(url, source="bogus")
 
 
+def test_get_yt_transcript_defaults_source_to_config(mocker):
+    """Test get_yt_transcript uses the configured backend (default "ytdlp") when omitted."""
+    mock_ytdlp = mocker.patch(
+        "transcription.fetch_transcript_via_ytdlp",
+        return_value="from config",
+    )
+    mock_api = mocker.patch("transcription.fetch_transcript_via_api")
+
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    result = get_yt_transcript(url)
+
+    assert result == "from config"
+    mock_ytdlp.assert_called_once_with(url)
+    mock_api.assert_not_called()
+
+
 def test_vtt_to_text_dedupes_and_strips_tags(tmp_path):
     """Test vtt_to_text removes headers, timestamps, HTML tags, entities, and duplicates."""
     vtt_content = textwrap.dedent("""\

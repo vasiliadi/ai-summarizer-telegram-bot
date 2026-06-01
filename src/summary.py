@@ -22,7 +22,7 @@ from tenacity import (
 from youtube_transcript_api._errors import CouldNotRetrieveTranscript
 from yt_dlp.utils import DownloadError
 
-from config import DEFAULT_YT_TRANSCRIPT_SOURCE, gemini_client
+from config import gemini_client
 from download import download_castro, download_tg, download_yt
 from prompts import PROMPTS
 from services import (
@@ -365,7 +365,6 @@ def summarize(
     daily_limit: int,
     thinking_level: str,
     use_yt_transcription: bool = False,
-    yt_transcript_source: str = DEFAULT_YT_TRANSCRIPT_SOURCE,
 ) -> str:
     """Generate a summary from various input sources using Gemini API.
 
@@ -387,9 +386,6 @@ def summarize(
         thinking_level (str): AI thinking level
         use_yt_transcription (bool, optional): Whether to attempt using YouTube's
             built-in transcripts for YouTube URLs. Defaults to False.
-        yt_transcript_source (str, optional): Backend used when
-            use_yt_transcription is True. Either "api" (youtube_transcript_api)
-            or "ytdlp" (yt-dlp subtitle download). Defaults to "api".
 
     Returns:
         str: Generated summary of the content, prefixed with:
@@ -418,7 +414,7 @@ def summarize(
         ):
             if use_yt_transcription:
                 try:
-                    transcript = get_yt_transcript(data, yt_transcript_source)
+                    transcript = get_yt_transcript(data)
                 except (
                     CouldNotRetrieveTranscript,
                     RetryError,

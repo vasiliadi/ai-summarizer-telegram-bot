@@ -52,6 +52,7 @@ REDIS_URL="rediss://default:password@host:port"
 SENTRY_DSN="your_sentry_dsn"
 PROXY=""
 LOG_LEVEL="ERROR"
+YT_TRANSCRIPT_SOURCE="ytdlp"
 MODAL_TOKEN_ID="your_token"
 MODAL_TOKEN_SECRET="your_token_secret"
 ```
@@ -79,7 +80,6 @@ set_summarizing_model - Choose which model you want to use for summary
 set_prompt_strategy - Choose which prompt strategy to use for summary
 toggle_transcription - Toggle transcription for summary (fallback on failure)
 toggle_yt_transcription - Toggle YouTube transcription
-set_yt_transcript_source - Choose YouTube transcript source (API or yt-dlp)
 set_thinking_level - Choose AI thinking level
 set_target_language - Choose which language you want to translate into
 limit - Show remaining limit
