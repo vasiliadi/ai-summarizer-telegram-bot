@@ -6,6 +6,7 @@ from pathlib import Path
 import replicate
 import sentry_sdk
 import telebot
+from exa_py import Exa
 from google import genai
 from google.genai import types
 from limits import parse as parse_rate_limit
@@ -132,6 +133,15 @@ replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
 # Tavily config
 TAVILY_API_KEY = os.environ["TAVILY_API_KEY"]
 tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
+
+
+# Exa.ai config
+EXA_API_KEY = os.environ["EXA_API_KEY"]
+exa_client = Exa(api_key=EXA_API_KEY)
+
+
+# Webpage parsing backend, set via env ("tavily" or "exa").
+DEFAULT_PARSING_BACKEND = os.environ.get("DEFAULT_PARSING_BACKEND", "tavily").lower()
 
 
 # Rate limits

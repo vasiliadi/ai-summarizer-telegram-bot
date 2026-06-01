@@ -19,6 +19,7 @@ os.environ["TG_API_TOKEN"] = "12345:mock_token"
 os.environ["GEMINI_API_KEY"] = "mock_gemini_key"
 os.environ["REPLICATE_API_TOKEN"] = "mock_replicate_token"
 os.environ["TAVILY_API_KEY"] = "mock_tavily_key"
+os.environ["EXA_API_KEY"] = "mock_exa_key"
 
 import sentry_sdk
 

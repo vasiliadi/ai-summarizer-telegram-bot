@@ -91,3 +91,43 @@ def test_parse_url_raises_retry_error_when_timeout_persists(mocker):
         parse_url("https://example.com")
 
     assert mock_client.extract.call_count == 2
+
+
+def test_parse_url_exa_returns_text(mocker):
+    """parse_url(backend="exa") returns the text from the first Exa result."""
+    mock_client = mocker.patch("parsing.exa_client")
+    mock_client.get_contents.return_value = mocker.Mock(
+        results=[mocker.Mock(text="Hello world.")],
+    )
+
+    assert parse_url("https://example.com", backend="exa") == "Hello world."
+    mock_client.get_contents.assert_called_once_with(
+        urls=["https://example.com"],
+        text={"max_characters": 20000, "include_html_tags": True},
+    )
+
+
+def test_parse_url_exa_raises_when_no_results(mocker):
+    """parse_url(backend="exa") raises WebParseError when Exa returns no results."""
+    mock_client = mocker.patch("parsing.exa_client")
+    mock_client.get_contents.return_value = mocker.Mock(results=[])
+
+    with pytest.raises(WebParseError):
+        parse_url("https://example.com", backend="exa")
+
+
+def test_parse_url_exa_raises_on_empty_text(mocker):
+    """parse_url(backend="exa") raises WebParseError when text is empty/whitespace."""
+    mock_client = mocker.patch("parsing.exa_client")
+    mock_client.get_contents.return_value = mocker.Mock(
+        results=[mocker.Mock(text="   ")],
+    )
+
+    with pytest.raises(WebParseError):
+        parse_url("https://example.com", backend="exa")
+
+
+def test_parse_url_raises_on_unknown_backend():
+    """parse_url raises WebParseError for an unknown backend."""
+    with pytest.raises(WebParseError):
+        parse_url("https://example.com", backend="nope")
