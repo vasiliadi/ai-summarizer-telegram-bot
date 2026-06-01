@@ -9,7 +9,6 @@ from database import (
     set_prompt_strategy,
     set_target_language,
     set_thinking_level,
-    set_yt_transcript_source,
     toggle_transcription,
 )
 from models import Base, UsersOrm
@@ -77,42 +76,6 @@ def test_set_prompt_strategy_persists(monkeypatch, tmp_path):
         user = session.get(UsersOrm, 123)
         assert user is not None
         assert user.prompt_key_for_summary == "basic_prompt_for_transcript"
-
-
-def test_set_yt_transcript_source_persists(monkeypatch, tmp_path):
-    """Test setting YouTube transcript source persists to a real SQLite database."""
-    session_factory = _sqlite_session_factory(tmp_path)
-    monkeypatch.setattr("database.Session", session_factory)
-    register_user(123, "First", "Last", "user")
-
-    result = set_yt_transcript_source(123, "ytdlp")
-
-    assert result is True
-    with session_factory() as session:
-        user = session.get(UsersOrm, 123)
-        assert user is not None
-        assert user.yt_transcript_source == "ytdlp"
-
-
-def test_set_yt_transcript_source_rejects_unknown_value(monkeypatch, tmp_path):
-    """Test set_yt_transcript_source returns False for unsupported values."""
-    session_factory = _sqlite_session_factory(tmp_path)
-    monkeypatch.setattr("database.Session", session_factory)
-    register_user(123, "First", "Last", "user")
-
-    assert set_yt_transcript_source(123, "bogus") is False
-    with session_factory() as session:
-        user = session.get(UsersOrm, 123)
-        assert user is not None
-        assert user.yt_transcript_source == "api"
-
-
-def test_set_yt_transcript_source_missing_user(monkeypatch, tmp_path):
-    """Test set_yt_transcript_source returns False when the user does not exist."""
-    session_factory = _sqlite_session_factory(tmp_path)
-    monkeypatch.setattr("database.Session", session_factory)
-
-    assert set_yt_transcript_source(999, "ytdlp") is False
 
 
 def test_set_thinking_level_persists(monkeypatch, tmp_path):

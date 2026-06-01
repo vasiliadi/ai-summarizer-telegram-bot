@@ -21,8 +21,6 @@ from config import (
     SUPPORTED_LANGUAGES,
     THINKING_LEVEL_LABELS,
     THINKING_LEVEL_LABELS_REVERSE,
-    YT_TRANSCRIPT_SOURCE_LABELS,
-    YT_TRANSCRIPT_SOURCE_LABELS_REVERSE,
     bot,
 )
 from database import (
@@ -33,7 +31,6 @@ from database import (
     set_summarizing_model,
     set_target_language,
     set_thinking_level,
-    set_yt_transcript_source,
     toggle_transcription,
     toggle_yt_transcription,
 )
@@ -148,7 +145,6 @@ def handle_myinfo(message: Message) -> None:
                 UserId: {user.user_id}
                 Approved: {user.approved}
                 YouTube transcript: {user.use_yt_transcription}
-                YT transcript source: {YT_TRANSCRIPT_SOURCE_LABELS.get(user.yt_transcript_source, user.yt_transcript_source)}
                 Audio transcript: {user.use_transcription}
                 Target language: {user.target_language}
                 Summarizing model: {MODEL_LABELS.get(user.summarizing_model, user.summarizing_model)}
@@ -424,57 +420,6 @@ def proceed_set_prompt_strategy(message: Message) -> None:
     bot.send_message(
         message.chat.id,
         f"The prompt strategy is set to {message.text}.",
-        reply_markup=markup,
-    )
-
-
-# /set_yt_transcript_source
-@bot.message_handler(
-    commands=["set_yt_transcript_source"],
-    func=lambda message: (
-        message.from_user is not None and check_auth(message.from_user.id)
-    ),
-)
-def handle_set_yt_transcript_source(message: Message) -> None:
-    """Handle the /set_yt_transcript_source command for the bot."""
-    _prompt_choice(
-        message,
-        "Select YouTube transcript source 👇",
-        list(YT_TRANSCRIPT_SOURCE_LABELS.values()),
-        proceed_set_yt_transcript_source,
-    )
-
-
-def proceed_set_yt_transcript_source(message: Message) -> None:
-    """Process the YouTube transcript source selection and update user settings.
-
-    This function is called after the user selects a source from the keyboard markup.
-    It attempts to set the user's transcript source preference and sends a
-    confirmation message. If the selected source is not supported, it sends an
-    error message.
-
-    Args:
-        message (Message): The message object from Telegram containing the selected
-                           source and user information.
-
-    Returns:
-        None
-
-    """
-    if message.from_user is None or message.text is None:
-        bot.reply_to(message, "User information or source is missing.")
-        return
-    source_key = YT_TRANSCRIPT_SOURCE_LABELS_REVERSE.get(message.text)
-    if source_key is None:
-        bot.send_message(message.chat.id, "Unknown source")
-        return
-    if not set_yt_transcript_source(message.from_user.id, source_key):
-        bot.send_message(message.chat.id, "Failed to update transcript source.")
-        return
-    markup = ReplyKeyboardRemove()
-    bot.send_message(
-        message.chat.id,
-        f"The YouTube transcript source is set to {message.text}.",
         reply_markup=markup,
     )
 
