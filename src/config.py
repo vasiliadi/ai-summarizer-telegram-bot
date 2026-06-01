@@ -121,7 +121,7 @@ ALLOWED_PROMPT_KEYS = list(PROMPT_STRATEGY_LABELS.keys())
 
 
 # YouTube transcript source backend, set via env ("api" or "ytdlp").
-YT_TRANSCRIPT_SOURCE = os.environ.get("YT_TRANSCRIPT_SOURCE") or "ytdlp"
+YT_TRANSCRIPT_SOURCE = (os.environ.get("YT_TRANSCRIPT_SOURCE") or "ytdlp").lower()
 
 
 # Replicate.com config
