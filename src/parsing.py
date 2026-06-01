@@ -12,7 +12,7 @@ from tenacity import (
     wait_fixed,
 )
 
-from config import tavily_client
+from config import DEFAULT_PARSING_BACKEND, exa_client, tavily_client
 from exceptions import WebParseError
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
     before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
     reraise=False,
 )
-def parse_url(url: str) -> str:
+def _parse_with_tavily(url: str) -> str:
     """Extract main textual content from a URL using Tavily.
 
     Args:
@@ -58,3 +58,57 @@ def parse_url(url: str) -> str:
         msg = f"Tavily returned empty content for {url}"
         raise WebParseError(msg)
     return content
+
+
+def _parse_with_exa(url: str) -> str:
+    """Extract main textual content from a URL using Exa.ai.
+
+    Args:
+        url (str): The webpage URL to parse.
+
+    Returns:
+        str: The extracted page content as text (HTML tags included).
+
+    Raises:
+        WebParseError: If Exa returns no results or empty content.
+
+    """
+    result = exa_client.get_contents(
+        urls=[url],
+        text={"max_characters": 20000, "include_html_tags": True},
+    )
+    results = result.results or []
+    if not results:
+        msg = f"Exa could not extract content from {url}"
+        raise WebParseError(msg)
+    content = (results[0].text or "").strip()
+    if not content:
+        msg = f"Exa returned empty content for {url}"
+        raise WebParseError(msg)
+    return content
+
+
+def parse_url(url: str, backend: str = DEFAULT_PARSING_BACKEND) -> str:
+    """Extract main textual content from a URL using the selected backend.
+
+    Args:
+        url (str): The webpage URL to parse.
+        backend (str): Parsing backend to use, "tavily" or "exa". Defaults to
+            DEFAULT_PARSING_BACKEND.
+
+    Returns:
+        str: The extracted page content.
+
+    Raises:
+        WebParseError: If the backend is unknown, or the selected backend
+            returns no successful results or empty content.
+        RetryError: If the Tavily backend keeps timing out after all retry
+            attempts (see _parse_with_tavily).
+
+    """
+    if backend == "tavily":
+        return _parse_with_tavily(url)
+    if backend == "exa":
+        return _parse_with_exa(url)
+    msg = f"Unknown parsing backend: {backend}"
+    raise WebParseError(msg)

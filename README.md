@@ -19,7 +19,7 @@ A bot designed to summarize YouTube videos (via audio or transcripts), Castro.fm
 
 ### General settings
 
-1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/)
+1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/), [Exa](https://dashboard.exa.ai/)
 2. Setup DB and Redis. For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
 4. Set up the [Modal Secrets](https://modal.com/secrets) with name `resetlimit-secrets`. Only `REDIS_URL` from `.env` needed.
@@ -47,6 +47,7 @@ TG_API_TOKEN="your_api_key"
 GEMINI_API_KEY="your_api_key"
 REPLICATE_API_TOKEN="your_api_key"
 TAVILY_API_KEY="your_api_key"
+EXA_API_KEY="your_api_key"
 DSN="postgresql+driver://user:password@host:port/database"
 REDIS_URL="rediss://default:password@host:port"
 SENTRY_DSN="your_sentry_dsn"
@@ -172,7 +173,12 @@ pre-commit install --hook-type post-rewrite
 
 #### Webpage parsing
 
-Webpage URLs are parsed into clean text via [Tavily](https://tavily.com) (`TavilyClient.extract`) before being passed to Gemini. This gives every model version identical, well-structured input and removes the variability introduced by Gemini's server-side `UrlContext` tool.
+Webpage URLs are parsed into clean text before being passed to Gemini. This gives every model version identical, well-structured input and removes the variability introduced by Gemini's server-side `UrlContext` tool.
+
+The parsing backend is pluggable and selected via the `DEFAULT_PARSING_BACKEND` env var (defaults to `tavily`):
+
+- `tavily` — [Tavily](https://tavily.com)
+- `exa` — [Exa.ai](https://exa.ai)
 
 #### Remote functions
 
@@ -209,6 +215,7 @@ While text transcripts can provide a solid foundation for understanding the cont
 [Sentry](https://docs.sentry.io/platforms/python/) \
 [limits](https://github.com/alisaifee/limits) \
 [tavily-python](https://docs.tavily.com/welcome) \
+[exa-py](https://github.com/exa-labs/exa-py) \
 [curl_cffi](https://github.com/lexiforest/curl_cffi)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
