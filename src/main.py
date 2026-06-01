@@ -34,7 +34,7 @@ from database import (
     toggle_transcription,
     toggle_yt_transcription,
 )
-from exceptions import LimitExceededError
+from exceptions import LimitExceededError, WebParseError
 from handlers import (
     handle_audio,
     handle_document,
@@ -528,6 +528,7 @@ def handle_message(message: Message) -> None:
     Raises:
         LimitExceededError: When user exceeds daily limit
         RetryError: When multiple processing attempts fail
+        WebParseError: When a webpage URL cannot be parsed
         Exception: For any other unexpected errors
 
     Returns:
@@ -549,6 +550,12 @@ def handle_message(message: Message) -> None:
     except LimitExceededError as e:
         capture_exception(e)
         bot.reply_to(message, "Daily limit has been exceeded, try again tomorrow.")
+    except WebParseError as e:
+        capture_exception(e)
+        bot.reply_to(
+            message,
+            "Check provided URL, looks like the page is not available.",
+        )
     except RetryError as e:
         capture_exception(e)
         bot.reply_to(

@@ -1,7 +1,7 @@
 from telebot import types
 from tenacity import RetryError
 
-from exceptions import LimitExceededError
+from exceptions import LimitExceededError, WebParseError
 from main import handle_message, process_message_content
 
 
@@ -390,6 +390,24 @@ def test_handle_message_retry_error(message_factory, mocker):
     mock_reply.assert_called_once_with(
         msg,
         "An error occurred during execution. Please try again in 10 minutes.",
+    )
+
+
+def test_handle_message_web_parse_error(message_factory, mocker):
+    """Test handle_message when a webpage URL cannot be parsed."""
+    msg = message_factory(content_type="text", text="http://example.com/dead")
+    mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
+    mocker.patch(
+        "main.process_message_content",
+        side_effect=WebParseError("Tavily could not extract content"),
+    )
+    mock_reply = mocker.patch("main.bot.reply_to")
+
+    handle_message(msg)
+
+    mock_reply.assert_called_once_with(
+        msg,
+        "Check provided URL, looks like the page is not available.",
     )
 
 
