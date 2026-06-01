@@ -83,9 +83,8 @@
       "automerge": true
     },
     {
-      "description": "github-actions minor bumps: safe to auto-merge (digests are pinned)",
+      "description": "github-actions: auto-merge all update types (digests are pinned)",
       "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor"],
       "automerge": true
     }
   ]
