@@ -1,6 +1,5 @@
 from main import (
     handle_info,
-    handle_limit,
     handle_myinfo,
     handle_set_prompt_strategy,
     handle_set_summarizing_model,
@@ -114,30 +113,6 @@ def test_handle_myinfo_missing_user(message_factory, mocker):
     handle_myinfo(msg)
 
     mock_reply.assert_called_once_with(msg, "User information is missing.")
-
-
-def test_handle_limit(message_factory, mocker):
-    """Test /limit command."""
-    msg = message_factory(content_type="text", text="/limit")
-    mock_user = mocker.MagicMock(user_id=123, daily_limit=20)
-    mocker.patch("main.select_user", return_value=mock_user)
-    mocker.patch("main.get_remaining_quota", return_value=15)
-    mock_send = mocker.patch("main.bot.send_message")
-
-    handle_limit(msg)
-
-    assert "Remaining limit: 15" in mock_send.call_args[0][1]
-
-
-def test_handle_limit_missing_user(message_factory, mocker):
-    """Test /limit silently returns when Telegram user metadata is absent."""
-    msg = message_factory(content_type="text", text="/limit")
-    msg.from_user = None
-    mock_select = mocker.patch("main.select_user")
-
-    handle_limit(msg)
-
-    mock_select.assert_not_called()
 
 
 def test_handle_toggle_transcription(message_factory, mocker):
