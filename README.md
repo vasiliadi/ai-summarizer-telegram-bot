@@ -54,6 +54,7 @@ SENTRY_DSN="your_sentry_dsn"
 PROXY=""
 LOG_LEVEL="ERROR"
 YT_TRANSCRIPT_SOURCE="ytdlp"
+DEFAULT_PARSING_BACKEND="tavily"
 MODAL_TOKEN_ID="your_token"
 MODAL_TOKEN_SECRET="your_token_secret"
 ```
