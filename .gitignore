@@ -200,6 +200,7 @@ docs/strategy
 docs/archive
 docs/summaries
 output/
+CLAUDE.local.md
 
 # pixi environments
 .pixi/*

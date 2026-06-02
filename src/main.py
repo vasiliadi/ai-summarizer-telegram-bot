@@ -156,36 +156,6 @@ def handle_myinfo(message: Message) -> None:
     bot.send_message(message.chat.id, msg)
 
 
-# /limit
-@bot.message_handler(
-    commands=["limit"],
-    func=lambda message: (
-        message.from_user is not None and check_auth(message.from_user.id)
-    ),
-)
-def handle_limit(message: Message) -> None:
-    """Handle the /limit command for the bot.
-
-    This function checks the user's remaining daily limit and sends a message
-    with the remaining count. It ensures that the user is authenticated before
-    performing the check.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                           and chat details.
-
-    Returns:
-        None
-
-    """
-    if message.from_user is None:
-        return
-    user = select_user(message.from_user.id)
-    remaining = get_remaining_quota(user.user_id, user.daily_limit)
-    msg = f"Remaining limit: {remaining}"
-    bot.send_message(message.chat.id, msg)
-
-
 # /toggle_transcription
 @bot.message_handler(
     commands=["toggle_transcription"],

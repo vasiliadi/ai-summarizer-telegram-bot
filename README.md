@@ -84,7 +84,6 @@ toggle_transcription - Toggle transcription for summary (fallback on failure)
 toggle_yt_transcription - Toggle YouTube transcription
 set_thinking_level - Choose AI thinking level
 set_target_language - Choose which language you want to translate into
-limit - Show remaining limit
 myinfo - Show my settings
 ```
 
