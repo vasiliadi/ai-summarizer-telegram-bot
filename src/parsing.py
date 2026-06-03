@@ -52,10 +52,12 @@ def _parse_with_tavily(url: str) -> str:
     if not results:
         failed = response.get("failed_results") or []
         msg = f"Tavily could not extract content from {url}: {failed}"
+        logger.warning(msg)
         raise WebParseError(msg)
     content = (results[0].get("raw_content") or "").strip()
     if not content:
         msg = f"Tavily returned empty content for {url}"
+        logger.warning(msg)
         raise WebParseError(msg)
     return content
 
@@ -73,11 +75,11 @@ def _parse_with_exa(url: str) -> str:
         WebParseError: If Exa returns no results or empty content.
 
     """
-    result = exa_client.get_contents(
+    response = exa_client.get_contents(
         urls=[url],
         text={"max_characters": 20000, "include_html_tags": True},
     )
-    results = result.results or []
+    results = response.results or []
     if not results:
         msg = f"Exa could not extract content from {url}"
         logger.warning(msg)

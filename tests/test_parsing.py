@@ -25,7 +25,7 @@ def test_parse_url_returns_raw_content(mocker):
     )
 
 
-def test_parse_url_raises_when_no_results(mocker):
+def test_parse_url_raises_when_no_results(mocker, caplog):
     """parse_url raises WebParseError when Tavily returns no successful results."""
     mock_client = mocker.patch("parsing.tavily_client")
     mock_client.extract.return_value = {
@@ -33,11 +33,12 @@ def test_parse_url_raises_when_no_results(mocker):
         "failed_results": [{"url": "https://example.com", "error": "not found"}],
     }
 
-    with pytest.raises(WebParseError):
+    with caplog.at_level(logging.WARNING, logger="parsing"), pytest.raises(WebParseError):
         parse_url("https://example.com")
+    assert "Tavily could not extract content from" in caplog.text
 
 
-def test_parse_url_raises_on_empty_raw_content(mocker):
+def test_parse_url_raises_on_empty_raw_content(mocker, caplog):
     """parse_url raises WebParseError when raw_content is empty/whitespace."""
     mock_client = mocker.patch("parsing.tavily_client")
     mock_client.extract.return_value = {
@@ -45,8 +46,9 @@ def test_parse_url_raises_on_empty_raw_content(mocker):
         "failed_results": [],
     }
 
-    with pytest.raises(WebParseError):
+    with caplog.at_level(logging.WARNING, logger="parsing"), pytest.raises(WebParseError):
         parse_url("https://example.com")
+    assert "Tavily returned empty content for" in caplog.text
 
 
 def test_parse_url_propagates_non_retryable_exception(mocker):
