@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from tavily.errors import TimeoutError as TavilyTimeoutError
 from tenacity import RetryError
@@ -107,24 +109,26 @@ def test_parse_url_exa_returns_text(mocker):
     )
 
 
-def test_parse_url_exa_raises_when_no_results(mocker):
+def test_parse_url_exa_raises_when_no_results(mocker, caplog):
     """parse_url(backend="exa") raises WebParseError when Exa returns no results."""
     mock_client = mocker.patch("parsing.exa_client")
     mock_client.get_contents.return_value = mocker.Mock(results=[])
 
-    with pytest.raises(WebParseError):
+    with caplog.at_level(logging.WARNING, logger="parsing"), pytest.raises(WebParseError):
         parse_url("https://example.com", backend="exa")
+    assert "Exa could not extract content from" in caplog.text
 
 
-def test_parse_url_exa_raises_on_empty_text(mocker):
+def test_parse_url_exa_raises_on_empty_text(mocker, caplog):
     """parse_url(backend="exa") raises WebParseError when text is empty/whitespace."""
     mock_client = mocker.patch("parsing.exa_client")
     mock_client.get_contents.return_value = mocker.Mock(
         results=[mocker.Mock(text="   ")],
     )
 
-    with pytest.raises(WebParseError):
+    with caplog.at_level(logging.WARNING, logger="parsing"), pytest.raises(WebParseError):
         parse_url("https://example.com", backend="exa")
+    assert "Exa returned empty content for" in caplog.text
 
 
 def test_parse_url_raises_on_unknown_backend():
