@@ -227,7 +227,7 @@ While text transcripts can provide a solid foundation for understanding the cont
 [crontab guru](https://crontab.guru/) \
 [Gemini API Cookbook](https://github.com/google-gemini/cookbook/) \
 Uptime stats: [Gemini Models](https://openrouter.ai/google) \
-[AI Agent Framework](https://github.com/Arkya-AI/claude-context-os)
+[AI Agent Framework](https://github.com/Arkya-AI/claude-context-os), [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices)
 
 ### Cloud DBs
 
