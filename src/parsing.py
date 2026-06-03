@@ -80,10 +80,12 @@ def _parse_with_exa(url: str) -> str:
     results = result.results or []
     if not results:
         msg = f"Exa could not extract content from {url}"
+        logger.warning(msg)
         raise WebParseError(msg)
     content = (results[0].text or "").strip()
     if not content:
         msg = f"Exa returned empty content for {url}"
+        logger.warning(msg)
         raise WebParseError(msg)
     return content
 
