@@ -113,16 +113,19 @@ def test_parse_url_exa_returns_text(mocker):
 
 def test_parse_url_exa_raises_when_no_results(mocker, caplog):
     """parse_url(backend="exa") raises WebParseError when Exa returns no results."""
+    mocker.patch("time.sleep")
     mock_client = mocker.patch("parsing.exa_client")
     mock_client.get_contents.return_value = mocker.Mock(results=[])
 
     with caplog.at_level(logging.WARNING, logger="parsing"), pytest.raises(WebParseError):
         parse_url("https://example.com", backend="exa")
     assert "Exa could not extract content from" in caplog.text
+    assert mock_client.get_contents.call_count == 2
 
 
 def test_parse_url_exa_raises_on_empty_text(mocker, caplog):
     """parse_url(backend="exa") raises WebParseError when text is empty/whitespace."""
+    mocker.patch("time.sleep")
     mock_client = mocker.patch("parsing.exa_client")
     mock_client.get_contents.return_value = mocker.Mock(
         results=[mocker.Mock(text="   ")],
@@ -131,6 +134,20 @@ def test_parse_url_exa_raises_on_empty_text(mocker, caplog):
     with caplog.at_level(logging.WARNING, logger="parsing"), pytest.raises(WebParseError):
         parse_url("https://example.com", backend="exa")
     assert "Exa returned empty content for" in caplog.text
+    assert mock_client.get_contents.call_count == 2
+
+
+def test_parse_url_exa_retries_empty_then_succeeds(mocker):
+    """parse_url(backend="exa") retries a transient empty result then returns content."""
+    mocker.patch("time.sleep")
+    mock_client = mocker.patch("parsing.exa_client")
+    mock_client.get_contents.side_effect = [
+        mocker.Mock(results=[]),
+        mocker.Mock(results=[mocker.Mock(text="Hello world.")]),
+    ]
+
+    assert parse_url("https://example.com", backend="exa") == "Hello world."
+    assert mock_client.get_contents.call_count == 2
 
 
 def test_parse_url_raises_on_unknown_backend():

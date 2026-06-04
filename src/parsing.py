@@ -62,6 +62,13 @@ def _parse_with_tavily(url: str) -> str:
     return content
 
 
+@retry(
+    stop=stop_after_attempt(2),
+    wait=wait_fixed(5),
+    retry=retry_if_exception_type(WebParseError),
+    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+    reraise=True,
+)
 def _parse_with_exa(url: str) -> str:
     """Extract main textual content from a URL using Exa.ai.
 
@@ -72,7 +79,11 @@ def _parse_with_exa(url: str) -> str:
         str: The extracted page content as text (HTML tags included).
 
     Raises:
-        WebParseError: If Exa returns no results or empty content.
+        WebParseError: If Exa returns no results or empty content. Exa's
+            get_contents is intermittent and may return an empty result for a
+            URL it can normally extract, so the function is decorated with
+            @retry and makes 2 total attempts (1 retry with a 5-second wait)
+            before re-raising WebParseError.
 
     """
     response = exa_client.get_contents(
