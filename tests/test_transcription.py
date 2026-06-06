@@ -90,6 +90,7 @@ def test_get_yt_transcript_unknown_url(mocker):
 
 def test_get_yt_transcript_fallback_languages(mocker):
     """Test get_yt_transcript falls back to other languages if NoTranscriptFound."""
+    mocker.patch("transcription.time.sleep")  # don't actually wait 60s
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
     mock_formatter = mocker.patch("transcription.TextFormatter")
 
