@@ -307,14 +307,11 @@ def _fetch_transcript(source: str, url: str, video_id: str) -> str:
         except Exception as e:
             msg = "API transcript backend failed"
             raise FetchTranscriptViaApiError(msg) from e
-    if source == "ytdlp":
-        try:
-            return fetch_transcript_via_ytdlp(url)
-        except Exception as e:
-            msg = "yt-dlp transcript backend failed"
-            raise FetchTranscriptViaYtdlpError(msg) from e
-    msg = f"Unknown transcript source: {source}"
-    raise ValueError(msg)
+    try:
+        return fetch_transcript_via_ytdlp(url)
+    except Exception as e:
+        msg = "yt-dlp transcript backend failed"
+        raise FetchTranscriptViaYtdlpError(msg) from e
 
 
 def get_yt_transcript(
