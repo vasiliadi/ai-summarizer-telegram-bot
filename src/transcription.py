@@ -370,6 +370,11 @@ def get_yt_transcript(
             FetchTranscriptViaApiError,
             FetchTranscriptViaYtdlpError,
         ) as fallback_error:
+            logger.warning(
+                "Fallback backend %s also failed: %s",
+                fallback,
+                fallback_error,
+            )
             raise fallback_error from primary_error
         return TranscriptResult(text=text, prefix="📺")
     return TranscriptResult(text=text, prefix="📹")
