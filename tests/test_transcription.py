@@ -2,6 +2,7 @@ import textwrap
 
 import pytest
 from replicate.exceptions import ModelError
+from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import RetryError
 from defusedxml.ElementTree import ParseError
 from youtube_transcript_api._errors import (
@@ -12,8 +13,13 @@ from youtube_transcript_api._errors import (
 )
 from yt_dlp.utils import DownloadError
 
-from exceptions import TranscriptDownloadError
+from exceptions import (
+    FetchTranscriptViaApiError,
+    FetchTranscriptViaYtdlpError,
+    TranscriptDownloadError,
+)
 from transcription import (
+    TranscriptResult,
     fetch_transcript_via_api,
     fetch_transcript_via_ytdlp,
     get_yt_transcript,
@@ -36,7 +42,7 @@ def test_get_yt_transcript_youtube_watch_url(mocker):
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     result = get_yt_transcript(url, source="api")
 
-    assert result == "Hello"
+    assert result == TranscriptResult(text="Hello", prefix="📹")
     mock_ytt.return_value.fetch.assert_called_once_with("dQw4w9WgXcQ")
 
 
@@ -51,7 +57,7 @@ def test_get_yt_transcript_youtu_be_url(mocker):
     url = "https://youtu.be/dQw4w9WgXcQ"
     result = get_yt_transcript(url, source="api")
 
-    assert result == "Hello short"
+    assert result == TranscriptResult(text="Hello short", prefix="📹")
     mock_ytt.return_value.fetch.assert_called_once_with("dQw4w9WgXcQ")
 
 
@@ -66,14 +72,20 @@ def test_get_yt_transcript_youtube_live_url(mocker):
     url = "https://www.youtube.com/live/dQw4w9WgXcQ"
     result = get_yt_transcript(url, source="api")
 
-    assert result == "Hello live"
+    assert result == TranscriptResult(text="Hello live", prefix="📹")
     mock_ytt.return_value.fetch.assert_called_once_with("dQw4w9WgXcQ")
 
 
-def test_get_yt_transcript_unknown_url():
+def test_get_yt_transcript_unknown_url(mocker):
     """Test get_yt_transcript raises ValueError for unknown URL formats."""
+    mock_api = mocker.patch("transcription.fetch_transcript_via_api")
+    mock_ytdlp = mocker.patch("transcription.fetch_transcript_via_ytdlp")
+
     with pytest.raises(ValueError, match="Unknown URL"):
         get_yt_transcript("https://example.com/not-youtube", source="api")
+
+    mock_api.assert_not_called()
+    mock_ytdlp.assert_not_called()
 
 
 def test_get_yt_transcript_fallback_languages(mocker):
@@ -96,7 +108,7 @@ def test_get_yt_transcript_fallback_languages(mocker):
     url = "https://youtu.be/dQw4w9WgXcQ"
     result = get_yt_transcript(url, source="api")
 
-    assert result == "Hola"
+    assert result == TranscriptResult(text="Hola", prefix="📹")
     # Verify it was called twice, once without languages, once with languages
     calls = mock_ytt.return_value.fetch.call_args_list
     assert calls[0].args == ("dQw4w9WgXcQ",)
@@ -130,47 +142,74 @@ def test_get_yt_transcript_source_ytdlp(mocker, tmp_path):
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     result = get_yt_transcript(url, source="ytdlp")
 
-    assert "Hello world" in result
+    assert "Hello world" in result.text
+    assert result.prefix == "📹"
     mock_ydl_inst.download.assert_called_once_with([url])
     mock_api.assert_not_called()
 
 
-def test_get_yt_transcript_source_api_does_not_fall_back(mocker):
-    """Test get_yt_transcript with source='api' propagates errors without falling back to yt-dlp."""
-    mocker.patch("time.sleep")
+def test_get_yt_transcript_source_api_falls_back_to_ytdlp(mocker):
+    """Test get_yt_transcript with source='api' falls back to yt-dlp."""
     mocker.patch(
         "transcription.fetch_transcript_via_api",
-        side_effect=RetryError(mocker.MagicMock()),
+        side_effect=TranscriptsDisabled("dQw4w9WgXcQ"),
     )
-    mock_ytdlp = mocker.patch("transcription.fetch_transcript_via_ytdlp")
+    mock_ytdlp = mocker.patch(
+        "transcription.fetch_transcript_via_ytdlp",
+        return_value="from fallback",
+    )
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    with pytest.raises(RetryError):
-        get_yt_transcript(url, source="api")
+    result = get_yt_transcript(url, source="api")
 
-    mock_ytdlp.assert_not_called()
+    assert result == TranscriptResult(text="from fallback", prefix="📺")
+    mock_ytdlp.assert_called_once_with(url)
 
 
-def test_get_yt_transcript_source_ytdlp_does_not_fall_back(mocker):
-    """Test get_yt_transcript with source='ytdlp' propagates errors without falling back to the API."""
+def test_get_yt_transcript_source_ytdlp_falls_back_to_api(mocker):
+    """Test get_yt_transcript with source='ytdlp' falls back to the API."""
     mocker.patch(
         "transcription.fetch_transcript_via_ytdlp",
         side_effect=DownloadError("no subs"),
     )
-    mock_api = mocker.patch("transcription.fetch_transcript_via_api")
+    mock_api = mocker.patch(
+        "transcription.fetch_transcript_via_api",
+        return_value="from fallback",
+    )
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    with pytest.raises(DownloadError):
-        get_yt_transcript(url, source="ytdlp")
+    result = get_yt_transcript(url, source="ytdlp")
 
-    mock_api.assert_not_called()
+    assert result == TranscriptResult(text="from fallback", prefix="📺")
+    mock_api.assert_called_once_with("dQw4w9WgXcQ")
 
 
-def test_get_yt_transcript_unknown_source_raises_value_error():
+def test_get_yt_transcript_source_fallback_failure_raises_fallback_error(mocker):
+    """Test get_yt_transcript raises fallback errors chained from primary failures."""
+    primary_error = TranscriptsDisabled("dQw4w9WgXcQ")
+    fallback_error = DownloadError("no subs")
+    mocker.patch("transcription.fetch_transcript_via_api", side_effect=primary_error)
+    mocker.patch("transcription.fetch_transcript_via_ytdlp", side_effect=fallback_error)
+
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    with pytest.raises(FetchTranscriptViaYtdlpError) as exc_info:
+        get_yt_transcript(url, source="api")
+
+    assert isinstance(exc_info.value.__cause__, FetchTranscriptViaApiError)
+    assert exc_info.value.__cause__.__cause__ is primary_error
+
+
+def test_get_yt_transcript_unknown_source_raises_value_error(mocker):
     """Test get_yt_transcript raises ValueError for an unknown source."""
+    mock_api = mocker.patch("transcription.fetch_transcript_via_api")
+    mock_ytdlp = mocker.patch("transcription.fetch_transcript_via_ytdlp")
+
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     with pytest.raises(ValueError, match="Unknown transcript source"):
         get_yt_transcript(url, source="bogus")
+
+    mock_api.assert_not_called()
+    mock_ytdlp.assert_not_called()
 
 
 def test_get_yt_transcript_defaults_source_to_config(mocker):
@@ -184,7 +223,7 @@ def test_get_yt_transcript_defaults_source_to_config(mocker):
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     result = get_yt_transcript(url)
 
-    assert result == "from config"
+    assert result == TranscriptResult(text="from config", prefix="📹")
     mock_ytdlp.assert_called_once_with(url)
     mock_api.assert_not_called()
 
@@ -480,7 +519,17 @@ def test_fetch_transcript_via_api_propagates_non_retryable_error(mocker):
         fetch_transcript_via_api("vid")
 
 
-@pytest.mark.parametrize("exc", [IpBlocked("vid"), RequestBlocked("vid"), ParseError()])
+@pytest.mark.parametrize(
+    "exc",
+    [
+        IpBlocked("vid"),
+        RequestBlocked("vid"),
+        ParseError(),
+        ProxyError(),
+        SSLError(),
+        ChunkedEncodingError(),
+    ],
+)
 def test_fetch_transcript_via_api_retries_on_retryable_exception(mocker, exc):
     """Test fetch_transcript_via_api retries on each retryable exception then raises RetryError."""
     mocker.patch("time.sleep")

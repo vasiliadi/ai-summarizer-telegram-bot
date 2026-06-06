@@ -19,11 +19,10 @@ from tenacity import (
     stop_after_attempt,
     wait_fixed,
 )
-from youtube_transcript_api._errors import CouldNotRetrieveTranscript
-from yt_dlp.utils import DownloadError
 
 from config import gemini_client
 from download import download_castro, download_tg, download_yt
+from exceptions import FetchTranscriptViaApiError, FetchTranscriptViaYtdlpError
 from prompts import PROMPTS
 from services import (
     check_quota,
@@ -389,7 +388,8 @@ def summarize(
 
     Returns:
         str: Generated summary of the content, prefixed with:
-            - 📹 for YouTube transcript summaries
+            - 📹 for default-backend YouTube transcript summaries
+            - 📺 for fallback-backend YouTube transcript summaries
             - 📝 for fallback transcription summaries
             - No prefix for direct file summaries
 
@@ -414,11 +414,10 @@ def summarize(
         ):
             if use_yt_transcription:
                 try:
-                    transcript = get_yt_transcript(data)
+                    transcript_result = get_yt_transcript(data)
                 except (
-                    CouldNotRetrieveTranscript,
-                    RetryError,
-                    DownloadError,
+                    FetchTranscriptViaApiError,
+                    FetchTranscriptViaYtdlpError,
                     ValueError,
                 ) as e:
                     logger.warning(
@@ -427,9 +426,9 @@ def summarize(
                     )
                 else:
                     return format_prefixed_summary(
-                        "📹",
+                        transcript_result.prefix,
                         summarize_with_transcript(
-                            transcript=transcript,
+                            transcript=transcript_result.text,
                             model=model,
                             prompt_key=prompt_key,
                             target_language=target_language,

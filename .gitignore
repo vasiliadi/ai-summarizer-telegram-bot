@@ -201,6 +201,7 @@ docs/archive
 docs/summaries
 output/
 CLAUDE.local.md
+AGENTS.override.md
 
 # pixi environments
 .pixi/*
