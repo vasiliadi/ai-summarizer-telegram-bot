@@ -61,14 +61,14 @@ MODAL_TOKEN_SECRET="your_token_secret"
 
 Pass in an empty string to `PROXY` for direct connection. \
 Or use `schema`://`username`:`password`@`proxy_address`:`port` \
-For example `http://user:password@proxy.com:1234`
+For example `https://user:password@proxy.com:1234`
 
 Multiple proxies can be supplied as a comma-separated list; one is picked at random per request to mitigate IP blocking. Whitespace around entries is trimmed.
 
-Only HTTP/HTTPS proxies are supported. The last version with SOCKS proxy support is 0.13.0.
+Only HTTP/HTTPS proxies are supported. The last version with SOCKS proxy support is [0.13.0](https://github.com/vasiliadi/ai-summarizer-telegram-bot/releases/tag/0.13.0).
 
 ```env
-PROXY="http://user:password@proxy.com:1234,http://user:password@proxy.com:1235"
+PROXY="https://user:password@proxy.com:1234,https://user:password@proxy.com:1235"
 ```
 
 Don't forget to enable `RLS` if you use [Supabase x Postgres](https://supabase.com/database).
