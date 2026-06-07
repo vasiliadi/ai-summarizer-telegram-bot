@@ -4,27 +4,35 @@ This guide establishes the Git conventions, workflow, and pre-commit checks for 
 
 ## Git Conventions
 
-All commit messages must follow the **Conventional Commits** specification.
+All commit messages must use the **scope-prefixed** format. Lead with the area of the codebase
+that changed, not a change type — the description already conveys what kind of change it is, and
+the scope is what people actually scan for when debugging or reviewing history.
 
 **Format:**
 
 ```text
-type(scope): subject
+scope: description
 
 [optional body]
 ```
 
-**Valid Types:**
+* **scope** — the subsystem, module, or area affected. Usually a file/module name without its
+  extension (e.g. `summary`, `prompts`, `config`) or a logical component (e.g. `deps`, `docs`,
+  `ci`). For changes that span a path, a slash-separated scope is fine (e.g. `net/http:`).
+  Lowercase, no `type(...)` wrapper.
+* **description** — concise, imperative mood, lowercase first word, no trailing period.
 
-* `feat`: A new feature
-* `fix`: A bug fix
-* `docs`: Documentation changes
-* `style`: Code formatting (no functional changes)
-* `refactor`: Code restructuring
-* `test`: Adding or updating tests
-* `chore`: Maintenance, dependencies, config updates
+Do not use Conventional Commit types (`feat`, `fix`, `chore`, …) and do not add gitmoji.
 
-*(Note: Gitmoji is required. Always prefix the subject with the appropriate emoji, e.g. ✨ for feat, 🐛 for fix, 📝 for docs, 🎨 for style, ♻️ for refactor, ✅ for test, 🔧 for chore).*
+**Examples:**
+
+```text
+summary: handle empty transcript
+prompts: tighten system instruction
+deps: bump google-genai to 2.8.0
+docs: link SOCKS proxy release
+ci: update codecov action
+```
 
 ---
 
