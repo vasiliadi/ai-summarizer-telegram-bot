@@ -1,4 +1,4 @@
-# Claude Templates — On-Demand Reference
+# Agent Templates — On-Demand Reference
 
 > **Do NOT read this file at session start.** Read it only when you need to write a decision record, analysis summary, or source-document summary. The session summary/handoff template lives inline in AGENTS.md — not here.
 

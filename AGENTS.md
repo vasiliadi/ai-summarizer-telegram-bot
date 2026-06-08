@@ -57,9 +57,9 @@ Write to `docs/summaries/summary-[YYYY-MM-DD]-[topic].md` after meaningful work,
 
 ## Where Things Live
 
-- `templates/claude-templates.md` — decision, analysis, source-summary templates (read on demand). The session summary/handoff template lives inline in `AGENTS.md` above.
 - `docs/summaries/` — active session state (latest handoff + project-digest + decision records + source summaries)
 - `docs/context/` — reusable domain knowledge, loaded only when relevant to the current task
+  - `agent-templates.md` — decision, analysis, and source-summary templates (read on demand). The session summary/handoff template lives inline in `AGENTS.md` above.
   - `processing-protocol.md` — full document processing steps
   - `archive-rules.md` — summary lifecycle and file archival rules
   - `style-guide.md` — writing or coding conventions
@@ -67,7 +67,6 @@ Write to `docs/summaries/summary-[YYYY-MM-DD]-[topic].md` after meaningful work,
   - `uv-guide.md` — running the project and managing dependencies with `uv`
   - `subagent-rules.md` — rules for sub-agent usage and outputs
 - `docs/archive/` — processed raw files. Do not read unless explicitly told.
-- `output/deliverables/` — final outputs
 
 ## Error Recovery
 
