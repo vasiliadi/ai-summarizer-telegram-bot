@@ -1,6 +1,6 @@
 # uv Guide
 
-This document explains how to run the project and manage dependencies using `uv`. For the developer tools used in the project, see `docs/context/tooling-guide.md`.
+This document explains how to run the project and manage dependencies using `uv`.
 
 ## Package Management
 
