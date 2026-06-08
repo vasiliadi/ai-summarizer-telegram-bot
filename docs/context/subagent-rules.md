@@ -13,6 +13,6 @@
 
 ## Output Requirements
 
-Subagent output must conform to the Output Contracts in `templates/claude-templates.md`. No free-form prose returns.
+Subagent output must be structured — exact numbers, file paths, decisions with rationale, and open items — not free-form prose.
 
 Optimal subagent return size: 1,000-2,000 tokens of structured summary. Longer returns consume main agent context without proportional benefit.
