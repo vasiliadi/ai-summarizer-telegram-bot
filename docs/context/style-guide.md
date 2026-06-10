@@ -52,3 +52,9 @@ Use `# noqa` sparingly and always specify the exact rule code.
   `test_process_message_with_empty_string`).
 - Unit tests for isolated business logic, utilities, and validation; integration tests for database
   operations, API clients, and end-to-end flows. Aim for high coverage on core logic and edge cases.
+
+## Documentation Paths
+
+- Write repo-relative paths **bare**, without a leading `./` — e.g. `docs/summaries/handoff.md`, not
+  `./docs/summaries/handoff.md`. The `./` is redundant and the two forms are equivalent; the bare
+  form is the project standard.

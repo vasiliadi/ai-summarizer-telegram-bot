@@ -8,7 +8,7 @@
 
 **Use when:** A significant decision is made during a session (library choice, architecture, migration strategy, error-handling approach). These persist in `docs/summaries/` as the project's ADRs.
 
-**Write to:** `./docs/summaries/decision-[number]-[topic].md`
+**Write to:** `docs/summaries/decision-[number]-[topic].md`
 
 ```markdown
 # Decision [N]: [Short Title] ([ticket if any])
@@ -41,7 +41,7 @@
 
 **Use when:** Completing a technical evaluation, feasibility check, incident investigation, or refactor scoping. Keep only the latest version per topic (archive the old one if re-run).
 
-**Write to:** `./docs/summaries/analysis-[topic].md`
+**Write to:** `docs/summaries/analysis-[topic].md`
 
 ```markdown
 # Analysis Summary: [Topic]
@@ -83,7 +83,7 @@
 
 **Use when:** Processing an external docs dump — library API docs, RFCs, migration guides, changelogs — before adopting or upgrading a dependency. Replaces the raw document; see `docs/context/processing-protocol.md`.
 
-**Write to:** `./docs/summaries/source-[library]-[topic].md`
+**Write to:** `docs/summaries/source-[library]-[topic].md`
 
 ```markdown
 # Source Summary: [Document Name]
