@@ -38,11 +38,11 @@ ci: update codecov action
 
 ## Pre-Commit Checks
 
-Run all four manually before each commit. `ruff format .`, `ruff check .`, and `uv run pytest` also run automatically via pre-commit hooks; `ty check .` does not.
+All four also run automatically via pre-commit hooks (`uvx ruff format .`, `uvx ruff check .`, `uvx ty check`, `uv run pytest`). Still run them manually before each commit — the manual run covers the whole tree and does not depend on `pre-commit install` having been set up. Invoke `ruff` and `ty` through `uvx` so they always resolve to the latest published version rather than a system-installed one.
 
-1. `ruff format .`
-2. `ruff check .`
-3. `ty check .`
+1. `uvx ruff format .`
+2. `uvx ruff check .`
+3. `uvx ty check .`
 4. `uv run pytest`
 
-**Workflow:** Run `ruff format .` before committing to automatically format your code. Run `ruff check --fix` to automatically resolve fixable linting errors.
+**Workflow:** Run `uvx ruff format .` before committing to automatically format your code. Run `uvx ruff check --fix` to automatically resolve fixable linting errors.
