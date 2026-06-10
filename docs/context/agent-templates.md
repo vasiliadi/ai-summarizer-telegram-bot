@@ -28,7 +28,7 @@
 | `[path]` | [what changed] |
 
 ## Verification
-- `ruff format .`, `ruff check .`, `ty check .` — [result]
+- `uvx ruff format .`, `uvx ruff check .`, `uvx ty check .` — [result]
 - `uv run pytest` — [exact pass count, e.g. **207 passed**]
 
 ## Open Items
