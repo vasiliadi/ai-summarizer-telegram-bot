@@ -23,7 +23,7 @@ Read sequentially. After each document, write a Source Document Summary (templat
 
 - Read one document
 - Extract into Source Document Summary format
-- Write to `./docs/summaries/source-[filename].md`
+- Write to `docs/summaries/source-[filename].md`
 - Release the document from active consideration before reading the next
 
 **Step 3:** After all documents are processed, read only the summaries to form your working context.
