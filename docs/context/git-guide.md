@@ -38,7 +38,7 @@ ci: update codecov action
 
 ## Pre-Commit Checks
 
-All four also run automatically via pre-commit hooks (`uvx ruff format .`, `uvx ruff check .`, `uvx ty check`, `uv run pytest`). Still run them manually before each commit — the manual run covers the whole tree and does not depend on `pre-commit install` having been set up. Invoke `ruff` and `ty` through `uvx` so they always resolve to the latest published version rather than a system-installed one.
+All four checks also run automatically via pre-commit hooks. Still run them manually before each commit — the manual run covers the whole tree and does not depend on `pre-commit install` having been set up. The manual commands below invoke `ruff` and `ty` through `uvx` so they resolve to the latest published version rather than a system-installed one; note the hooks pin Ruff via the `astral-sh/ruff-pre-commit` mirror, so the hook and manual Ruff versions can differ.
 
 1. `uvx ruff format .`
 2. `uvx ruff check .`
