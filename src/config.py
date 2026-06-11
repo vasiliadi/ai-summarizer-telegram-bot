@@ -121,10 +121,6 @@ PROMPT_STRATEGY_LABELS_REVERSE: dict[str, str] = {
 ALLOWED_PROMPT_KEYS = list(PROMPT_STRATEGY_LABELS.keys())
 
 
-# YouTube transcript source backend, set via env ("api" or "ytdlp").
-YT_TRANSCRIPT_SOURCE = os.environ.get("YT_TRANSCRIPT_SOURCE", "ytdlp").lower()
-
-
 # Replicate.com config
 REPLICATE_API_TOKEN = os.environ["REPLICATE_API_TOKEN"]
 replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
