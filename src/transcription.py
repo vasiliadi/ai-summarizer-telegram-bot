@@ -10,6 +10,7 @@ from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError, ReplicateError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
+    RetryError,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -18,6 +19,7 @@ from tenacity import (
 )
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import (
+    CouldNotRetrieveTranscript,
     IpBlocked,
     NoTranscriptFound,
     RequestBlocked,
@@ -287,7 +289,11 @@ def fetch_transcript_via_ytdlp(url: str) -> str:  # noqa: C901, PLR0912, PLR0915
             msg = "No subtitles available via yt-dlp"
             raise DownloadError(msg)
 
-        return vtt_to_text(sorted(vtt_files)[0])
+        try:
+            return vtt_to_text(sorted(vtt_files)[0])
+        except Exception as e:
+            msg = "Failed to read downloaded VTT file"
+            raise DownloadError(msg) from e
     finally:
         for f in Path.cwd().glob(f"{temp_basename}.*"):
             clean_up(file=str(f))
@@ -320,14 +326,14 @@ def get_yt_transcript(url: str) -> TranscriptResult:
 
     try:
         text = fetch_transcript_via_ytdlp(url)
-    except Exception as ytdlp_error:
+    except (DownloadError, RetryError) as ytdlp_error:
         logger.warning(
             "yt-dlp transcript backend failed, falling back to API: %s",
             ytdlp_error,
         )
         try:
             text = fetch_transcript_via_api(video_id)
-        except Exception as api_error:
+        except (CouldNotRetrieveTranscript, RetryError) as api_error:
             logger.warning("API fallback backend also failed: %s", api_error)
             msg = "Both transcript backends failed"
             raise FetchTranscriptError(msg) from api_error
