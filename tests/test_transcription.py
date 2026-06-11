@@ -799,6 +799,22 @@ def test_fetch_transcript_via_ytdlp_extract_info_none_raises(mocker, tmp_path):
     ctx.download.assert_not_called()
 
 
+def test_fetch_transcript_via_ytdlp_vtt_read_error_raises_download_error(mocker, tmp_path):
+    """Test fetch_transcript_via_ytdlp converts vtt_to_text OSError into DownloadError."""
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    mocker.patch("transcription.clean_up")
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    ctx = mock_ydl_cls.return_value.__enter__.return_value
+    ctx.extract_info.return_value = {"subtitles": {"en": [{}]}, "automatic_captions": {}}
+    # create the vtt file so the glob finds it, but vtt_to_text raises OSError
+    (tmp_path / "fake-uuid.en.vtt").write_text("WEBVTT\n", encoding="utf-8")
+    mocker.patch("transcription.vtt_to_text", side_effect=OSError("disk full"))
+
+    with pytest.raises(DownloadError, match="Failed to read downloaded VTT file"):
+        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+
+
 def test_fetch_transcript_via_ytdlp_no_vtt_after_download_raises(mocker, tmp_path):
     """Test fetch_transcript_via_ytdlp raises when download writes no vtt file."""
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
