@@ -363,7 +363,6 @@ def summarize(
     user_id: int,
     daily_limit: int,
     thinking_level: str,
-    use_yt_transcription: bool = False,
 ) -> str:
     """Generate a summary from various input sources using Gemini API.
 
@@ -383,8 +382,6 @@ def summarize(
         user_id (int): Telegram user ID for per-user quota enforcement.
         daily_limit (int): The user's configured daily request cap.
         thinking_level (str): AI thinking level
-        use_yt_transcription (bool, optional): Whether to attempt using YouTube's
-            built-in transcripts for YouTube URLs. Defaults to False.
 
     Returns:
         str: Generated summary of the content, prefixed with:
@@ -412,27 +409,26 @@ def summarize(
         if data.startswith(
             ("https://youtu.be/", "https://www.youtube.com/", "https://youtube.com/"),
         ):
-            if use_yt_transcription:
-                try:
-                    transcript_result = get_yt_transcript(data)
-                except (FetchTranscriptError, ValueError) as e:
-                    logger.warning(
-                        "get_yt_transcript failed, falling back to download: %s",
-                        e,
-                    )
-                else:
-                    return format_prefixed_summary(
-                        transcript_result.prefix,
-                        summarize_with_transcript(
-                            transcript=transcript_result.text,
-                            model=model,
-                            prompt_key=prompt_key,
-                            target_language=target_language,
-                            user_id=user_id,
-                            daily_limit=daily_limit,
-                            thinking_level=thinking_level,
-                        ),
-                    )
+            try:
+                transcript_result = get_yt_transcript(data)
+            except (FetchTranscriptError, ValueError) as e:
+                logger.warning(
+                    "get_yt_transcript failed, falling back to download: %s",
+                    e,
+                )
+            else:
+                return format_prefixed_summary(
+                    transcript_result.prefix,
+                    summarize_with_transcript(
+                        transcript=transcript_result.text,
+                        model=model,
+                        prompt_key=prompt_key,
+                        target_language=target_language,
+                        user_id=user_id,
+                        daily_limit=daily_limit,
+                        thinking_level=thinking_level,
+                    ),
+                )
             data = download_yt(data)
     if isinstance(data, File):
         data = download_tg(data, ext=".ogg")

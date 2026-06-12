@@ -27,7 +27,6 @@ def register_user(
     approved: bool = False,
     use_transcription: bool = False,
     target_language: str = DEFAULT_LANG,
-    use_yt_transcription: bool = False,
     summarizing_model: str = DEFAULT_MODEL_ID_FOR_SUMMARY,
     prompt_key_for_summary: (str) = DEFAULT_PROMPT_KEY,
     thinking_level: str = DEFAULT_THINKING_LEVEL,
@@ -42,7 +41,6 @@ def register_user(
         approved (bool, optional): Whether the user is approved.
         use_transcription (bool, optional): Enable audio transcription.
         target_language (str, optional): Target language for translations.
-        use_yt_transcription (bool, optional): Enable YouTube transcription.
         summarizing_model (str, optional): Model for summary.
         prompt_key_for_summary (str): Prompt key for summarization strategy.
         thinking_level (str, optional): AI thinking level.
@@ -64,7 +62,6 @@ def register_user(
                 approved=approved,
                 use_transcription=use_transcription,
                 target_language=target_language,
-                use_yt_transcription=use_yt_transcription,
                 summarizing_model=summarizing_model,
                 prompt_key_for_summary=prompt_key_for_summary,
                 thinking_level=thinking_level,
@@ -161,26 +158,6 @@ def set_target_language(user_id: int, target_language: str) -> bool:
             session.commit()
             return True
         return False  # User not found
-
-
-def toggle_yt_transcription(user_id: int) -> None:
-    """Toggle YouTube transcription setting for a user.
-
-    Args:
-        user_id (int): Unique Telegram user ID
-
-    Returns:
-        None
-
-    Note:
-        Silently fails if user is not found in the database.
-
-    """
-    with Session() as session:
-        user = session.get(UsersOrm, user_id)
-        if user is not None:
-            user.use_yt_transcription = not user.use_yt_transcription
-            session.commit()
 
 
 def set_summarizing_model(user_id: int, summarizing_model: str) -> bool:

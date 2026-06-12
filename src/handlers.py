@@ -159,7 +159,6 @@ def handle_url(message: Message, user: UsersOrm, url: str) -> None:
         answer = summarize(
             data=url,
             use_transcription=user.use_transcription,
-            use_yt_transcription=user.use_yt_transcription,
             **_summary_kwargs(user),
         )
         send_answer(message, answer)
