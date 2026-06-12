@@ -442,8 +442,8 @@ def summarize(
     except RetryError as e:
         logger.warning("Error occurred while summarizing with file: %s", e)
         new_file = generate_temporary_name(ext=".ogg")
-        compress_audio(input_file=data, output_file=new_file)
         try:
+            compress_audio(input_file=data, output_file=new_file)
             transcription = transcribe(new_file)
             # If it fails, a RetryError will raise
             return format_prefixed_summary(

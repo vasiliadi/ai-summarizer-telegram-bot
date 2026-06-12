@@ -505,6 +505,31 @@ def test_summarize_fallback_to_transcription(mocker):
     )
 
 
+def test_summarize_fallback_cleans_up_temp_file_when_compress_fails(mocker):
+    """Test summarize() cleans up the temp file even if compress_audio raises."""
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch(
+        "summary.summarize_with_file",
+        side_effect=RetryError(mocker.MagicMock()),
+    )
+    mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
+    mocker.patch("summary.compress_audio", side_effect=RuntimeError("ffmpeg failed"))
+    mock_clean_up = mocker.patch("summary.clean_up")
+
+    with pytest.raises(RuntimeError):
+        summarize(
+            data="local_audio.ogg",
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            user_id=123,
+            daily_limit=10,
+            thinking_level="MINIMAL",
+        )
+
+    mock_clean_up.assert_any_call(file="temp.ogg")
+
+
 def test_summarize_castro(mocker):
     """Test summarize() with Castro.fm URL."""
     url = "https://castro.fm/episode/123"
