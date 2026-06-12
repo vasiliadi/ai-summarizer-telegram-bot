@@ -134,7 +134,7 @@ brew install pixi
 pixi run start  # ffmpeg available
 ```
 
-Install `ruff` and `ty` as system-wide tools:
+Install `ruff` and `ty` as system-wide tools or use `uvx`:
 
 ```bash
 uv tool install ruff
