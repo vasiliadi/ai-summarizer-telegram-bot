@@ -106,7 +106,6 @@ def test_handle_audio_happy_path(message_factory, mocker):
         "main.select_user",
         return_value=mocker.MagicMock(
             approved=True,
-            use_transcription=False,
             summarizing_model="model",
             prompt_key_for_summary="prompt",
             target_language="English",
@@ -238,7 +237,6 @@ def test_handle_voice_happy_path(message_factory, mocker):
         "main.select_user",
         return_value=mocker.MagicMock(
             approved=True,
-            use_transcription=False,
             summarizing_model="model",
             prompt_key_for_summary="prompt",
             target_language="English",
@@ -286,7 +284,6 @@ def test_handle_video_happy_path_cleans_up_download(message_factory, mocker):
         "main.select_user",
         return_value=mocker.MagicMock(
             approved=True,
-            use_transcription=False,
             summarizing_model="model",
             prompt_key_for_summary="prompt",
             target_language="English",
@@ -313,7 +310,6 @@ def test_handle_video_note_happy_path_cleans_up_download(message_factory, mocker
         "main.select_user",
         return_value=mocker.MagicMock(
             approved=True,
-            use_transcription=False,
             summarizing_model="model",
             prompt_key_for_summary="prompt",
             target_language="English",

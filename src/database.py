@@ -25,7 +25,6 @@ def register_user(
     last_name: str,
     username: str,
     approved: bool = False,
-    use_transcription: bool = False,
     target_language: str = DEFAULT_LANG,
     summarizing_model: str = DEFAULT_MODEL_ID_FOR_SUMMARY,
     prompt_key_for_summary: (str) = DEFAULT_PROMPT_KEY,
@@ -39,7 +38,6 @@ def register_user(
         last_name (str): User's last name
         username (str): Telegram username
         approved (bool, optional): Whether the user is approved.
-        use_transcription (bool, optional): Enable audio transcription.
         target_language (str, optional): Target language for translations.
         summarizing_model (str, optional): Model for summary.
         prompt_key_for_summary (str): Prompt key for summarization strategy.
@@ -60,7 +58,6 @@ def register_user(
                 last_name=last_name,
                 username=username,
                 approved=approved,
-                use_transcription=use_transcription,
                 target_language=target_language,
                 summarizing_model=summarizing_model,
                 prompt_key_for_summary=prompt_key_for_summary,
@@ -111,26 +108,6 @@ def check_auth(user_id: int) -> bool:
     """
     user = select_user(user_id)
     return user.approved
-
-
-def toggle_transcription(user_id: int) -> None:
-    """Toggle the transcription setting for a user.
-
-    Args:
-        user_id (int): Unique Telegram user ID
-
-    Returns:
-        None
-
-    Raises:
-        ValueError: If the user with the given ID is not found in the database.
-
-    """
-    with Session() as session:
-        user = select_user(user_id)
-        user.use_transcription = not user.use_transcription
-        session.add(user)
-        session.commit()
 
 
 def set_target_language(user_id: int, target_language: str) -> bool:
