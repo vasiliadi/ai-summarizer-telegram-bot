@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 from tavily.errors import TimeoutError as TavilyTimeoutError
 from tenacity import (
+    RetryError,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -12,7 +13,7 @@ from tenacity import (
     wait_fixed,
 )
 
-from config import DEFAULT_PARSING_BACKEND, exa_client, tavily_client
+from config import exa_client, tavily_client
 from exceptions import WebParseError
 
 if TYPE_CHECKING:
@@ -103,27 +104,34 @@ def _parse_with_exa(url: str) -> str:
     return content
 
 
-def parse_url(url: str, backend: str = DEFAULT_PARSING_BACKEND) -> str:
-    """Extract main textual content from a URL using the selected backend.
+def parse_url(url: str) -> str:
+    """Extract main textual content from a URL.
+
+    Parses with Tavily first and falls back to Exa.ai when Tavily fails.
 
     Args:
         url (str): The webpage URL to parse.
-        backend (str): Parsing backend to use, "tavily" or "exa". Defaults to
-            DEFAULT_PARSING_BACKEND.
 
     Returns:
         str: The extracted page content.
 
     Raises:
-        WebParseError: If the backend is unknown, or the selected backend
-            returns no successful results or empty content.
-        RetryError: If the Tavily backend keeps timing out after all retry
-            attempts (see _parse_with_tavily).
+        WebParseError: If both the Tavily and Exa.ai backends fail to return
+            usable content.
+        Exception: Any non-retryable error raised by the Tavily backend
+            propagates immediately without attempting the Exa.ai fallback.
 
     """
-    if backend == "tavily":
+    try:
         return _parse_with_tavily(url)
-    if backend == "exa":
-        return _parse_with_exa(url)
-    msg = f"Unknown parsing backend: {backend}"
-    raise WebParseError(msg)
+    except (WebParseError, RetryError) as tavily_error:
+        logger.warning(
+            "Tavily parsing backend failed, falling back to Exa: %s",
+            tavily_error,
+        )
+        try:
+            return _parse_with_exa(url)
+        except WebParseError as exa_error:
+            logger.warning("Exa fallback backend also failed: %s", exa_error)
+            msg = "Both parsing backends failed"
+            raise WebParseError(msg) from exa_error
