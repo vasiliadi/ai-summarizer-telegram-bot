@@ -31,7 +31,6 @@ from database import (
     set_summarizing_model,
     set_target_language,
     set_thinking_level,
-    toggle_transcription,
 )
 from exceptions import LimitExceededError, WebParseError
 from handlers import (
@@ -125,8 +124,8 @@ def handle_myinfo(message: Message) -> None:
 
     This function retrieves and sends detailed information about the user.
     It checks if the user is authenticated and then fetches their information
-    from the database, including their user ID, approval status, transcription
-    and translation settings, target language, and parsing strategy.
+    from the database, including their user ID, approval status, translation
+    settings, target language, and parsing strategy.
 
     Args:
         message (Message): The message object from Telegram containing user information
@@ -143,7 +142,6 @@ def handle_myinfo(message: Message) -> None:
     msg = dedent(f"""
                 UserId: {user.user_id}
                 Approved: {user.approved}
-                Audio transcript: {user.use_transcription}
                 Target language: {user.target_language}
                 Summarizing model: {MODEL_LABELS.get(user.summarizing_model, user.summarizing_model)}
                 Prompt strategy: {PROMPT_STRATEGY_LABELS.get(user.prompt_key_for_summary, user.prompt_key_for_summary)}
@@ -152,43 +150,6 @@ def handle_myinfo(message: Message) -> None:
                 Remaining quota: {get_remaining_quota(user.user_id, user.daily_limit)}
                 """).strip()  # noqa: E501
     bot.send_message(message.chat.id, msg)
-
-
-# /toggle_transcription
-@bot.message_handler(
-    commands=["toggle_transcription"],
-    func=lambda message: (
-        message.from_user is not None and check_auth(message.from_user.id)
-    ),
-)
-def handle_toggle_transcription(message: Message) -> None:
-    """Handle the /toggle_transcription command for the bot.
-
-    This function toggles the transcription setting for the authenticated user.
-    It first checks the current transcription status, toggles it, and then sends
-    a confirmation indicating whether transcription has been enabled or disabled.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                           and chat details.
-
-    Returns:
-        None
-
-    """
-    if message.from_user is None:
-        bot.reply_to(message, "User information is missing.")
-        return
-    user = select_user(message.from_user.id)
-    toggle_transcription(message.from_user.id)
-    bot.send_message(
-        message.chat.id,
-        (
-            "Transcription enabled."
-            if not user.use_transcription
-            else "Transcription disabled."
-        ),
-    )
 
 
 def _prompt_choice(

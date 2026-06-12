@@ -9,7 +9,6 @@ from curl_cffi.requests.exceptions import SSLError as CurlSSLError
 from google.genai import types
 from google.genai.errors import ClientError, ServerError
 from requests.exceptions import SSLError
-from sentry_sdk import capture_exception
 from telebot.types import File
 from tenacity import (
     RetryError,
@@ -356,7 +355,6 @@ def summarize_with_document(
 
 def summarize(
     data: str | File,
-    use_transcription: bool,
     model: str,
     prompt_key: str,
     target_language: str,
@@ -374,8 +372,6 @@ def summarize(
             - YouTube URL
             - Castro.fm episode URL
             - Telegram File object
-        use_transcription (bool): Whether to fall back to transcription if direct
-            summarization fails
         model (str): The Gemini model identifier to use for generation
         prompt_key (str): Key to retrieve the prompt template from PROMPTS
         target_language (str): The language to translate the text into.
@@ -396,9 +392,9 @@ def summarize(
     Note:
         The function follows this process:
         1. For URLs: Downloads content from YouTube or Castro.fm
-        2. For YouTube: Attempts to use built-in transcripts if enabled
+        2. For YouTube: Attempts to use built-in transcripts
         3. For files: Attempts direct summarization
-        4. On failure: Falls back to transcription if enabled
+        4. On failure: Falls back to transcription
         5. Cleans up temporary files after processing
 
     """
@@ -445,27 +441,24 @@ def summarize(
         )
     except RetryError as e:
         logger.warning("Error occurred while summarizing with file: %s", e)
-        if use_transcription:
-            new_file = generate_temporary_name(ext=".ogg")
+        new_file = generate_temporary_name(ext=".ogg")
+        try:
             compress_audio(input_file=data, output_file=new_file)
-            try:
-                transcription = transcribe(new_file)
-                # If it fails, a RetryError will raise
-                return format_prefixed_summary(
-                    "📝",
-                    summarize_with_transcript(
-                        transcript=transcription,
-                        model=model,
-                        prompt_key=prompt_key,
-                        target_language=target_language,
-                        user_id=user_id,
-                        daily_limit=daily_limit,
-                        thinking_level=thinking_level,
-                    ),
-                )
-            finally:
-                clean_up(file=new_file)
-        capture_exception(e)
-        raise
+            transcription = transcribe(new_file)
+            # If it fails, a RetryError will raise
+            return format_prefixed_summary(
+                "📝",
+                summarize_with_transcript(
+                    transcript=transcription,
+                    model=model,
+                    prompt_key=prompt_key,
+                    target_language=target_language,
+                    user_id=user_id,
+                    daily_limit=daily_limit,
+                    thinking_level=thinking_level,
+                ),
+            )
+        finally:
+            clean_up(file=new_file)
     finally:
         clean_up(file=data)

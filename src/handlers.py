@@ -68,7 +68,6 @@ def handle_audio(message: Message, user: UsersOrm) -> None:
         return
     answer = summarize(
         data=data,
-        use_transcription=user.use_transcription,
         **_summary_kwargs(user),
     )
     send_answer(message, answer)
@@ -81,7 +80,6 @@ def handle_voice(message: Message, user: UsersOrm) -> None:
         return
     answer = summarize(
         data=data,
-        use_transcription=user.use_transcription,
         **_summary_kwargs(user),
     )
     send_answer(message, answer)
@@ -95,7 +93,6 @@ def _handle_video_like(message: Message, user: UsersOrm, data: File) -> None:
         compress_audio(input_file=downloaded_file, output_file=compressed_file)
         answer = summarize(
             data=compressed_file,
-            use_transcription=user.use_transcription,
             **_summary_kwargs(user),
         )
         send_answer(message, answer)
@@ -158,7 +155,6 @@ def handle_url(message: Message, user: UsersOrm, url: str) -> None:
     if kind == "media":
         answer = summarize(
             data=url,
-            use_transcription=user.use_transcription,
             **_summary_kwargs(user),
         )
         send_answer(message, answer)

@@ -279,7 +279,6 @@ def test_summarize_youtube_always_attempts_transcript(mocker):
 
     summarize(
         data=url,
-        use_transcription=False,
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -306,7 +305,6 @@ def test_summarize_youtube_direct_transcript(mocker):
 
     result = summarize(
         data=url,
-        use_transcription=True,
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -343,7 +341,6 @@ def test_summarize_youtube_direct_transcript_uses_blank_line_separator(mocker):
 
     result = summarize(
         data=url,
-        use_transcription=True,
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -370,7 +367,6 @@ def test_summarize_youtube_fallback_transcript_uses_fallback_prefix(mocker):
 
     result = summarize(
         data=url,
-        use_transcription=True,
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -399,7 +395,6 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
     with pytest.raises(RetryError):
         summarize(
             data=url,
-            use_transcription=True,
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
@@ -428,7 +423,6 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
 
     result = summarize(
         data=url,
-        use_transcription=True,
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -458,7 +452,6 @@ def test_summarize_youtube_transcript_value_error_falls_back_to_download(mocker)
 
     result = summarize(
         data=url,
-        use_transcription=True,
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -494,7 +487,6 @@ def test_summarize_fallback_to_transcription(mocker):
 
     result = summarize(
         data="local_audio.ogg",
-        use_transcription=True,
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -513,18 +505,20 @@ def test_summarize_fallback_to_transcription(mocker):
     )
 
 
-def test_summarize_reraises_when_transcription_fallback_disabled(mocker):
-    """Test summarize() re-raises file-summary failures when transcription is disabled."""
-    retry_error = RetryError(mocker.MagicMock())
+def test_summarize_fallback_cleans_up_temp_file_when_compress_fails(mocker):
+    """Test summarize() cleans up the temp file even if compress_audio raises."""
     mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch("summary.summarize_with_file", side_effect=retry_error)
-    mock_capture = mocker.patch("summary.capture_exception")
+    mocker.patch(
+        "summary.summarize_with_file",
+        side_effect=RetryError(mocker.MagicMock()),
+    )
+    mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
+    mocker.patch("summary.compress_audio", side_effect=RuntimeError("ffmpeg failed"))
     mock_clean_up = mocker.patch("summary.clean_up")
 
-    with pytest.raises(RetryError):
+    with pytest.raises(RuntimeError):
         summarize(
             data="local_audio.ogg",
-            use_transcription=False,
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
@@ -533,8 +527,7 @@ def test_summarize_reraises_when_transcription_fallback_disabled(mocker):
             thinking_level="MINIMAL",
         )
 
-    mock_capture.assert_called_once_with(retry_error)
-    mock_clean_up.assert_called_once_with(file="local_audio.ogg")
+    mock_clean_up.assert_any_call(file="temp.ogg")
 
 
 def test_summarize_castro(mocker):
@@ -547,7 +540,6 @@ def test_summarize_castro(mocker):
 
     result = summarize(
         data=url,
-        use_transcription=True,
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -569,7 +561,6 @@ def test_summarize_preflight_blocks_before_download(mocker):
     with pytest.raises(LimitExceededError):
         summarize(
             data="https://castro.fm/episode/123",
-            use_transcription=False,
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
@@ -864,7 +855,6 @@ def test_summarize_with_telegram_file(mocker):
 
     result = summarize(
         data=mock_tg_file,
-        use_transcription=False,
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",

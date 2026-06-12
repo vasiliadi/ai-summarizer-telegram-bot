@@ -10,7 +10,6 @@ from database import (
     set_summarizing_model,
     set_target_language,
     set_thinking_level,
-    toggle_transcription,
 )
 from models import Base, UsersOrm
 
@@ -50,19 +49,6 @@ def test_select_user_missing(mock_db_session):
 
     with pytest.raises(ValueError, match="User not found"):
         select_user(999)
-
-
-def test_toggle_transcription_persists(monkeypatch, sqlite_session_factory):
-    """Test toggling transcription persists to a real SQLite database."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-    register_user(123, "First", "Last", "user")
-
-    toggle_transcription(123)
-
-    with sqlite_session_factory() as session:
-        user = session.get(UsersOrm, 123)
-        assert user is not None
-        assert user.use_transcription is True
 
 
 def test_set_target_language_persists(monkeypatch, sqlite_session_factory):

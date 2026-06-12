@@ -18,7 +18,6 @@ class UsersOrm(Base):
         last_name (str | None): User's last name, optional.
         username (str | None): User's username, optional.
         approved (bool): Flag indicating if the user is approved, defaults to False.
-        use_transcription (bool): Flag for transcription feature, defaults to False.
         target_language (str): Language for translations, defaults to "English".
         summarizing_model (str): Model for summary.
         prompt_key_for_summary (str): Prompt key for summarization strategy.
@@ -38,7 +37,6 @@ class UsersOrm(Base):
     last_name: Mapped[str | None]
     username: Mapped[str | None]
     approved: Mapped[bool] = mapped_column(server_default="False")
-    use_transcription: Mapped[bool] = mapped_column(server_default="False")
     target_language: Mapped[str] = mapped_column(server_default="English")
     summarizing_model: Mapped[str] = mapped_column(
         server_default="gemini-3.5-flash",
