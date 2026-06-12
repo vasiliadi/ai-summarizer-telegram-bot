@@ -10,6 +10,7 @@ from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError, ReplicateError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
+    RetryError,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -18,6 +19,7 @@ from tenacity import (
 )
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import (
+    CouldNotRetrieveTranscript,
     IpBlocked,
     NoTranscriptFound,
     RequestBlocked,
@@ -27,10 +29,9 @@ from youtube_transcript_api.proxies import GenericProxyConfig
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import YT_TRANSCRIPT_SOURCE, replicate_client
+from config import replicate_client
 from exceptions import (
-    FetchTranscriptViaApiError,
-    FetchTranscriptViaYtdlpError,
+    FetchTranscriptError,
     TranscriptDownloadError,
 )
 from utils import (
@@ -288,90 +289,53 @@ def fetch_transcript_via_ytdlp(url: str) -> str:  # noqa: C901, PLR0912, PLR0915
             msg = "No subtitles available via yt-dlp"
             raise DownloadError(msg)
 
-        return vtt_to_text(sorted(vtt_files)[0])
+        try:
+            return vtt_to_text(sorted(vtt_files)[0])
+        except Exception as e:
+            msg = "Failed to read downloaded VTT file"
+            raise DownloadError(msg) from e
     finally:
         for f in Path.cwd().glob(f"{temp_basename}.*"):
             clean_up(file=str(f))
 
 
-def _fallback_source(source: str) -> str:
-    if source == "api":
-        return "ytdlp"
-    return "api"
-
-
-def _fetch_transcript(source: str, url: str, video_id: str) -> str:
-    if source == "api":
-        try:
-            return fetch_transcript_via_api(video_id)
-        except Exception as e:
-            msg = "API transcript backend failed"
-            raise FetchTranscriptViaApiError(msg) from e
-    try:
-        return fetch_transcript_via_ytdlp(url)
-    except Exception as e:
-        msg = "yt-dlp transcript backend failed"
-        raise FetchTranscriptViaYtdlpError(msg) from e
-
-
-def get_yt_transcript(
-    url: str,
-    source: str = YT_TRANSCRIPT_SOURCE,
-) -> TranscriptResult:
+def get_yt_transcript(url: str) -> TranscriptResult:
     """Retrieve and format the transcript from a YouTube video URL.
 
-    Dispatches to the configured transcript backend first and tries the other
-    backend as a fallback when retrieval fails.
+    Downloads subtitles via yt-dlp first and falls back to
+    youtube_transcript_api when yt-dlp retrieval fails.
 
     Args:
         url (str): The YouTube video URL.
-        source (str): Transcript backend to use. Either "api"
-            (youtube_transcript_api) or "ytdlp" (yt-dlp subtitle download).
 
     Returns:
         TranscriptResult: The transcript text and display prefix. The 📹
-            prefix means the configured backend succeeded; 📺 means the
-            fallback backend succeeded.
+            prefix means yt-dlp succeeded; 📺 means the youtube_transcript_api
+            fallback succeeded.
 
     Raises:
-        ValueError: If the URL format is not recognized, or if `source` is not
-            a known backend.
-        FetchTranscriptViaApiError: If the API backend fails and is the final
-            attempted backend.
-        FetchTranscriptViaYtdlpError: If the yt-dlp backend fails and is the
-            final attempted backend.
+        ValueError: If the URL format is not recognized.
+        FetchTranscriptError: If both the yt-dlp and youtube_transcript_api
+            backends fail.
 
     """
-    if source not in {"api", "ytdlp"}:
-        msg = f"Unknown transcript source: {source}"
-        raise ValueError(msg)
-
     video_id = extract_youtube_video_id(url)
     if video_id is None:
         msg = "Unknown URL"
         raise ValueError(msg)
 
     try:
-        text = _fetch_transcript(source, url, video_id)
-    except (FetchTranscriptViaApiError, FetchTranscriptViaYtdlpError) as primary_error:
-        fallback = _fallback_source(source)
+        text = fetch_transcript_via_ytdlp(url)
+    except (DownloadError, RetryError) as ytdlp_error:
         logger.warning(
-            "Transcript backend %s failed, falling back to %s: %s",
-            source,
-            fallback,
-            primary_error,
+            "yt-dlp transcript backend failed, falling back to API: %s",
+            ytdlp_error,
         )
         try:
-            text = _fetch_transcript(fallback, url, video_id)
-        except (
-            FetchTranscriptViaApiError,
-            FetchTranscriptViaYtdlpError,
-        ) as fallback_error:
-            logger.warning(
-                "Fallback backend %s also failed: %s",
-                fallback,
-                fallback_error,
-            )
-            raise fallback_error from primary_error
+            text = fetch_transcript_via_api(video_id)
+        except (CouldNotRetrieveTranscript, RetryError) as api_error:
+            logger.warning("API fallback backend also failed: %s", api_error)
+            msg = "Both transcript backends failed"
+            raise FetchTranscriptError(msg) from api_error
         return TranscriptResult(text=text, prefix="📺")
     return TranscriptResult(text=text, prefix="📹")

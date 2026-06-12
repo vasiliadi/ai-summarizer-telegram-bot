@@ -22,7 +22,7 @@ from tenacity import (
 
 from config import gemini_client
 from download import download_castro, download_tg, download_yt
-from exceptions import FetchTranscriptViaApiError, FetchTranscriptViaYtdlpError
+from exceptions import FetchTranscriptError
 from prompts import PROMPTS
 from services import (
     check_quota,
@@ -415,11 +415,7 @@ def summarize(
             if use_yt_transcription:
                 try:
                     transcript_result = get_yt_transcript(data)
-                except (
-                    FetchTranscriptViaApiError,
-                    FetchTranscriptViaYtdlpError,
-                    ValueError,
-                ) as e:
+                except (FetchTranscriptError, ValueError) as e:
                     logger.warning(
                         "get_yt_transcript failed, falling back to download: %s",
                         e,

@@ -4,7 +4,7 @@ import pytest
 from google.genai.errors import ClientError
 from tenacity import RetryError
 
-from exceptions import FetchTranscriptViaApiError, FetchTranscriptViaYtdlpError
+from exceptions import FetchTranscriptError
 from services import resolve_mime_type
 from summary import (
     format_prefixed_summary,
@@ -425,7 +425,7 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch(
         "summary.get_yt_transcript",
-        side_effect=FetchTranscriptViaApiError("api failed"),
+        side_effect=FetchTranscriptError("transcript failed"),
     )
     mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
     mocker.patch("summary.summarize_with_file", return_value="File summary")
@@ -451,68 +451,6 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
         "get_yt_transcript failed, falling back to download: %s",
         mocker.ANY,
     )
-
-
-def test_summarize_youtube_transcript_backend_error_falls_back_to_download(mocker):
-    """Test summarize() falls back to downloading YouTube audio on transcript backend failure."""
-    url = "https://youtube.com/watch?v=123"
-    mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch(
-        "summary.get_yt_transcript",
-        side_effect=FetchTranscriptViaYtdlpError("ytdlp failed"),
-    )
-    mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
-    mocker.patch("summary.summarize_with_file", return_value="File summary")
-    mock_clean_up = mocker.patch("summary.clean_up")
-    mock_logger = mocker.patch("summary.logger")
-
-    result = summarize(
-        data=url,
-        use_transcription=True,
-        model="test-model",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="MINIMAL",
-        use_yt_transcription=True,
-    )
-
-    assert result == "File summary"
-    mock_download.assert_called_once_with(url)
-    mock_clean_up.assert_called_once_with(file="downloaded.ogg")
-    mock_logger.warning.assert_called_once_with(
-        "get_yt_transcript failed, falling back to download: %s",
-        mocker.ANY,
-    )
-
-
-def test_summarize_youtube_transcript_api_failure_falls_back_to_download(mocker):
-    """Test summarize() falls back to audio when the API transcript backend fails."""
-    url = "https://youtube.com/watch?v=123"
-    mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch(
-        "summary.get_yt_transcript",
-        side_effect=FetchTranscriptViaApiError("api failed"),
-    )
-    mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
-    mocker.patch("summary.summarize_with_file", return_value="File summary")
-    mocker.patch("summary.clean_up")
-
-    result = summarize(
-        data=url,
-        use_transcription=True,
-        model="test-model",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="MINIMAL",
-        use_yt_transcription=True,
-    )
-
-    assert result == "File summary"
-    mock_download.assert_called_once_with(url)
 
 
 def test_summarize_youtube_transcript_value_error_falls_back_to_download(mocker):
