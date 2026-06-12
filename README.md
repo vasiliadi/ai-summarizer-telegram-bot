@@ -239,11 +239,11 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 
 ### Linters and Checkers
 
-[isort](https://pycqa.github.io/isort/), [black](https://github.com/psf/black), [mypy](https://mypy-lang.org/), [pylint](https://pylint.readthedocs.io/en/latest/), [ruff](https://github.com/astral-sh/ruff), [ty](https://docs.astral.sh/ty/)
+[black](https://github.com/psf/black), [ruff](https://github.com/astral-sh/ruff), [ty](https://docs.astral.sh/ty/), [pyrefly](https://pyrefly.org/)
 
 #### Error suppression
 
-[ruff error suppression](https://docs.astral.sh/ruff/linter/#error-suppression) and [ruff block-level](https://docs.astral.sh/ruff/linter/#block-level), [pylint](https://pylint.pycqa.org/en/latest/user_guide/messages/message_control.html#block-disables), [mypy](https://mypy.readthedocs.io/en/stable/error_codes.html#error-codes), [ty](https://docs.astral.sh/ty/suppression/), [pyrefly](https://pyrefly.org/en/docs/error-suppressions/)
+[ruff error suppression](https://docs.astral.sh/ruff/linter/#error-suppression) and [ruff block-level](https://docs.astral.sh/ruff/linter/#block-level), [ty](https://docs.astral.sh/ty/suppression/), [pyrefly](https://pyrefly.org/en/docs/error-suppressions/)
 
 ### Easy deploy
 
