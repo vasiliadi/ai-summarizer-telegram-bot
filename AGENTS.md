@@ -67,7 +67,7 @@ Write to `docs/summaries/summary-[YYYY-MM-DD]-[topic].md` after meaningful work,
   - `uv-guide.md` — running the project and managing dependencies with `uv`
   - `subagent-rules.md` — rules for sub-agent usage and outputs
 - `docs/archive/` — processed raw files. Do not read unless explicitly told.
-- `.claude/commands/` — step-by-step routines for **handoff** (`handoff.md`) and **status** (`status.md`). Claude Code exposes these as the `/handoff` and `/status` slash commands; agents without slash-command support should read those files and follow the steps directly.
+- `.claude/commands/` — step-by-step routine for **handoff** (`handoff.md`). Claude Code exposes it as the `/handoff` slash command; agents without slash-command support should read that file and follow the steps directly.
 
 ## Error Recovery
 
