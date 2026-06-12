@@ -1,4 +1,4 @@
-name: Type check
+name: Type checking
 
 on:
   push:
@@ -6,8 +6,8 @@ on:
   pull_request:
 
 jobs:
-  typecheck:
-    name: Type check
+  typechecking:
+    name: Type checking
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
