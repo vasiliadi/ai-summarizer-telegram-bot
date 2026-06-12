@@ -40,7 +40,7 @@ repos:
         files: ^src/
       - id: pytest
         name: pytest
-        entry: uv run pytest
+        entry: uv run pytest --cov
         language: system
         pass_filenames: false
         always_run: false

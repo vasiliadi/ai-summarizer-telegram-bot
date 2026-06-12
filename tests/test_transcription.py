@@ -926,3 +926,20 @@ def test_transcribe_null_output(mocker):
 
     with pytest.raises(ModelError):
         transcribe("test.ogg")
+
+
+def test_transcribe_invalid_segments_raises_model_error(mocker):
+    """Test transcribe raises ModelError when output segments is not a list."""
+    mock_replicate = mocker.patch("transcription.replicate_client")
+    mocker.patch("transcription.Path.open", mocker.mock_open())
+
+    mock_prediction = mocker.MagicMock()
+    mock_prediction.status = "succeeded"
+    mock_prediction.output = {"segments": "not-a-list"}
+    mock_replicate.predictions.create.return_value = mock_prediction
+    mock_replicate.models.get.return_value.versions.list.return_value = [
+        mocker.MagicMock(id="v1")
+    ]
+
+    with pytest.raises(ModelError):
+        transcribe("test.ogg")
