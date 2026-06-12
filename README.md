@@ -53,7 +53,6 @@ REDIS_URL="rediss://default:password@host:port"
 SENTRY_DSN="your_sentry_dsn"
 PROXY=""
 LOG_LEVEL="ERROR"
-DEFAULT_PARSING_BACKEND="tavily"
 MODAL_TOKEN_ID="your_token"
 MODAL_TOKEN_SECRET="your_token_secret"
 ```
@@ -172,10 +171,7 @@ pre-commit install --hook-type post-rewrite
 
 Webpage URLs are parsed into clean text before being passed to Gemini. This gives every model version identical, well-structured input and removes the variability introduced by Gemini's server-side `UrlContext` tool.
 
-The parsing backend is pluggable and selected via the `DEFAULT_PARSING_BACKEND` env var (defaults to `tavily`):
-
-- `tavily` — [Tavily](https://tavily.com)
-- `exa` — [Exa.ai](https://exa.ai)
+Parsing runs a fixed two-stage flow: [Tavily](https://tavily.com) is tried first, and [Exa.ai](https://exa.ai) is used as an automatic fallback when Tavily fails.
 
 #### Remote functions
 

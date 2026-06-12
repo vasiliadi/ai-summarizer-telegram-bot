@@ -136,10 +136,6 @@ EXA_API_KEY = os.environ["EXA_API_KEY"]
 exa_client = Exa(api_key=EXA_API_KEY)
 
 
-# Webpage parsing backend, set via env ("tavily" or "exa").
-DEFAULT_PARSING_BACKEND = os.environ.get("DEFAULT_PARSING_BACKEND", "tavily").lower()
-
-
 # Rate limits
 MINUTE_LIMIT_KEY = "RPM"
 DAILY_LIMIT_KEY = "RPD"
