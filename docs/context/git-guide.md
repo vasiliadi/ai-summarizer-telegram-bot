@@ -43,6 +43,8 @@ All four checks also run automatically via pre-commit hooks. Still run them manu
 1. `uvx ruff format .`
 2. `uvx ruff check .`
 3. `uvx ty check .`
-4. `uv run pytest`
+4. `uv run pytest --cov`
+
+**Coverage:** The project is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report from step 4 manually and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
 
 **Workflow:** Run `uvx ruff format .` before committing to automatically format your code. Run `uvx ruff check --fix` to automatically resolve fixable linting errors.

@@ -16,7 +16,7 @@ Before starting work, state: what you understand the project state to be, what y
 6. Do not bulk-read documents. Process one at a time: read, summarize to disk, release from context before reading next. For the detailed protocol, read `docs/context/processing-protocol.md`.
 7. Sub-agent returns must be structured (numbers, file paths, decisions, open items), not free-form prose. See `docs/context/subagent-rules.md`.
 8. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
-9. Before every commit, pass: `uvx ruff format .`, `uvx ruff check .`, `uvx ty check .`, `uv run pytest`. See `docs/context/git-guide.md` for the full sequence.
+9. Before every commit, pass: `uvx ruff format .`, `uvx ruff check .`, `uvx ty check .`, `uv run pytest --cov`. Review the coverage report and do not introduce new uncovered lines. See `docs/context/git-guide.md` for the full sequence.
 10. When changing code, update or add tests in the same PR. Treat test maintenance as mandatory — skipping it is equivalent to skipping the pre-commit checks in Rule 9.
 
 ## Session Summary / Handoff Template
