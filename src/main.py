@@ -32,7 +32,6 @@ from database import (
     set_target_language,
     set_thinking_level,
     toggle_transcription,
-    toggle_yt_transcription,
 )
 from exceptions import LimitExceededError, WebParseError
 from handlers import (
@@ -144,7 +143,6 @@ def handle_myinfo(message: Message) -> None:
     msg = dedent(f"""
                 UserId: {user.user_id}
                 Approved: {user.approved}
-                YouTube transcript: {user.use_yt_transcription}
                 Audio transcript: {user.use_transcription}
                 Target language: {user.target_language}
                 Summarizing model: {MODEL_LABELS.get(user.summarizing_model, user.summarizing_model)}
@@ -189,43 +187,6 @@ def handle_toggle_transcription(message: Message) -> None:
             "Transcription enabled."
             if not user.use_transcription
             else "Transcription disabled."
-        ),
-    )
-
-
-# /toggle_yt_transcription
-@bot.message_handler(
-    commands=["toggle_yt_transcription"],
-    func=lambda message: (
-        message.from_user is not None and check_auth(message.from_user.id)
-    ),
-)
-def handle_toggle_yt_transcription(message: Message) -> None:
-    """Handle the /toggle_yt_transcription command for the bot.
-
-    This function toggles the YouTube transcription setting for the authenticated user.
-    It first checks the current YouTube transcription status, toggles it, and then sends
-    a confirmation indicating whether transcription has been enabled or disabled.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                           and chat details.
-
-    Returns:
-        None
-
-    """
-    if message.from_user is None:
-        bot.reply_to(message, "User information is missing.")
-        return
-    user = select_user(message.from_user.id)
-    toggle_yt_transcription(message.from_user.id)
-    bot.send_message(
-        message.chat.id,
-        (
-            "YT transcription enabled."
-            if not user.use_yt_transcription
-            else "YT transcription disabled."
         ),
     )
 

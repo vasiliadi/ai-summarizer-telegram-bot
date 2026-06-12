@@ -11,7 +11,6 @@ from database import (
     set_target_language,
     set_thinking_level,
     toggle_transcription,
-    toggle_yt_transcription,
 )
 from models import Base, UsersOrm
 
@@ -95,28 +94,6 @@ def test_set_target_language_returns_false_for_missing_user(
     monkeypatch.setattr("database.Session", sqlite_session_factory)
 
     assert set_target_language(123, "English") is False
-
-
-def test_toggle_yt_transcription_persists(monkeypatch, sqlite_session_factory):
-    """Test toggling YouTube transcription persists to a real SQLite database."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-    register_user(123, "First", "Last", "user")
-
-    toggle_yt_transcription(123)
-
-    with sqlite_session_factory() as session:
-        user = session.get(UsersOrm, 123)
-        assert user is not None
-        assert user.use_yt_transcription is True
-
-
-def test_toggle_yt_transcription_missing_user_is_noop(
-    monkeypatch, sqlite_session_factory
-):
-    """Test toggle_yt_transcription silently does nothing for unknown users."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-
-    toggle_yt_transcription(999)  # must not raise
 
 
 def test_set_summarizing_model_persists(monkeypatch, sqlite_session_factory):
