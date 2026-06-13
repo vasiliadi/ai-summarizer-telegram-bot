@@ -3,8 +3,7 @@ from pathlib import Path
 import pytest
 from curl_cffi.requests.exceptions import HTTPError
 
-from download import download_castro, download_tg, download_yt
-from services import choose_yt_audio_format
+from download import choose_yt_audio_format, download_castro, download_tg, download_yt
 
 
 def test_download_tg_happy_path(mocker):

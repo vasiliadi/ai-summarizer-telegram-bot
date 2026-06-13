@@ -13,16 +13,17 @@ from youtube_transcript_api._errors import (
 )
 from yt_dlp.utils import DownloadError
 
+import transcription
+from domain import PrefixedText
 from exceptions import (
     FetchTranscriptError,
     TranscriptDownloadError,
 )
-from services import PrefixedText
 from transcription import (
+    AudioTranscriber,
     fetch_transcript_via_api,
     fetch_transcript_via_ytdlp,
     get_yt_transcript,
-    transcribe,
 )
 from utils import vtt_to_text
 
@@ -48,7 +49,7 @@ def test_get_yt_transcript_uses_ytdlp_primary(mocker, tmp_path):
         "subtitles": {"en": [{}]},
         "automatic_captions": {},
     }
-    mock_api = mocker.patch("transcription.fetch_transcript_via_api")
+    mock_api = mocker.patch.object(transcription.yt_transcriber, "fetch_via_api")
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     result = get_yt_transcript(url)
@@ -73,12 +74,14 @@ def test_get_yt_transcript_falls_back_to_api(mocker, url):
     Parametrized across URL formats to confirm each resolves to the same
     video_id that is handed to the API backend.
     """
-    mocker.patch(
-        "transcription.fetch_transcript_via_ytdlp",
+    mocker.patch.object(
+        transcription.yt_transcriber,
+        "fetch_via_ytdlp",
         side_effect=DownloadError("no subs"),
     )
-    mock_api = mocker.patch(
-        "transcription.fetch_transcript_via_api",
+    mock_api = mocker.patch.object(
+        transcription.yt_transcriber,
+        "fetch_via_api",
         return_value="from fallback",
     )
 
@@ -92,8 +95,8 @@ def test_get_yt_transcript_both_backends_fail_raises_error(mocker):
     """Test get_yt_transcript raises FetchTranscriptError chained from the API failure."""
     ytdlp_error = DownloadError("no subs")
     api_error = TranscriptsDisabled("dQw4w9WgXcQ")
-    mocker.patch("transcription.fetch_transcript_via_ytdlp", side_effect=ytdlp_error)
-    mocker.patch("transcription.fetch_transcript_via_api", side_effect=api_error)
+    mocker.patch.object(transcription.yt_transcriber, "fetch_via_ytdlp", side_effect=ytdlp_error)
+    mocker.patch.object(transcription.yt_transcriber, "fetch_via_api", side_effect=api_error)
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     with pytest.raises(FetchTranscriptError) as exc_info:
@@ -104,8 +107,8 @@ def test_get_yt_transcript_both_backends_fail_raises_error(mocker):
 
 def test_get_yt_transcript_unknown_url(mocker):
     """Test get_yt_transcript raises ValueError for unknown URL formats."""
-    mock_api = mocker.patch("transcription.fetch_transcript_via_api")
-    mock_ytdlp = mocker.patch("transcription.fetch_transcript_via_ytdlp")
+    mock_api = mocker.patch.object(transcription.yt_transcriber, "fetch_via_api")
+    mock_ytdlp = mocker.patch.object(transcription.yt_transcriber, "fetch_via_ytdlp")
 
     with pytest.raises(ValueError, match="Unknown URL"):
         get_yt_transcript("https://example.com/not-youtube")
@@ -870,7 +873,7 @@ def test_fetch_transcript_via_ytdlp_pins_proxy_across_probe_and_download(
 
 def test_transcribe_happy_path(mocker):
     """Test transcribing an audio file successfully via Replicate."""
-    mock_replicate = mocker.patch("transcription.replicate_client")
+    mock_replicate = mocker.MagicMock()
     mocker.patch("transcription.Path.open", mocker.mock_open())
     mocker.patch("transcription.time.sleep")  # Don't actually wait
 
@@ -889,7 +892,7 @@ def test_transcribe_happy_path(mocker):
     ]
     mock_replicate.predictions.create.return_value = mock_prediction
 
-    result = transcribe("test.ogg")
+    result = AudioTranscriber(mock_replicate).transcribe("test.ogg")
 
     assert result == "Hello world!"
     mock_prediction.reload.assert_called_once()
@@ -897,7 +900,7 @@ def test_transcribe_happy_path(mocker):
 
 def test_transcribe_failed_prediction(mocker):
     """Test transcribe raises ModelError when prediction fails."""
-    mock_replicate = mocker.patch("transcription.replicate_client")
+    mock_replicate = mocker.MagicMock()
     mocker.patch("transcription.Path.open", mocker.mock_open())
 
     mock_prediction = mocker.MagicMock()
@@ -908,12 +911,12 @@ def test_transcribe_failed_prediction(mocker):
     ]
 
     with pytest.raises(ModelError):
-        transcribe("test.ogg")
+        AudioTranscriber(mock_replicate).transcribe("test.ogg")
 
 
 def test_transcribe_null_output(mocker):
     """Test transcribe raises ModelError when prediction output is None."""
-    mock_replicate = mocker.patch("transcription.replicate_client")
+    mock_replicate = mocker.MagicMock()
     mocker.patch("transcription.Path.open", mocker.mock_open())
 
     mock_prediction = mocker.MagicMock()
@@ -925,12 +928,12 @@ def test_transcribe_null_output(mocker):
     ]
 
     with pytest.raises(ModelError):
-        transcribe("test.ogg")
+        AudioTranscriber(mock_replicate).transcribe("test.ogg")
 
 
 def test_transcribe_invalid_segments_raises_model_error(mocker):
     """Test transcribe raises ModelError when output segments is not a list."""
-    mock_replicate = mocker.patch("transcription.replicate_client")
+    mock_replicate = mocker.MagicMock()
     mocker.patch("transcription.Path.open", mocker.mock_open())
 
     mock_prediction = mocker.MagicMock()
@@ -942,4 +945,4 @@ def test_transcribe_invalid_segments_raises_model_error(mocker):
     ]
 
     with pytest.raises(ModelError):
-        transcribe("test.ogg")
+        AudioTranscriber(mock_replicate).transcribe("test.ogg")

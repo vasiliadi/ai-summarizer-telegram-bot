@@ -307,7 +307,10 @@ def test_handle_video_happy_path_cleans_up_download(message_factory, mocker):
 
     handle_message(msg)
 
-    mock_clean_up.assert_called_once_with(file="downloaded.mp4")
+    assert mock_clean_up.call_args_list == [
+        mocker.call(file="downloaded.mp4"),
+        mocker.call(file="compressed.ogg"),
+    ]
 
 
 def test_handle_video_note_happy_path_cleans_up_download(message_factory, mocker):
@@ -333,7 +336,47 @@ def test_handle_video_note_happy_path_cleans_up_download(message_factory, mocker
 
     handle_message(msg)
 
-    mock_clean_up.assert_called_once_with(file="downloaded.mp4")
+    assert mock_clean_up.call_args_list == [
+        mocker.call(file="downloaded.mp4"),
+        mocker.call(file="compressed.ogg"),
+    ]
+
+
+def test_handle_video_cleans_up_compressed_file_when_summarize_raises(
+    message_factory, mocker
+):
+    """Test the compressed temp file is removed even if summarize() raises early.
+
+    summarize()'s preflight quota check can raise LimitExceededError before its
+    own cleanup runs, so _handle_video_like must clean up the file it created.
+    """
+    msg = message_factory(content_type="video")
+    mocker.patch(
+        "main.select_user",
+        return_value=mocker.MagicMock(
+            approved=True,
+            summarizing_model="model",
+            prompt_key_for_summary="prompt",
+            target_language="English",
+        ),
+    )
+    mock_file = mocker.MagicMock(spec=types.File)
+    mocker.patch("handlers.get_file_with_retry", return_value=mock_file)
+    mocker.patch("handlers.download_tg", return_value="downloaded.mp4")
+    mocker.patch("handlers.generate_temporary_name", return_value="compressed.ogg")
+    mocker.patch("handlers.compress_audio")
+    mocker.patch("handlers.summarize", side_effect=LimitExceededError("blocked"))
+    mocker.patch("handlers.send_answer")
+    mocker.patch("main.bot.reply_to")
+    mocker.patch("main.capture_exception")
+    mock_clean_up = mocker.patch("handlers.clean_up")
+
+    handle_message(msg)
+
+    assert mock_clean_up.call_args_list == [
+        mocker.call(file="downloaded.mp4"),
+        mocker.call(file="compressed.ogg"),
+    ]
 
 
 def test_handle_video_note_file_too_large(message_factory, mocker):

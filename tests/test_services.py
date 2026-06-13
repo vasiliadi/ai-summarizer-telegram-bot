@@ -2,13 +2,13 @@ import pytest
 from google.genai import types
 from limits.util import WindowStats
 
+import services as services_module
 from exceptions import LimitExceededError
 from services import (
     check_quota,
     get_file_with_retry,
     get_gemini_config,
     get_remaining_quota,
-    _reply_with_retry,
     resolve_mime_type,
     send_answer,
     upload_and_wait_for_file,
@@ -20,7 +20,7 @@ def test__reply_with_retry_happy_path(mocker):
     mock_bot = mocker.patch("services.bot")
     mock_msg = mocker.MagicMock()
 
-    _reply_with_retry(mock_msg, "hello")
+    services_module.messenger._reply_with_retry(mock_msg, "hello")
 
     mock_bot.reply_to.assert_called_once_with(mock_msg, "hello")
 
@@ -31,7 +31,7 @@ def test__reply_with_retry_with_entities(mocker):
     mock_msg = mocker.MagicMock()
     entities = [{"type": "bold"}]
 
-    _reply_with_retry(mock_msg, "hello", entities=entities)
+    services_module.messenger._reply_with_retry(mock_msg, "hello", entities=entities)
 
     mock_bot.reply_to.assert_called_once_with(mock_msg, "hello", entities=entities)
 
@@ -57,7 +57,7 @@ def test_send_answer_single_chunk(mocker):
         "services.split_entities", return_value=[("text", [mock_entity])]
     )
 
-    mock_reply = mocker.patch("services._reply_with_retry")
+    mock_reply = mocker.patch.object(services_module.messenger, "_reply_with_retry")
     mock_msg = mocker.MagicMock()
 
     send_answer(mock_msg, "short answer")
@@ -71,7 +71,7 @@ def test_send_answer_multi_chunk(mocker):
     """Test send_answer with a long message (multiple chunks)."""
     mocker.patch("services.convert", return_value=("text", []))
     mocker.patch("services.split_entities", return_value=[("part1", []), ("part2", [])])
-    mock_reply = mocker.patch("services._reply_with_retry")
+    mock_reply = mocker.patch.object(services_module.messenger, "_reply_with_retry")
     mocker.patch("services.time.sleep")
 
     mock_msg = mocker.MagicMock()

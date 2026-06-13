@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, TypedDict
 from urllib.parse import urlsplit
 
 from config import CASTRO_HOST, TG_MAX_FILE_SIZE, YT_HOSTS, bot
+from domain import format_prefixed_summary
 from download import download_tg
 from parsing import parse_url
 from services import (
     check_quota,
-    format_prefixed_summary,
     get_file_with_retry,
     send_answer,
 )
@@ -103,6 +103,7 @@ def _handle_video_like(message: Message, user: UsersOrm, data: File) -> None:
         send_answer(message, answer)
     finally:
         clean_up(file=downloaded_file)
+        clean_up(file=compressed_file)
 
 
 def handle_video_note(message: Message, user: UsersOrm) -> None:
