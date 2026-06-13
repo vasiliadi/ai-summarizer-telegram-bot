@@ -6,7 +6,12 @@ from urllib.parse import urlsplit
 from config import CASTRO_HOST, TG_MAX_FILE_SIZE, YT_HOSTS, bot
 from download import download_tg
 from parsing import parse_url
-from services import check_quota, get_file_with_retry, send_answer
+from services import (
+    check_quota,
+    format_prefixed_summary,
+    get_file_with_retry,
+    send_answer,
+)
 from summary import summarize, summarize_webpage, summarize_with_document
 from utils import clean_up, compress_audio, generate_temporary_name
 
@@ -161,7 +166,10 @@ def handle_url(message: Message, user: UsersOrm, url: str) -> None:
     elif kind == "web":
         check_quota(user_id=user.user_id, daily_limit=user.daily_limit, quantity=0)
         parsed = parse_url(url)
-        answer = summarize_webpage(content=parsed, **_summary_kwargs(user))
+        answer = format_prefixed_summary(
+            parsed.prefix,
+            summarize_webpage(content=parsed.text, **_summary_kwargs(user)),
+        )
         send_answer(message, answer)
     else:
         bot.send_message(message.chat.id, "No data to proceed.")
