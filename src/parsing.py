@@ -15,6 +15,7 @@ from tenacity import (
 
 from config import exa_client, tavily_client
 from exceptions import WebParseError
+from services import PrefixedText
 
 if TYPE_CHECKING:
     from tenacity import (
@@ -104,7 +105,7 @@ def _parse_with_exa(url: str) -> str:
     return content
 
 
-def parse_url(url: str) -> str:
+def parse_url(url: str) -> PrefixedText:
     """Extract main textual content from a URL.
 
     Parses with Exa.ai first and falls back to Tavily when Exa.ai fails.
@@ -113,7 +114,9 @@ def parse_url(url: str) -> str:
         url (str): The webpage URL to parse.
 
     Returns:
-        str: The extracted page content.
+        PrefixedText: The extracted page content and display prefix. The 🌐
+            prefix means Exa.ai succeeded; 🕸️ means the Tavily fallback
+            succeeded.
 
     Raises:
         WebParseError: If both the Exa.ai and Tavily backends fail to return
@@ -123,14 +126,14 @@ def parse_url(url: str) -> str:
 
     """
     try:
-        return _parse_with_exa(url)
+        return PrefixedText(text=_parse_with_exa(url), prefix="🌐")
     except WebParseError as exa_error:
         logger.warning(
             "Exa parsing backend failed, falling back to Tavily: %s",
             exa_error,
         )
         try:
-            return _parse_with_tavily(url)
+            return PrefixedText(text=_parse_with_tavily(url), prefix="🕸️")
         except (WebParseError, RetryError) as tavily_error:
             logger.warning("Tavily fallback backend also failed: %s", tavily_error)
             msg = "Both parsing backends failed"

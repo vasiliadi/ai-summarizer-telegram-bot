@@ -3,6 +3,7 @@ from tenacity import RetryError
 
 from exceptions import LimitExceededError, WebParseError
 from main import handle_message, process_message_content
+from services import PrefixedText
 
 
 def test_unauthorized_user(message_factory, mocker):
@@ -182,15 +183,21 @@ def test_handle_url_other_http_pattern(message_factory, mocker):
     mocker.patch("handlers.check_quota", return_value=True)
     mock_parse_url = mocker.patch(
         "handlers.parse_url",
-        return_value="Parsed page content.",
+        return_value=PrefixedText(text="Parsed page content.", prefix="🌐"),
     )
-    mock_summarize_webpage = mocker.patch("handlers.summarize_webpage")
-    mocker.patch("handlers.send_answer")
+    mock_summarize_webpage = mocker.patch(
+        "handlers.summarize_webpage",
+        return_value="Summary text.",
+    )
+    mock_send_answer = mocker.patch("handlers.send_answer")
 
     handle_message(msg)
 
     mock_parse_url.assert_called_once_with(url)
     assert mock_summarize_webpage.call_args.kwargs["content"] == "Parsed page content."
+    answer = mock_send_answer.call_args.args[1]
+    assert answer.startswith("🌐")
+    assert "Summary text." in answer
 
 
 def test_handle_url_web_preflight_blocks_before_parse_url(message_factory, mocker):

@@ -16,7 +16,9 @@ def test_parse_url_returns_exa_content(mocker):
     )
     mock_tavily = mocker.patch("parsing.tavily_client")
 
-    assert parse_url("https://example.com") == "Hello world."
+    result = parse_url("https://example.com")
+    assert result.text == "Hello world."
+    assert result.prefix == "🌐"
     mock_exa.get_contents.assert_called_once_with(
         urls=["https://example.com"],
         text={"max_characters": 20000, "include_html_tags": True},
@@ -38,7 +40,9 @@ def test_parse_url_falls_back_to_tavily_when_exa_has_no_results(mocker, caplog):
     }
 
     with caplog.at_level(logging.WARNING, logger="parsing"):
-        assert parse_url("https://example.com") == "From Tavily."
+        result = parse_url("https://example.com")
+    assert result.text == "From Tavily."
+    assert result.prefix == "🕸️"
     mock_tavily.extract.assert_called_once_with(
         urls=["https://example.com"],
         format="markdown",
@@ -59,7 +63,9 @@ def test_parse_url_falls_back_to_tavily_on_exa_empty_content(mocker):
         "failed_results": [],
     }
 
-    assert parse_url("https://example.com") == "From Tavily."
+    result = parse_url("https://example.com")
+    assert result.text == "From Tavily."
+    assert result.prefix == "🕸️"
 
 
 def test_parse_url_falls_back_to_tavily_when_exa_retries_exhausted(mocker):
@@ -73,7 +79,9 @@ def test_parse_url_falls_back_to_tavily_when_exa_retries_exhausted(mocker):
         "failed_results": [],
     }
 
-    assert parse_url("https://example.com") == "From Tavily."
+    result = parse_url("https://example.com")
+    assert result.text == "From Tavily."
+    assert result.prefix == "🕸️"
     assert mock_exa.get_contents.call_count == 2
     mock_tavily.extract.assert_called_once()
 
@@ -88,7 +96,9 @@ def test_parse_url_retries_exa_empty_then_succeeds(mocker):
     ]
     mock_tavily = mocker.patch("parsing.tavily_client")
 
-    assert parse_url("https://example.com") == "Hello world."
+    result = parse_url("https://example.com")
+    assert result.text == "Hello world."
+    assert result.prefix == "🌐"
     assert mock_exa.get_contents.call_count == 2
     mock_tavily.extract.assert_not_called()
 
@@ -109,7 +119,9 @@ def test_parse_url_tavily_fallback_retries_timeout_then_succeeds(mocker):
         },
     ]
 
-    assert parse_url("https://example.com") == "From Tavily."
+    result = parse_url("https://example.com")
+    assert result.text == "From Tavily."
+    assert result.prefix == "🕸️"
     assert mock_tavily.extract.call_count == 2
 
 

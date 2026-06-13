@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -34,6 +33,7 @@ from exceptions import (
     FetchTranscriptError,
     TranscriptDownloadError,
 )
+from services import PrefixedText
 from utils import (
     clean_up,
     extract_youtube_video_id,
@@ -49,14 +49,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
-
-
-@dataclass(frozen=True)
-class TranscriptResult:
-    """Transcript text with the display prefix for the source that succeeded."""
-
-    text: str
-    prefix: str
 
 
 @retry(
@@ -299,7 +291,7 @@ def fetch_transcript_via_ytdlp(url: str) -> str:  # noqa: C901, PLR0912, PLR0915
             clean_up(file=str(f))
 
 
-def get_yt_transcript(url: str) -> TranscriptResult:
+def get_yt_transcript(url: str) -> PrefixedText:
     """Retrieve and format the transcript from a YouTube video URL.
 
     Downloads subtitles via yt-dlp first and falls back to
@@ -309,7 +301,7 @@ def get_yt_transcript(url: str) -> TranscriptResult:
         url (str): The YouTube video URL.
 
     Returns:
-        TranscriptResult: The transcript text and display prefix. The 📹
+        PrefixedText: The transcript text and display prefix. The 📹
             prefix means yt-dlp succeeded; 📺 means the youtube_transcript_api
             fallback succeeded.
 
@@ -337,5 +329,5 @@ def get_yt_transcript(url: str) -> TranscriptResult:
             logger.warning("API fallback backend also failed: %s", api_error)
             msg = "Both transcript backends failed"
             raise FetchTranscriptError(msg) from api_error
-        return TranscriptResult(text=text, prefix="📺")
-    return TranscriptResult(text=text, prefix="📹")
+        return PrefixedText(text=text, prefix="📺")
+    return PrefixedText(text=text, prefix="📹")

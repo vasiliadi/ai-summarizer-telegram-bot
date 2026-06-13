@@ -4,6 +4,7 @@ import logging
 import math
 import mimetypes
 import time
+from dataclasses import dataclass
 from functools import lru_cache
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any, cast
@@ -249,6 +250,14 @@ def resolve_mime_type(file: str) -> str:
         if file.endswith(ext):
             return mt
     return "application/octet-stream"
+
+
+@dataclass(frozen=True)
+class PrefixedText:
+    """Text paired with the display prefix for the source that produced it."""
+
+    text: str
+    prefix: str
 
 
 def format_prefixed_summary(prefix: str, summary: str) -> str:

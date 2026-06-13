@@ -17,8 +17,8 @@ from exceptions import (
     FetchTranscriptError,
     TranscriptDownloadError,
 )
+from services import PrefixedText
 from transcription import (
-    TranscriptResult,
     fetch_transcript_via_api,
     fetch_transcript_via_ytdlp,
     get_yt_transcript,
@@ -84,7 +84,7 @@ def test_get_yt_transcript_falls_back_to_api(mocker, url):
 
     result = get_yt_transcript(url)
 
-    assert result == TranscriptResult(text="from fallback", prefix="📺")
+    assert result == PrefixedText(text="from fallback", prefix="📺")
     mock_api.assert_called_once_with("dQw4w9WgXcQ")
 
 
