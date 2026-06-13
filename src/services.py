@@ -29,7 +29,7 @@ from config import (
     per_minute_rate,
     rate_limiter,
 )
-from domain import PrefixedText, format_prefixed_summary
+from domain import PrefixedText
 from exceptions import LimitExceededError
 from prompts import SYSTEM_INSTRUCTION
 
@@ -201,7 +201,6 @@ gemini_helper = GeminiHelper()
 # all importers and mocker.patch("services.*") calls continue to work.
 # ---------------------------------------------------------------------------
 
-_reply_with_retry = messenger._reply_with_retry  # noqa: SLF001
 get_file_with_retry = messenger.get_file_with_retry
 send_answer = messenger.send_answer
 
@@ -213,12 +212,10 @@ resolve_mime_type = gemini_helper.resolve_mime_type
 upload_and_wait_for_file = gemini_helper.upload_and_wait_for_file
 
 
-# Re-export domain types so existing `from services import PrefixedText` imports work.
+# Re-export PrefixedText so existing `from services import PrefixedText` imports work.
 __all__ = [
     "PrefixedText",
-    "_reply_with_retry",
     "check_quota",
-    "format_prefixed_summary",
     "gemini_helper",
     "get_file_with_retry",
     "get_gemini_config",

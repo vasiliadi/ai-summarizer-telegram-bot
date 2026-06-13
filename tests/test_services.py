@@ -9,7 +9,6 @@ from services import (
     get_file_with_retry,
     get_gemini_config,
     get_remaining_quota,
-    _reply_with_retry,
     resolve_mime_type,
     send_answer,
     upload_and_wait_for_file,
@@ -21,7 +20,7 @@ def test__reply_with_retry_happy_path(mocker):
     mock_bot = mocker.patch("services.bot")
     mock_msg = mocker.MagicMock()
 
-    _reply_with_retry(mock_msg, "hello")
+    services_module.messenger._reply_with_retry(mock_msg, "hello")
 
     mock_bot.reply_to.assert_called_once_with(mock_msg, "hello")
 
@@ -32,7 +31,7 @@ def test__reply_with_retry_with_entities(mocker):
     mock_msg = mocker.MagicMock()
     entities = [{"type": "bold"}]
 
-    _reply_with_retry(mock_msg, "hello", entities=entities)
+    services_module.messenger._reply_with_retry(mock_msg, "hello", entities=entities)
 
     mock_bot.reply_to.assert_called_once_with(mock_msg, "hello", entities=entities)
 

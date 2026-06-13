@@ -30,6 +30,7 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 class ParserBackend(ABC):
     """Abstract base for URL content-extraction backends."""
 
+    name: str
     prefix: str
 
     @abstractmethod
@@ -40,6 +41,7 @@ class ParserBackend(ABC):
 class ExaBackend(ParserBackend):
     """Exa.ai URL extraction backend."""
 
+    name = "Exa"
     prefix = "🌐"
 
     def __init__(self, client: Exa) -> None:
@@ -81,6 +83,7 @@ class ExaBackend(ParserBackend):
 class TavilyBackend(ParserBackend):
     """Tavily URL extraction backend."""
 
+    name = "Tavily"
     prefix = "🕸️"
 
     def __init__(self, client: TavilyClient) -> None:
@@ -147,7 +150,9 @@ class WebParser:
             )
         except WebParseError as primary_error:
             logger.warning(
-                "Exa parsing backend failed, falling back to Tavily: %s",
+                "%s parsing backend failed, falling back to %s: %s",
+                self._primary.name,
+                self._fallback.name,
                 primary_error,
             )
             try:
@@ -157,7 +162,8 @@ class WebParser:
                 )
             except (WebParseError, RetryError) as fallback_error:
                 logger.warning(
-                    "Tavily fallback backend also failed: %s",
+                    "%s fallback backend also failed: %s",
+                    self._fallback.name,
                     fallback_error,
                 )
                 msg = "Both parsing backends failed"

@@ -350,22 +350,7 @@ yt_transcriber = YouTubeTranscriber()
 # Module-level aliases — preserve the existing public API
 # ---------------------------------------------------------------------------
 
-
-def transcribe(file: str, sleep_time: int = 10) -> str:
-    """Transcribe an audio file using WhisperX via Replicate."""
-    return audio_transcriber.transcribe(file, sleep_time=sleep_time)
-
-
-def fetch_transcript_via_api(video_id: str) -> str:
-    """Retrieve and format a YouTube transcript via youtube_transcript_api."""
-    return yt_transcriber.fetch_via_api(video_id)
-
-
-def fetch_transcript_via_ytdlp(url: str) -> str:
-    """Retrieve a YouTube transcript by downloading subtitles via yt-dlp."""
-    return yt_transcriber.fetch_via_ytdlp(url)
-
-
-def get_yt_transcript(url: str) -> PrefixedText:
-    """Retrieve the transcript from a YouTube video URL."""
-    return yt_transcriber.get_transcript(url)
+transcribe = audio_transcriber.transcribe
+fetch_transcript_via_api = yt_transcriber.fetch_via_api
+fetch_transcript_via_ytdlp = yt_transcriber.fetch_via_ytdlp
+get_yt_transcript = yt_transcriber.get_transcript

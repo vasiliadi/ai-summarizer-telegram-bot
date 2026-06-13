@@ -24,7 +24,6 @@ from transcription import (
     fetch_transcript_via_api,
     fetch_transcript_via_ytdlp,
     get_yt_transcript,
-    transcribe,
 )
 from utils import vtt_to_text
 
@@ -947,11 +946,3 @@ def test_transcribe_invalid_segments_raises_model_error(mocker):
 
     with pytest.raises(ModelError):
         AudioTranscriber(mock_replicate).transcribe("test.ogg")
-
-
-def test_transcribe_module_wrapper_delegates_to_singleton(mocker):
-    """transcribe() delegates to the module-level audio_transcriber singleton."""
-    mock = mocker.patch.object(transcription.audio_transcriber, "transcribe", return_value="ok")
-    result = transcribe("audio.ogg", sleep_time=5)
-    assert result == "ok"
-    mock.assert_called_once_with("audio.ogg", sleep_time=5)
