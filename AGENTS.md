@@ -9,9 +9,9 @@ Before starting work, state: what you understand the project state to be, what y
 ## Rules
 
 1. Do not mix unrelated project contexts in one session.
-2. Write state to disk, not conversation. After completing meaningful work, write a summary to `docs/summaries/` using the Session Summary/Handoff template below. Include: decisions with rationale, exact numbers, file paths, open items.
+2. Write state to disk, not conversation. After completing meaningful work, record it in the session handoff at `docs/summaries/handoff-[date]-[topic].md` using the Handoff template below — create it on first write, update it as work progresses. Include: decisions with rationale, exact numbers, file paths, open items.
 3. Before compaction or session end, write to disk: every number, every decision with rationale, every open question, every file path, exact next action.
-4. When switching work types (research → writing → review), write a handoff to `docs/summaries/handoff-[date]-[topic].md` using the Session Summary/Handoff template below (fill the optional tail) and suggest a new session.
+4. When switching work types (research → writing → review) or ending the session, finalize the handoff at `docs/summaries/handoff-[date]-[topic].md` using the Handoff template below (fill the optional tail) and suggest a new session.
 5. Do not silently resolve open questions. Mark them OPEN or ASSUMED.
 6. Do not bulk-read documents. Process one at a time: read, summarize to disk, release from context before reading next. For the detailed protocol, read `docs/context/processing-protocol.md`.
 7. Sub-agent returns must be structured (numbers, file paths, decisions, open items), not free-form prose. See `docs/context/subagent-rules.md`.
@@ -19,12 +19,12 @@ Before starting work, state: what you understand the project state to be, what y
 9. Before every commit, pass: `uvx ruff format .`, `uvx ruff check .`, `uvx ty check .`, `uv run pytest --cov`. Review the coverage report and do not introduce new uncovered lines. See `docs/context/git-guide.md` for the full sequence.
 10. When changing code, update or add tests in the same PR. Treat test maintenance as mandatory — skipping it is equivalent to skipping the pre-commit checks in Rule 9.
 
-## Session Summary / Handoff Template
+## Handoff Template
 
-Write to `docs/summaries/summary-[YYYY-MM-DD]-[topic].md` after meaningful work, or `handoff-[YYYY-MM-DD]-[topic].md` when ending/switching the session — then fill the optional tail and move the previous handoff to `docs/archive/handoffs/`.
+Write to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md`. Create it after the first meaningful work and update it as the session proceeds; when ending or switching the session, fill the optional tail and move the previous handoff to `docs/archive/handoffs/`.
 
 ```markdown
-# [Summary | Handoff]: [Topic]
+# Handoff: [Topic]
 **Date:** [YYYY-MM-DD]  **Branch:** [branch]  **Focus:** [one sentence]
 
 ## What Was Accomplished
@@ -59,7 +59,7 @@ Write to `docs/summaries/summary-[YYYY-MM-DD]-[topic].md` after meaningful work,
 
 - `docs/summaries/` — active session state (latest handoff + project-digest + decision records + source summaries)
 - `docs/context/` — reusable domain knowledge, loaded only when relevant to the current task
-  - `agent-templates.md` — decision, analysis, and source-summary templates (read on demand). The session summary/handoff template lives inline in `AGENTS.md` above.
+  - `agent-templates.md` — decision, analysis, and source-summary templates (read on demand). The session handoff template lives inline in `AGENTS.md` above.
   - `processing-protocol.md` — full document processing steps
   - `archive-rules.md` — summary lifecycle and file archival rules
   - `style-guide.md` — writing or coding conventions
@@ -75,4 +75,4 @@ If context degrades or auto-compact fires unexpectedly: write current state to `
 
 ## Before Delivering Output
 
-Verify: exact numbers preserved, open questions marked OPEN, output matches what was requested (not assumed), claims backed by specific data, output consistent with stored decisions in `docs/context/`, summary written to disk for this session's work.
+Verify: exact numbers preserved, open questions marked OPEN, output matches what was requested (not assumed), claims backed by specific data, output consistent with stored decisions in `docs/context/`, handoff written/updated to disk for this session's work.
