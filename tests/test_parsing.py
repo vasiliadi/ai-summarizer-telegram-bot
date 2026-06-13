@@ -2,6 +2,7 @@ import logging
 
 import pytest
 from tavily.errors import TimeoutError as TavilyTimeoutError
+from tenacity import RetryError
 
 from exceptions import WebParseError
 from parsing import parse_url
@@ -122,12 +123,13 @@ def test_parse_url_raises_when_both_backends_fail(mocker, caplog):
 
     with (
         caplog.at_level(logging.WARNING, logger="parsing"),
-        pytest.raises(WebParseError, match="Both parsing backends failed"),
+        pytest.raises(WebParseError, match="Both parsing backends failed") as exc_info,
     ):
         parse_url("https://example.com")
     assert "Exa parsing backend failed, falling back to Tavily" in caplog.text
     assert "Tavily fallback backend also failed" in caplog.text
     assert mock_exa.get_contents.call_count == 2
+    assert isinstance(exc_info.value.__cause__, WebParseError)
 
 
 def test_parse_url_raises_when_tavily_fallback_returns_empty_content(mocker, caplog):
@@ -143,11 +145,12 @@ def test_parse_url_raises_when_tavily_fallback_returns_empty_content(mocker, cap
 
     with (
         caplog.at_level(logging.WARNING, logger="parsing"),
-        pytest.raises(WebParseError, match="Both parsing backends failed"),
+        pytest.raises(WebParseError, match="Both parsing backends failed") as exc_info,
     ):
         parse_url("https://example.com")
     assert "Tavily returned empty content for" in caplog.text
     mock_tavily.extract.assert_called_once()
+    assert isinstance(exc_info.value.__cause__, WebParseError)
 
 
 def test_parse_url_falls_back_when_tavily_times_out(mocker, caplog):
@@ -162,11 +165,12 @@ def test_parse_url_falls_back_when_tavily_times_out(mocker, caplog):
 
     with (
         caplog.at_level(logging.WARNING, logger="parsing"),
-        pytest.raises(WebParseError, match="Both parsing backends failed"),
+        pytest.raises(WebParseError, match="Both parsing backends failed") as exc_info,
     ):
         parse_url("https://example.com")
     assert mock_tavily.extract.call_count == 2
     assert "Tavily fallback backend also failed" in caplog.text
+    assert isinstance(exc_info.value.__cause__, RetryError)
 
 
 def test_parse_url_propagates_non_retryable_exa_error(mocker):
