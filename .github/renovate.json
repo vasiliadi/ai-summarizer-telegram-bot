@@ -80,6 +80,7 @@
     {
       "description": "pre-commit hook bumps: auto-merge all update types",
       "matchManagers": ["pre-commit"],
+      "minimumReleaseAge": "0 days",
       "automerge": true
     },
     {
