@@ -103,6 +103,7 @@ def _handle_video_like(message: Message, user: UsersOrm, data: File) -> None:
         send_answer(message, answer)
     finally:
         clean_up(file=downloaded_file)
+        clean_up(file=compressed_file)
 
 
 def handle_video_note(message: Message, user: UsersOrm) -> None:
