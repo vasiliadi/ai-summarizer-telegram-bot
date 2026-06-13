@@ -171,7 +171,7 @@ pre-commit install --hook-type post-rewrite
 
 Webpage URLs are parsed into clean text before being passed to Gemini. This gives every model version identical, well-structured input and removes the variability introduced by Gemini's server-side `UrlContext` tool.
 
-Parsing runs a fixed two-stage flow: [Tavily](https://tavily.com) is tried first, and [Exa.ai](https://exa.ai) is used as an automatic fallback when Tavily fails.
+Parsing runs a fixed two-stage flow: [Exa.ai](https://exa.ai) is tried first, and [Tavily](https://tavily.com) is used as an automatic fallback when Exa.ai fails.
 
 #### Remote functions
 

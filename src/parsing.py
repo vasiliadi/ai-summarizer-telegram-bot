@@ -107,7 +107,7 @@ def _parse_with_exa(url: str) -> str:
 def parse_url(url: str) -> str:
     """Extract main textual content from a URL.
 
-    Parses with Tavily first and falls back to Exa.ai when Tavily fails.
+    Parses with Exa.ai first and falls back to Tavily when Exa.ai fails.
 
     Args:
         url (str): The webpage URL to parse.
@@ -116,22 +116,22 @@ def parse_url(url: str) -> str:
         str: The extracted page content.
 
     Raises:
-        WebParseError: If both the Tavily and Exa.ai backends fail to return
+        WebParseError: If both the Exa.ai and Tavily backends fail to return
             usable content.
-        Exception: Any non-retryable error raised by the Tavily backend
-            propagates immediately without attempting the Exa.ai fallback.
+        Exception: Any non-retryable error raised by the Exa.ai backend
+            propagates immediately without attempting the Tavily fallback.
 
     """
     try:
-        return _parse_with_tavily(url)
-    except (WebParseError, RetryError) as tavily_error:
+        return _parse_with_exa(url)
+    except WebParseError as exa_error:
         logger.warning(
-            "Tavily parsing backend failed, falling back to Exa: %s",
-            tavily_error,
+            "Exa parsing backend failed, falling back to Tavily: %s",
+            exa_error,
         )
         try:
-            return _parse_with_exa(url)
-        except WebParseError as exa_error:
-            logger.warning("Exa fallback backend also failed: %s", exa_error)
+            return _parse_with_tavily(url)
+        except (WebParseError, RetryError) as tavily_error:
+            logger.warning("Tavily fallback backend also failed: %s", tavily_error)
             msg = "Both parsing backends failed"
-            raise WebParseError(msg) from exa_error
+            raise WebParseError(msg) from tavily_error
