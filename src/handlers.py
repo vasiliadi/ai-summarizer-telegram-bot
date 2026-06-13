@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, TypedDict
 from urllib.parse import urlsplit
 
 from config import CASTRO_HOST, TG_MAX_FILE_SIZE, YT_HOSTS, bot
+from domain import format_prefixed_summary
 from download import download_tg
 from parsing import parse_url
 from services import (
     check_quota,
-    format_prefixed_summary,
     get_file_with_retry,
     send_answer,
 )

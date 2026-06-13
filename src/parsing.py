@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, cast
 
 from tavily.errors import TimeoutError as TavilyTimeoutError
@@ -14,127 +15,158 @@ from tenacity import (
 )
 
 from config import exa_client, tavily_client
+from domain import PrefixedText
 from exceptions import WebParseError
-from services import PrefixedText
 
 if TYPE_CHECKING:
-    from tenacity import (
-        _utils as tenacity_utils,
-    )
+    from exa_py import Exa
+    from tavily import TavilyClient
+    from tenacity import _utils as tenacity_utils
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 
-@retry(
-    stop=stop_after_attempt(2),
-    wait=wait_fixed(5),
-    retry=retry_if_exception_type(TavilyTimeoutError),
-    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
-    reraise=False,
-)
-def _parse_with_tavily(url: str) -> str:
-    """Extract main textual content from a URL using Tavily.
+class ParserBackend(ABC):
+    """Abstract base for URL content-extraction backends."""
 
-    Args:
-        url (str): The webpage URL to parse.
+    prefix: str
 
-    Returns:
-        str: The extracted page content as markdown text.
-
-    Raises:
-        WebParseError: If Tavily returns no successful results or empty content.
-        RetryError: If Tavily keeps timing out after all retry attempts. The
-            function is decorated with @retry and makes 2 total attempts (1
-            retry with a 5-second wait) before raising RetryError.
-
-    """
-    response = tavily_client.extract(urls=[url], format="markdown")
-    results = response.get("results") or []
-    if not results:
-        failed = response.get("failed_results") or []
-        msg = f"Tavily could not extract content from {url}: {failed}"
-        logger.warning(msg)
-        raise WebParseError(msg)
-    content = (results[0].get("raw_content") or "").strip()
-    if not content:
-        msg = f"Tavily returned empty content for {url}"
-        logger.warning(msg)
-        raise WebParseError(msg)
-    return content
+    @abstractmethod
+    def parse(self, url: str) -> str:
+        """Extract main textual content from a URL."""
 
 
-@retry(
-    stop=stop_after_attempt(2),
-    wait=wait_fixed(5),
-    retry=retry_if_exception_type(WebParseError),
-    before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
-    reraise=True,
-)
-def _parse_with_exa(url: str) -> str:
-    """Extract main textual content from a URL using Exa.ai.
+class ExaBackend(ParserBackend):
+    """Exa.ai URL extraction backend."""
 
-    Args:
-        url (str): The webpage URL to parse.
+    prefix = "🌐"
 
-    Returns:
-        str: The extracted page content as text (HTML tags included).
+    def __init__(self, client: Exa) -> None:
+        """Store the injected Exa client."""
+        self._client = client
 
-    Raises:
-        WebParseError: If Exa returns no results or empty content. Exa's
-            get_contents is intermittent and may return an empty result for a
-            URL it can normally extract, so the function is decorated with
-            @retry and makes 2 total attempts (1 retry with a 5-second wait)
-            before re-raising WebParseError.
-
-    """
-    response = exa_client.get_contents(
-        urls=[url],
-        text={"max_characters": 20000, "include_html_tags": True},
+    @retry(
+        stop=stop_after_attempt(2),
+        wait=wait_fixed(5),
+        retry=retry_if_exception_type(WebParseError),
+        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+        reraise=True,
     )
-    results = response.results or []
-    if not results:
-        msg = f"Exa could not extract content from {url}"
-        logger.warning(msg)
-        raise WebParseError(msg)
-    content = (results[0].text or "").strip()
-    if not content:
-        msg = f"Exa returned empty content for {url}"
-        logger.warning(msg)
-        raise WebParseError(msg)
-    return content
+    def parse(self, url: str) -> str:
+        """Extract main textual content from a URL using Exa.ai.
+
+        Raises:
+            WebParseError: If Exa returns no results or empty content. Retried
+                once (2 total attempts) before re-raising.
+
+        """
+        response = self._client.get_contents(
+            urls=[url],
+            text={"max_characters": 20000, "include_html_tags": True},
+        )
+        results = response.results or []
+        if not results:
+            msg = f"Exa could not extract content from {url}"
+            logger.warning(msg)
+            raise WebParseError(msg)
+        content = (results[0].text or "").strip()
+        if not content:
+            msg = f"Exa returned empty content for {url}"
+            logger.warning(msg)
+            raise WebParseError(msg)
+        return content
+
+
+class TavilyBackend(ParserBackend):
+    """Tavily URL extraction backend."""
+
+    prefix = "🕸️"
+
+    def __init__(self, client: TavilyClient) -> None:
+        """Store the injected Tavily client."""
+        self._client = client
+
+    @retry(
+        stop=stop_after_attempt(2),
+        wait=wait_fixed(5),
+        retry=retry_if_exception_type(TavilyTimeoutError),
+        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+        reraise=False,
+    )
+    def parse(self, url: str) -> str:
+        """Extract main textual content from a URL using Tavily.
+
+        Raises:
+            WebParseError: If Tavily returns no results or empty content.
+            RetryError: If Tavily keeps timing out after all retry attempts.
+
+        """
+        response = self._client.extract(urls=[url], format="markdown")
+        results = response.get("results") or []
+        if not results:
+            failed = response.get("failed_results") or []
+            msg = f"Tavily could not extract content from {url}: {failed}"
+            logger.warning(msg)
+            raise WebParseError(msg)
+        content = (results[0].get("raw_content") or "").strip()
+        if not content:
+            msg = f"Tavily returned empty content for {url}"
+            logger.warning(msg)
+            raise WebParseError(msg)
+        return content
+
+
+class WebParser:
+    """Orchestrates URL parsing with a primary→fallback backend strategy."""
+
+    def __init__(self, primary: ParserBackend, fallback: ParserBackend) -> None:
+        """Store the primary and fallback backends."""
+        self._primary = primary
+        self._fallback = fallback
+
+    def parse(self, url: str) -> PrefixedText:
+        """Extract main textual content from a URL.
+
+        Parses with the primary backend first, falls back to the secondary on
+        failure.
+
+        Returns:
+            PrefixedText: The extracted content and source display prefix.
+
+        Raises:
+            WebParseError: If both backends fail.
+            Exception: Any non-retryable primary error propagates immediately
+                without attempting the fallback.
+
+        """
+        try:
+            return PrefixedText(
+                text=self._primary.parse(url),
+                prefix=self._primary.prefix,
+            )
+        except WebParseError as primary_error:
+            logger.warning(
+                "Exa parsing backend failed, falling back to Tavily: %s",
+                primary_error,
+            )
+            try:
+                return PrefixedText(
+                    text=self._fallback.parse(url),
+                    prefix=self._fallback.prefix,
+                )
+            except (WebParseError, RetryError) as fallback_error:
+                logger.warning(
+                    "Tavily fallback backend also failed: %s",
+                    fallback_error,
+                )
+                msg = "Both parsing backends failed"
+                raise WebParseError(msg) from fallback_error
+
+
+web_parser = WebParser(ExaBackend(exa_client), TavilyBackend(tavily_client))
 
 
 def parse_url(url: str) -> PrefixedText:
-    """Extract main textual content from a URL.
-
-    Parses with Exa.ai first and falls back to Tavily when Exa.ai fails.
-
-    Args:
-        url (str): The webpage URL to parse.
-
-    Returns:
-        PrefixedText: The extracted page content and display prefix. The 🌐
-            prefix means Exa.ai succeeded; 🕸️ means the Tavily fallback
-            succeeded.
-
-    Raises:
-        WebParseError: If both the Exa.ai and Tavily backends fail to return
-            usable content.
-        Exception: Any non-retryable error raised by the Exa.ai backend
-            propagates immediately without attempting the Tavily fallback.
-
-    """
-    try:
-        return PrefixedText(text=_parse_with_exa(url), prefix="🌐")
-    except WebParseError as exa_error:
-        logger.warning(
-            "Exa parsing backend failed, falling back to Tavily: %s",
-            exa_error,
-        )
-        try:
-            return PrefixedText(text=_parse_with_tavily(url), prefix="🕸️")
-        except (WebParseError, RetryError) as tavily_error:
-            logger.warning("Tavily fallback backend also failed: %s", tavily_error)
-            msg = "Both parsing backends failed"
-            raise WebParseError(msg) from tavily_error
+    """Extract main textual content from a URL via the default WebParser."""
+    return web_parser.parse(url)

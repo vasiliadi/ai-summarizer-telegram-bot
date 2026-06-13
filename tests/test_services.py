@@ -2,6 +2,7 @@ import pytest
 from google.genai import types
 from limits.util import WindowStats
 
+import services as services_module
 from exceptions import LimitExceededError
 from services import (
     check_quota,
@@ -57,7 +58,7 @@ def test_send_answer_single_chunk(mocker):
         "services.split_entities", return_value=[("text", [mock_entity])]
     )
 
-    mock_reply = mocker.patch("services._reply_with_retry")
+    mock_reply = mocker.patch.object(services_module.messenger, "_reply_with_retry")
     mock_msg = mocker.MagicMock()
 
     send_answer(mock_msg, "short answer")
@@ -71,7 +72,7 @@ def test_send_answer_multi_chunk(mocker):
     """Test send_answer with a long message (multiple chunks)."""
     mocker.patch("services.convert", return_value=("text", []))
     mocker.patch("services.split_entities", return_value=[("part1", []), ("part2", [])])
-    mock_reply = mocker.patch("services._reply_with_retry")
+    mock_reply = mocker.patch.object(services_module.messenger, "_reply_with_retry")
     mocker.patch("services.time.sleep")
 
     mock_msg = mocker.MagicMock()

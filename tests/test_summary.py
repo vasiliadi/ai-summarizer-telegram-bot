@@ -4,6 +4,7 @@ import pytest
 from google.genai.errors import ClientError
 from tenacity import RetryError
 
+import summary as summary_module
 from exceptions import FetchTranscriptError
 from services import resolve_mime_type
 from summary import (
@@ -275,7 +276,7 @@ def test_summarize_youtube_always_attempts_transcript(mocker):
         "summary.get_yt_transcript",
         return_value=SimpleNamespace(text="YT Transcript", prefix="📹"),
     )
-    mocker.patch("summary.summarize_with_transcript", return_value="Summary")
+    mocker.patch.object(summary_module.summarizer, "summarize_with_transcript", return_value="Summary")
 
     summarize(
         data=url,
@@ -298,8 +299,9 @@ def test_summarize_youtube_direct_transcript(mocker):
         "summary.get_yt_transcript",
         return_value=SimpleNamespace(text="YT Transcript content", prefix="📹"),
     )
-    mock_sum_transcript = mocker.patch(
-        "summary.summarize_with_transcript",
+    mock_sum_transcript = mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_transcript",
         return_value="- first point\n- second point",
     )
 
@@ -334,8 +336,9 @@ def test_summarize_youtube_direct_transcript_uses_blank_line_separator(mocker):
         "summary.get_yt_transcript",
         return_value=SimpleNamespace(text="YT Transcript content", prefix="📹"),
     )
-    mocker.patch(
-        "summary.summarize_with_transcript",
+    mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_transcript",
         return_value="- first point\n- second point",
     )
 
@@ -360,8 +363,9 @@ def test_summarize_youtube_fallback_transcript_uses_fallback_prefix(mocker):
         "summary.get_yt_transcript",
         return_value=SimpleNamespace(text="YT Transcript content", prefix="📺"),
     )
-    mocker.patch(
-        "summary.summarize_with_transcript",
+    mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_transcript",
         return_value="- first point\n- second point",
     )
 
@@ -388,9 +392,9 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
         return_value=SimpleNamespace(text="YT Transcript content", prefix="📹"),
     )
     mock_download = mocker.patch("summary.download_yt")
-    mock_file_summary = mocker.patch("summary.summarize_with_file")
+    mock_file_summary = mocker.patch.object(summary_module.summarizer, "summarize_with_file")
     mock_transcribe = mocker.patch("summary.transcribe")
-    mocker.patch("summary.summarize_with_transcript", side_effect=retry_error)
+    mocker.patch.object(summary_module.summarizer, "summarize_with_transcript", side_effect=retry_error)
 
     with pytest.raises(RetryError):
         summarize(
@@ -417,7 +421,7 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
         side_effect=FetchTranscriptError("transcript failed"),
     )
     mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
-    mocker.patch("summary.summarize_with_file", return_value="File summary")
+    mocker.patch.object(summary_module.summarizer, "summarize_with_file", return_value="File summary")
     mock_clean_up = mocker.patch("summary.clean_up")
     mock_logger = mocker.patch("summary.logger")
 
@@ -446,7 +450,7 @@ def test_summarize_youtube_transcript_value_error_falls_back_to_download(mocker)
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.get_yt_transcript", side_effect=ValueError("no transcript"))
     mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
-    mocker.patch("summary.summarize_with_file", return_value="File summary")
+    mocker.patch.object(summary_module.summarizer, "summarize_with_file", return_value="File summary")
     mock_clean_up = mocker.patch("summary.clean_up")
     mock_logger = mocker.patch("summary.logger")
 
@@ -472,15 +476,17 @@ def test_summarize_youtube_transcript_value_error_falls_back_to_download(mocker)
 def test_summarize_fallback_to_transcription(mocker):
     """Test summarize() fallback to transcription (📝 prefix) when file summary fails."""
     mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch(
-        "summary.summarize_with_file",
+    mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_file",
         side_effect=RetryError(mocker.MagicMock()),
     )
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
     mocker.patch("summary.compress_audio")
     mocker.patch("summary.transcribe", return_value="Transcription text")
-    mocker.patch(
-        "summary.summarize_with_transcript",
+    mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_transcript",
         return_value="- transcript point\n- follow-up point",
     )
     mock_clean_up = mocker.patch("summary.clean_up")
@@ -508,8 +514,9 @@ def test_summarize_fallback_to_transcription(mocker):
 def test_summarize_fallback_cleans_up_temp_file_when_compress_fails(mocker):
     """Test summarize() cleans up the temp file even if compress_audio raises."""
     mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch(
-        "summary.summarize_with_file",
+    mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_file",
         side_effect=RetryError(mocker.MagicMock()),
     )
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
@@ -535,7 +542,7 @@ def test_summarize_castro(mocker):
     url = "https://castro.fm/episode/123"
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.download_castro", return_value="downloaded.mp3")
-    mocker.patch("summary.summarize_with_file", return_value="Castro summary")
+    mocker.patch.object(summary_module.summarizer, "summarize_with_file", return_value="Castro summary")
     mocker.patch("summary.clean_up")
 
     result = summarize(
@@ -849,7 +856,7 @@ def test_summarize_with_telegram_file(mocker):
 
     mocker.patch("summary.check_quota", return_value=True)
     mock_download_tg = mocker.patch("summary.download_tg", return_value="downloaded.ogg")
-    mocker.patch("summary.summarize_with_file", return_value="Telegram file summary")
+    mocker.patch.object(summary_module.summarizer, "summarize_with_file", return_value="Telegram file summary")
     mocker.patch("summary.clean_up")
     mock_tg_file = mocker.MagicMock(spec=File)
 
