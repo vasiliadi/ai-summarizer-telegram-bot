@@ -75,4 +75,4 @@ If context degrades or auto-compact fires unexpectedly: write current state to `
 
 ## Before Delivering Output
 
-Verify: exact numbers preserved, open questions marked OPEN, output matches what was requested (not assumed), claims backed by specific data, output consistent with stored decisions in `docs/context/`, handoff written/updated to disk for this session's work.
+Verify: exact numbers preserved, open questions marked OPEN, output matches what was requested (not assumed), claims backed by specific data, output consistent with decision records in `docs/summaries/`, handoff written/updated to disk for this session's work.
