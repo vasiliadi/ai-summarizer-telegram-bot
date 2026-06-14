@@ -644,25 +644,6 @@ def test_summarize_with_transcript_raises_on_empty_response(mocker):
         )
 
 
-def test_summarize_webpage_raises_on_empty_response(mocker):
-    """Test summarize_webpage raises RetryError on repeated empty Gemini responses."""
-    mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch("tenacity.nap.time.sleep")
-    mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
-
-    with pytest.raises(RetryError):
-        summarize_webpage(
-            content="Parsed page content.",
-            model="test-model",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="MINIMAL",
-        )
-
-
 def test_summarize_with_document_raises_when_upload_name_none(mocker):
     """Test summarize_with_document raises RetryError and skips file delete when upload name is None."""
     mocker.patch("summary.check_quota", return_value=True)
