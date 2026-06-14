@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from curl_cffi.requests.exceptions import HTTPError
 
-from download import choose_yt_audio_format, download_castro, download_tg, download_yt
+from download import Downloader, download_castro, download_tg, download_yt
 
 
 def test_download_tg_happy_path(mocker):
@@ -139,7 +139,7 @@ def test_choose_yt_audio_format_falls_back_when_no_audio_only_formats():
         ],
     }
 
-    result = choose_yt_audio_format(info)
+    result = Downloader._choose_yt_audio_format(info)
 
     assert result == "bestaudio/worst[acodec!=none]"
 
@@ -154,7 +154,7 @@ def test_choose_yt_audio_format_ranks_missing_bitrates_last():
         ],
     }
 
-    result = choose_yt_audio_format(info)
+    result = Downloader._choose_yt_audio_format(info)
 
     assert result == "zero"
 

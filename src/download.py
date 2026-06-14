@@ -33,36 +33,36 @@ logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 
-def choose_yt_audio_format(info: dict[str, Any]) -> str:
-    """Return the most suitable audio format id for a YouTube video.
-
-    Prefer audio-only formats when yt-dlp exposes them. Fall back to the
-    combined format selector when the extractor does not provide a concrete
-    audio-only id.
-
-    """
-    formats = info.get("formats") or []
-    audio_only_formats = [
-        fmt
-        for fmt in formats
-        if fmt.get("acodec") not in (None, "none") and fmt.get("vcodec") == "none"
-    ]
-    if not audio_only_formats:
-        return "bestaudio/worst[acodec!=none]"
-
-    def sort_key(fmt: dict[str, Any]) -> tuple[float, float]:
-        abr = fmt.get("abr")
-        tbr = fmt.get("tbr")
-        return (
-            float(abr) if abr is not None else math.inf,
-            float(tbr) if tbr is not None else math.inf,
-        )
-
-    return str(min(audio_only_formats, key=sort_key)["format_id"])
-
-
 class Downloader:
     """Downloads media from YouTube, Castro, and Telegram."""
+
+    @staticmethod
+    def _choose_yt_audio_format(info: dict[str, Any]) -> str:
+        """Return the most suitable audio format id for a YouTube video.
+
+        Prefer audio-only formats when yt-dlp exposes them. Fall back to the
+        combined format selector when the extractor does not provide a concrete
+        audio-only id.
+
+        """
+        formats = info.get("formats") or []
+        audio_only_formats = [
+            fmt
+            for fmt in formats
+            if fmt.get("acodec") not in (None, "none") and fmt.get("vcodec") == "none"
+        ]
+        if not audio_only_formats:
+            return "bestaudio/worst[acodec!=none]"
+
+        def sort_key(fmt: dict[str, Any]) -> tuple[float, float]:
+            abr = fmt.get("abr")
+            tbr = fmt.get("tbr")
+            return (
+                float(abr) if abr is not None else math.inf,
+                float(tbr) if tbr is not None else math.inf,
+            )
+
+        return str(min(audio_only_formats, key=sort_key)["format_id"])
 
     @staticmethod
     def _stream_to_file(
@@ -118,7 +118,7 @@ class Downloader:
         if info is None:
             msg = "Failed to extract info from YouTube URL."
             raise DownloadError(msg)
-        audio_format = choose_yt_audio_format(cast("dict[str, Any]", info))
+        audio_format = self._choose_yt_audio_format(cast("dict[str, Any]", info))
         ydl_opts = {
             "format": audio_format,
             "outtmpl": temporary_file_name.split(".", maxsplit=1)[0],
