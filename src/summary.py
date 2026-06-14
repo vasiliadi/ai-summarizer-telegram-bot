@@ -157,6 +157,39 @@ class Summarizer:
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
+    def _summarize_text(
+        self,
+        text: str,
+        model: str,
+        prompt_key: str,
+        target_language: str,
+        user_id: int,
+        daily_limit: int,
+        thinking_level: str,
+    ) -> str:
+        """Summarize already-extracted text (a transcript or webpage content).
+
+        Args:
+            text (str): The text to summarize (transcript or pre-parsed webpage).
+            model (str): The Gemini model identifier.
+            prompt_key (str): Key to retrieve the prompt template from PROMPTS.
+            target_language (str): The language to translate the summary into.
+            user_id (int): Telegram user ID for per-user quota enforcement.
+            daily_limit (int): The user's configured daily request cap.
+            thinking_level (str): AI thinking level.
+
+        Returns:
+            str: Generated summary text.
+
+        Raises:
+            AttributeError: If Gemini returns an empty response.
+            RetryError: If transient Gemini or network errors persist after retries.
+
+        """
+        prompt = (f"{dedent(PROMPTS[prompt_key])} {text}").strip()
+        check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
+        return self._generate_text(prompt, model, target_language, thinking_level)
+
     def summarize_with_transcript(
         self,
         transcript: str,
@@ -169,36 +202,19 @@ class Summarizer:
     ) -> str:
         """Generate a summary from a transcript using Gemini API.
 
-        Args:
-            transcript (str): The text transcript to be summarized.
-            model (str): The Gemini model identifier.
-            prompt_key (str): Key to retrieve the prompt template from PROMPTS.
-            target_language (str): The language to translate the summary into.
-            user_id (int): Telegram user ID for per-user quota enforcement.
-            daily_limit (int): The user's configured daily request cap.
-            thinking_level (str): AI thinking level.
-
-        Returns:
-            str: Generated summary text from the transcript.
-
-        Raises:
-            AttributeError: If Gemini returns an empty response.
-            RetryError: If transient Gemini or network errors persist after retries.
+        Thin wrapper over :meth:`_summarize_text`; see it for the full contract.
 
         """
-        prompt = (f"{dedent(PROMPTS[prompt_key])} {transcript}").strip()
-        check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-        return self._generate_text(prompt, model, target_language, thinking_level)
+        return self._summarize_text(
+            transcript,
+            model,
+            prompt_key,
+            target_language,
+            user_id,
+            daily_limit,
+            thinking_level,
+        )
 
-    @retry(
-        stop=stop_after_attempt(2),
-        wait=wait_fixed(30),
-        retry=retry_if_exception_type(
-            (ServerError, AttributeError, ClientError),
-        ),
-        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
-        reraise=False,
-    )
     def summarize_webpage(
         self,
         content: str,
@@ -211,26 +227,18 @@ class Summarizer:
     ) -> str:
         """Generate a summary from pre-parsed webpage content using Gemini API.
 
-        Args:
-            content (str): Pre-parsed webpage content (markdown text).
-            model (str): The Gemini model identifier.
-            prompt_key (str): Key to retrieve the prompt template from PROMPTS.
-            target_language (str): The language to translate the summary into.
-            user_id (int): Telegram user ID for per-user quota enforcement.
-            daily_limit (int): The user's configured daily request cap.
-            thinking_level (str): AI thinking level.
-
-        Returns:
-            str: Generated summary text from the webpage content.
-
-        Raises:
-            AttributeError: If Gemini returns an empty response.
-            RetryError: If transient Gemini or network errors persist after retries.
+        Thin wrapper over :meth:`_summarize_text`; see it for the full contract.
 
         """
-        prompt = (f"{dedent(PROMPTS[prompt_key])} {content}").strip()
-        check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-        return self._generate_text(prompt, model, target_language, thinking_level)
+        return self._summarize_text(
+            content,
+            model,
+            prompt_key,
+            target_language,
+            user_id,
+            daily_limit,
+            thinking_level,
+        )
 
     @retry(
         stop=stop_after_attempt(2),

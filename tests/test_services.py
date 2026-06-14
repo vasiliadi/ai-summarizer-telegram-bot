@@ -161,6 +161,17 @@ def test_upload_and_wait_for_file_failed(mocker):
         upload_and_wait_for_file("path", "audio/ogg", 1)
 
 
+def test_resolve_mime_type_uses_mimetypes_guess():
+    """resolve_mime_type maps known extensions via the stdlib mimetypes database."""
+    assert resolve_mime_type("document.pdf") == "application/pdf"
+    assert resolve_mime_type("data.csv") == "text/csv"
+    assert resolve_mime_type("text.rtf") == "application/rtf"
+    assert resolve_mime_type("audio.ogg") == "audio/ogg"
+    assert resolve_mime_type("audio.mp3") == "audio/mpeg"
+    assert resolve_mime_type("video.mp4") == "video/mp4"
+    assert resolve_mime_type("unknown.bin") == "application/octet-stream"
+
+
 def test_resolve_mime_type_fallback_when_mimetypes_returns_none(mocker):
     """resolve_mime_type falls back to extension matching when mimetypes returns None."""
     mocker.patch("services.mimetypes.guess_type", return_value=(None, None))

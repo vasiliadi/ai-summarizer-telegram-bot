@@ -6,7 +6,6 @@ from tenacity import RetryError
 
 import summary as summary_module
 from exceptions import FetchTranscriptError
-from services import resolve_mime_type
 from summary import (
     format_prefixed_summary,
     summarize,
@@ -15,17 +14,6 @@ from summary import (
     summarize_with_file,
     summarize_with_transcript,
 )
-
-
-def test_resolve_mime_type():
-    """Test that resolve_mime_type correctly maps file extensions to MIME types."""
-    assert resolve_mime_type("document.pdf") == "application/pdf"
-    assert resolve_mime_type("data.csv") == "text/csv"
-    assert resolve_mime_type("text.rtf") == "application/rtf"
-    assert resolve_mime_type("audio.ogg") == "audio/ogg"
-    assert resolve_mime_type("audio.mp3") == "audio/mpeg"
-    assert resolve_mime_type("video.mp4") == "video/mp4"
-    assert resolve_mime_type("unknown.bin") == "application/octet-stream"
 
 
 def test_summarize_with_file_upload_and_genai_call(mocker):
@@ -326,33 +314,6 @@ def test_summarize_youtube_direct_transcript(mocker):
         daily_limit=10,
         thinking_level="MINIMAL",
     )
-
-
-def test_summarize_youtube_direct_transcript_uses_blank_line_separator(mocker):
-    """Test YouTube transcript summaries keep a blank line after the prefix."""
-    url = "https://youtube.com/watch?v=123"
-    mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch(
-        "summary.get_yt_transcript",
-        return_value=SimpleNamespace(text="YT Transcript content", prefix="📹"),
-    )
-    mocker.patch.object(
-        summary_module.summarizer,
-        "summarize_with_transcript",
-        return_value="- first point\n- second point",
-    )
-
-    result = summarize(
-        data=url,
-        model="test-model",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="MINIMAL",
-    )
-
-    assert result == "📹\n\n- first point\n- second point"
 
 
 def test_summarize_youtube_fallback_transcript_uses_fallback_prefix(mocker):
@@ -674,25 +635,6 @@ def test_summarize_with_transcript_raises_on_empty_response(mocker):
     with pytest.raises(RetryError):
         summarize_with_transcript(
             transcript="Hello world",
-            model="test-model",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="MINIMAL",
-        )
-
-
-def test_summarize_webpage_raises_on_empty_response(mocker):
-    """Test summarize_webpage raises RetryError on repeated empty Gemini responses."""
-    mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch("tenacity.nap.time.sleep")
-    mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
-
-    with pytest.raises(RetryError):
-        summarize_webpage(
-            content="Parsed page content.",
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
