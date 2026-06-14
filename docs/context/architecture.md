@@ -58,6 +58,7 @@ Telegram update
 ```
 
 ### Summarizer input branching (`summary.py:summarize`)
+
 - **YouTube URL** → try transcript (`get_yt_transcript`); on success summarize
   the transcript. On failure → `download_yt` audio, then the file path below.
 - **Castro URL** → `download_castro` audio → file path.
