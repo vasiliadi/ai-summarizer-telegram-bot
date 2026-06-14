@@ -15,7 +15,7 @@ dependencies = [
     "replicate==1.0.7",
     "sentry-sdk==2.61.1",
     "sqlalchemy==2.0.50",
-    "tavily-python==0.7.25",
+    "tavily-python==0.7.26",
     "telegramify-markdown==1.1.5",
     "tenacity==9.1.4",
     "youtube-transcript-api==1.2.4",
