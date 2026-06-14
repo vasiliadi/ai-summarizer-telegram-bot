@@ -4,6 +4,8 @@
 
 Read the latest handoff in `docs/summaries/` if one exists. Load only the files that handoff references — not all summaries. If no handoff exists, ask: what is the project, what type of work, what is the target deliverable.
 
+For a quick orientation to the codebase (component map and data flow), read `docs/context/architecture.md` if present.
+
 Before starting work, state: what you understand the project state to be, what you plan to do this session, and any open questions.
 
 ## Rules
@@ -59,6 +61,7 @@ Write to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md`. Create it after the f
 
 - `docs/summaries/` — active session state (latest handoff + project-digest + decision records + source summaries)
 - `docs/context/` — reusable domain knowledge, loaded only when relevant to the current task
+  - `architecture.md` — high-level component map and data flow. Stable; update only on architectural change, not every handoff.
   - `agent-templates.md` — decision, analysis, and source-summary templates (read on demand). The session handoff template lives inline in `AGENTS.md` above.
   - `processing-protocol.md` — full document processing steps
   - `archive-rules.md` — summary lifecycle and file archival rules
