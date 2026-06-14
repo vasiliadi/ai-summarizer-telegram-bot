@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from database import (
+    check_auth,
     register_user,
     select_user,
     set_prompt_strategy,
@@ -49,6 +50,31 @@ def test_select_user_missing(mock_db_session):
 
     with pytest.raises(ValueError, match="User not found"):
         select_user(999)
+
+
+def test_check_auth_approved_user(mock_db_session):
+    """Test that an approved user returns True."""
+    mock_db_session.get.return_value = UsersOrm(user_id=123, approved=True)
+
+    assert check_auth(123) is True
+    mock_db_session.get.assert_called_once_with(UsersOrm, 123)
+
+
+def test_check_auth_unapproved_user(mock_db_session):
+    """Test that an unapproved user returns False."""
+    mock_db_session.get.return_value = UsersOrm(user_id=123, approved=False)
+
+    assert check_auth(123) is False
+    mock_db_session.get.assert_called_once_with(UsersOrm, 123)
+
+
+def test_check_auth_unknown_user(mock_db_session):
+    """Test that an unknown user ID raises ValueError."""
+    mock_db_session.get.return_value = None
+
+    with pytest.raises(ValueError, match="User not found"):
+        check_auth(999)
+    mock_db_session.get.assert_called_once_with(UsersOrm, 999)
 
 
 def test_set_target_language_persists(monkeypatch, sqlite_session_factory):
