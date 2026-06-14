@@ -5,7 +5,7 @@ import mimetypes
 import time
 from functools import lru_cache
 from textwrap import dedent
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from google.genai import types
 from limits import parse as _parse_rate_limit
@@ -123,17 +123,16 @@ class QuotaManager:
         return max(0, stats.remaining)
 
 
-_EXT_MIME_FALLBACK = {
-    ".ogg": "audio/ogg",
-    ".opus": "audio/ogg",
-    ".mp3": "audio/mpeg",
-    ".wav": "audio/wav",
-    ".mp4": "video/mp4",
-}
-
-
 class GeminiHelper:
     """Utilities for Gemini model configuration and file management."""
+
+    _EXT_MIME_FALLBACK: ClassVar[dict[str, str]] = {
+        ".ogg": "audio/ogg",
+        ".opus": "audio/ogg",
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".mp4": "video/mp4",
+    }
 
     def get_gemini_config(
         self,
@@ -158,7 +157,7 @@ class GeminiHelper:
         mime_type = mimetypes.guess_type(file)[0]
         if mime_type is not None:
             return mime_type
-        for ext, mt in _EXT_MIME_FALLBACK.items():
+        for ext, mt in self._EXT_MIME_FALLBACK.items():
             if file.endswith(ext):
                 return mt
         return "application/octet-stream"
