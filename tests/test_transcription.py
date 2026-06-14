@@ -21,11 +21,11 @@ from exceptions import (
 )
 from transcription import (
     AudioTranscriber,
+    YouTubeTranscriber,
     fetch_transcript_via_api,
     fetch_transcript_via_ytdlp,
     get_yt_transcript,
 )
-from utils import vtt_to_text
 
 
 def test_get_yt_transcript_uses_ytdlp_primary(mocker, tmp_path):
@@ -166,7 +166,7 @@ def test_vtt_to_text_dedupes_and_strips_tags(tmp_path):
     vtt_path = tmp_path / "test.vtt"
     vtt_path.write_text(vtt_content, encoding="utf-8")
 
-    result = vtt_to_text(vtt_path)
+    result = YouTubeTranscriber._vtt_to_text(vtt_path)
 
     assert result == "Hello & world\nSecond line"
 
@@ -187,7 +187,7 @@ def test_vtt_to_text_skips_cue_identifiers(tmp_path):
     vtt_path = tmp_path / "test.vtt"
     vtt_path.write_text(vtt_content, encoding="utf-8")
 
-    result = vtt_to_text(vtt_path)
+    result = YouTubeTranscriber._vtt_to_text(vtt_path)
 
     assert result == "Hello\nWorld"
 
@@ -212,7 +212,7 @@ def test_vtt_to_text_skips_multiline_note_block(tmp_path):
     vtt_path = tmp_path / "test.vtt"
     vtt_path.write_text(vtt_content, encoding="utf-8")
 
-    result = vtt_to_text(vtt_path)
+    result = YouTubeTranscriber._vtt_to_text(vtt_path)
 
     assert result == "Hello\nWorld"
     assert "comment" not in result
@@ -236,7 +236,7 @@ def test_vtt_to_text_keeps_nonconsecutive_duplicates(tmp_path):
     vtt_path = tmp_path / "test.vtt"
     vtt_path.write_text(vtt_content, encoding="utf-8")
 
-    result = vtt_to_text(vtt_path)
+    result = YouTubeTranscriber._vtt_to_text(vtt_path)
 
     assert result == "Hello\nWorld\nHello"
 
@@ -812,7 +812,7 @@ def test_fetch_transcript_via_ytdlp_vtt_read_error_raises_download_error(mocker,
     ctx.extract_info.return_value = {"subtitles": {"en": [{}]}, "automatic_captions": {}}
     # create the vtt file so the glob finds it, but vtt_to_text raises OSError
     (tmp_path / "fake-uuid.en.vtt").write_text("WEBVTT\n", encoding="utf-8")
-    mocker.patch("transcription.vtt_to_text", side_effect=OSError("disk full"))
+    mocker.patch.object(YouTubeTranscriber, "_vtt_to_text", side_effect=OSError("disk full"))
 
     with pytest.raises(DownloadError, match="Failed to read downloaded VTT file"):
         fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
@@ -946,3 +946,30 @@ def test_transcribe_invalid_segments_raises_model_error(mocker):
 
     with pytest.raises(ModelError):
         AudioTranscriber(mock_replicate).transcribe("test.ogg")
+
+
+def test_extract_video_id_uppercase_host():
+    """_extract_video_id handles uppercase and mixed-case hostnames."""
+    assert YouTubeTranscriber._extract_video_id("https://YOUTU.BE/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+    assert (
+        YouTubeTranscriber._extract_video_id("https://WWW.YOUTUBE.COM/watch?v=dQw4w9WgXcQ")
+        == "dQw4w9WgXcQ"
+    )
+
+
+def test_extract_video_id_malformed_url():
+    """_extract_video_id returns None for malformed URLs with no hostname."""
+    assert YouTubeTranscriber._extract_video_id("not-a-url") is None
+    assert YouTubeTranscriber._extract_video_id("https://") is None
+
+
+def test_extract_video_id_empty_path():
+    """_extract_video_id returns None for youtu.be with no video ID and watch with no v param."""
+    assert YouTubeTranscriber._extract_video_id("https://youtu.be/") is None
+    assert YouTubeTranscriber._extract_video_id("https://www.youtube.com/watch") is None
+
+
+def test_extract_video_id_unrecognized_path():
+    """_extract_video_id returns None for youtube.com URLs with unrecognized paths."""
+    assert YouTubeTranscriber._extract_video_id("https://youtube.com/playlist?list=PLxxx") is None
+    assert YouTubeTranscriber._extract_video_id("https://youtube.com/") is None

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import parse_qs, urlsplit
 
 from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError, ReplicateError
@@ -28,7 +30,7 @@ from youtube_transcript_api.proxies import GenericProxyConfig
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import replicate_client
+from config import YT_HOSTS, replicate_client
 from domain import PrefixedText
 from exceptions import (
     FetchTranscriptError,
@@ -36,10 +38,8 @@ from exceptions import (
 )
 from utils import (
     clean_up,
-    extract_youtube_video_id,
     generate_temporary_name,
     get_proxy,
-    vtt_to_text,
 )
 
 if TYPE_CHECKING:
@@ -107,6 +107,71 @@ class AudioTranscriber:
 
 class YouTubeTranscriber:
     """Retrieves YouTube transcripts via yt-dlp (primary) or the API (fallback)."""
+
+    @staticmethod
+    def _extract_video_id(url: str) -> str | None:
+        """Extract the video id from any supported YouTube URL form.
+
+        Returns None when the host is not a known YouTube host or the id cannot
+        be located in the path/query.
+
+        """
+        parts = urlsplit(url)
+        hostname = (parts.hostname or "").lower()
+        hostname = hostname.removeprefix("www.")
+        if hostname not in YT_HOSTS:
+            return None
+        if hostname == "youtu.be":
+            video_id = parts.path.lstrip("/").split("/", 1)[0]
+            return video_id or None
+        path_parts = [p for p in parts.path.split("/") if p]
+        prefixed_paths = ("live", "shorts", "embed")
+        if len(path_parts) >= 2 and path_parts[0] in prefixed_paths:  # noqa: PLR2004
+            return path_parts[1]
+        if path_parts and path_parts[0] == "watch":
+            return parse_qs(parts.query).get("v", [None])[0]
+        return None
+
+    @staticmethod
+    def _vtt_to_text(vtt_path: Path) -> str:
+        """Convert a VTT subtitle file to deduplicated plain text.
+
+        Args:
+            vtt_path (Path): Path to the .vtt file.
+
+        Returns:
+            str: Clean transcript text with duplicate lines removed.
+
+        """
+        lines = vtt_path.read_text(encoding="utf-8").splitlines()
+        out: list[str] = []
+        prev = ""
+        in_note = False
+        for i, raw in enumerate(lines):
+            line = raw.strip()
+            if not line:
+                in_note = False
+                continue
+            if in_note:
+                continue
+            if "-->" in line:
+                continue
+            if line.startswith(("WEBVTT", "Kind:", "Language:")):
+                continue
+            if line.startswith("NOTE"):
+                in_note = True
+                continue
+            next_line = lines[i + 1].strip() if i + 1 < len(lines) else ""
+            if "-->" in next_line:
+                continue
+            clean = re.sub(r"<[^>]*>", "", line)
+            clean = (
+                clean.replace("&amp;", "&").replace("&gt;", ">").replace("&lt;", "<")
+            )
+            if clean and clean != prev:
+                out.append(clean)
+                prev = clean
+        return "\n".join(out)
 
     @retry(
         stop=stop_after_attempt(2),
@@ -291,7 +356,7 @@ class YouTubeTranscriber:
                 raise DownloadError(msg)
 
             try:
-                return vtt_to_text(sorted(vtt_files)[0])
+                return self._vtt_to_text(sorted(vtt_files)[0])
             except Exception as e:
                 msg = "Failed to read downloaded VTT file"
                 raise DownloadError(msg) from e
@@ -316,7 +381,7 @@ class YouTubeTranscriber:
             FetchTranscriptError: If both backends fail.
 
         """
-        video_id = extract_youtube_video_id(url)
+        video_id = self._extract_video_id(url)
         if video_id is None:
             msg = "Unknown URL"
             raise ValueError(msg)
