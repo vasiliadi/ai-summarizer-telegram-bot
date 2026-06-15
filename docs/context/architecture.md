@@ -11,7 +11,7 @@ line-by-line, dependencies, or env vars — read the source for that.
 - *Why* the core infra was chosen (sync polling, Valkey, Gemini+Replicate,
   Postgres+Valkey split, Modal cron) → `docs/summaries/decision-10-architecture-rationale.md`
 - Per-feature decisions → `docs/summaries/decision-*.md`
-- External-service gotchas → memory files
+- External-service gotchas → `docs/summaries/decision-*.md` and source comments
 
 ---
 
@@ -91,14 +91,19 @@ to Gemini — return the raw model text with **no** prefix.
 
 - **OOP + singleton + alias.** Each service module defines a (mostly stateless)
   class, instantiates one module-level singleton, then exports module-level
-  aliases to its methods to preserve the original functional public API. Keep
-  this surface — importers and `mocker.patch("module.func")` calls depend on it.
-  (See the "keep OOP" memory; the unwind was cancelled.)
+  aliases to its methods so the original functional public API (`module.func`)
+  still works — importers and `mocker.patch("module.func")` calls depend on
+  those aliases today. OOP is the intended direction: a proposal to *unwind* it
+  — remove the classes and revert to plain module-level functions — was reviewed
+  and rejected, so don't go back that way. A future refactor toward stricter OOP
+  is welcome; note the alias layer is a backward-compatibility shim, not an OOP
+  goal, so such a refactor may drop it, but must migrate importers and the
+  `mocker.patch("module.func")` test calls in the same change.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
   unit. A global per-minute limit throttles by sleeping. Counters live in Valkey;
   user data lives in Postgres. Gemini bills failed calls, so quota is counted
-  per attempt by design — not a double-charge bug (see memory).
+  per attempt by design — not a double-charge bug.
 - **Retries.** Network/model calls use `tenacity` `@retry`; persistent failure
   surfaces as `RetryError`, which `handle_message` maps to a user-facing
   "try again later" message. Other mapped errors: `LimitExceededError`,
