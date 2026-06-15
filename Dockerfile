@@ -19,6 +19,7 @@ RUN python scripts/db.py \
 FROM python:3.14-alpine
 ENV ENV=PROD \
     PYTHONUNBUFFERED=1 \
+    DENO_V8_FLAGS="--max-old-space-size=256" \
     PATH="/app/.venv/bin:$PATH"
 ENV SENTRY_ENVIRONMENT=${ENV}
 WORKDIR /app
