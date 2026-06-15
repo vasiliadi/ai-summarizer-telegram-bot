@@ -11,7 +11,7 @@ line-by-line, dependencies, or env vars — read the source for that.
 - *Why* the core infra was chosen (sync polling, Valkey, Gemini+Replicate,
   Postgres+Valkey split, Modal cron) → `docs/summaries/decision-10-architecture-rationale.md`
 - Per-feature decisions → `docs/summaries/decision-*.md`
-- External-service gotchas → "Cross-cutting patterns" below
+- External-service gotchas → `docs/summaries/decision-*.md` and source comments
 
 ---
 
@@ -108,9 +108,6 @@ to Gemini — return the raw model text with **no** prefix.
   surfaces as `RetryError`, which `handle_message` maps to a user-facing
   "try again later" message. Other mapped errors: `LimitExceededError`,
   `WebParseError`. All exceptions are sent to Sentry via `capture_exception`.
-- **Gemini API constraints.** The Interactions API rejects `safety_settings` —
-  the live API returns HTTP 400 even when the parameter is passed via
-  `extra_body`, so it is intentionally omitted. Do not re-add it.
 - **Temp-file hygiene.** Downloads/compression write UUID-named temp files in the
   CWD; `clean_up` removes them, guarded by a `PROTECTED_FILES` snapshot taken at
   startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest.
