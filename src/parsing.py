@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import ipaddress
 import logging
+import socket
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, cast
+from urllib.parse import urlsplit
 
+from curl_cffi import requests
 from tavily.errors import TimeoutError as TavilyTimeoutError
 from tenacity import (
     RetryError,
@@ -17,6 +21,7 @@ from tenacity import (
 from config import exa_client, tavily_client
 from domain import PrefixedText
 from exceptions import WebParseError
+from utils import get_proxy
 
 if TYPE_CHECKING:
     from exa_py import Exa
@@ -120,19 +125,93 @@ class TavilyBackend(ParserBackend):
         return content
 
 
-class WebParser:
-    """Orchestrates URL parsing with a primary→fallback backend strategy."""
+class UrlResolver:
+    """Resolves a URL to its final post-redirect destination, guarding against SSRF."""
 
-    def __init__(self, primary: ParserBackend, fallback: ParserBackend) -> None:
-        """Store the primary and fallback backends."""
+    def __init__(self, timeout: int = 10) -> None:
+        """Store the per-request timeout in seconds."""
+        self._timeout = timeout
+
+    def resolve(self, url: str) -> str:
+        """Return the final URL after following redirects; the original on failure.
+
+        Best-effort pre-check: issues a streamed GET (browser-impersonated,
+        routed through the proxy pool, body never read) and follows 301/302
+        redirects so the parser receives the real destination. Any failure
+        (timeout, network error) is logged and the original URL is returned
+        unchanged. Non-public hosts (private, loopback, link-local) are
+        rejected before the request and after redirect to prevent SSRF.
+        """
+        if not self._is_public(url):
+            logger.warning("Blocked non-public URL: %s", url)
+            return url
+        try:
+            response = requests.get(
+                url,
+                stream=True,
+                allow_redirects=True,
+                impersonate="chrome",
+                verify=True,
+                timeout=self._timeout,
+                proxy=get_proxy() or None,
+            )
+            try:
+                resolved = response.url or url
+            finally:
+                response.close()
+        except Exception:  # best-effort: never let resolution break parsing
+            logger.warning("Could not resolve redirects for %s", url, exc_info=True)
+            return url
+        if not self._is_public(resolved):
+            logger.warning(
+                "Blocked redirect to non-public host: %s -> %s",
+                url,
+                resolved,
+            )
+            return url
+        if resolved != url:
+            logger.info("Resolved %s -> %s", url, resolved)
+        return resolved
+
+    @staticmethod
+    def _is_public(url: str) -> bool:
+        """Return True only if every resolved IP for the hostname is globally routable.
+
+        Rejects localhost, private RFC1918 ranges, link-local (169.254.x.x / ::1),
+        and any other non-global address to block SSRF.
+        """
+        hostname = (urlsplit(url).hostname or "").rstrip(".")
+        if not hostname:
+            return False
+        try:
+            results = socket.getaddrinfo(hostname, None)
+        except OSError, UnicodeError:
+            # UnicodeError: getaddrinfo rejects invalid/over-long IDNA labels.
+            return False
+        return bool(results) and all(
+            ipaddress.ip_address(addr[4][0]).is_global for addr in results
+        )
+
+
+class WebParser:
+    """Orchestrate redirect resolution, then primary→fallback content extraction."""
+
+    def __init__(
+        self,
+        primary: ParserBackend,
+        fallback: ParserBackend,
+        resolver: UrlResolver,
+    ) -> None:
+        """Store the primary/fallback backends and the URL resolver."""
         self._primary = primary
         self._fallback = fallback
+        self._resolver = resolver
 
     def parse(self, url: str) -> PrefixedText:
-        """Extract main textual content from a URL.
+        """Resolve redirects, then extract main textual content from the URL.
 
-        Parses with the primary backend first, falls back to the secondary on
-        failure.
+        Resolves the final destination (best-effort, SSRF-guarded), parses with
+        the primary backend first, and falls back to the secondary on failure.
 
         Returns:
             PrefixedText: The extracted content and source display prefix.
@@ -143,6 +222,7 @@ class WebParser:
                 without attempting the fallback.
 
         """
+        url = self._resolver.resolve(url)
         try:
             return PrefixedText(
                 text=self._primary.parse(url),
@@ -170,7 +250,11 @@ class WebParser:
                 raise WebParseError(msg) from fallback_error
 
 
-web_parser = WebParser(ExaBackend(exa_client), TavilyBackend(tavily_client))
+web_parser = WebParser(
+    ExaBackend(exa_client),
+    TavilyBackend(tavily_client),
+    UrlResolver(),
+)
 
 
 def parse_url(url: str) -> PrefixedText:
