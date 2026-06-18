@@ -210,14 +210,83 @@ def test_parse_url_propagates_non_retryable_exa_error(mocker):
     mock_tavily.extract.assert_not_called()
 
 
-def test_parse_url_delegates_to_web_parser(mocker):
-    """parse_url routes to the module-level web_parser singleton."""
+def test_parse_url_resolves_then_delegates_to_web_parser(mocker):
+    """parse_url resolves redirects, then routes the final URL to web_parser."""
     from domain import PrefixedText
 
+    mocker.patch.object(
+        parsing.WebParser,
+        "resolve_url",
+        return_value="https://example.com/final",
+    )
     mock_result = PrefixedText(text="hello", prefix="🌐")
     mock_parse = mocker.patch.object(parsing.web_parser, "parse", return_value=mock_result)
 
-    result = parse_url("https://example.com")
+    result = parse_url("https://example.com/start")
 
     assert result is mock_result
-    mock_parse.assert_called_once_with("https://example.com")
+    mock_parse.assert_called_once_with("https://example.com/final")
+
+
+# ---------------------------------------------------------------------------
+# WebParser.resolve_url tests
+# ---------------------------------------------------------------------------
+
+def test_resolve_url_returns_final_url_after_redirect(mocker):
+    """resolve_url returns the redirected URL and closes the response."""
+    mocker.patch("parsing.get_proxy", return_value="")
+    mock_resp = mocker.Mock(url="https://example.com/final")
+    mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
+
+    result = WebParser.resolve_url("https://example.com/start")
+
+    assert result == "https://example.com/final"
+    mock_resp.close.assert_called_once_with()
+    assert mock_get.call_args.args == ("https://example.com/start",)
+    assert mock_get.call_args.kwargs["allow_redirects"] is True
+    assert mock_get.call_args.kwargs["stream"] is True
+
+
+def test_resolve_url_returns_original_when_no_redirect(mocker):
+    """resolve_url returns the input unchanged when there is no redirect."""
+    mocker.patch("parsing.get_proxy", return_value="")
+    mock_resp = mocker.Mock(url="https://example.com/article")
+    mocker.patch("parsing.requests.get", return_value=mock_resp)
+
+    result = WebParser.resolve_url("https://example.com/article")
+
+    assert result == "https://example.com/article"
+
+
+def test_resolve_url_falls_back_to_original_on_error(mocker, caplog):
+    """resolve_url returns the original URL when the request raises."""
+    mocker.patch("parsing.get_proxy", return_value="")
+    mocker.patch("parsing.requests.get", side_effect=RuntimeError("boom"))
+
+    with caplog.at_level(logging.WARNING, logger="parsing"):
+        result = WebParser.resolve_url("https://example.com/article")
+
+    assert result == "https://example.com/article"
+    assert "Could not resolve redirects" in caplog.text
+
+
+def test_resolve_url_passes_proxy_when_configured(mocker):
+    """resolve_url forwards a configured proxy to requests.get."""
+    mocker.patch("parsing.get_proxy", return_value="https://user:pass@proxy.com:1234")
+    mock_resp = mocker.Mock(url="https://example.com/article")
+    mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
+
+    WebParser.resolve_url("https://example.com/article")
+
+    assert mock_get.call_args.kwargs["proxy"] == "https://user:pass@proxy.com:1234"
+
+
+def test_resolve_url_omits_proxy_when_none_configured(mocker):
+    """resolve_url passes proxy=None when no proxy is set."""
+    mocker.patch("parsing.get_proxy", return_value="")
+    mock_resp = mocker.Mock(url="https://example.com/article")
+    mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
+
+    WebParser.resolve_url("https://example.com/article")
+
+    assert mock_get.call_args.kwargs["proxy"] is None

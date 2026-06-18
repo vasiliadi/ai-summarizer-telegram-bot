@@ -4,6 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, cast
 
+from curl_cffi import requests
 from tavily.errors import TimeoutError as TavilyTimeoutError
 from tenacity import (
     RetryError,
@@ -17,6 +18,7 @@ from tenacity import (
 from config import exa_client, tavily_client
 from domain import PrefixedText
 from exceptions import WebParseError
+from utils import get_proxy
 
 if TYPE_CHECKING:
     from exa_py import Exa
@@ -128,6 +130,37 @@ class WebParser:
         self._primary = primary
         self._fallback = fallback
 
+    @staticmethod
+    def resolve_url(url: str, timeout: int = 10) -> str:
+        """Return the final URL after following redirects; the original on failure.
+
+        Best-effort pre-check: issues a streamed GET (browser-impersonated,
+        routed through the proxy pool, body never read) and follows 301/302
+        redirects so the parser receives the real destination. Any failure
+        (timeout, network error) is logged and the original URL is returned
+        unchanged.
+        """
+        try:
+            response = requests.get(
+                url,
+                stream=True,
+                allow_redirects=True,
+                impersonate="chrome",
+                verify=True,
+                timeout=timeout,
+                proxy=get_proxy() or None,
+            )
+            try:
+                resolved = response.url or url
+            finally:
+                response.close()
+        except Exception:  # best-effort: never let resolution break parsing
+            logger.warning("Could not resolve redirects for %s", url, exc_info=True)
+            return url
+        if resolved != url:
+            logger.info("Resolved %s -> %s", url, resolved)
+        return resolved
+
     def parse(self, url: str) -> PrefixedText:
         """Extract main textual content from a URL.
 
@@ -174,5 +207,5 @@ web_parser = WebParser(ExaBackend(exa_client), TavilyBackend(tavily_client))
 
 
 def parse_url(url: str) -> PrefixedText:
-    """Extract main textual content from a URL via the default WebParser."""
-    return web_parser.parse(url)
+    """Resolve redirects, then extract content via the default WebParser."""
+    return web_parser.parse(WebParser.resolve_url(url))
