@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(python3 -c \"import sys,json;print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))\" 2>/dev/null); [ -z \"$file\" ] && exit 0; root=$(git -C \"$(dirname \"$file\")\" rev-parse --show-toplevel 2>/dev/null) || exit 0; branch=$(git -C \"$root\" branch --show-current 2>/dev/null); if [ \"$branch\" = \"main\" ]; then echo 'Blocked: editing a repo file on the protected main branch. Create a feature branch first (git checkout -b <scope>-<short-desc>), then retry.' >&2; exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
