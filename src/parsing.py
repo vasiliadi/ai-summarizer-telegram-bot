@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import ipaddress
 import logging
+import socket
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, cast
+from urllib.parse import urlsplit
 
 from curl_cffi import requests
 from tavily.errors import TimeoutError as TavilyTimeoutError
@@ -27,6 +30,24 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
+
+
+def _is_public_url(url: str) -> bool:
+    """Return True only if every resolved IP for the URL hostname is globally routable.
+
+    Rejects localhost, private RFC1918 ranges, link-local (169.254.x.x / ::1),
+    and any other non-global address to block SSRF.
+    """
+    hostname = (urlsplit(url).hostname or "").rstrip(".")
+    if not hostname:
+        return False
+    try:
+        results = socket.getaddrinfo(hostname, None)
+    except OSError:
+        return False
+    return bool(results) and all(
+        ipaddress.ip_address(addr[4][0]).is_global for addr in results
+    )
 
 
 class ParserBackend(ABC):
@@ -138,8 +159,12 @@ class WebParser:
         routed through the proxy pool, body never read) and follows 301/302
         redirects so the parser receives the real destination. Any failure
         (timeout, network error) is logged and the original URL is returned
-        unchanged.
+        unchanged. Non-public hosts (private, loopback, link-local) are
+        rejected before the request and after redirect to prevent SSRF.
         """
+        if not _is_public_url(url):
+            logger.warning("Blocked non-public URL: %s", url)
+            return url
         try:
             response = requests.get(
                 url,
@@ -156,6 +181,13 @@ class WebParser:
                 response.close()
         except Exception:  # best-effort: never let resolution break parsing
             logger.warning("Could not resolve redirects for %s", url, exc_info=True)
+            return url
+        if not _is_public_url(resolved):
+            logger.warning(
+                "Blocked redirect to non-public host: %s -> %s",
+                url,
+                resolved,
+            )
             return url
         if resolved != url:
             logger.info("Resolved %s -> %s", url, resolved)

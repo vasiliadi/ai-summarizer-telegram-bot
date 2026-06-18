@@ -229,11 +229,89 @@ def test_parse_url_resolves_then_delegates_to_web_parser(mocker):
 
 
 # ---------------------------------------------------------------------------
+# _is_public_url tests
+# ---------------------------------------------------------------------------
+
+def test_is_public_url_returns_false_for_missing_hostname():
+    """_is_public_url returns False when the URL has no hostname."""
+    from parsing import _is_public_url
+
+    assert _is_public_url("https:///path") is False
+
+
+def test_is_public_url_returns_true_for_public_ip(mocker):
+    """_is_public_url returns True when the hostname resolves to a public IP."""
+    from parsing import _is_public_url
+
+    mocker.patch(
+        "parsing.socket.getaddrinfo",
+        return_value=[(None, None, None, None, ("93.184.216.34", 0))],
+    )
+    assert _is_public_url("https://example.com/article") is True
+
+
+def test_is_public_url_returns_false_for_private_ip(mocker):
+    """_is_public_url returns False when the hostname resolves to a private IP."""
+    from parsing import _is_public_url
+
+    mocker.patch(
+        "parsing.socket.getaddrinfo",
+        return_value=[(None, None, None, None, ("192.168.1.1", 0))],
+    )
+    assert _is_public_url("https://internal.example.com/") is False
+
+
+def test_is_public_url_returns_false_for_loopback(mocker):
+    """_is_public_url returns False for localhost."""
+    from parsing import _is_public_url
+
+    mocker.patch(
+        "parsing.socket.getaddrinfo",
+        return_value=[(None, None, None, None, ("127.0.0.1", 0))],
+    )
+    assert _is_public_url("http://localhost/admin") is False
+
+
+def test_is_public_url_returns_false_for_link_local(mocker):
+    """_is_public_url returns False for cloud metadata endpoint."""
+    from parsing import _is_public_url
+
+    mocker.patch(
+        "parsing.socket.getaddrinfo",
+        return_value=[(None, None, None, None, ("169.254.169.254", 0))],
+    )
+    assert _is_public_url("http://169.254.169.254/latest/meta-data/") is False
+
+
+def test_is_public_url_returns_false_when_dns_fails(mocker):
+    """_is_public_url returns False when DNS resolution raises OSError."""
+    from parsing import _is_public_url
+
+    mocker.patch("parsing.socket.getaddrinfo", side_effect=OSError("NXDOMAIN"))
+    assert _is_public_url("https://nonexistent.invalid/") is False
+
+
+def test_is_public_url_returns_false_when_any_addr_is_private(mocker):
+    """_is_public_url returns False if any resolved address is private (dual-stack)."""
+    from parsing import _is_public_url
+
+    mocker.patch(
+        "parsing.socket.getaddrinfo",
+        return_value=[
+            (None, None, None, None, ("93.184.216.34", 0)),
+            (None, None, None, None, ("10.0.0.1", 0)),
+        ],
+    )
+    assert _is_public_url("https://example.com/") is False
+
+
+# ---------------------------------------------------------------------------
 # WebParser.resolve_url tests
 # ---------------------------------------------------------------------------
 
 def test_resolve_url_returns_final_url_after_redirect(mocker):
     """resolve_url returns the redirected URL and closes the response."""
+    mocker.patch("parsing._is_public_url", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/final")
     mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
@@ -249,6 +327,7 @@ def test_resolve_url_returns_final_url_after_redirect(mocker):
 
 def test_resolve_url_returns_original_when_no_redirect(mocker):
     """resolve_url returns the input unchanged when there is no redirect."""
+    mocker.patch("parsing._is_public_url", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/article")
     mocker.patch("parsing.requests.get", return_value=mock_resp)
@@ -260,6 +339,7 @@ def test_resolve_url_returns_original_when_no_redirect(mocker):
 
 def test_resolve_url_falls_back_to_original_on_error(mocker, caplog):
     """resolve_url returns the original URL when the request raises."""
+    mocker.patch("parsing._is_public_url", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mocker.patch("parsing.requests.get", side_effect=RuntimeError("boom"))
 
@@ -272,6 +352,7 @@ def test_resolve_url_falls_back_to_original_on_error(mocker, caplog):
 
 def test_resolve_url_passes_proxy_when_configured(mocker):
     """resolve_url forwards a configured proxy to requests.get."""
+    mocker.patch("parsing._is_public_url", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="https://user:pass@proxy.com:1234")
     mock_resp = mocker.Mock(url="https://example.com/article")
     mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
@@ -283,6 +364,7 @@ def test_resolve_url_passes_proxy_when_configured(mocker):
 
 def test_resolve_url_omits_proxy_when_none_configured(mocker):
     """resolve_url passes proxy=None when no proxy is set."""
+    mocker.patch("parsing._is_public_url", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/article")
     mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
@@ -290,3 +372,33 @@ def test_resolve_url_omits_proxy_when_none_configured(mocker):
     WebParser.resolve_url("https://example.com/article")
 
     assert mock_get.call_args.kwargs["proxy"] is None
+
+
+def test_resolve_url_blocks_non_public_initial_url(mocker, caplog):
+    """resolve_url returns the original URL without fetching for a private host."""
+    mocker.patch("parsing._is_public_url", side_effect=lambda u: u != "http://192.168.1.1/")
+    mock_get = mocker.patch("parsing.requests.get")
+
+    with caplog.at_level(logging.WARNING, logger="parsing"):
+        result = WebParser.resolve_url("http://192.168.1.1/")
+
+    assert result == "http://192.168.1.1/"
+    mock_get.assert_not_called()
+    assert "Blocked non-public URL" in caplog.text
+
+
+def test_resolve_url_blocks_redirect_to_private_host(mocker, caplog):
+    """resolve_url returns the original URL when a redirect lands on a private host."""
+    mocker.patch(
+        "parsing._is_public_url",
+        side_effect=lambda u: "example.com" in u,
+    )
+    mocker.patch("parsing.get_proxy", return_value="")
+    mock_resp = mocker.Mock(url="http://169.254.169.254/latest/meta-data/")
+    mocker.patch("parsing.requests.get", return_value=mock_resp)
+
+    with caplog.at_level(logging.WARNING, logger="parsing"):
+        result = WebParser.resolve_url("https://example.com/start")
+
+    assert result == "https://example.com/start"
+    assert "Blocked redirect to non-public host" in caplog.text
