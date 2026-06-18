@@ -301,6 +301,15 @@ def test_is_public_returns_false_when_dns_fails(mocker):
     assert UrlResolver._is_public("https://nonexistent.invalid/") is False
 
 
+def test_is_public_returns_false_on_invalid_idna_hostname(mocker):
+    """_is_public returns False when getaddrinfo raises UnicodeError (bad IDNA label)."""
+    mocker.patch(
+        "parsing.socket.getaddrinfo",
+        side_effect=UnicodeError("label empty or too long"),
+    )
+    assert UrlResolver._is_public("http://" + "a" * 64 + ".com/") is False
+
+
 def test_is_public_returns_false_when_any_addr_is_private(mocker):
     """_is_public returns False if any resolved address is private (dual-stack)."""
     mocker.patch(

@@ -185,7 +185,8 @@ class UrlResolver:
             return False
         try:
             results = socket.getaddrinfo(hostname, None)
-        except OSError:
+        except OSError, UnicodeError:
+            # UnicodeError: getaddrinfo rejects invalid/over-long IDNA labels.
             return False
         return bool(results) and all(
             ipaddress.ip_address(addr[4][0]).is_global for addr in results
