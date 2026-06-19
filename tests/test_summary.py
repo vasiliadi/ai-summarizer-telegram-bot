@@ -373,43 +373,20 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
     mock_transcribe.assert_not_called()
 
 
-def test_summarize_youtube_transcript_failure_falls_back_to_download(mocker):
+@pytest.mark.parametrize(
+    "transcript_error",
+    [
+        FetchTranscriptError("transcript failed"),
+        ValueError("no transcript"),
+    ],
+)
+def test_summarize_youtube_transcript_failure_falls_back_to_download(
+    mocker, transcript_error
+):
     """Test summarize() falls back to downloading YouTube audio when transcript fetch fails."""
     url = "https://youtube.com/watch?v=123"
     mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch(
-        "summary.get_yt_transcript",
-        side_effect=FetchTranscriptError("transcript failed"),
-    )
-    mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
-    mocker.patch.object(summary_module.summarizer, "summarize_with_file", return_value="File summary")
-    mock_clean_up = mocker.patch("summary.clean_up")
-    mock_logger = mocker.patch("summary.logger")
-
-    result = summarize(
-        data=url,
-        model="test-model",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="MINIMAL",
-    )
-
-    assert result == "File summary"
-    mock_download.assert_called_once_with(url)
-    mock_clean_up.assert_called_once_with(file="downloaded.ogg")
-    mock_logger.warning.assert_called_once_with(
-        "get_yt_transcript failed, falling back to download: %s",
-        mocker.ANY,
-    )
-
-
-def test_summarize_youtube_transcript_value_error_falls_back_to_download(mocker):
-    """Test summarize() falls back to downloading YouTube audio when get_yt_transcript raises ValueError."""
-    url = "https://youtube.com/watch?v=123"
-    mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch("summary.get_yt_transcript", side_effect=ValueError("no transcript"))
+    mocker.patch("summary.get_yt_transcript", side_effect=transcript_error)
     mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
     mocker.patch.object(summary_module.summarizer, "summarize_with_file", return_value="File summary")
     mock_clean_up = mocker.patch("summary.clean_up")

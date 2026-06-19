@@ -1,3 +1,5 @@
+import pytest
+
 from main import (
     handle_info,
     handle_myinfo,
@@ -113,15 +115,26 @@ def test_handle_myinfo_missing_user(message_factory, mocker):
     mock_reply.assert_called_once_with(msg, "User information is missing.")
 
 
-def test_handle_set_target_language(message_factory, mocker):
-    """Test /set_target_language shows keyboard."""
+@pytest.mark.parametrize(
+    ("handler", "expected_text"),
+    [
+        (handle_set_target_language, "Select target language"),
+        (handle_set_summarizing_model, "Select summarizing model"),
+        (handle_set_prompt_strategy, "Select summarization strategy"),
+        (handle_set_thinking_level, "Select thinking level"),
+    ],
+)
+def test_handle_set_setting_shows_keyboard(
+    message_factory, mocker, handler, expected_text
+):
+    """Test each /set_* command shows its selection keyboard."""
     msg = message_factory(content_type="text")
     mock_send = mocker.patch("main.bot.send_message")
     mock_register = mocker.patch("main.bot.register_next_step_handler")
 
-    handle_set_target_language(msg)
+    handler(msg)
 
-    assert "Select target language" in mock_send.call_args[0][1]
+    assert expected_text in mock_send.call_args[0][1]
     assert mock_register.called
 
 
@@ -136,42 +149,6 @@ def test_proceed_set_target_language_success(message_factory, mocker):
     assert "The target language is set to Russian" in mock_send.call_args[0][1]
 
 
-def test_proceed_set_target_language_missing_input(message_factory, mocker):
-    """Test target language selection fails fast when user or text is missing."""
-    msg = message_factory(content_type="text", text="Russian")
-    msg.text = None
-    mock_reply = mocker.patch("main.bot.reply_to")
-    mock_set_language = mocker.patch("main.set_target_language")
-
-    proceed_set_target_language(msg)
-
-    mock_reply.assert_called_once_with(msg, "User information or language is missing.")
-    mock_set_language.assert_not_called()
-
-
-def test_proceed_set_target_language_invalid_choice(message_factory, mocker):
-    """Test invalid target language returns a clear user-facing message."""
-    msg = message_factory(content_type="text", text="Klingon")
-    mocker.patch("main.set_target_language", return_value=False)
-    mock_send = mocker.patch("main.bot.send_message")
-
-    proceed_set_target_language(msg)
-
-    mock_send.assert_called_once_with(msg.chat.id, "Unknown language")
-
-
-def test_handle_set_summarizing_model(message_factory, mocker):
-    """Test /set_summarizing_model shows keyboard."""
-    msg = message_factory(content_type="text")
-    mock_send = mocker.patch("main.bot.send_message")
-    mock_register = mocker.patch("main.bot.register_next_step_handler")
-
-    handle_set_summarizing_model(msg)
-
-    assert "Select summarizing model" in mock_send.call_args[0][1]
-    assert mock_register.called
-
-
 def test_proceed_set_summarizing_model_success(message_factory, mocker):
     """Test successful model selection."""
     msg = message_factory(content_type="text", text="Gemini 3.5 Flash")
@@ -182,54 +159,6 @@ def test_proceed_set_summarizing_model_success(message_factory, mocker):
 
     mock_set_model.assert_called_once_with(msg.from_user.id, "gemini-3.5-flash")
     assert "The summarizing model is set to Gemini 3.5 Flash" in mock_send.call_args[0][1]
-
-
-def test_proceed_set_summarizing_model_missing_input(message_factory, mocker):
-    """Test model selection fails fast when user or text is missing."""
-    msg = message_factory(content_type="text", text="gemini-3.5-flash")
-    msg.from_user = None
-    mock_reply = mocker.patch("main.bot.reply_to")
-    mock_set_model = mocker.patch("main.set_summarizing_model")
-
-    proceed_set_summarizing_model(msg)
-
-    mock_reply.assert_called_once_with(msg, "User information or model is missing.")
-    mock_set_model.assert_not_called()
-
-
-def test_proceed_set_summarizing_model_db_failure(message_factory, mocker):
-    """Test DB failure returns a clear user-facing message."""
-    msg = message_factory(content_type="text", text="Gemini 3.5 Flash")
-    mocker.patch("main.set_summarizing_model", return_value=False)
-    mock_send = mocker.patch("main.bot.send_message")
-
-    proceed_set_summarizing_model(msg)
-
-    mock_send.assert_called_once_with(msg.chat.id, "Failed to update summarizing model.")
-
-
-def test_proceed_set_summarizing_model_invalid_choice(message_factory, mocker):
-    """Test invalid label short-circuits before calling set_summarizing_model."""
-    msg = message_factory(content_type="text", text="Gemini 4 Pro")
-    mock_set_model = mocker.patch("main.set_summarizing_model")
-    mock_send = mocker.patch("main.bot.send_message")
-
-    proceed_set_summarizing_model(msg)
-
-    mock_send.assert_called_once_with(msg.chat.id, "Unknown model")
-    mock_set_model.assert_not_called()
-
-
-def test_handle_set_prompt_strategy(message_factory, mocker):
-    """Test /set_prompt_strategy shows keyboard."""
-    msg = message_factory(content_type="text")
-    mock_send = mocker.patch("main.bot.send_message")
-    mock_register = mocker.patch("main.bot.register_next_step_handler")
-
-    handle_set_prompt_strategy(msg)
-
-    assert "Select summarization strategy" in mock_send.call_args[0][1]
-    assert mock_register.called
 
 
 def test_proceed_set_prompt_strategy_success(message_factory, mocker):
@@ -244,54 +173,6 @@ def test_proceed_set_prompt_strategy_success(message_factory, mocker):
     assert "The prompt strategy is set to Detailed Summary" in mock_send.call_args[0][1]
 
 
-def test_proceed_set_prompt_strategy_persistence_failure(message_factory, mocker):
-    """Test that a DB failure from set_prompt_strategy sends an error, not success."""
-    msg = message_factory(content_type="text", text="Detailed Summary")
-    mocker.patch("main.set_prompt_strategy", return_value=False)
-    mock_send = mocker.patch("main.bot.send_message")
-
-    proceed_set_prompt_strategy(msg)
-
-    mock_send.assert_called_once_with(msg.chat.id, "Failed to update prompt strategy.")
-
-
-def test_proceed_set_prompt_strategy_missing_input(message_factory, mocker):
-    """Test prompt selection fails fast when user or text is missing."""
-    msg = message_factory(content_type="text", text="basic")
-    msg.text = None
-    mock_reply = mocker.patch("main.bot.reply_to")
-    mock_set_strategy = mocker.patch("main.set_prompt_strategy")
-
-    proceed_set_prompt_strategy(msg)
-
-    mock_reply.assert_called_once_with(msg, "User information or strategy is missing.")
-    mock_set_strategy.assert_not_called()
-
-
-def test_proceed_set_prompt_strategy_invalid_choice(message_factory, mocker):
-    """Test invalid prompt strategy returns a clear user-facing message."""
-    msg = message_factory(content_type="text", text="enterprise")
-    mock_set_strategy = mocker.patch("main.set_prompt_strategy")
-    mock_send = mocker.patch("main.bot.send_message")
-
-    proceed_set_prompt_strategy(msg)
-
-    mock_send.assert_called_once_with(msg.chat.id, "Unknown strategy")
-    mock_set_strategy.assert_not_called()
-
-
-def test_handle_set_thinking_level(message_factory, mocker):
-    """Test /set_thinking_level shows keyboard."""
-    msg = message_factory(content_type="text")
-    mock_send = mocker.patch("main.bot.send_message")
-    mock_register = mocker.patch("main.bot.register_next_step_handler")
-
-    handle_set_thinking_level(msg)
-
-    assert "Select thinking level" in mock_send.call_args[0][1]
-    assert mock_register.called
-
-
 def test_proceed_set_thinking_level_success(message_factory, mocker):
     """Test successful thinking level selection."""
     msg = message_factory(content_type="text", text="High")
@@ -304,40 +185,79 @@ def test_proceed_set_thinking_level_success(message_factory, mocker):
     assert "The thinking level is set to High" in mock_send.call_args[0][1]
 
 
-def test_proceed_set_thinking_level_missing_input(message_factory, mocker):
-    """Test thinking level selection fails fast when user or text is missing."""
-    msg = message_factory(content_type="text", text="High")
-    msg.text = None
+@pytest.mark.parametrize(
+    ("proceed", "setter_path", "null_attr", "error_msg"),
+    [
+        (proceed_set_target_language, "main.set_target_language", "text", "User information or language is missing."),
+        (proceed_set_summarizing_model, "main.set_summarizing_model", "from_user", "User information or model is missing."),
+        (proceed_set_prompt_strategy, "main.set_prompt_strategy", "text", "User information or strategy is missing."),
+        (proceed_set_thinking_level, "main.set_thinking_level", "text", "User information or level is missing."),
+    ],
+)
+def test_proceed_set_setting_missing_input(
+    message_factory, mocker, proceed, setter_path, null_attr, error_msg
+):
+    """Test each setting selection fails fast when user or text is missing."""
+    msg = message_factory(content_type="text", text="Anything")
+    setattr(msg, null_attr, None)
     mock_reply = mocker.patch("main.bot.reply_to")
-    mock_set = mocker.patch("main.set_thinking_level")
+    mock_setter = mocker.patch(setter_path)
 
-    proceed_set_thinking_level(msg)
+    proceed(msg)
 
-    mock_reply.assert_called_once_with(msg, "User information or level is missing.")
-    mock_set.assert_not_called()
+    mock_reply.assert_called_once_with(msg, error_msg)
+    mock_setter.assert_not_called()
 
 
-def test_proceed_set_thinking_level_invalid_choice(message_factory, mocker):
-    """Test invalid label short-circuits before calling set_thinking_level."""
-    msg = message_factory(content_type="text", text="Ludicrous")
-    mock_set = mocker.patch("main.set_thinking_level")
+@pytest.mark.parametrize(
+    ("proceed", "setter_path", "bad_text", "error_msg"),
+    [
+        (proceed_set_summarizing_model, "main.set_summarizing_model", "Gemini 4 Pro", "Unknown model"),
+        (proceed_set_prompt_strategy, "main.set_prompt_strategy", "enterprise", "Unknown strategy"),
+        (proceed_set_thinking_level, "main.set_thinking_level", "Ludicrous", "Unknown level"),
+    ],
+)
+def test_proceed_set_setting_invalid_choice(
+    message_factory, mocker, proceed, setter_path, bad_text, error_msg
+):
+    """Test an invalid label short-circuits before calling the setter."""
+    msg = message_factory(content_type="text", text=bad_text)
+    mock_setter = mocker.patch(setter_path)
     mock_send = mocker.patch("main.bot.send_message")
 
-    proceed_set_thinking_level(msg)
+    proceed(msg)
 
-    mock_send.assert_called_once_with(msg.chat.id, "Unknown level")
-    mock_set.assert_not_called()
+    mock_send.assert_called_once_with(msg.chat.id, error_msg)
+    mock_setter.assert_not_called()
 
 
-def test_proceed_set_thinking_level_db_failure(message_factory, mocker):
-    """Test DB failure returns a clear user-facing message."""
-    msg = message_factory(content_type="text", text="High")
-    mocker.patch("main.set_thinking_level", return_value=False)
+def test_proceed_set_target_language_invalid_choice(message_factory, mocker):
+    """Test an unknown language is rejected via the setter returning False."""
+    msg = message_factory(content_type="text", text="Klingon")
+    mocker.patch("main.set_target_language", return_value=False)
     mock_send = mocker.patch("main.bot.send_message")
 
-    proceed_set_thinking_level(msg)
+    proceed_set_target_language(msg)
 
-    mock_send.assert_called_once_with(
-        msg.chat.id,
-        "Failed to update thinking level.",
-    )
+    mock_send.assert_called_once_with(msg.chat.id, "Unknown language")
+
+
+@pytest.mark.parametrize(
+    ("proceed", "setter_path", "valid_text", "error_msg"),
+    [
+        (proceed_set_summarizing_model, "main.set_summarizing_model", "Gemini 3.5 Flash", "Failed to update summarizing model."),
+        (proceed_set_prompt_strategy, "main.set_prompt_strategy", "Detailed Summary", "Failed to update prompt strategy."),
+        (proceed_set_thinking_level, "main.set_thinking_level", "High", "Failed to update thinking level."),
+    ],
+)
+def test_proceed_set_setting_db_failure(
+    message_factory, mocker, proceed, setter_path, valid_text, error_msg
+):
+    """Test a DB failure returns a clear user-facing message, not success."""
+    msg = message_factory(content_type="text", text=valid_text)
+    mocker.patch(setter_path, return_value=False)
+    mock_send = mocker.patch("main.bot.send_message")
+
+    proceed(msg)
+
+    mock_send.assert_called_once_with(msg.chat.id, error_msg)
