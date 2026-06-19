@@ -8,6 +8,8 @@ For a quick orientation to the codebase (component map and data flow), read `doc
 
 Before starting work, state: what you understand the project state to be, what you plan to do this session, and any open questions.
 
+Before your first file edit, ensure you are not on `main`. If you are, create a feature branch (`git checkout -b <scope>-<short-desc>`, matching the commit scope convention in `docs/context/git-guide.md`). A `PreToolUse` hook backs this up by blocking edits to repo files while on `main`.
+
 ## Rules
 
 1. Do not mix unrelated project contexts in one session.
