@@ -131,6 +131,66 @@ def test_download_yt_extract_info_returns_none(mocker):
         download_yt("https://youtube.com/watch?v=123")
 
 
+def test_download_yt_removes_partials_on_download_error(mocker):
+    """Test download_yt deletes yt-dlp partial files when the download fails."""
+    from tenacity import RetryError
+    from yt_dlp.utils import DownloadError
+
+    mock_ydl = mocker.patch("download.YoutubeDL")
+    mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
+    mocker.patch("time.sleep")  # suppress tenacity wait between retries
+
+    info_ydl = mocker.MagicMock()
+    info_ydl.extract_info.return_value = {
+        "formats": [
+            {"format_id": "139", "acodec": "mp4a.40.5", "vcodec": "none", "abr": 49, "tbr": 49},
+        ],
+    }
+    download_ydl = mocker.MagicMock()
+    download_ydl.download.side_effect = DownloadError("boom")
+    # extract_info + download contexts alternate across the two retry attempts.
+    mock_ydl.side_effect = [
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
+    ]
+
+    partial = mocker.MagicMock(spec=Path)
+    mock_cwd = mocker.patch("download.Path.cwd")
+    mock_cwd.return_value.glob.return_value = [partial]
+
+    with pytest.raises(RetryError):
+        download_yt("https://youtube.com/watch?v=123")
+
+    mock_cwd.return_value.glob.assert_called_with("temp_yt*")
+    partial.unlink.assert_called_with(missing_ok=True)
+
+
+def test_download_yt_keeps_file_on_success(mocker):
+    """Test download_yt does not run partial cleanup on the happy path."""
+    mock_ydl = mocker.patch("download.YoutubeDL")
+    mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
+
+    info_ydl = mocker.MagicMock()
+    info_ydl.extract_info.return_value = {
+        "formats": [
+            {"format_id": "139", "acodec": "mp4a.40.5", "vcodec": "none", "abr": 49, "tbr": 49},
+        ],
+    }
+    download_ydl = mocker.MagicMock()
+    mock_ydl.side_effect = [
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
+    ]
+    mock_cwd = mocker.patch("download.Path.cwd")
+
+    result = download_yt("https://youtube.com/watch?v=123")
+
+    assert result == "temp_yt.mp3"
+    mock_cwd.return_value.glob.assert_not_called()
+
+
 def test_choose_yt_audio_format_falls_back_when_no_audio_only_formats():
     """Test selector fallback when yt-dlp has no audio-only format ids."""
     info = {
@@ -285,6 +345,29 @@ def test_download_tg_http_error(mocker):
         download_tg(mock_file, ext=".ext")
 
     mock_logger.exception.assert_called_once_with("%s: status code", 403)
+
+
+def test_stream_to_file_removes_partial_on_failure(mocker):
+    """Test _stream_to_file deletes the partial dest file when the write fails."""
+    mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")
+    mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
+
+    mock_file = mocker.MagicMock()
+    mock_file.file_path = "path/to/file"
+
+    mock_resp = mocker.MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.iter_content.side_effect = OSError("connection reset")
+    mocker.patch("download.requests.get", return_value=mock_resp)
+
+    mocker.patch("pathlib.Path.open", mocker.mock_open())
+    mock_unlink = mocker.patch("pathlib.Path.unlink")
+
+    with pytest.raises(OSError, match="connection reset"):
+        download_tg(mock_file, ext=".ext")
+
+    mock_unlink.assert_called_once_with(missing_ok=True)
+    mock_resp.close.assert_called_once()
 
 
 def test_classify_url_uppercase_youtube_host(mocker):

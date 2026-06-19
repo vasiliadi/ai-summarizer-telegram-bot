@@ -84,10 +84,14 @@ class Downloader:
             except HTTPError:
                 logger.exception("%s: status code", r.status_code)
                 raise
-            with Path(dest).open("wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
+            try:
+                with Path(dest).open("wb") as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+            except Exception:
+                Path(dest).unlink(missing_ok=True)
+                raise
         finally:
             r.close()
 
@@ -112,6 +116,7 @@ class Downloader:
 
         """
         temporary_file_name = generate_temporary_name(ext=".mp3")
+        output_stem = temporary_file_name.split(".", maxsplit=1)[0]
         proxy = get_proxy()
         with YoutubeDL({"proxy": proxy, "nocheckcertificate": False}) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -121,7 +126,7 @@ class Downloader:
         audio_format = self._choose_yt_audio_format(cast("dict[str, Any]", info))
         ydl_opts = {
             "format": audio_format,
-            "outtmpl": temporary_file_name.split(".", maxsplit=1)[0],
+            "outtmpl": output_stem,
             "nocheckcertificate": False,
             "proxy": proxy,
             "postprocessors": [
@@ -132,7 +137,15 @@ class Downloader:
             ],
         }
         with YoutubeDL(ydl_opts) as ydl:
-            ydl.download(url)
+            try:
+                ydl.download(url)
+            except DownloadError:
+                # yt-dlp leaves partial fragment files (named after output_stem,
+                # with no extension) on disk when a download or post-processing
+                # step fails. Remove them so failed attempts don't accumulate.
+                for leftover in Path.cwd().glob(f"{output_stem}*"):
+                    leftover.unlink(missing_ok=True)
+                raise
         return temporary_file_name
 
     @retry(
