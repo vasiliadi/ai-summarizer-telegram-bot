@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from telebot import TeleBot, types
+from telebot import types
 
 # Ensure `src` is in the PYTHONPATH so we can import modules like config, database, etc.
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -25,12 +25,6 @@ import sentry_sdk
 
 # Disable Sentry in tests to avoid connection errors
 sentry_sdk.init = lambda *args, **kwargs: None
-
-
-@pytest.fixture
-def mock_bot(mocker):
-    """Fixture to provide a mocked TeleBot instance."""
-    return mocker.MagicMock(spec=TeleBot)
 
 
 @pytest.fixture

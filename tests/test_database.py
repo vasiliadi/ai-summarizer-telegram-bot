@@ -77,111 +77,51 @@ def test_check_auth_unknown_user(mock_db_session):
     mock_db_session.get.assert_called_once_with(UsersOrm, 999)
 
 
-def test_set_target_language_persists(monkeypatch, sqlite_session_factory):
-    """Test setting target language persists to a real SQLite database."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-    register_user(123, "First", "Last", "user")
-
-    result = set_target_language(123, "English")
-
-    assert result is True
-    with sqlite_session_factory() as session:
-        user = session.get(UsersOrm, 123)
-        assert user is not None
-        assert user.target_language == "English"
-
-
-def test_set_target_language_rejects_unsupported(monkeypatch, sqlite_session_factory):
-    """Test set_target_language returns False for unsupported languages."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-    register_user(123, "First", "Last", "user")
-
-    assert set_target_language(123, "Klingon") is False
-
-
-def test_set_target_language_returns_false_for_missing_user(
-    monkeypatch, sqlite_session_factory
+@pytest.mark.parametrize(
+    ("setter", "value", "orm_attr", "stored_value"),
+    [
+        (set_target_language, "English", "target_language", "English"),
+        (set_summarizing_model, "gemini-3.5-flash", "summarizing_model", "gemini-3.5-flash"),
+        (set_prompt_strategy, "basic_prompt_for_transcript", "prompt_key_for_summary", "basic_prompt_for_transcript"),
+        (set_thinking_level, "high", "thinking_level", "HIGH"),
+    ],
+)
+def test_set_setting_persists(
+    monkeypatch, sqlite_session_factory, setter, value, orm_attr, stored_value
 ):
-    """Test set_target_language returns False when the user does not exist."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-
-    assert set_target_language(123, "English") is False
-
-
-def test_set_summarizing_model_persists(monkeypatch, sqlite_session_factory):
-    """Test setting summarizing model persists to a real SQLite database."""
+    """Test each setting setter persists to a real SQLite database."""
     monkeypatch.setattr("database.Session", sqlite_session_factory)
     register_user(123, "First", "Last", "user")
 
-    result = set_summarizing_model(123, "gemini-3.5-flash")
+    result = setter(123, value)
 
     assert result is True
     with sqlite_session_factory() as session:
         user = session.get(UsersOrm, 123)
         assert user is not None
-        assert user.summarizing_model == "gemini-3.5-flash"
+        assert getattr(user, orm_attr) == stored_value
 
 
-def test_set_summarizing_model_rejects_unknown(monkeypatch, sqlite_session_factory):
-    """Test set_summarizing_model returns False for unsupported models."""
+@pytest.mark.parametrize(
+    ("setter", "bad_value"),
+    [
+        (set_target_language, "Klingon"),
+        (set_summarizing_model, "gpt-4"),
+        (set_prompt_strategy, "bogus"),
+    ],
+)
+def test_set_setting_rejects_unsupported(
+    monkeypatch, sqlite_session_factory, setter, bad_value
+):
+    """Test each setting setter returns False for unsupported values."""
     monkeypatch.setattr("database.Session", sqlite_session_factory)
     register_user(123, "First", "Last", "user")
 
-    assert set_summarizing_model(123, "gpt-4") is False
-
-
-def test_set_summarizing_model_missing_user(monkeypatch, sqlite_session_factory):
-    """Test set_summarizing_model returns False when the user does not exist."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-
-    assert set_summarizing_model(999, "gemini-3.5-flash") is False
-
-
-def test_set_prompt_strategy_persists(monkeypatch, sqlite_session_factory):
-    """Test setting prompt strategy persists to a real SQLite database."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-    register_user(123, "First", "Last", "user")
-
-    result = set_prompt_strategy(123, "basic_prompt_for_transcript")
-
-    assert result is True
-    with sqlite_session_factory() as session:
-        user = session.get(UsersOrm, 123)
-        assert user is not None
-        assert user.prompt_key_for_summary == "basic_prompt_for_transcript"
-
-
-def test_set_prompt_strategy_rejects_unknown(monkeypatch, sqlite_session_factory):
-    """Test set_prompt_strategy returns False for unsupported prompt keys."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-    register_user(123, "First", "Last", "user")
-
-    assert set_prompt_strategy(123, "bogus") is False
-
-
-def test_set_prompt_strategy_missing_user(monkeypatch, sqlite_session_factory):
-    """Test set_prompt_strategy returns False when the user does not exist."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-
-    assert set_prompt_strategy(999, "key_points_for_transcript") is False
-
-
-def test_set_thinking_level_persists(monkeypatch, sqlite_session_factory):
-    """Test setting thinking level persists to a real SQLite database."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-    register_user(123, "First", "Last", "user")
-
-    result = set_thinking_level(123, "high")
-
-    assert result is True
-    with sqlite_session_factory() as session:
-        user = session.get(UsersOrm, 123)
-        assert user is not None
-        assert user.thinking_level == "HIGH"
+    assert setter(123, bad_value) is False
 
 
 def test_set_thinking_level_rejects_unknown_value(monkeypatch, sqlite_session_factory):
-    """Test set_thinking_level returns False for unsupported values."""
+    """Test set_thinking_level returns False and leaves the default unchanged."""
     monkeypatch.setattr("database.Session", sqlite_session_factory)
     register_user(123, "First", "Last", "user")
 
@@ -192,8 +132,17 @@ def test_set_thinking_level_rejects_unknown_value(monkeypatch, sqlite_session_fa
         assert user.thinking_level == "MINIMAL"
 
 
-def test_set_thinking_level_missing_user(monkeypatch, sqlite_session_factory):
-    """Test set_thinking_level returns False when the user does not exist."""
+@pytest.mark.parametrize(
+    ("setter", "value"),
+    [
+        (set_target_language, "English"),
+        (set_summarizing_model, "gemini-3.5-flash"),
+        (set_prompt_strategy, "key_points_for_transcript"),
+        (set_thinking_level, "HIGH"),
+    ],
+)
+def test_set_setting_missing_user(monkeypatch, sqlite_session_factory, setter, value):
+    """Test each setting setter returns False when the user does not exist."""
     monkeypatch.setattr("database.Session", sqlite_session_factory)
 
-    assert set_thinking_level(999, "HIGH") is False
+    assert setter(999, value) is False
