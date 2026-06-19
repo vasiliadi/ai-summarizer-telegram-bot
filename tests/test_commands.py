@@ -116,16 +116,16 @@ def test_handle_myinfo_missing_user(message_factory, mocker):
 
 
 @pytest.mark.parametrize(
-    ("handler", "expected_text"),
+    ("handler", "expected_text", "expected_next_step"),
     [
-        (handle_set_target_language, "Select target language"),
-        (handle_set_summarizing_model, "Select summarizing model"),
-        (handle_set_prompt_strategy, "Select summarization strategy"),
-        (handle_set_thinking_level, "Select thinking level"),
+        (handle_set_target_language, "Select target language", proceed_set_target_language),
+        (handle_set_summarizing_model, "Select summarizing model", proceed_set_summarizing_model),
+        (handle_set_prompt_strategy, "Select summarization strategy", proceed_set_prompt_strategy),
+        (handle_set_thinking_level, "Select thinking level", proceed_set_thinking_level),
     ],
 )
 def test_handle_set_setting_shows_keyboard(
-    message_factory, mocker, handler, expected_text
+    message_factory, mocker, handler, expected_text, expected_next_step
 ):
     """Test each /set_* command shows its selection keyboard."""
     msg = message_factory(content_type="text")
@@ -135,7 +135,7 @@ def test_handle_set_setting_shows_keyboard(
     handler(msg)
 
     assert expected_text in mock_send.call_args[0][1]
-    assert mock_register.called
+    mock_register.assert_called_once_with(msg, expected_next_step)
 
 
 def test_proceed_set_target_language_success(message_factory, mocker):
