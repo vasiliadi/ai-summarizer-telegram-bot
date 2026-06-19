@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import math
 from pathlib import Path
@@ -90,7 +91,8 @@ class Downloader:
                         if chunk:
                             f.write(chunk)
             except Exception:
-                Path(dest).unlink(missing_ok=True)
+                with contextlib.suppress(OSError):
+                    Path(dest).unlink(missing_ok=True)
                 raise
         finally:
             r.close()
@@ -144,7 +146,8 @@ class Downloader:
                 # with no extension) on disk when a download or post-processing
                 # step fails. Remove them so failed attempts don't accumulate.
                 for leftover in Path.cwd().glob(f"{output_stem}*"):
-                    leftover.unlink(missing_ok=True)
+                    with contextlib.suppress(OSError):
+                        leftover.unlink(missing_ok=True)
                 raise
         return temporary_file_name
 
