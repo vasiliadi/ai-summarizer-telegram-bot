@@ -84,6 +84,50 @@ def test_get_yt_transcript_falls_back_to_ytdlp(mocker, url):
     mock_ytdlp.assert_called_once_with(url)
 
 
+def test_get_yt_transcript_falls_back_on_unexpected_primary_error(mocker):
+    """Test get_yt_transcript falls back when the primary raises an unexpected error.
+
+    A primary failure outside the known transcript-exception types (e.g. a raw
+    network error) must still trigger the fallback rather than escaping.
+    """
+    mocker.patch.object(
+        transcription.api_backend,
+        "fetch_via_api",
+        side_effect=ConnectionError("network down"),
+    )
+    mock_ytdlp = mocker.patch.object(
+        transcription.ytdlp_backend,
+        "fetch_via_ytdlp",
+        return_value="from fallback",
+    )
+
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    result = get_yt_transcript(url)
+
+    assert result == PrefixedText(text="from fallback", prefix="📹")
+    mock_ytdlp.assert_called_once_with(url)
+
+
+def test_get_yt_transcript_falls_back_on_empty_primary(mocker):
+    """Test get_yt_transcript falls back when the primary returns an empty transcript."""
+    mocker.patch.object(
+        transcription.api_backend,
+        "fetch_via_api",
+        return_value="   \n  ",
+    )
+    mock_ytdlp = mocker.patch.object(
+        transcription.ytdlp_backend,
+        "fetch_via_ytdlp",
+        return_value="from fallback",
+    )
+
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    result = get_yt_transcript(url)
+
+    assert result == PrefixedText(text="from fallback", prefix="📹")
+    mock_ytdlp.assert_called_once_with(url)
+
+
 def test_get_yt_transcript_both_backends_fail_raises_error(mocker):
     """Test get_yt_transcript raises FetchTranscriptError chained from the fallback failure."""
     api_error = TranscriptsDisabled("dQw4w9WgXcQ")
@@ -100,6 +144,16 @@ def test_get_yt_transcript_both_backends_fail_raises_error(mocker):
         get_yt_transcript(url)
 
     assert exc_info.value.__cause__ is ytdlp_error
+
+
+def test_get_yt_transcript_both_empty_raises_error(mocker):
+    """Test get_yt_transcript raises FetchTranscriptError when both backends return empty."""
+    mocker.patch.object(transcription.api_backend, "fetch_via_api", return_value="")
+    mocker.patch.object(transcription.ytdlp_backend, "fetch_via_ytdlp", return_value="  ")
+
+    url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    with pytest.raises(FetchTranscriptError, match="Both transcript backends failed"):
+        get_yt_transcript(url)
 
 
 def test_get_yt_transcript_unknown_url(mocker):

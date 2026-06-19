@@ -12,7 +12,6 @@ from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError, ReplicateError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
-    RetryError,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -21,7 +20,6 @@ from tenacity import (
 )
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import (
-    CouldNotRetrieveTranscript,
     IpBlocked,
     NoTranscriptFound,
     RequestBlocked,
@@ -111,7 +109,6 @@ class TranscriptBackend(ABC):
 
     name: str
     prefix: str
-    recoverable_errors: tuple[type[Exception], ...]
 
     @abstractmethod
     def fetch(self, url: str, video_id: str) -> str:
@@ -123,7 +120,6 @@ class ApiBackend(TranscriptBackend):
 
     name = "youtube_transcript_api"
     prefix = "📺"
-    recoverable_errors = (CouldNotRetrieveTranscript, RetryError)
 
     @retry(
         stop=stop_after_attempt(2),
@@ -169,6 +165,9 @@ class ApiBackend(TranscriptBackend):
         except NoTranscriptFound:
             transcript_list = ytt_api.list(video_id)
             language_codes = [t.language_code for t in transcript_list]
+            # Deliberate cooldown between back-to-back requests: rapid calls get
+            # rate-limited/blocked by YouTube. Do not shorten or remove.
+            # See https://github.com/jdepoix/youtube-transcript-api/issues/572
             time.sleep(60)
             transcript = ytt_api.fetch(video_id, languages=language_codes)
         return TextFormatter().format_transcript(transcript)
@@ -183,7 +182,6 @@ class YtDlpBackend(TranscriptBackend):
 
     name = "yt-dlp"
     prefix = "📹"
-    recoverable_errors = (DownloadError, RetryError)
 
     @staticmethod
     def _vtt_to_text(vtt_path: Path) -> str:
@@ -410,12 +408,34 @@ class YouTubeTranscriber:
             return parse_qs(parts.query).get("v", [None])[0]
         return None
 
+    @staticmethod
+    def _fetch_validated(
+        backend: TranscriptBackend,
+        url: str,
+        video_id: str,
+    ) -> str:
+        """Fetch from a backend, treating an empty transcript as a failure.
+
+        An empty/whitespace result is a soft failure: raising lets the
+        orchestrator fall back to the other backend instead of returning a
+        useless empty transcript.
+
+        Raises:
+            FetchTranscriptError: If the backend returns empty content.
+
+        """
+        text = backend.fetch(url, video_id)
+        if not text.strip():
+            msg = f"{backend.name} returned an empty transcript"
+            raise FetchTranscriptError(msg)
+        return text
+
     def get_transcript(self, url: str) -> PrefixedText:
         """Retrieve the transcript from a YouTube video URL.
 
-        Tries the primary backend first, falling back to the secondary on a
-        recoverable failure. With the default wiring this means the API first,
-        then yt-dlp.
+        Tries the primary backend first, falling back to the secondary on any
+        failure (including an empty result). With the default wiring this means
+        the API first, then yt-dlp.
 
         Args:
             url (str): The YouTube video URL.
@@ -435,8 +455,10 @@ class YouTubeTranscriber:
             raise ValueError(msg)
 
         try:
-            text = self._primary.fetch(url, video_id)
-        except self._primary.recoverable_errors as primary_error:
+            text = self._fetch_validated(self._primary, url, video_id)
+        except Exception as primary_error:
+            # Any primary failure — expected or not — should try the fallback;
+            # crashing here would skip the second engine entirely.
             logger.warning(
                 "%s transcript backend failed, falling back to %s: %s",
                 self._primary.name,
@@ -444,8 +466,8 @@ class YouTubeTranscriber:
                 primary_error,
             )
             try:
-                text = self._fallback.fetch(url, video_id)
-            except self._fallback.recoverable_errors as fallback_error:
+                text = self._fetch_validated(self._fallback, url, video_id)
+            except Exception as fallback_error:
                 logger.warning(
                     "%s fallback backend also failed: %s",
                     self._fallback.name,
