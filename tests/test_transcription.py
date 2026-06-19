@@ -20,44 +20,37 @@ from exceptions import (
     TranscriptDownloadError,
 )
 from transcription import (
+    ApiBackend,
     AudioTranscriber,
     YouTubeTranscriber,
+    YtDlpBackend,
     fetch_transcript_via_api,
     fetch_transcript_via_ytdlp,
     get_yt_transcript,
 )
 
 
-def test_get_yt_transcript_uses_ytdlp_primary(mocker, tmp_path):
-    """Test get_yt_transcript uses yt-dlp first and does not touch the API on success."""
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-    mocker.patch("transcription.clean_up")
+def test_yt_transcriber_wires_api_as_primary():
+    """Test the default transcriber uses the API as primary and yt-dlp as fallback."""
+    assert isinstance(transcription.yt_transcriber._primary, ApiBackend)
+    assert isinstance(transcription.yt_transcriber._fallback, YtDlpBackend)
 
-    vtt_content = textwrap.dedent("""\
-        WEBVTT
 
-        00:00:01.000 --> 00:00:03.000
-        Hello world
-    """)
-    vtt_file = tmp_path / "fake-uuid.en.vtt"
-    vtt_file.write_text(vtt_content, encoding="utf-8")
-
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
-    mock_ydl_inst = mock_ydl_cls.return_value.__enter__.return_value
-    mock_ydl_inst.extract_info.return_value = {
-        "subtitles": {"en": [{}]},
-        "automatic_captions": {},
-    }
-    mock_api = mocker.patch.object(transcription.yt_transcriber, "fetch_via_api")
+def test_get_yt_transcript_uses_api_primary(mocker):
+    """Test get_yt_transcript uses the API first and does not touch yt-dlp on success."""
+    mock_api = mocker.patch.object(
+        transcription.api_backend,
+        "fetch_via_api",
+        return_value="from api",
+    )
+    mock_ytdlp = mocker.patch.object(transcription.ytdlp_backend, "fetch")
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     result = get_yt_transcript(url)
 
-    assert "Hello world" in result.text
-    assert result.prefix == "📹"
-    mock_ydl_inst.download.assert_called_once_with([url])
-    mock_api.assert_not_called()
+    assert result == PrefixedText(text="from api", prefix="📺")
+    mock_api.assert_called_once_with("dQw4w9WgXcQ")
+    mock_ytdlp.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -68,47 +61,51 @@ def test_get_yt_transcript_uses_ytdlp_primary(mocker, tmp_path):
         "https://www.youtube.com/live/dQw4w9WgXcQ",
     ],
 )
-def test_get_yt_transcript_falls_back_to_api(mocker, url):
-    """Test get_yt_transcript falls back to the API when yt-dlp fails.
+def test_get_yt_transcript_falls_back_to_ytdlp(mocker, url):
+    """Test get_yt_transcript falls back to yt-dlp when the API fails.
 
     Parametrized across URL formats to confirm each resolves to the same
-    video_id that is handed to the API backend.
+    video_id that is handed to the yt-dlp backend.
     """
     mocker.patch.object(
-        transcription.yt_transcriber,
-        "fetch_via_ytdlp",
-        side_effect=DownloadError("no subs"),
-    )
-    mock_api = mocker.patch.object(
-        transcription.yt_transcriber,
+        transcription.api_backend,
         "fetch_via_api",
+        side_effect=TranscriptsDisabled("dQw4w9WgXcQ"),
+    )
+    mock_ytdlp = mocker.patch.object(
+        transcription.ytdlp_backend,
+        "fetch_via_ytdlp",
         return_value="from fallback",
     )
 
     result = get_yt_transcript(url)
 
-    assert result == PrefixedText(text="from fallback", prefix="📺")
-    mock_api.assert_called_once_with("dQw4w9WgXcQ")
+    assert result == PrefixedText(text="from fallback", prefix="📹")
+    mock_ytdlp.assert_called_once_with(url)
 
 
 def test_get_yt_transcript_both_backends_fail_raises_error(mocker):
-    """Test get_yt_transcript raises FetchTranscriptError chained from the API failure."""
-    ytdlp_error = DownloadError("no subs")
+    """Test get_yt_transcript raises FetchTranscriptError chained from the fallback failure."""
     api_error = TranscriptsDisabled("dQw4w9WgXcQ")
-    mocker.patch.object(transcription.yt_transcriber, "fetch_via_ytdlp", side_effect=ytdlp_error)
-    mocker.patch.object(transcription.yt_transcriber, "fetch_via_api", side_effect=api_error)
+    ytdlp_error = DownloadError("no subs")
+    mocker.patch.object(transcription.api_backend, "fetch_via_api", side_effect=api_error)
+    mocker.patch.object(
+        transcription.ytdlp_backend,
+        "fetch_via_ytdlp",
+        side_effect=ytdlp_error,
+    )
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     with pytest.raises(FetchTranscriptError) as exc_info:
         get_yt_transcript(url)
 
-    assert exc_info.value.__cause__ is api_error
+    assert exc_info.value.__cause__ is ytdlp_error
 
 
 def test_get_yt_transcript_unknown_url(mocker):
     """Test get_yt_transcript raises ValueError for unknown URL formats."""
-    mock_api = mocker.patch.object(transcription.yt_transcriber, "fetch_via_api")
-    mock_ytdlp = mocker.patch.object(transcription.yt_transcriber, "fetch_via_ytdlp")
+    mock_api = mocker.patch.object(transcription.api_backend, "fetch")
+    mock_ytdlp = mocker.patch.object(transcription.ytdlp_backend, "fetch")
 
     with pytest.raises(ValueError, match="Unknown URL"):
         get_yt_transcript("https://example.com/not-youtube")
@@ -166,7 +163,7 @@ def test_vtt_to_text_dedupes_and_strips_tags(tmp_path):
     vtt_path = tmp_path / "test.vtt"
     vtt_path.write_text(vtt_content, encoding="utf-8")
 
-    result = YouTubeTranscriber._vtt_to_text(vtt_path)
+    result = YtDlpBackend._vtt_to_text(vtt_path)
 
     assert result == "Hello & world\nSecond line"
 
@@ -187,7 +184,7 @@ def test_vtt_to_text_skips_cue_identifiers(tmp_path):
     vtt_path = tmp_path / "test.vtt"
     vtt_path.write_text(vtt_content, encoding="utf-8")
 
-    result = YouTubeTranscriber._vtt_to_text(vtt_path)
+    result = YtDlpBackend._vtt_to_text(vtt_path)
 
     assert result == "Hello\nWorld"
 
@@ -212,7 +209,7 @@ def test_vtt_to_text_skips_multiline_note_block(tmp_path):
     vtt_path = tmp_path / "test.vtt"
     vtt_path.write_text(vtt_content, encoding="utf-8")
 
-    result = YouTubeTranscriber._vtt_to_text(vtt_path)
+    result = YtDlpBackend._vtt_to_text(vtt_path)
 
     assert result == "Hello\nWorld"
     assert "comment" not in result
@@ -236,7 +233,7 @@ def test_vtt_to_text_keeps_nonconsecutive_duplicates(tmp_path):
     vtt_path = tmp_path / "test.vtt"
     vtt_path.write_text(vtt_content, encoding="utf-8")
 
-    result = YouTubeTranscriber._vtt_to_text(vtt_path)
+    result = YtDlpBackend._vtt_to_text(vtt_path)
 
     assert result == "Hello\nWorld\nHello"
 
@@ -812,7 +809,7 @@ def test_fetch_transcript_via_ytdlp_vtt_read_error_raises_download_error(mocker,
     ctx.extract_info.return_value = {"subtitles": {"en": [{}]}, "automatic_captions": {}}
     # create the vtt file so the glob finds it, but vtt_to_text raises OSError
     (tmp_path / "fake-uuid.en.vtt").write_text("WEBVTT\n", encoding="utf-8")
-    mocker.patch.object(YouTubeTranscriber, "_vtt_to_text", side_effect=OSError("disk full"))
+    mocker.patch.object(YtDlpBackend, "_vtt_to_text", side_effect=OSError("disk full"))
 
     with pytest.raises(DownloadError, match="Failed to read downloaded VTT file"):
         fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")

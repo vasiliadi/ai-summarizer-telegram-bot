@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qs, urlsplit
@@ -105,73 +106,24 @@ class AudioTranscriber:
         )
 
 
-class YouTubeTranscriber:
-    """Retrieves YouTube transcripts via yt-dlp (primary) or the API (fallback)."""
+class TranscriptBackend(ABC):
+    """Abstract base for YouTube transcript-fetching backends."""
 
-    @staticmethod
-    def _extract_video_id(url: str) -> str | None:
-        """Extract the video id from any supported YouTube URL form.
+    name: str
+    prefix: str
+    recoverable_errors: tuple[type[Exception], ...]
 
-        Returns None when the host is not a known YouTube host or the id cannot
-        be located in the path/query.
+    @abstractmethod
+    def fetch(self, url: str, video_id: str) -> str:
+        """Fetch transcript text; backends use the argument(s) they need."""
 
-        """
-        parts = urlsplit(url)
-        hostname = (parts.hostname or "").lower()
-        hostname = hostname.removeprefix("www.")
-        if hostname not in YT_HOSTS:
-            return None
-        if hostname == "youtu.be":
-            video_id = parts.path.lstrip("/").split("/", 1)[0]
-            return video_id or None
-        path_parts = [p for p in parts.path.split("/") if p]
-        prefixed_paths = ("live", "shorts", "embed")
-        if len(path_parts) >= 2 and path_parts[0] in prefixed_paths:  # noqa: PLR2004
-            return path_parts[1]
-        if path_parts and path_parts[0] == "watch":
-            return parse_qs(parts.query).get("v", [None])[0]
-        return None
 
-    @staticmethod
-    def _vtt_to_text(vtt_path: Path) -> str:
-        """Convert a VTT subtitle file to deduplicated plain text.
+class ApiBackend(TranscriptBackend):
+    """youtube_transcript_api transcript backend (fallback by default)."""
 
-        Args:
-            vtt_path (Path): Path to the .vtt file.
-
-        Returns:
-            str: Clean transcript text with duplicate lines removed.
-
-        """
-        lines = vtt_path.read_text(encoding="utf-8").splitlines()
-        out: list[str] = []
-        prev = ""
-        in_note = False
-        for i, raw in enumerate(lines):
-            line = raw.strip()
-            if not line:
-                in_note = False
-                continue
-            if in_note:
-                continue
-            if "-->" in line:
-                continue
-            if line.startswith(("WEBVTT", "Kind:", "Language:")):
-                continue
-            if line.startswith("NOTE"):
-                in_note = True
-                continue
-            next_line = lines[i + 1].strip() if i + 1 < len(lines) else ""
-            if "-->" in next_line:
-                continue
-            clean = re.sub(r"<[^>]*>", "", line)
-            clean = (
-                clean.replace("&amp;", "&").replace("&gt;", ">").replace("&lt;", "<")
-            )
-            if clean and clean != prev:
-                out.append(clean)
-                prev = clean
-        return "\n".join(out)
+    name = "youtube_transcript_api"
+    prefix = "📺"
+    recoverable_errors = (CouldNotRetrieveTranscript, RetryError)
 
     @retry(
         stop=stop_after_attempt(2),
@@ -220,6 +172,59 @@ class YouTubeTranscriber:
             time.sleep(60)
             transcript = ytt_api.fetch(video_id, languages=language_codes)
         return TextFormatter().format_transcript(transcript)
+
+    def fetch(self, url: str, video_id: str) -> str:  # noqa: ARG002
+        """Adapt the uniform backend interface to youtube_transcript_api."""
+        return self.fetch_via_api(video_id)
+
+
+class YtDlpBackend(TranscriptBackend):
+    """yt-dlp subtitle-download transcript backend (primary by default)."""
+
+    name = "yt-dlp"
+    prefix = "📹"
+    recoverable_errors = (DownloadError, RetryError)
+
+    @staticmethod
+    def _vtt_to_text(vtt_path: Path) -> str:
+        """Convert a VTT subtitle file to deduplicated plain text.
+
+        Args:
+            vtt_path (Path): Path to the .vtt file.
+
+        Returns:
+            str: Clean transcript text with duplicate lines removed.
+
+        """
+        lines = vtt_path.read_text(encoding="utf-8").splitlines()
+        out: list[str] = []
+        prev = ""
+        in_note = False
+        for i, raw in enumerate(lines):
+            line = raw.strip()
+            if not line:
+                in_note = False
+                continue
+            if in_note:
+                continue
+            if "-->" in line:
+                continue
+            if line.startswith(("WEBVTT", "Kind:", "Language:")):
+                continue
+            if line.startswith("NOTE"):
+                in_note = True
+                continue
+            next_line = lines[i + 1].strip() if i + 1 < len(lines) else ""
+            if "-->" in next_line:
+                continue
+            clean = re.sub(r"<[^>]*>", "", line)
+            clean = (
+                clean.replace("&amp;", "&").replace("&gt;", ">").replace("&lt;", "<")
+            )
+            if clean and clean != prev:
+                out.append(clean)
+                prev = clean
+        return "\n".join(out)
 
     @retry(
         stop=stop_after_attempt(2),
@@ -364,17 +369,60 @@ class YouTubeTranscriber:
             for f in Path.cwd().glob(f"{temp_basename}.*"):
                 clean_up(file=str(f))
 
+    def fetch(self, url: str, video_id: str) -> str:  # noqa: ARG002
+        """Adapt the uniform backend interface to yt-dlp."""
+        return self.fetch_via_ytdlp(url)
+
+
+class YouTubeTranscriber:
+    """Orchestrate primary→fallback transcript fetching across backends."""
+
+    def __init__(
+        self,
+        primary: TranscriptBackend,
+        fallback: TranscriptBackend,
+    ) -> None:
+        """Store the primary and fallback transcript backends."""
+        self._primary = primary
+        self._fallback = fallback
+
+    @staticmethod
+    def _extract_video_id(url: str) -> str | None:
+        """Extract the video id from any supported YouTube URL form.
+
+        Returns None when the host is not a known YouTube host or the id cannot
+        be located in the path/query.
+
+        """
+        parts = urlsplit(url)
+        hostname = (parts.hostname or "").lower()
+        hostname = hostname.removeprefix("www.")
+        if hostname not in YT_HOSTS:
+            return None
+        if hostname == "youtu.be":
+            video_id = parts.path.lstrip("/").split("/", 1)[0]
+            return video_id or None
+        path_parts = [p for p in parts.path.split("/") if p]
+        prefixed_paths = ("live", "shorts", "embed")
+        if len(path_parts) >= 2 and path_parts[0] in prefixed_paths:  # noqa: PLR2004
+            return path_parts[1]
+        if path_parts and path_parts[0] == "watch":
+            return parse_qs(parts.query).get("v", [None])[0]
+        return None
+
     def get_transcript(self, url: str) -> PrefixedText:
         """Retrieve the transcript from a YouTube video URL.
 
-        Tries yt-dlp first; falls back to youtube_transcript_api.
+        Tries the primary backend first, falling back to the secondary on a
+        recoverable failure. With the default wiring this means the API first,
+        then yt-dlp.
 
         Args:
             url (str): The YouTube video URL.
 
         Returns:
-            PrefixedText: The transcript text and display prefix. 📹 = yt-dlp;
-                📺 = youtube_transcript_api fallback.
+            PrefixedText: The transcript text and display prefix. 📺 =
+                youtube_transcript_api; 📹 = yt-dlp.
 
         Raises:
             ValueError: If the URL format is not recognized.
@@ -387,20 +435,26 @@ class YouTubeTranscriber:
             raise ValueError(msg)
 
         try:
-            text = self.fetch_via_ytdlp(url)
-        except (DownloadError, RetryError) as ytdlp_error:
+            text = self._primary.fetch(url, video_id)
+        except self._primary.recoverable_errors as primary_error:
             logger.warning(
-                "yt-dlp transcript backend failed, falling back to API: %s",
-                ytdlp_error,
+                "%s transcript backend failed, falling back to %s: %s",
+                self._primary.name,
+                self._fallback.name,
+                primary_error,
             )
             try:
-                text = self.fetch_via_api(video_id)
-            except (CouldNotRetrieveTranscript, RetryError) as api_error:
-                logger.warning("API fallback backend also failed: %s", api_error)
+                text = self._fallback.fetch(url, video_id)
+            except self._fallback.recoverable_errors as fallback_error:
+                logger.warning(
+                    "%s fallback backend also failed: %s",
+                    self._fallback.name,
+                    fallback_error,
+                )
                 msg = "Both transcript backends failed"
-                raise FetchTranscriptError(msg) from api_error
-            return PrefixedText(text=text, prefix="📺")
-        return PrefixedText(text=text, prefix="📹")
+                raise FetchTranscriptError(msg) from fallback_error
+            return PrefixedText(text=text, prefix=self._fallback.prefix)
+        return PrefixedText(text=text, prefix=self._primary.prefix)
 
 
 # ---------------------------------------------------------------------------
@@ -408,7 +462,9 @@ class YouTubeTranscriber:
 # ---------------------------------------------------------------------------
 
 audio_transcriber = AudioTranscriber(replicate_client)
-yt_transcriber = YouTubeTranscriber()
+api_backend = ApiBackend()
+ytdlp_backend = YtDlpBackend()
+yt_transcriber = YouTubeTranscriber(api_backend, ytdlp_backend)
 
 
 # ---------------------------------------------------------------------------
@@ -416,6 +472,6 @@ yt_transcriber = YouTubeTranscriber()
 # ---------------------------------------------------------------------------
 
 transcribe = audio_transcriber.transcribe
-fetch_transcript_via_api = yt_transcriber.fetch_via_api
-fetch_transcript_via_ytdlp = yt_transcriber.fetch_via_ytdlp
+fetch_transcript_via_api = api_backend.fetch_via_api
+fetch_transcript_via_ytdlp = ytdlp_backend.fetch_via_ytdlp
 get_yt_transcript = yt_transcriber.get_transcript
