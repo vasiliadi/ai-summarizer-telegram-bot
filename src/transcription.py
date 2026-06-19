@@ -116,7 +116,7 @@ class TranscriptBackend(ABC):
 
 
 class ApiBackend(TranscriptBackend):
-    """youtube_transcript_api transcript backend (fallback by default)."""
+    """youtube_transcript_api transcript backend (primary by default)."""
 
     name = "youtube_transcript_api"
     prefix = "📺"
@@ -178,7 +178,7 @@ class ApiBackend(TranscriptBackend):
 
 
 class YtDlpBackend(TranscriptBackend):
-    """yt-dlp subtitle-download transcript backend (primary by default)."""
+    """yt-dlp subtitle-download transcript backend (fallback by default)."""
 
     name = "yt-dlp"
     prefix = "📹"
