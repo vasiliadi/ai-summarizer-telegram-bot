@@ -20,12 +20,10 @@ FROM python:3.14-alpine
 ENV ENV=PROD \
     PYTHONUNBUFFERED=1 \
     DENO_V8_FLAGS="--max-old-space-size=256" \
-    LD_PRELOAD="/usr/lib/libjemalloc.so.2" \
-    MALLOC_CONF="background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000" \
     PATH="/app/.venv/bin:$PATH"
 ENV SENTRY_ENVIRONMENT=${ENV}
 WORKDIR /app
-RUN apk add --no-cache ffmpeg deno jemalloc
+RUN apk add --no-cache ffmpeg deno
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
 COPY pyproject.toml uv.lock ./
 RUN uv sync \
