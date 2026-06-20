@@ -29,7 +29,7 @@ polling-based (`bot.infinity_polling`); no webhooks, no async framework.
 | `main.py` | Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. |
 | `handlers.py` | Per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching and the Gemini calls. |
-| `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (yt-dlp primary, `youtube_transcript_api` fallback). |
+| `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
 | `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (config, MIME, file upload/poll). |
@@ -81,8 +81,8 @@ to Gemini — return the raw model text with **no** prefix.
 
 | Prefix | Source |
 |--------|--------|
-| 📹 | YouTube transcript via yt-dlp |
-| 📺 | YouTube transcript via `youtube_transcript_api` (fallback) |
+| 📺 | YouTube transcript via `youtube_transcript_api` (primary) |
+| 📹 | YouTube transcript via yt-dlp (fallback) |
 | 📝 | Audio transcription via Replicate (Gemini-file rescue path) |
 | 🌐 | Webpage via Exa |
 | 🕸️ | Webpage via Tavily (fallback) |
