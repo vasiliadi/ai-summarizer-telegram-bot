@@ -7,7 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "beautifulsoup4==4.15.0",
     "curl-cffi==0.15.0",
-    "exa-py==2.13.2",
+    "exa-py==2.14.0",
     "google-genai==2.8.0",
     "limits[redis]==5.8.0",
     "psycopg2-binary==2.9.12",
