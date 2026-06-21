@@ -14,7 +14,7 @@ dependencies = [
     "pytelegrambotapi==4.34.0",
     "replicate==1.0.7",
     "sentry-sdk==2.62.0",
-    "sqlalchemy==2.0.50",
+    "sqlalchemy==2.0.51",
     "tavily-python==0.7.26",
     "telegramify-markdown==1.1.5",
     "tenacity==9.1.4",
@@ -27,7 +27,7 @@ build = [
     "alembic==1.18.4",
     "modal==1.5.0",
     "psycopg2-binary==2.9.12",
-    "sqlalchemy==2.0.50",
+    "sqlalchemy==2.0.51",
 ]
 dev = [
     "alembic==1.18.4",
