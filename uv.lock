@@ -66,7 +66,7 @@ requires-dist = [
     { name = "sentry-sdk", specifier = "==2.62.0" },
     { name = "sqlalchemy", specifier = "==2.0.50" },
     { name = "tavily-python", specifier = "==0.7.26" },
-    { name = "telegramify-markdown", specifier = "==1.1.5" },
+    { name = "telegramify-markdown", specifier = "==1.2.0" },
     { name = "tenacity", specifier = "==9.1.4" },
     { name = "youtube-transcript-api", specifier = "==1.2.4" },
     { name = "yt-dlp", extras = ["default"], specifier = "==2026.6.9" },
@@ -1618,14 +1618,14 @@ wheels = [
 
 [[package]]
 name = "telegramify-markdown"
-version = "1.1.5"
+version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyromark" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/89/db/198bda5ba14b83b714fe5b632992684fac8fa2c07bbc7b14508e8f67e9a9/telegramify_markdown-1.1.5.tar.gz", hash = "sha256:56da17648849f86a351eb712eef4461f8c11aecc7fd27a293f5d9a0a6333b22d", size = 61782, upload-time = "2026-05-10T08:49:40.136Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/89/c4/2308a3698b0f723cb2c126f130279fd6ed2ebba0c0f1f6b6799b45d7729b/telegramify_markdown-1.2.0.tar.gz", hash = "sha256:e9fe82b56a1d98045b72a98b09134351e9d36c96d1df240d99e953a89da06325", size = 89307, upload-time = "2026-06-14T00:06:43.737Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ec/3e/5a68e10227008a820bad5e5b75cc71cbde03db1c4093d6026279463ccb65/telegramify_markdown-1.1.5-py3-none-any.whl", hash = "sha256:9742d56993be3db2cf9c2a61cbb257f8b34b6013a9ff27af5a569509df6673c0", size = 43329, upload-time = "2026-05-10T08:49:38.847Z" },
+    { url = "https://files.pythonhosted.org/packages/ab/ee/bc49efc4a773a36afb70a9db6c9ce0f73bec64e47e7097598c90c161b1bf/telegramify_markdown-1.2.0-py3-none-any.whl", hash = "sha256:f9fb021ec5f944cf312b5aa022e0f7e156ea4651e70fa3df82f3c0a5182f6dfb", size = 61968, upload-time = "2026-06-14T00:06:42.247Z" },
 ]
 
 [[package]]
