@@ -71,6 +71,7 @@ class ExaBackend(ParserBackend):
         response = self._client.get_contents(
             urls=[url],
             text={"max_characters": 20000, "include_html_tags": True},
+            livecrawl="preferred",
         )
         results = response.results or []
         if not results:
