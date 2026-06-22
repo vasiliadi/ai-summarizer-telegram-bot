@@ -45,6 +45,7 @@ def test_parse_url_returns_exa_content(mocker):
     mock_exa.get_contents.assert_called_once_with(
         urls=["https://example.com"],
         text={"max_characters": 20000, "include_html_tags": True},
+        livecrawl="preferred",
     )
     mock_tavily.extract.assert_not_called()
 
@@ -234,6 +235,7 @@ def test_parse_resolves_url_before_extracting(mocker):
     mock_exa.get_contents.assert_called_once_with(
         urls=["https://example.com/final"],
         text={"max_characters": 20000, "include_html_tags": True},
+        livecrawl="preferred",
     )
 
 
