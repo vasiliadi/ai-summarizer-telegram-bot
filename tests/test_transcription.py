@@ -924,8 +924,7 @@ def test_fetch_transcript_via_ytdlp_pins_proxy_across_probe_and_download(
     # download plus manifest enumeration, to cut proxy traffic.
     for opts in (probe_opts, download_opts):
         yt_args = opts["extractor_args"]["youtube"]
-        assert yt_args["player_client"] == ["web"]
-        assert yt_args["player_skip"] == ["configs"]
+        assert yt_args["player_client"] == ["web", "android_vr"]
         assert yt_args["skip"] == ["hls", "dash"]
 
 

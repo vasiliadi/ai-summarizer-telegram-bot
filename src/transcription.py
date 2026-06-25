@@ -258,8 +258,7 @@ class YtDlpBackend(TranscriptBackend):
         # enumeration since we only need subtitles, not formats.
         extractor_args: dict[str, Any] = {
             "youtube": {
-                "player_client": ["web"],
-                "player_skip": ["configs"],
+                "player_client": ["web", "android_vr"],
                 "skip": ["hls", "dash"],
             },
         }
