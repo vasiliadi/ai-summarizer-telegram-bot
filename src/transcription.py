@@ -252,12 +252,24 @@ class YtDlpBackend(TranscriptBackend):
         """
         temp_basename = generate_temporary_name()
         proxy = get_proxy()
+        # Trim each YouTube extraction to cut proxy traffic: one web client (which
+        # carries caption tracks, unlike web_safari's pre-merged HLS) instead of the
+        # two defaults, skip the per-client ytcfg download, and skip manifest
+        # enumeration since we only need subtitles, not formats.
+        extractor_args: dict[str, Any] = {
+            "youtube": {
+                "player_client": ["web"],
+                "player_skip": ["configs"],
+                "skip": ["hls", "dash"],
+            },
+        }
         probe_opts: dict[str, Any] = {
             "proxy": proxy,
             "noplaylist": True,
             "skip_download": True,
             "quiet": True,
             "nocheckcertificate": False,
+            "extractor_args": extractor_args,
         }
 
         # Phase 1: probe available subtitle tracks (no download, no temp files).
@@ -329,6 +341,7 @@ class YtDlpBackend(TranscriptBackend):
             "outtmpl": temp_basename,
             "quiet": True,
             "nocheckcertificate": False,
+            "extractor_args": extractor_args,
         }
 
         # Phase 2: download and convert subtitles.
