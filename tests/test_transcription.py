@@ -920,8 +920,8 @@ def test_fetch_transcript_via_ytdlp_pins_proxy_across_probe_and_download(
         pp.get("key") == "FFmpegSubtitlesConvertor" and pp.get("format") == "vtt"
         for pp in download_opts.get("postprocessors", [])
     )
-    # Both extractions are trimmed to one web client and skip the per-client ytcfg
-    # download plus manifest enumeration, to cut proxy traffic.
+    # Both extractions use web+android_vr (drops web_safari's HLS manifests) and skip
+    # HLS/DASH manifest enumeration to cut proxy traffic.
     for opts in (probe_opts, download_opts):
         yt_args = opts["extractor_args"]["youtube"]
         assert yt_args["player_client"] == ["web", "android_vr"]
