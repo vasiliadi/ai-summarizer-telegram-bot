@@ -122,7 +122,7 @@ select = [
 ignore = ["S603", "S607", "D100", "D401", "PLR0913", "FBT001", "FBT002", "BLE001"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["ANN", "S101", "S105", "PLR2004", "SLF001", "ARG002", "ARG005", "PYI034", "E501", "RUF043", "EM101", "TRY003"]
+"tests/**/*.py" = ["ANN", "S101", "S105", "PLR2004", "SLF001", "ARG002", "ARG005", "PYI034", "E501", "EM101", "TRY003"]
 
 [tool.ruff.format]
 quote-style = "double"

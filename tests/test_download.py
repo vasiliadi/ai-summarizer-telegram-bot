@@ -75,7 +75,7 @@ def test_download_tg_missing_file_path(mocker):
     mock_file = mocker.MagicMock()
     mock_file.file_path = None
 
-    with pytest.raises(ValueError, match="Telegram file path is missing."):
+    with pytest.raises(ValueError, match=r"Telegram file path is missing\."):
         download_tg(mock_file)
 
 
@@ -342,7 +342,10 @@ def test_download_castro_missing_source_tag(mocker):
     mocker.patch("download.requests.get", return_value=mock_page_resp)
     mocker.patch("download.requote_uri", side_effect=lambda x: x)
 
-    with pytest.raises(ValueError, match="Audio source tag not found in Castro page."):
+    with pytest.raises(
+        ValueError,
+        match=r"Audio source tag not found in Castro page\.",
+    ):
         download_castro("https://castro.fm/episode/123")
 
 
@@ -353,7 +356,7 @@ def test_download_castro_missing_audio_url(mocker):
     mocker.patch("download.requests.get", return_value=mock_page_resp)
     mocker.patch("download.requote_uri", side_effect=lambda x: x)
 
-    with pytest.raises(ValueError, match="Audio URL not found in Castro page."):
+    with pytest.raises(ValueError, match=r"Audio URL not found in Castro page\."):
         download_castro("https://castro.fm/episode/123")
 
 
@@ -370,7 +373,7 @@ def test_download_castro_non_string_audio_url(mocker):
     mock_soup.source = mock_source
     mocker.patch("download.BeautifulSoup", return_value=mock_soup)
 
-    with pytest.raises(TypeError, match="Audio URL is not a string."):
+    with pytest.raises(TypeError, match=r"Audio URL is not a string\."):
         download_castro("https://castro.fm/episode/123")
 
 
