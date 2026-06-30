@@ -2,6 +2,7 @@ from telebot import types
 from tenacity import RetryError
 
 from exceptions import LimitExceededError, WebParseError
+from handlers import _classify_url
 from main import handle_message, process_message_content
 from services import PrefixedText
 
@@ -147,6 +148,17 @@ def test_handle_url_unsupported_pattern(message_factory, mocker):
 
     mock_send_message.assert_called_once_with(msg.chat.id, "No data to proceed.")
     mock_summarize_webpage.assert_not_called()
+
+
+def test_classify_url_uppercase_youtube_host():
+    """Test _classify_url normalises uppercase YouTube hostnames to 'media'."""
+    assert _classify_url("https://YOUTU.BE/dQw4w9WgXcQ") == "media"
+    assert _classify_url("https://WWW.YOUTUBE.COM/watch?v=dQw4w9WgXcQ") == "media"
+
+
+def test_classify_url_malformed_no_host():
+    """Test _classify_url returns None for URLs with no parseable hostname."""
+    assert _classify_url("https://") is None
 
 
 def test_handle_url_youtube_pattern(message_factory, mocker):

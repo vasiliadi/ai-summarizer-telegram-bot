@@ -6,7 +6,6 @@ from tenacity import RetryError
 from yt_dlp.utils import DownloadError
 
 from download import Downloader, download_castro, download_tg, download_yt
-from handlers import _classify_url
 
 
 def test_download_tg_happy_path(mocker):
@@ -474,14 +473,3 @@ def test_stream_to_file_unlink_oserror_does_not_hide_write_error(mocker):
     # PermissionError from unlink must not surface; original OSError propagates.
     with pytest.raises(OSError, match="connection reset"):
         download_tg(mock_file, ext=".ext")
-
-
-def test_classify_url_uppercase_youtube_host():
-    """Test _classify_url normalises uppercase YouTube hostnames to 'media'."""
-    assert _classify_url("https://YOUTU.BE/dQw4w9WgXcQ") == "media"
-    assert _classify_url("https://WWW.YOUTUBE.COM/watch?v=dQw4w9WgXcQ") == "media"
-
-
-def test_classify_url_malformed_no_host():
-    """Test _classify_url returns None for URLs with no parseable hostname."""
-    assert _classify_url("https://") is None
