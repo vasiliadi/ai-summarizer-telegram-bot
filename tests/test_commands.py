@@ -118,14 +118,34 @@ def test_handle_myinfo_missing_user(message_factory, mocker):
 @pytest.mark.parametrize(
     ("handler", "expected_text", "expected_next_step"),
     [
-        (handle_set_target_language, "Select target language", proceed_set_target_language),
-        (handle_set_summarizing_model, "Select summarizing model", proceed_set_summarizing_model),
-        (handle_set_prompt_strategy, "Select summarization strategy", proceed_set_prompt_strategy),
-        (handle_set_thinking_level, "Select thinking level", proceed_set_thinking_level),
+        (
+            handle_set_target_language,
+            "Select target language",
+            proceed_set_target_language,
+        ),
+        (
+            handle_set_summarizing_model,
+            "Select summarizing model",
+            proceed_set_summarizing_model,
+        ),
+        (
+            handle_set_prompt_strategy,
+            "Select summarization strategy",
+            proceed_set_prompt_strategy,
+        ),
+        (
+            handle_set_thinking_level,
+            "Select thinking level",
+            proceed_set_thinking_level,
+        ),
     ],
 )
 def test_handle_set_setting_shows_keyboard(
-    message_factory, mocker, handler, expected_text, expected_next_step
+    message_factory,
+    mocker,
+    handler,
+    expected_text,
+    expected_next_step,
 ):
     """Test each /set_* command shows its selection keyboard."""
     msg = message_factory(content_type="text")
@@ -158,7 +178,9 @@ def test_proceed_set_summarizing_model_success(message_factory, mocker):
     proceed_set_summarizing_model(msg)
 
     mock_set_model.assert_called_once_with(msg.from_user.id, "gemini-3.5-flash")
-    assert "The summarizing model is set to Gemini 3.5 Flash" in mock_send.call_args[0][1]
+    assert (
+        "The summarizing model is set to Gemini 3.5 Flash" in mock_send.call_args[0][1]
+    )
 
 
 def test_proceed_set_prompt_strategy_success(message_factory, mocker):
@@ -169,7 +191,10 @@ def test_proceed_set_prompt_strategy_success(message_factory, mocker):
 
     proceed_set_prompt_strategy(msg)
 
-    mock_set_strategy.assert_called_once_with(msg.from_user.id, "basic_prompt_for_transcript")
+    mock_set_strategy.assert_called_once_with(
+        msg.from_user.id,
+        "basic_prompt_for_transcript",
+    )
     assert "The prompt strategy is set to Detailed Summary" in mock_send.call_args[0][1]
 
 
@@ -188,14 +213,39 @@ def test_proceed_set_thinking_level_success(message_factory, mocker):
 @pytest.mark.parametrize(
     ("proceed", "setter_path", "null_attr", "error_msg"),
     [
-        (proceed_set_target_language, "main.set_target_language", "text", "User information or language is missing."),
-        (proceed_set_summarizing_model, "main.set_summarizing_model", "from_user", "User information or model is missing."),
-        (proceed_set_prompt_strategy, "main.set_prompt_strategy", "text", "User information or strategy is missing."),
-        (proceed_set_thinking_level, "main.set_thinking_level", "text", "User information or level is missing."),
+        (
+            proceed_set_target_language,
+            "main.set_target_language",
+            "text",
+            "User information or language is missing.",
+        ),
+        (
+            proceed_set_summarizing_model,
+            "main.set_summarizing_model",
+            "from_user",
+            "User information or model is missing.",
+        ),
+        (
+            proceed_set_prompt_strategy,
+            "main.set_prompt_strategy",
+            "text",
+            "User information or strategy is missing.",
+        ),
+        (
+            proceed_set_thinking_level,
+            "main.set_thinking_level",
+            "text",
+            "User information or level is missing.",
+        ),
     ],
 )
 def test_proceed_set_setting_missing_input(
-    message_factory, mocker, proceed, setter_path, null_attr, error_msg
+    message_factory,
+    mocker,
+    proceed,
+    setter_path,
+    null_attr,
+    error_msg,
 ):
     """Test each setting selection fails fast when user or text is missing."""
     msg = message_factory(content_type="text", text="Anything")
@@ -212,13 +262,33 @@ def test_proceed_set_setting_missing_input(
 @pytest.mark.parametrize(
     ("proceed", "setter_path", "bad_text", "error_msg"),
     [
-        (proceed_set_summarizing_model, "main.set_summarizing_model", "Gemini 4 Pro", "Unknown model"),
-        (proceed_set_prompt_strategy, "main.set_prompt_strategy", "enterprise", "Unknown strategy"),
-        (proceed_set_thinking_level, "main.set_thinking_level", "Ludicrous", "Unknown level"),
+        (
+            proceed_set_summarizing_model,
+            "main.set_summarizing_model",
+            "Gemini 4 Pro",
+            "Unknown model",
+        ),
+        (
+            proceed_set_prompt_strategy,
+            "main.set_prompt_strategy",
+            "enterprise",
+            "Unknown strategy",
+        ),
+        (
+            proceed_set_thinking_level,
+            "main.set_thinking_level",
+            "Ludicrous",
+            "Unknown level",
+        ),
     ],
 )
 def test_proceed_set_setting_invalid_choice(
-    message_factory, mocker, proceed, setter_path, bad_text, error_msg
+    message_factory,
+    mocker,
+    proceed,
+    setter_path,
+    bad_text,
+    error_msg,
 ):
     """Test an invalid label short-circuits before calling the setter."""
     msg = message_factory(content_type="text", text=bad_text)
@@ -245,13 +315,33 @@ def test_proceed_set_target_language_invalid_choice(message_factory, mocker):
 @pytest.mark.parametrize(
     ("proceed", "setter_path", "valid_text", "error_msg"),
     [
-        (proceed_set_summarizing_model, "main.set_summarizing_model", "Gemini 3.5 Flash", "Failed to update summarizing model."),
-        (proceed_set_prompt_strategy, "main.set_prompt_strategy", "Detailed Summary", "Failed to update prompt strategy."),
-        (proceed_set_thinking_level, "main.set_thinking_level", "High", "Failed to update thinking level."),
+        (
+            proceed_set_summarizing_model,
+            "main.set_summarizing_model",
+            "Gemini 3.5 Flash",
+            "Failed to update summarizing model.",
+        ),
+        (
+            proceed_set_prompt_strategy,
+            "main.set_prompt_strategy",
+            "Detailed Summary",
+            "Failed to update prompt strategy.",
+        ),
+        (
+            proceed_set_thinking_level,
+            "main.set_thinking_level",
+            "High",
+            "Failed to update thinking level.",
+        ),
     ],
 )
 def test_proceed_set_setting_db_failure(
-    message_factory, mocker, proceed, setter_path, valid_text, error_msg
+    message_factory,
+    mocker,
+    proceed,
+    setter_path,
+    valid_text,
+    error_msg,
 ):
     """Test a DB failure returns a clear user-facing message, not success."""
     msg = message_factory(content_type="text", text=valid_text)

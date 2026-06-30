@@ -5,13 +5,14 @@ from tavily.errors import TimeoutError as TavilyTimeoutError
 from tenacity import RetryError
 
 import parsing
+from domain import PrefixedText
 from exceptions import WebParseError
 from parsing import ExaBackend, TavilyBackend, UrlResolver, WebParser, parse_url
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_parser(mocker):
     """Return (parser, mock_exa_client, mock_tavily_client).
@@ -31,8 +32,9 @@ def _make_parser(mocker):
 # WebParser orchestration tests
 # ---------------------------------------------------------------------------
 
+
 def test_parse_url_returns_exa_content(mocker):
-    """parse returns Exa's text and does not call Tavily on success."""
+    """Test parse returns Exa's text and does not call Tavily on success."""
     parser, mock_exa, mock_tavily = _make_parser(mocker)
     mock_exa.get_contents.return_value = mocker.Mock(
         results=[mocker.Mock(text="Hello world.")],
@@ -51,7 +53,7 @@ def test_parse_url_returns_exa_content(mocker):
 
 
 def test_parse_url_falls_back_to_tavily_when_exa_has_no_results(mocker, caplog):
-    """parse falls back to Tavily when Exa returns no results."""
+    """Test parse falls back to Tavily when Exa returns no results."""
     mocker.patch("time.sleep")
     parser, mock_exa, mock_tavily = _make_parser(mocker)
     mock_exa.get_contents.return_value = mocker.Mock(results=[])
@@ -73,7 +75,7 @@ def test_parse_url_falls_back_to_tavily_when_exa_has_no_results(mocker, caplog):
 
 
 def test_parse_url_falls_back_to_tavily_on_exa_empty_content(mocker):
-    """parse falls back to Tavily when Exa returns empty content."""
+    """Test parse falls back to Tavily when Exa returns empty content."""
     mocker.patch("time.sleep")
     parser, mock_exa, mock_tavily = _make_parser(mocker)
     mock_exa.get_contents.return_value = mocker.Mock(
@@ -91,7 +93,7 @@ def test_parse_url_falls_back_to_tavily_on_exa_empty_content(mocker):
 
 
 def test_parse_url_falls_back_to_tavily_when_exa_retries_exhausted(mocker):
-    """parse falls back to Tavily after Exa exhausts its retries."""
+    """Test parse falls back to Tavily after Exa exhausts its retries."""
     mocker.patch("time.sleep")
     parser, mock_exa, mock_tavily = _make_parser(mocker)
     mock_exa.get_contents.return_value = mocker.Mock(results=[])
@@ -109,7 +111,7 @@ def test_parse_url_falls_back_to_tavily_when_exa_retries_exhausted(mocker):
 
 
 def test_parse_url_retries_exa_empty_then_succeeds(mocker):
-    """parse retries a transient empty Exa result and returns content."""
+    """Test parse retries a transient empty Exa result and returns content."""
     mocker.patch("time.sleep")
     parser, mock_exa, mock_tavily = _make_parser(mocker)
     mock_exa.get_contents.side_effect = [
@@ -126,7 +128,7 @@ def test_parse_url_retries_exa_empty_then_succeeds(mocker):
 
 
 def test_parse_url_tavily_fallback_retries_timeout_then_succeeds(mocker):
-    """parse's Tavily fallback retries a transient timeout then succeeds."""
+    """Test parse's Tavily fallback retries a transient timeout then succeeds."""
     mocker.patch("time.sleep")
     parser, mock_exa, mock_tavily = _make_parser(mocker)
     mock_exa.get_contents.return_value = mocker.Mock(results=[])
@@ -146,7 +148,7 @@ def test_parse_url_tavily_fallback_retries_timeout_then_succeeds(mocker):
 
 
 def test_parse_url_raises_when_both_backends_fail(mocker, caplog):
-    """parse raises WebParseError when both Exa and Tavily fail."""
+    """Test parse raises WebParseError when both Exa and Tavily fail."""
     mocker.patch("time.sleep")
     parser, mock_exa, mock_tavily = _make_parser(mocker)
     mock_exa.get_contents.return_value = mocker.Mock(results=[])
@@ -165,7 +167,7 @@ def test_parse_url_raises_when_both_backends_fail(mocker, caplog):
 
 
 def test_parse_url_raises_when_tavily_fallback_returns_empty_content(mocker, caplog):
-    """parse raises WebParseError when the Tavily fallback returns empty content."""
+    """Test parse raises WebParseError when the Tavily fallback returns empty content."""
     mocker.patch("time.sleep")
     parser, mock_exa, mock_tavily = _make_parser(mocker)
     mock_exa.get_contents.return_value = mocker.Mock(results=[])
@@ -186,7 +188,7 @@ def test_parse_url_raises_when_tavily_fallback_returns_empty_content(mocker, cap
 
 
 def test_parse_url_falls_back_when_tavily_times_out(mocker, caplog):
-    """parse raises combined failure when the Tavily fallback keeps timing out."""
+    """Test parse raises combined failure when the Tavily fallback keeps timing out."""
     mocker.patch("time.sleep")
     parser, mock_exa, mock_tavily = _make_parser(mocker)
     mock_exa.get_contents.return_value = mocker.Mock(results=[])
@@ -206,7 +208,7 @@ def test_parse_url_falls_back_when_tavily_times_out(mocker, caplog):
 
 
 def test_parse_url_propagates_non_retryable_exa_error(mocker):
-    """parse lets non-retryable Exa errors propagate without trying Tavily."""
+    """Test parse lets non-retryable Exa errors propagate without trying Tavily."""
     parser, mock_exa, mock_tavily = _make_parser(mocker)
     mock_exa.get_contents.side_effect = RuntimeError("boom")
 
@@ -218,7 +220,7 @@ def test_parse_url_propagates_non_retryable_exa_error(mocker):
 
 
 def test_parse_resolves_url_before_extracting(mocker):
-    """parse resolves the URL via the injected resolver before calling backends."""
+    """Test parse resolves the URL via the injected resolver before calling backends."""
     mock_exa = mocker.MagicMock()
     mock_tavily = mocker.MagicMock()
     resolver = mocker.Mock()
@@ -240,11 +242,13 @@ def test_parse_resolves_url_before_extracting(mocker):
 
 
 def test_parse_url_delegates_to_web_parser(mocker):
-    """parse_url routes to the module-level web_parser singleton."""
-    from domain import PrefixedText
-
+    """Test parse_url routes to the module-level web_parser singleton."""
     mock_result = PrefixedText(text="hello", prefix="🌐")
-    mock_parse = mocker.patch.object(parsing.web_parser, "parse", return_value=mock_result)
+    mock_parse = mocker.patch.object(
+        parsing.web_parser,
+        "parse",
+        return_value=mock_result,
+    )
 
     result = parse_url("https://example.com/start")
 
@@ -255,6 +259,7 @@ def test_parse_url_delegates_to_web_parser(mocker):
 # ---------------------------------------------------------------------------
 # UrlResolver._is_public tests
 # ---------------------------------------------------------------------------
+
 
 def test_is_public_returns_false_for_missing_hostname():
     """_is_public returns False when the URL has no hostname."""
@@ -328,8 +333,9 @@ def test_is_public_returns_false_when_any_addr_is_private(mocker):
 # UrlResolver.resolve tests
 # ---------------------------------------------------------------------------
 
+
 def test_resolve_returns_final_url_after_redirect(mocker):
-    """resolve returns the redirected URL and closes the response."""
+    """Test resolve returns the redirected URL and closes the response."""
     mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/final")
@@ -345,7 +351,7 @@ def test_resolve_returns_final_url_after_redirect(mocker):
 
 
 def test_resolve_returns_original_when_no_redirect(mocker):
-    """resolve returns the input unchanged when there is no redirect."""
+    """Test resolve returns the input unchanged when there is no redirect."""
     mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/article")
@@ -358,7 +364,7 @@ def test_resolve_returns_original_when_no_redirect(mocker):
 
 
 def test_resolve_falls_back_to_original_on_error(mocker, caplog):
-    """resolve returns the original URL when the request raises."""
+    """Test resolve returns the original URL when the request raises."""
     mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mocker.patch("parsing.requests.get", side_effect=RuntimeError("boom"))
@@ -371,7 +377,7 @@ def test_resolve_falls_back_to_original_on_error(mocker, caplog):
 
 
 def test_resolve_passes_proxy_when_configured(mocker):
-    """resolve forwards a configured proxy to requests.get."""
+    """Test resolve forwards a configured proxy to requests.get."""
     mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="https://user:pass@proxy.com:1234")
     mock_resp = mocker.Mock(url="https://example.com/article")
@@ -383,7 +389,7 @@ def test_resolve_passes_proxy_when_configured(mocker):
 
 
 def test_resolve_omits_proxy_when_none_configured(mocker):
-    """resolve passes proxy=None when no proxy is set."""
+    """Test resolve passes proxy=None when no proxy is set."""
     mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/article")
@@ -395,7 +401,7 @@ def test_resolve_omits_proxy_when_none_configured(mocker):
 
 
 def test_resolve_passes_configured_timeout(mocker):
-    """resolve forwards the instance timeout to requests.get."""
+    """Test resolve forwards the instance timeout to requests.get."""
     mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/article")
@@ -407,7 +413,7 @@ def test_resolve_passes_configured_timeout(mocker):
 
 
 def test_resolve_blocks_non_public_initial_url(mocker, caplog):
-    """resolve returns the original URL without fetching for a private host."""
+    """Test resolve returns the original URL without fetching for a private host."""
     mocker.patch.object(
         parsing.UrlResolver,
         "_is_public",
@@ -424,7 +430,7 @@ def test_resolve_blocks_non_public_initial_url(mocker, caplog):
 
 
 def test_resolve_blocks_redirect_to_private_host(mocker, caplog):
-    """resolve returns the original URL when a redirect lands on a private host."""
+    """Test resolve returns the original URL when a redirect lands on a private host."""
     mocker.patch.object(
         parsing.UrlResolver,
         "_is_public",

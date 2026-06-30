@@ -2,8 +2,11 @@ from pathlib import Path
 
 import pytest
 from curl_cffi.requests.exceptions import HTTPError
+from tenacity import RetryError
+from yt_dlp.utils import DownloadError
 
 from download import Downloader, download_castro, download_tg, download_yt
+from handlers import _classify_url
 
 
 def test_download_tg_happy_path(mocker):
@@ -67,6 +70,7 @@ def test_download_tg_skips_empty_chunks(mocker):
     mock_path_open().write.assert_has_calls([mocker.call(b"data")])
     assert mock_path_open().write.call_count == 1
 
+
 def test_download_tg_missing_file_path(mocker):
     """Test download_tg raises ValueError when file_path is missing."""
     mock_file = mocker.MagicMock()
@@ -74,6 +78,7 @@ def test_download_tg_missing_file_path(mocker):
 
     with pytest.raises(ValueError, match="Telegram file path is missing."):
         download_tg(mock_file)
+
 
 def test_download_yt_happy_path(mocker):
     """Test downloading a YouTube audio successfully."""
@@ -83,8 +88,20 @@ def test_download_yt_happy_path(mocker):
     info_ydl = mocker.MagicMock()
     info_ydl.extract_info.return_value = {
         "formats": [
-            {"format_id": "251", "acodec": "opus", "vcodec": "none", "abr": 111, "tbr": 111},
-            {"format_id": "139", "acodec": "mp4a.40.5", "vcodec": "none", "abr": 49, "tbr": 49},
+            {
+                "format_id": "251",
+                "acodec": "opus",
+                "vcodec": "none",
+                "abr": 111,
+                "tbr": 111,
+            },
+            {
+                "format_id": "139",
+                "acodec": "mp4a.40.5",
+                "vcodec": "none",
+                "abr": 49,
+                "tbr": 49,
+            },
         ],
     }
     download_ydl = mocker.MagicMock()
@@ -96,7 +113,10 @@ def test_download_yt_happy_path(mocker):
     result = download_yt("https://youtube.com/watch?v=123")
 
     assert result == "temp_yt.mp3"
-    info_ydl.extract_info.assert_called_once_with("https://youtube.com/watch?v=123", download=False)
+    info_ydl.extract_info.assert_called_once_with(
+        "https://youtube.com/watch?v=123",
+        download=False,
+    )
     mock_ydl.assert_any_call({"proxy": mocker.ANY, "nocheckcertificate": False})
     mock_ydl.assert_any_call(
         {
@@ -117,8 +137,6 @@ def test_download_yt_happy_path(mocker):
 
 def test_download_yt_extract_info_returns_none(mocker):
     """Test download_yt raises RetryError when extract_info returns None."""
-    from tenacity import RetryError
-
     mock_ydl = mocker.patch("download.YoutubeDL")
     mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
     mocker.patch("time.sleep")  # suppress tenacity wait between retries
@@ -133,9 +151,6 @@ def test_download_yt_extract_info_returns_none(mocker):
 
 def test_download_yt_removes_partials_on_download_error(mocker):
     """Test download_yt deletes yt-dlp partial files when the download fails."""
-    from tenacity import RetryError
-    from yt_dlp.utils import DownloadError
-
     mock_ydl = mocker.patch("download.YoutubeDL")
     mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
     mocker.patch("time.sleep")  # suppress tenacity wait between retries
@@ -143,7 +158,13 @@ def test_download_yt_removes_partials_on_download_error(mocker):
     info_ydl = mocker.MagicMock()
     info_ydl.extract_info.return_value = {
         "formats": [
-            {"format_id": "139", "acodec": "mp4a.40.5", "vcodec": "none", "abr": 49, "tbr": 49},
+            {
+                "format_id": "139",
+                "acodec": "mp4a.40.5",
+                "vcodec": "none",
+                "abr": 49,
+                "tbr": 49,
+            },
         ],
     }
     download_ydl = mocker.MagicMock()
@@ -169,9 +190,6 @@ def test_download_yt_removes_partials_on_download_error(mocker):
 
 def test_download_yt_unlink_oserror_does_not_hide_download_error(mocker):
     """Test that an OSError from unlink is suppressed and DownloadError still propagates."""
-    from tenacity import RetryError
-    from yt_dlp.utils import DownloadError
-
     mock_ydl = mocker.patch("download.YoutubeDL")
     mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
     mocker.patch("time.sleep")
@@ -179,7 +197,13 @@ def test_download_yt_unlink_oserror_does_not_hide_download_error(mocker):
     info_ydl = mocker.MagicMock()
     info_ydl.extract_info.return_value = {
         "formats": [
-            {"format_id": "139", "acodec": "mp4a.40.5", "vcodec": "none", "abr": 49, "tbr": 49},
+            {
+                "format_id": "139",
+                "acodec": "mp4a.40.5",
+                "vcodec": "none",
+                "abr": 49,
+                "tbr": 49,
+            },
         ],
     }
     download_ydl = mocker.MagicMock()
@@ -209,7 +233,13 @@ def test_download_yt_keeps_file_on_success(mocker):
     info_ydl = mocker.MagicMock()
     info_ydl.extract_info.return_value = {
         "formats": [
-            {"format_id": "139", "acodec": "mp4a.40.5", "vcodec": "none", "abr": 49, "tbr": 49},
+            {
+                "format_id": "139",
+                "acodec": "mp4a.40.5",
+                "vcodec": "none",
+                "abr": 49,
+                "tbr": 49,
+            },
         ],
     }
     download_ydl = mocker.MagicMock()
@@ -229,7 +259,13 @@ def test_choose_yt_audio_format_falls_back_when_no_audio_only_formats():
     """Test selector fallback when yt-dlp has no audio-only format ids."""
     info = {
         "formats": [
-            {"format_id": "18", "acodec": "mp4a.40.2", "vcodec": "avc1.42001E", "abr": 44, "tbr": 365},
+            {
+                "format_id": "18",
+                "acodec": "mp4a.40.2",
+                "vcodec": "avc1.42001E",
+                "abr": 44,
+                "tbr": 365,
+            },
         ],
     }
 
@@ -243,14 +279,27 @@ def test_choose_yt_audio_format_ranks_missing_bitrates_last():
     info = {
         "formats": [
             {"format_id": "unknown", "acodec": "opus", "vcodec": "none"},
-            {"format_id": "zero", "acodec": "mp4a.40.5", "vcodec": "none", "abr": 0, "tbr": 0},
-            {"format_id": "known", "acodec": "mp4a.40.5", "vcodec": "none", "abr": 49, "tbr": 49},
+            {
+                "format_id": "zero",
+                "acodec": "mp4a.40.5",
+                "vcodec": "none",
+                "abr": 0,
+                "tbr": 0,
+            },
+            {
+                "format_id": "known",
+                "acodec": "mp4a.40.5",
+                "vcodec": "none",
+                "abr": 49,
+                "tbr": 49,
+            },
         ],
     }
 
     result = Downloader._choose_yt_audio_format(info)
 
     assert result == "zero"
+
 
 def test_download_castro_happy_path(mocker):
     """Test downloading a Castro podcast successfully."""
@@ -286,6 +335,7 @@ def test_download_castro_happy_path(mocker):
     )
     assert mock_path_open().write.call_count == 2
 
+
 def test_download_castro_missing_source_tag(mocker):
     """Test download_castro raises ValueError when <source> tag is missing."""
     mock_page_resp = mocker.MagicMock()
@@ -295,6 +345,7 @@ def test_download_castro_missing_source_tag(mocker):
 
     with pytest.raises(ValueError, match="Audio source tag not found in Castro page."):
         download_castro("https://castro.fm/episode/123")
+
 
 def test_download_castro_missing_audio_url(mocker):
     """Test download_castro raises ValueError when source tag has no src."""
@@ -425,16 +476,12 @@ def test_stream_to_file_unlink_oserror_does_not_hide_write_error(mocker):
         download_tg(mock_file, ext=".ext")
 
 
-def test_classify_url_uppercase_youtube_host(mocker):
-    """_classify_url normalises uppercase YouTube hostnames to 'media'."""
-    from handlers import _classify_url
-
+def test_classify_url_uppercase_youtube_host():
+    """Test _classify_url normalises uppercase YouTube hostnames to 'media'."""
     assert _classify_url("https://YOUTU.BE/dQw4w9WgXcQ") == "media"
     assert _classify_url("https://WWW.YOUTUBE.COM/watch?v=dQw4w9WgXcQ") == "media"
 
 
 def test_classify_url_malformed_no_host():
-    """_classify_url returns None for URLs with no parseable hostname."""
-    from handlers import _classify_url
-
+    """Test _classify_url returns None for URLs with no parseable hostname."""
     assert _classify_url("https://") is None
