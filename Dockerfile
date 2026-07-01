@@ -34,8 +34,7 @@ RUN uv sync \
     --no-group modal \
     --no-group build \
     --compile-bytecode \
-    --no-managed-python \
-    && rm -f pyproject.toml uv.lock
+    --no-managed-python
 COPY --from=builder /app/src .
 RUN adduser -D -u 1000 -s /sbin/nologin bot \
     && chown -R bot:bot /app
