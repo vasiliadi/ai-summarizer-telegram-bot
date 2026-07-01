@@ -2,6 +2,7 @@ from telebot import types
 from tenacity import RetryError
 
 from exceptions import LimitExceededError, WebParseError
+from handlers import _classify_url
 from main import handle_message, process_message_content
 from services import PrefixedText
 
@@ -149,6 +150,17 @@ def test_handle_url_unsupported_pattern(message_factory, mocker):
     mock_summarize_webpage.assert_not_called()
 
 
+def test_classify_url_uppercase_youtube_host():
+    """Test _classify_url normalises uppercase YouTube hostnames to 'media'."""
+    assert _classify_url("https://YOUTU.BE/dQw4w9WgXcQ") == "media"
+    assert _classify_url("https://WWW.YOUTUBE.COM/watch?v=dQw4w9WgXcQ") == "media"
+
+
+def test_classify_url_malformed_no_host():
+    """Test _classify_url returns None for URLs with no parseable hostname."""
+    assert _classify_url("https://") is None
+
+
 def test_handle_url_youtube_pattern(message_factory, mocker):
     """Test that YouTube URLs trigger summarize."""
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -220,8 +232,6 @@ def test_handle_url_web_preflight_blocks_before_parse_url(message_factory, mocke
 
 def test_handle_url_web_parse_error_skips_summarize(message_factory, mocker):
     """Test that WebParseError from parse_url short-circuits before summarize_webpage."""
-    from exceptions import WebParseError
-
     url = "https://example.com/article"
     msg = message_factory(content_type="text", text=url)
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
@@ -343,7 +353,8 @@ def test_handle_video_note_happy_path_cleans_up_download(message_factory, mocker
 
 
 def test_handle_video_cleans_up_compressed_file_when_summarize_raises(
-    message_factory, mocker
+    message_factory,
+    mocker,
 ):
     """Test the compressed temp file is removed even if summarize() raises early.
 

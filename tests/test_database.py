@@ -81,13 +81,28 @@ def test_check_auth_unknown_user(mock_db_session):
     ("setter", "value", "orm_attr", "stored_value"),
     [
         (set_target_language, "English", "target_language", "English"),
-        (set_summarizing_model, "gemini-3.5-flash", "summarizing_model", "gemini-3.5-flash"),
-        (set_prompt_strategy, "basic_prompt_for_transcript", "prompt_key_for_summary", "basic_prompt_for_transcript"),
+        (
+            set_summarizing_model,
+            "gemini-3.5-flash",
+            "summarizing_model",
+            "gemini-3.5-flash",
+        ),
+        (
+            set_prompt_strategy,
+            "basic_prompt_for_transcript",
+            "prompt_key_for_summary",
+            "basic_prompt_for_transcript",
+        ),
         (set_thinking_level, "high", "thinking_level", "HIGH"),
     ],
 )
 def test_set_setting_persists(
-    monkeypatch, sqlite_session_factory, setter, value, orm_attr, stored_value
+    monkeypatch,
+    sqlite_session_factory,
+    setter,
+    value,
+    orm_attr,
+    stored_value,
 ):
     """Test each setting setter persists to a real SQLite database."""
     monkeypatch.setattr("database.Session", sqlite_session_factory)
@@ -111,7 +126,10 @@ def test_set_setting_persists(
     ],
 )
 def test_set_setting_rejects_unsupported(
-    monkeypatch, sqlite_session_factory, setter, bad_value
+    monkeypatch,
+    sqlite_session_factory,
+    setter,
+    bad_value,
 ):
     """Test each setting setter returns False for unsupported values."""
     monkeypatch.setattr("database.Session", sqlite_session_factory)

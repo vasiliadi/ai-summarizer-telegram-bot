@@ -2,10 +2,11 @@ from types import SimpleNamespace
 
 import pytest
 from google.genai.errors import ClientError
+from telebot.types import File
 from tenacity import RetryError
 
 import summary as summary_module
-from exceptions import FetchTranscriptError
+from exceptions import FetchTranscriptError, LimitExceededError
 from summary import (
     format_prefixed_summary,
     summarize,
@@ -264,7 +265,11 @@ def test_summarize_youtube_always_attempts_transcript(mocker):
         "summary.get_yt_transcript",
         return_value=SimpleNamespace(text="YT Transcript", prefix="📹"),
     )
-    mocker.patch.object(summary_module.summarizer, "summarize_with_transcript", return_value="Summary")
+    mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_transcript",
+        return_value="Summary",
+    )
 
     summarize(
         data=url,
@@ -353,9 +358,16 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
         return_value=SimpleNamespace(text="YT Transcript content", prefix="📹"),
     )
     mock_download = mocker.patch("summary.download_yt")
-    mock_file_summary = mocker.patch.object(summary_module.summarizer, "summarize_with_file")
+    mock_file_summary = mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_file",
+    )
     mock_transcribe = mocker.patch("summary.transcribe")
-    mocker.patch.object(summary_module.summarizer, "summarize_with_transcript", side_effect=retry_error)
+    mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_transcript",
+        side_effect=retry_error,
+    )
 
     with pytest.raises(RetryError):
         summarize(
@@ -381,14 +393,19 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
     ],
 )
 def test_summarize_youtube_transcript_failure_falls_back_to_download(
-    mocker, transcript_error
+    mocker,
+    transcript_error,
 ):
     """Test summarize() falls back to downloading YouTube audio when transcript fetch fails."""
     url = "https://youtube.com/watch?v=123"
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.get_yt_transcript", side_effect=transcript_error)
     mock_download = mocker.patch("summary.download_yt", return_value="downloaded.ogg")
-    mocker.patch.object(summary_module.summarizer, "summarize_with_file", return_value="File summary")
+    mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_file",
+        return_value="File summary",
+    )
     mock_clean_up = mocker.patch("summary.clean_up")
     mock_logger = mocker.patch("summary.logger")
 
@@ -480,7 +497,11 @@ def test_summarize_castro(mocker):
     url = "https://castro.fm/episode/123"
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("summary.download_castro", return_value="downloaded.mp3")
-    mocker.patch.object(summary_module.summarizer, "summarize_with_file", return_value="Castro summary")
+    mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_file",
+        return_value="Castro summary",
+    )
     mocker.patch("summary.clean_up")
 
     result = summarize(
@@ -498,8 +519,6 @@ def test_summarize_castro(mocker):
 
 def test_summarize_preflight_blocks_before_download(mocker):
     """Test summarize() blocks zero-quota users before any network IO."""
-    from exceptions import LimitExceededError
-
     mock_check = mocker.patch("summary.check_quota", side_effect=LimitExceededError)
     mock_download = mocker.patch("summary.download_castro")
 
@@ -520,9 +539,6 @@ def test_summarize_preflight_blocks_before_download(mocker):
 
 def test_summarize_with_file_deletes_gemini_file_when_quota_check_fails(mocker):
     """Test summarize_with_file cleans up the uploaded Gemini file if consuming check fails."""
-    from exceptions import LimitExceededError
-    from types import SimpleNamespace
-
     mock_audio_file = SimpleNamespace(
         name="files/audio123",
         uri="https://mock.uri",
@@ -531,7 +547,10 @@ def test_summarize_with_file_deletes_gemini_file_when_quota_check_fails(mocker):
     mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
-    mock_check = mocker.patch("summary.check_quota", side_effect=[True, LimitExceededError])
+    mock_check = mocker.patch(
+        "summary.check_quota",
+        side_effect=[True, LimitExceededError],
+    )
 
     with pytest.raises(LimitExceededError):
         summarize_with_file(
@@ -552,8 +571,6 @@ def test_summarize_with_file_deletes_gemini_file_when_quota_check_fails(mocker):
 
 def test_summarize_with_document_preflight_blocks_before_download(mocker):
     """Test summarize_with_document blocks zero-quota users before download or upload."""
-    from exceptions import LimitExceededError
-
     mock_check = mocker.patch("summary.check_quota", side_effect=LimitExceededError)
     mock_download = mocker.patch("summary.download_tg")
 
@@ -583,7 +600,9 @@ def test_summarize_with_file_logs_warning_on_delete_failure(mocker):
     )
     mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text="summary text")
+    mock_client.models.generate_content.return_value = mocker.MagicMock(
+        text="summary text",
+    )
     mock_client.files.delete.side_effect = Exception("delete failed")
     mock_logger = mocker.patch("summary.logger")
 
@@ -659,7 +678,10 @@ def test_summarize_with_document_raises_when_uri_none(mocker):
     mock_client = mocker.patch("summary.gemini_client")
     mocker.patch("services.gemini_client", mock_client)
     mock_file = SimpleNamespace(
-        state="ACTIVE", name="files/doc123", uri=None, mime_type="application/pdf"
+        state="ACTIVE",
+        name="files/doc123",
+        uri=None,
+        mime_type="application/pdf",
     )
     mock_client.files.upload.return_value = mock_file
 
@@ -686,7 +708,10 @@ def test_summarize_with_document_raises_when_mime_type_none(mocker):
     mock_client = mocker.patch("summary.gemini_client")
     mocker.patch("services.gemini_client", mock_client)
     mock_file = SimpleNamespace(
-        state="ACTIVE", name="files/doc123", uri="https://mock.uri", mime_type=None
+        state="ACTIVE",
+        name="files/doc123",
+        uri="https://mock.uri",
+        mime_type=None,
     )
     mock_client.files.upload.return_value = mock_file
 
@@ -749,7 +774,9 @@ def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
         mime_type="application/pdf",
     )
     mock_client.files.upload.return_value = mock_file
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text="document summary")
+    mock_client.models.generate_content.return_value = mocker.MagicMock(
+        text="document summary",
+    )
     mock_client.files.delete.side_effect = Exception("delete failed")
     mock_logger = mocker.patch("summary.logger")
 
@@ -771,11 +798,16 @@ def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
 
 def test_summarize_with_telegram_file(mocker):
     """Test summarize() downloads a Telegram File object before summarizing."""
-    from telebot.types import File
-
     mocker.patch("summary.check_quota", return_value=True)
-    mock_download_tg = mocker.patch("summary.download_tg", return_value="downloaded.ogg")
-    mocker.patch.object(summary_module.summarizer, "summarize_with_file", return_value="Telegram file summary")
+    mock_download_tg = mocker.patch(
+        "summary.download_tg",
+        return_value="downloaded.ogg",
+    )
+    mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_file",
+        return_value="Telegram file summary",
+    )
     mocker.patch("summary.clean_up")
     mock_tg_file = mocker.MagicMock(spec=File)
 

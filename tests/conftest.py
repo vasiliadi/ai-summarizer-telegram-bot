@@ -47,6 +47,7 @@ def mock_db_session(mocker):
 @pytest.fixture
 def message_factory():
     """Fixture to generate a mock telebot Message with variable content."""
+
     def _create_message(
         content_type="text",
         text="Hello world",
@@ -64,7 +65,8 @@ def message_factory():
         )
         chat = types.Chat(id=user_id, type="private")
 
-        # Message requires json_string and options in the constructor but they can be empty
+        # Message requires json_string and options in the constructor,
+        # but they can be empty
         msg = types.Message(
             message_id=1,
             from_user=user,

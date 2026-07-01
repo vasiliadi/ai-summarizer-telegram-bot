@@ -54,7 +54,8 @@ def test_send_answer_single_chunk(mocker):
     mock_entity = mocker.MagicMock()
     mock_entity.to_dict.return_value = {"type": "bold"}
     mock_split = mocker.patch(
-        "services.split_entities", return_value=[("text", [mock_entity])]
+        "services.split_entities",
+        return_value=[("text", [mock_entity])],
     )
 
     mock_reply = mocker.patch.object(services_module.messenger, "_reply_with_retry")

@@ -1,10 +1,10 @@
 import textwrap
 
 import pytest
+from defusedxml.ElementTree import ParseError
 from replicate.exceptions import ModelError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import RetryError
-from defusedxml.ElementTree import ParseError
 from youtube_transcript_api._errors import (
     IpBlocked,
     NoTranscriptFound,
@@ -132,7 +132,11 @@ def test_get_yt_transcript_both_backends_fail_raises_error(mocker):
     """Test get_yt_transcript raises FetchTranscriptError chained from the fallback failure."""
     api_error = TranscriptsDisabled("dQw4w9WgXcQ")
     ytdlp_error = DownloadError("no subs")
-    mocker.patch.object(transcription.api_backend, "fetch_via_api", side_effect=api_error)
+    mocker.patch.object(
+        transcription.api_backend,
+        "fetch_via_api",
+        side_effect=api_error,
+    )
     mocker.patch.object(
         transcription.ytdlp_backend,
         "fetch_via_ytdlp",
@@ -149,7 +153,11 @@ def test_get_yt_transcript_both_backends_fail_raises_error(mocker):
 def test_get_yt_transcript_both_empty_raises_error(mocker):
     """Test get_yt_transcript raises FetchTranscriptError when both backends return empty."""
     mocker.patch.object(transcription.api_backend, "fetch_via_api", return_value="")
-    mocker.patch.object(transcription.ytdlp_backend, "fetch_via_ytdlp", return_value="  ")
+    mocker.patch.object(
+        transcription.ytdlp_backend,
+        "fetch_via_ytdlp",
+        return_value="  ",
+    )
 
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     with pytest.raises(FetchTranscriptError, match="Both transcript backends failed"):
@@ -298,7 +306,7 @@ def test_fetch_transcript_via_api_uses_proxy_when_configured(mocker):
     mock_proxy_cfg = mocker.patch("transcription.GenericProxyConfig")
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
     mocker.patch(
-        "transcription.TextFormatter"
+        "transcription.TextFormatter",
     ).return_value.format_transcript.return_value = "Hello"
     mock_ytt.return_value.fetch.return_value = []
 
@@ -309,9 +317,7 @@ def test_fetch_transcript_via_api_uses_proxy_when_configured(mocker):
     mock_ytt.assert_called_once_with(proxy_config=mock_proxy_cfg.return_value)
 
 
-def test_fetch_transcript_via_ytdlp_download_error_logged_and_retried(
-    mocker, tmp_path
-):
+def test_fetch_transcript_via_ytdlp_download_error_logged_and_retried(mocker, tmp_path):
     """Test fetch_transcript_via_ytdlp retries DownloadError from yt-dlp twice then raises RetryError."""
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
@@ -337,7 +343,8 @@ def test_fetch_transcript_via_ytdlp_download_error_logged_and_retried(
 
 
 def test_fetch_transcript_via_ytdlp_unexpected_error_wrapped_and_retried(
-    mocker, tmp_path
+    mocker,
+    tmp_path,
 ):
     """Test fetch_transcript_via_ytdlp wraps non-DownloadError exceptions and retries."""
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
@@ -386,7 +393,8 @@ def test_fetch_transcript_via_ytdlp_unexpected_error_preserves_cause(mocker, tmp
 
 
 def test_fetch_transcript_via_ytdlp_probe_download_error_logged_and_retried(
-    mocker, tmp_path
+    mocker,
+    tmp_path,
 ):
     """Test fetch_transcript_via_ytdlp retries probe DownloadError twice then raises RetryError."""
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
@@ -410,7 +418,8 @@ def test_fetch_transcript_via_ytdlp_probe_download_error_logged_and_retried(
 
 
 def test_fetch_transcript_via_ytdlp_probe_unexpected_error_wrapped_and_retried(
-    mocker, tmp_path
+    mocker,
+    tmp_path,
 ):
     """Test fetch_transcript_via_ytdlp wraps and retries unexpected errors from extract_info."""
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
@@ -453,7 +462,7 @@ def test_fetch_transcript_via_ytdlp_succeeds_on_second_attempt(mocker, tmp_path)
         def __init__(self, opts: object) -> None:
             self.opts = opts
 
-        def __enter__(self) -> "MockYDL":
+        def __enter__(self) -> MockYDL:
             return self
 
         def __exit__(self, *args: object) -> None:
@@ -523,7 +532,7 @@ def test_fetch_transcript_via_ytdlp_non_english_fallback(mocker, tmp_path):
         def __init__(self, opts: object) -> None:
             self.opts = opts
 
-        def __enter__(self) -> "MockYDL":
+        def __enter__(self) -> MockYDL:
             return self
 
         def __exit__(self, *args: object) -> None:
@@ -560,7 +569,7 @@ def test_fetch_transcript_via_ytdlp_prefers_english_when_available(mocker, tmp_p
         def __init__(self, opts: object) -> None:
             self.opts = opts
 
-        def __enter__(self) -> "MockYDL":
+        def __enter__(self) -> MockYDL:
             return self
 
         def __exit__(self, *args: object) -> None:
@@ -605,7 +614,7 @@ def test_fetch_transcript_via_ytdlp_manual_prefers_original_language_over_first_
         def __init__(self, opts: object) -> None:
             self.opts = opts
 
-        def __enter__(self) -> "MockYDL":
+        def __enter__(self) -> MockYDL:
             return self
 
         def __exit__(self, *args: object) -> None:
@@ -655,7 +664,7 @@ def test_fetch_transcript_via_ytdlp_auto_captions_uses_original_language(
         def __init__(self, opts: object) -> None:
             self.opts = opts
 
-        def __enter__(self) -> "MockYDL":
+        def __enter__(self) -> MockYDL:
             return self
 
         def __exit__(self, *args: object) -> None:
@@ -703,7 +712,7 @@ def test_fetch_transcript_via_ytdlp_auto_captions_prefers_orig_key_when_language
         def __init__(self, opts: object) -> None:
             self.opts = opts
 
-        def __enter__(self) -> "MockYDL":
+        def __enter__(self) -> MockYDL:
             return self
 
         def __exit__(self, *args: object) -> None:
@@ -751,7 +760,7 @@ def test_fetch_transcript_via_ytdlp_auto_captions_falls_back_to_first_key(
         def __init__(self, opts: object) -> None:
             self.opts = opts
 
-        def __enter__(self) -> "MockYDL":
+        def __enter__(self) -> MockYDL:
             return self
 
         def __exit__(self, *args: object) -> None:
@@ -797,7 +806,7 @@ def test_fetch_transcript_via_ytdlp_ignores_live_chat_pseudo_track(mocker, tmp_p
         def __init__(self, opts: object) -> None:
             self.opts = opts
 
-        def __enter__(self) -> "MockYDL":
+        def __enter__(self) -> MockYDL:
             return self
 
         def __exit__(self, *args: object) -> None:
@@ -853,14 +862,20 @@ def test_fetch_transcript_via_ytdlp_extract_info_none_raises(mocker, tmp_path):
     ctx.download.assert_not_called()
 
 
-def test_fetch_transcript_via_ytdlp_vtt_read_error_raises_download_error(mocker, tmp_path):
+def test_fetch_transcript_via_ytdlp_vtt_read_error_raises_download_error(
+    mocker,
+    tmp_path,
+):
     """Test fetch_transcript_via_ytdlp converts vtt_to_text OSError into DownloadError."""
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mocker.patch("transcription.clean_up")
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
     ctx = mock_ydl_cls.return_value.__enter__.return_value
-    ctx.extract_info.return_value = {"subtitles": {"en": [{}]}, "automatic_captions": {}}
+    ctx.extract_info.return_value = {
+        "subtitles": {"en": [{}]},
+        "automatic_captions": {},
+    }
     # create the vtt file so the glob finds it, but vtt_to_text raises OSError
     (tmp_path / "fake-uuid.en.vtt").write_text("WEBVTT\n", encoding="utf-8")
     mocker.patch.object(YtDlpBackend, "_vtt_to_text", side_effect=OSError("disk full"))
@@ -876,7 +891,10 @@ def test_fetch_transcript_via_ytdlp_no_vtt_after_download_raises(mocker, tmp_pat
     mocker.patch("transcription.clean_up")
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
     ctx = mock_ydl_cls.return_value.__enter__.return_value
-    ctx.extract_info.return_value = {"subtitles": {"en": [{}]}, "automatic_captions": {}}
+    ctx.extract_info.return_value = {
+        "subtitles": {"en": [{}]},
+        "automatic_captions": {},
+    }
     # download() succeeds but writes nothing to tmp_path
 
     with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
@@ -886,7 +904,8 @@ def test_fetch_transcript_via_ytdlp_no_vtt_after_download_raises(mocker, tmp_pat
 
 
 def test_fetch_transcript_via_ytdlp_pins_proxy_across_probe_and_download(
-    mocker, tmp_path
+    mocker,
+    tmp_path,
 ):
     """Test fetch_transcript_via_ytdlp resolves the proxy once and reuses it for both YoutubeDL instances."""
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
@@ -934,12 +953,12 @@ def test_transcribe_happy_path(mocker):
     # sequence of statuses: processing -> succeeded
     # status is checked twice per loop (while condition and inside if)
     type(mock_prediction).status = mocker.PropertyMock(
-        side_effect=["processing", "processing", "succeeded", "succeeded"]
+        side_effect=["processing", "processing", "succeeded", "succeeded"],
     )
     mock_prediction.output = {"segments": [{"text": "Hello "}, {"text": "world!"}]}
 
     mock_replicate.models.get.return_value.versions.list.return_value = [
-        mocker.MagicMock(id="v1")
+        mocker.MagicMock(id="v1"),
     ]
     mock_replicate.predictions.create.return_value = mock_prediction
 
@@ -958,7 +977,7 @@ def test_transcribe_failed_prediction(mocker):
     mock_prediction.status = "failed"
     mock_replicate.predictions.create.return_value = mock_prediction
     mock_replicate.models.get.return_value.versions.list.return_value = [
-        mocker.MagicMock(id="v1")
+        mocker.MagicMock(id="v1"),
     ]
 
     with pytest.raises(ModelError):
@@ -975,7 +994,7 @@ def test_transcribe_null_output(mocker):
     mock_prediction.output = None
     mock_replicate.predictions.create.return_value = mock_prediction
     mock_replicate.models.get.return_value.versions.list.return_value = [
-        mocker.MagicMock(id="v1")
+        mocker.MagicMock(id="v1"),
     ]
 
     with pytest.raises(ModelError):
@@ -992,7 +1011,7 @@ def test_transcribe_invalid_segments_raises_model_error(mocker):
     mock_prediction.output = {"segments": "not-a-list"}
     mock_replicate.predictions.create.return_value = mock_prediction
     mock_replicate.models.get.return_value.versions.list.return_value = [
-        mocker.MagicMock(id="v1")
+        mocker.MagicMock(id="v1"),
     ]
 
     with pytest.raises(ModelError):
@@ -1001,9 +1020,14 @@ def test_transcribe_invalid_segments_raises_model_error(mocker):
 
 def test_extract_video_id_uppercase_host():
     """_extract_video_id handles uppercase and mixed-case hostnames."""
-    assert YouTubeTranscriber._extract_video_id("https://YOUTU.BE/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
     assert (
-        YouTubeTranscriber._extract_video_id("https://WWW.YOUTUBE.COM/watch?v=dQw4w9WgXcQ")
+        YouTubeTranscriber._extract_video_id("https://YOUTU.BE/dQw4w9WgXcQ")
+        == "dQw4w9WgXcQ"
+    )
+    assert (
+        YouTubeTranscriber._extract_video_id(
+            "https://WWW.YOUTUBE.COM/watch?v=dQw4w9WgXcQ",
+        )
         == "dQw4w9WgXcQ"
     )
 
@@ -1022,5 +1046,8 @@ def test_extract_video_id_empty_path():
 
 def test_extract_video_id_unrecognized_path():
     """_extract_video_id returns None for youtube.com URLs with unrecognized paths."""
-    assert YouTubeTranscriber._extract_video_id("https://youtube.com/playlist?list=PLxxx") is None
+    assert (
+        YouTubeTranscriber._extract_video_id("https://youtube.com/playlist?list=PLxxx")
+        is None
+    )
     assert YouTubeTranscriber._extract_video_id("https://youtube.com/") is None
