@@ -25,7 +25,7 @@ ENV SENTRY_ENVIRONMENT=${ENV}
 WORKDIR /app
 RUN apk add --no-cache ffmpeg deno
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock LICENSE NOTICE ./
 RUN uv sync \
     --frozen \
     --no-cache \
@@ -37,7 +37,6 @@ RUN uv sync \
     --no-managed-python \
     && rm -f pyproject.toml uv.lock
 COPY --from=builder /app/src .
-COPY LICENSE NOTICE ./
 RUN adduser -D -u 1000 -s /sbin/nologin bot \
     && chown -R bot:bot /app
 USER bot
