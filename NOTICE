@@ -1,0 +1,55 @@
+NOTICE — License information for ai-summarizer-telegram-bot
+
+This project's own source code is dedicated to the public domain under the
+Unlicense. See the LICENSE file for the full text.
+
+However, the application imports and runs third-party dependencies, some of
+which are copyleft-licensed. Because of this, any *built or distributed
+artifact* (for example, a Docker image or a compiled binary) that bundles
+these dependencies is, taken as a whole, effectively governed by the
+GNU General Public License, version 2 (GPL-2.0). The Unlicense dedication
+covers only this project's own source files, not the combined work.
+
+Key copyleft dependencies:
+
+  - pyTelegramBotAPI  — GPL-2.0            (direct runtime dependency)
+  - mutagen           — GPL-2.0-or-later   (transitive, via yt-dlp)
+  - psycopg2-binary   — LGPL-3.0-or-later, with a special exception
+                        permitting linking with OpenSSL
+  - certifi           — MPL-2.0 (file-level copyleft)
+  - tqdm              — MPL-2.0 AND MIT (file-level copyleft on the MPL part)
+
+System packages in the Docker image
+------------------------------------
+The Dockerfile installs additional system packages into the image with
+`apk add` (see the Dockerfile):
+
+  - ffmpeg — GPL-2.0-or-later AND LGPL-2.1-or-later. Alpine builds it with
+    `--enable-gpl --enable-version3`, so the shipped binary is GPL-licensed.
+    It is invoked as a separate executable (a subprocess) — both by yt-dlp's
+    postprocessors and directly by this project's own audio-compression code
+    (see `src/utils.py`). Invoking a separate program this way is mere
+    aggregation — it does NOT make this project's own code a derivative work of
+    ffmpeg. Distributing an image that contains the ffmpeg binary does, however,
+    carry ffmpeg's own GPL obligations for that binary.
+  - deno — MIT (notice retention only).
+
+The base image (python:*-alpine) also contains its own operating-system
+packages (e.g. BusyBox, GPL-2.0-only) under their respective licenses, as any
+Linux distribution image does.
+
+Distribution model
+------------------
+This project is distributed as SOURCE ONLY. Dependencies are fetched at build
+time (via `uv sync`) and are not vendored or committed to this repository, and
+no prebuilt image or binary is published from CI. Under this model the copyleft
+obligations above are DORMANT: they would attach only to a prebuilt artifact
+that you choose to distribute. If you ever publish such an artifact, you become
+responsible for meeting those obligations — for the GPL dependencies this means
+offering the corresponding source and retaining their license and copyright
+notices; for Apache-2.0 dependencies it means retaining their NOTICE files.
+
+Each dependency's own license text is preserved in its `*.dist-info/licenses/`
+directory within an installed environment.
+
+This notice is practical guidance, not legal advice.

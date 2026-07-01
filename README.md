@@ -252,3 +252,9 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 - [Gitflow workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
 - [NumPy Docstrings Style Guide | Docstrings](https://numpydoc.readthedocs.io/en/latest/format.html).
 - Frontend to configure access.
+
+## License
+
+This project's own source code is released into the public domain under the [Unlicense](LICENSE).
+
+Note that the app depends on copyleft-licensed components (notably `pyTelegramBotAPI`, GPL-2.0, and `mutagen`, GPL-2.0-or-later; plus the GPL-licensed `ffmpeg` binary installed into the Docker image). The project is distributed **source only**, so those obligations stay dormant — but any prebuilt artifact you build and distribute (e.g. a Docker image) is, as a whole, effectively **GPL-2.0**. See [NOTICE](NOTICE) for details. Not legal advice.
