@@ -38,6 +38,16 @@ The base image (python:*-alpine) also contains its own operating-system
 packages (e.g. BusyBox, GPL-2.0-only) under their respective licenses, as any
 Linux distribution image does.
 
+Local development environment (pixi)
+-------------------------------------
+The optional pixi environment (see the README) is for local development only
+and is never packaged or distributed. It fetches its own ffmpeg build from
+conda-forge (`ffmpeg-*-gpl_*`, GPL-2.0-or-later) — a different binary than the
+one Alpine installs into the Docker image above, but also GPL-licensed, so its
+obligations are equally dormant under the source-only distribution model
+below. The committed `pixi.lock` records only download URLs and hashes, not
+the binaries themselves, and so is not a redistribution of that code.
+
 Distribution model
 ------------------
 This project is distributed as SOURCE ONLY. Dependencies are fetched at build
