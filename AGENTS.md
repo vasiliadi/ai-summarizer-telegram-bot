@@ -20,7 +20,7 @@ Before your first file edit, ensure you are not on `main`. If you are, create a 
 6. Do not bulk-read documents. Process one at a time: read, summarize to disk, release from context before reading next. For the detailed protocol, read `docs/context/processing-protocol.md`.
 7. Sub-agent returns must be structured (numbers, file paths, decisions, open items), not free-form prose. See `docs/context/subagent-rules.md`.
 8. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
-9. Before every commit, pass: `uvx ruff format .`, `uvx ruff check .`, `uvx ty check .`, `uv run pytest --cov`. Review the coverage report and do not introduce new uncovered lines. See `docs/context/git-guide.md` for the full sequence.
+9. Before every commit, pass: `uvx ruff format .`, `uvx ruff check .`, `uvx ty check .`, `uv run pytest --cov`. Review the coverage report and do not introduce new uncovered lines. See `docs/context/git-guide.md` for the full sequence. Commit locally when a unit of work is complete, but do **not** `git push` unless the user explicitly asks — pushing triggers the GitHub code-review agent, which should only run on finished work. When staging, remember that `docs/summaries/` and `docs/archive/` are gitignored (only `docs/context/` under `docs/` is tracked); never try to add or commit handoff, recovery, or archive files.
 10. When changing code, update or add tests in the same PR. Treat test maintenance as mandatory — skipping it is equivalent to skipping the pre-commit checks in Rule 9.
 
 ## Handoff Template
@@ -61,8 +61,8 @@ Write to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md`. Create it after the f
 
 ## Where Things Live
 
-- `docs/summaries/` — active session state (latest handoff + project-digest + decision records + source summaries)
-- `docs/context/` — reusable domain knowledge, loaded only when relevant to the current task
+- `docs/summaries/` — active session state (latest handoff + project-digest + decision records + source summaries). **(gitignored — not committed)**
+- `docs/context/` — reusable domain knowledge, loaded only when relevant to the current task. **(tracked in git)**
   - `architecture.md` — high-level component map and data flow. Stable; update only on architectural change, not every handoff.
   - `agent-templates.md` — decision, analysis, and source-summary templates (read on demand). The session handoff template lives inline in `AGENTS.md` above.
   - `processing-protocol.md` — full document processing steps
@@ -71,7 +71,7 @@ Write to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md`. Create it after the f
   - `git-guide.md` — git workflow and repository conventions
   - `uv-guide.md` — running the project and managing dependencies with `uv`
   - `subagent-rules.md` — rules for sub-agent usage and outputs
-- `docs/archive/` — processed raw files. Do not read unless explicitly told.
+- `docs/archive/` — processed raw files. Do not read unless explicitly told. **(gitignored — not committed)**
 - `.claude/commands/` — step-by-step routine for **handoff** (`handoff.md`). Claude Code exposes it as the `/handoff` slash command; agents without slash-command support should read that file and follow the steps directly.
 
 ## Error Recovery
