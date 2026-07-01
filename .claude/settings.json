@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "file=$(python3 -c \"import sys,json;print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))\" 2>/dev/null); [ -z \"$file\" ] && exit 0; root=$(git -C \"$(dirname \"$file\")\" rev-parse --show-toplevel 2>/dev/null) || exit 0; if git -C \"$root\" check-ignore -q \"$file\" 2>/dev/null; then exit 0; fi; branch=$(git -C \"$root\" branch --show-current 2>/dev/null); if [ \"$branch\" = \"main\" ]; then echo 'Blocked: editing a repo file on the protected main branch. Create a feature branch first (git checkout -b <scope>-<short-desc>), then retry.' >&2; exit 2; fi"
+            "command": "file=$(python3 -c \"import sys,json;print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))\" 2>/dev/null); [ -z \"$file\" ] && exit 0; dir=$(dirname \"$file\"); while [ ! -d \"$dir\" ] && [ \"$dir\" != \"/\" ]; do dir=$(dirname \"$dir\"); done; root=$(git -C \"$dir\" rev-parse --show-toplevel 2>/dev/null) || exit 0; if git -C \"$root\" check-ignore -q \"$file\" 2>/dev/null; then exit 0; fi; branch=$(git -C \"$root\" branch --show-current 2>/dev/null); if [ \"$branch\" = \"main\" ]; then echo 'Blocked: editing a repo file on the protected main branch. Create a feature branch first (git checkout -b <scope>-<short-desc>), then retry.' >&2; exit 2; fi"
           }
         ]
       }
