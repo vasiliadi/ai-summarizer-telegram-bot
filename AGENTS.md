@@ -20,7 +20,7 @@ Before your first file edit, ensure you are not on `main`. If you are, create a 
 6. Do not bulk-read documents. Process one at a time: read, summarize to disk, release from context before reading next. For the detailed protocol, read `docs/context/processing-protocol.md`.
 7. Sub-agent returns must be structured (numbers, file paths, decisions, open items), not free-form prose. See `docs/context/subagent-rules.md`.
 8. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
-9. Before every commit, pass: `uvx ruff format .`, `uvx ruff check .`, `uvx ty check .`, `uv run pytest --cov`. Review the coverage report and do not introduce new uncovered lines. See `docs/context/git-guide.md` for the full sequence. Commit locally when a unit of work is complete, but do **not** `git push` unless the user explicitly asks — pushing triggers the GitHub code-review agent, which should only run on finished work. When staging, remember that `docs/summaries/` and `docs/archive/` are gitignored (only `docs/context/` under `docs/` is tracked); never try to add or commit handoff, recovery, or archive files.
+9. Before every commit, pass: `uvx ruff format .`, `uvx ruff check .`, `uvx ty check .`, `uv run pytest --cov`. Review the coverage report and do not introduce new uncovered lines. See `docs/context/git-guide.md` for the full sequence. Commit locally when a unit of work is complete, but do **not** `git push` unless the user explicitly asks — pushing triggers the GitHub code-review agent, which should only run on finished work. When staging, remember that `docs/summaries/` and `docs/archive/` are gitignored (only `docs/context/` under `docs/` is tracked); never try to add or commit handoff or archive files.
 10. When changing code, update or add tests in the same PR. Treat test maintenance as mandatory — skipping it is equivalent to skipping the pre-commit checks in Rule 9.
 
 ## Handoff Template
@@ -76,7 +76,7 @@ Write to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md`. Create it after the f
 
 ## Error Recovery
 
-If context degrades or auto-compact fires unexpectedly: do not try to reconstruct state from memory. Re-read the active handoff in `docs/summaries/` and verify its contents against the working tree (`git status`, `git log`) before continuing. Tell the user what may have been lost, and if the handoff is stale relative to the actual work, say so explicitly rather than guessing.
+If context degrades or auto-compact fires unexpectedly: do not try to reconstruct state from memory. Re-read the active handoff in `docs/summaries/` and verify its contents against the working tree (`git status`, `git log`) before continuing. Tell the user what may have been lost, and if the handoff is stale relative to the actual work, say so explicitly rather than guessing. If the handoff plus working tree cannot reconstruct reliable state, suggest a fresh session — the handoff exists precisely so a new session can pick up.
 
 ## Before Delivering Output
 
