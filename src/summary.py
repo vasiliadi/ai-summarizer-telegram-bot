@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from textwrap import dedent
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
 from curl_cffi.requests.exceptions import SSLError as CurlSSLError
@@ -50,17 +50,17 @@ class Summarizer:
 
     @staticmethod
     def _generate_text(
-        prompt: str,
+        contents: str | list[Any],
         model: str,
         target_language: str,
         thinking_level: str,
     ) -> str:
-        """Run a single Gemini text-prompt generation with the standard config."""
+        """Run a single Gemini interaction and return its non-empty text output."""
         interaction = cast(
             "Interaction",
             gemini_client.interactions.create(
                 model=model,
-                input=prompt,
+                input=contents,
                 **get_gemini_kwargs(target_language, thinking_level=thinking_level),
             ),
         )
@@ -122,24 +122,19 @@ class Summarizer:
             if audio_file.uri is None or audio_file.mime_type is None:
                 raise AttributeError
             check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-            interaction = cast(
-                "Interaction",
-                gemini_client.interactions.create(
-                    model=model,
-                    input=[
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "audio",
-                            "uri": audio_file.uri,
-                            "mime_type": audio_file.mime_type,
-                        },
-                    ],
-                    **get_gemini_kwargs(target_language, thinking_level=thinking_level),
-                ),
+            return self._generate_text(
+                [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "audio",
+                        "uri": audio_file.uri,
+                        "mime_type": audio_file.mime_type,
+                    },
+                ],
+                model,
+                target_language,
+                thinking_level,
             )
-            if not interaction.output_text:
-                raise AttributeError
-            return interaction.output_text
         finally:
             if audio_file_name is not None:
                 try:
@@ -309,23 +304,19 @@ class Summarizer:
             if document_file.uri is None or document_file.mime_type is None:
                 raise AttributeError
             check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-            interaction = cast(
-                "Interaction",
-                gemini_client.interactions.create(
-                    model=model,
-                    input=[
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "document",
-                            "uri": document_file.uri,
-                            "mime_type": document_file.mime_type,
-                        },
-                    ],
-                    **get_gemini_kwargs(target_language, thinking_level=thinking_level),
-                ),
+            summary_text = self._generate_text(
+                [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "document",
+                        "uri": document_file.uri,
+                        "mime_type": document_file.mime_type,
+                    },
+                ],
+                model,
+                target_language,
+                thinking_level,
             )
-            if not interaction.output_text:
-                raise AttributeError
         finally:
             if document_file_name is not None:
                 try:
@@ -338,7 +329,7 @@ class Summarizer:
                     )
             if data is not None:
                 clean_up(file=data)
-        return interaction.output_text
+        return summary_text
 
     def summarize(
         self,
