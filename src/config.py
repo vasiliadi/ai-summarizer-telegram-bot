@@ -8,7 +8,6 @@ import sentry_sdk
 import telebot
 from exa_py import Exa
 from google import genai
-from google.genai import types
 from limits import parse as parse_rate_limit
 from limits.storage import RedisStorage
 from limits.strategies import FixedWindowRateLimiter
@@ -72,24 +71,6 @@ MODEL_LABELS_REVERSE: dict[str, str] = {v: k for k, v in MODEL_LABELS.items()}
 ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_LABELS.keys())
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
 DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.5-flash"
-SAFETY_SETTINGS = [
-    types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
-        threshold=types.HarmBlockThreshold.BLOCK_NONE,
-    ),
-    types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-        threshold=types.HarmBlockThreshold.BLOCK_NONE,
-    ),
-    types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-        threshold=types.HarmBlockThreshold.BLOCK_NONE,
-    ),
-    types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-        threshold=types.HarmBlockThreshold.BLOCK_NONE,
-    ),
-]
 DEFAULT_THINKING_LEVEL = "MINIMAL"
 THINKING_LEVEL_LABELS: dict[str, str] = {
     "MINIMAL": "Minimal",
@@ -101,11 +82,6 @@ THINKING_LEVEL_LABELS_REVERSE: dict[str, str] = {
     v: k for k, v in THINKING_LEVEL_LABELS.items()
 }
 ALLOWED_THINKING_LEVELS = list(THINKING_LEVEL_LABELS.keys())
-GEMINI_CONFIG = types.GenerateContentConfig(
-    system_instruction=None,
-    safety_settings=SAFETY_SETTINGS,
-    response_mime_type="text/plain",
-)
 
 
 # Prompts

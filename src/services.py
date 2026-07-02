@@ -5,9 +5,8 @@ import mimetypes
 import time
 from functools import lru_cache
 from textwrap import dedent
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, TypedDict, cast
 
-from google.genai import types
 from limits import parse as _parse_rate_limit
 from requests.exceptions import ReadTimeout
 from telebot.apihelper import ApiTelegramException
@@ -22,7 +21,6 @@ from tenacity import (
 
 from config import (
     DAILY_LIMIT_KEY,
-    GEMINI_CONFIG,
     MINUTE_LIMIT_KEY,
     bot,
     gemini_client,
@@ -34,6 +32,8 @@ from exceptions import LimitExceededError
 from prompts import SYSTEM_INSTRUCTION
 
 if TYPE_CHECKING:
+    from google.genai import types
+    from google.genai.interactions import GenerationConfigParam, ThinkingLevel
     from telebot.types import File, Message
     from tenacity import _utils as tenacity_utils
 
@@ -123,6 +123,14 @@ class QuotaManager:
         return max(0, stats.remaining)
 
 
+class GeminiKwargs(TypedDict):
+    """Keyword arguments shared by every `client.interactions.create` call."""
+
+    system_instruction: str
+    generation_config: GenerationConfigParam
+    store: bool
+
+
 class GeminiHelper:
     """Utilities for Gemini model configuration and file management."""
 
@@ -134,23 +142,22 @@ class GeminiHelper:
         ".mp4": "video/mp4",
     }
 
-    def get_gemini_config(
+    def get_gemini_kwargs(
         self,
         target_language: str,
         thinking_level: str,
-    ) -> types.GenerateContentConfig:
-        """Get Gemini config with system instruction and thinking enabled."""
+    ) -> GeminiKwargs:
+        """Build kwargs shared by every `client.interactions.create` call."""
         system_instruction = dedent(
             SYSTEM_INSTRUCTION.format(language=target_language),
         ).strip()
-        return GEMINI_CONFIG.model_copy(
-            update={
-                "system_instruction": system_instruction,
-                "thinking_config": types.ThinkingConfig(
-                    thinking_level=types.ThinkingLevel(thinking_level),
-                ),
+        return {
+            "system_instruction": system_instruction,
+            "generation_config": {
+                "thinking_level": cast("ThinkingLevel", thinking_level.lower()),
             },
-        )
+            "store": False,
+        }
 
     def resolve_mime_type(self, file: str) -> str:
         """Resolve the MIME type for a file path, with fallbacks."""
@@ -206,7 +213,7 @@ send_answer = messenger.send_answer
 check_quota = quota_manager.check_quota
 get_remaining_quota = quota_manager.get_remaining_quota
 
-get_gemini_config = gemini_helper.get_gemini_config
+get_gemini_kwargs = gemini_helper.get_gemini_kwargs
 resolve_mime_type = gemini_helper.resolve_mime_type
 upload_and_wait_for_file = gemini_helper.upload_and_wait_for_file
 
@@ -217,7 +224,7 @@ __all__ = [
     "check_quota",
     "gemini_helper",
     "get_file_with_retry",
-    "get_gemini_config",
+    "get_gemini_kwargs",
     "get_remaining_quota",
     "messenger",
     "quota_manager",
