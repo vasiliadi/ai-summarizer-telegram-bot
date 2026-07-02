@@ -139,15 +139,6 @@ class Summarizer:
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
-    @retry(
-        stop=stop_after_attempt(2),
-        wait=wait_fixed(30),
-        retry=retry_if_exception_type(
-            (ServerError, AttributeError, ClientError),
-        ),
-        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
-        reraise=False,
-    )
     def summarize_text(
         self,
         text: str,
