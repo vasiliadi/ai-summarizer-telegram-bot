@@ -1,7 +1,11 @@
+import importlib.util
 from types import SimpleNamespace
 
+import httpx
 import pytest
-from google.genai.errors import ClientError
+from google.genai import errors as genai_errors
+from google.genai import interactions as genai_interactions
+from google.genai._gaos.lib.compat_errors import APIError as InteractionsAPIError
 from telebot.types import File
 from tenacity import RetryError
 
@@ -29,8 +33,10 @@ def test_summarize_with_file_upload_and_genai_call(mocker):
         state="ACTIVE",
     )
     mock_client.files.upload.return_value = mock_uploaded_file
-    mock_response = mocker.MagicMock(text="This is a mocked summary of the file.")
-    mock_client.models.generate_content.return_value = mock_response
+    mock_response = mocker.MagicMock(
+        output_text="This is a mocked summary of the file.",
+    )
+    mock_client.interactions.create.return_value = mock_response
 
     result = summarize_with_file(
         file="test_audio.ogg",
@@ -62,7 +68,7 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
     mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
     mock_client = mocker.patch("summary.gemini_client")
     mocker.patch("services.gemini_client", mock_client)
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text="")
 
     with pytest.raises(RetryError):
         summarize_with_file(
@@ -99,8 +105,8 @@ def test_summarize_with_transcript(mocker):
     """Test summarize_with_transcript functionality."""
     mocker.patch("summary.check_quota", return_value=True)
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(
-        text="Transcript summary.",
+    mock_client.interactions.create.return_value = mocker.MagicMock(
+        output_text="Transcript summary.",
     )
 
     result = summarize_with_transcript(
@@ -125,8 +131,8 @@ def test_summarize_webpage(mocker):
     """Test summarize_webpage feeds pre-parsed content to Gemini."""
     mocker.patch("summary.check_quota", return_value=True)
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(
-        text="Webpage summary.",
+    mock_client.interactions.create.return_value = mocker.MagicMock(
+        output_text="Webpage summary.",
     )
 
     result = summarize_webpage(
@@ -140,11 +146,10 @@ def test_summarize_webpage(mocker):
     )
 
     assert result == "Webpage summary."
-    call_kwargs = mock_client.models.generate_content.call_args.kwargs
-    assert "Parsed page content." in call_kwargs["contents"]
-    config = call_kwargs["config"]
-    assert config.tools is None
-    assert "UrlContext" not in (config.system_instruction or "")
+    call_kwargs = mock_client.interactions.create.call_args.kwargs
+    assert "Parsed page content." in call_kwargs["input"]
+    assert call_kwargs["store"] is False
+    assert "tools" not in call_kwargs
 
 
 def test_summarize_with_file_upload_failure(mocker):
@@ -166,19 +171,14 @@ def test_summarize_with_file_upload_failure(mocker):
 
 
 def test_summarize_genai_exception(mocker):
-    """Test summarize_with_transcript raises RetryError when Gemini crashes."""
+    """Test summarize_with_transcript raises RetryError when the interactions API crashes."""
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.side_effect = ClientError(
-        400,
-        {
-            "error": {
-                "code": 400,
-                "status": "INVALID_ARGUMENT",
-                "message": "GenAI unavailable",
-            },
-        },
+    mock_client.interactions.create.side_effect = InteractionsAPIError(
+        "GenAI unavailable",
+        httpx.Request("POST", "https://example.com"),
+        body=None,
     )
 
     with pytest.raises(RetryError):
@@ -210,8 +210,8 @@ def test_summarize_with_document_polling(mocker):
     )
     mock_client.files.upload.return_value = mock_file_proc
     mock_client.files.get.return_value = mock_file_active
-    mock_client.models.generate_content.return_value = mocker.MagicMock(
-        text="Document summary",
+    mock_client.interactions.create.return_value = mocker.MagicMock(
+        output_text="Document summary",
     )
     mock_tg_file = mocker.MagicMock()
 
@@ -600,8 +600,8 @@ def test_summarize_with_file_logs_warning_on_delete_failure(mocker):
     )
     mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(
-        text="summary text",
+    mock_client.interactions.create.return_value = mocker.MagicMock(
+        output_text="summary text",
     )
     mock_client.files.delete.side_effect = Exception("delete failed")
     mock_logger = mocker.patch("summary.logger")
@@ -626,7 +626,7 @@ def test_summarize_with_transcript_raises_on_empty_response(mocker):
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text="")
 
     with pytest.raises(RetryError):
         summarize_with_transcript(
@@ -728,6 +728,73 @@ def test_summarize_with_document_raises_when_mime_type_none(mocker):
         )
 
 
+def test_summarize_with_document_raises_when_upload_returns_none_uri(mocker):
+    """Test summarize_with_document raises RetryError when upload_and_wait_for_file returns uri=None.
+
+    Bypasses the service-layer GeminiIncompleteResponseError so the inline guard in
+    summarize_with_document itself is exercised, before interactions.create
+    is called.
+    """
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = SimpleNamespace(
+        name="files/doc123",
+        uri=None,
+        mime_type="application/pdf",
+    )
+    mocker.patch("summary.upload_and_wait_for_file", return_value=mock_file)
+
+    with pytest.raises(RetryError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+            thinking_level="MINIMAL",
+        )
+
+    mock_client.interactions.create.assert_not_called()
+
+
+def test_summarize_with_document_raises_when_upload_returns_none_mime_type(mocker):
+    """Test summarize_with_document raises RetryError when upload_and_wait_for_file returns mime_type=None.
+
+    Exercises the inline guard in summarize_with_document itself, before
+    interactions.create is called.
+    """
+    mocker.patch("summary.check_quota", return_value=True)
+    mocker.patch("summary.download_tg", return_value="temp_doc.pdf")
+    mocker.patch("summary.clean_up")
+    mocker.patch("tenacity.nap.time.sleep")
+    mock_client = mocker.patch("summary.gemini_client")
+    mock_file = SimpleNamespace(
+        name="files/doc123",
+        uri="https://mock.uri",
+        mime_type=None,
+    )
+    mocker.patch("summary.upload_and_wait_for_file", return_value=mock_file)
+
+    with pytest.raises(RetryError):
+        summarize_with_document(
+            file=mocker.MagicMock(),
+            model="test-model",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+            thinking_level="MINIMAL",
+        )
+
+    mock_client.interactions.create.assert_not_called()
+
+
 def test_summarize_with_document_raises_on_empty_response(mocker):
     """Test summarize_with_document raises RetryError when Gemini returns empty response."""
     mocker.patch("summary.check_quota", return_value=True)
@@ -744,7 +811,7 @@ def test_summarize_with_document_raises_on_empty_response(mocker):
         mime_type="application/pdf",
     )
     mock_client.files.upload.return_value = mock_file
-    mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
+    mock_client.interactions.create.return_value = mocker.MagicMock(output_text="")
 
     with pytest.raises(RetryError):
         summarize_with_document(
@@ -774,8 +841,8 @@ def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
         mime_type="application/pdf",
     )
     mock_client.files.upload.return_value = mock_file
-    mock_client.models.generate_content.return_value = mocker.MagicMock(
-        text="document summary",
+    mock_client.interactions.create.return_value = mocker.MagicMock(
+        output_text="document summary",
     )
     mock_client.files.delete.side_effect = Exception("delete failed")
     mock_logger = mocker.patch("summary.logger")
@@ -823,3 +890,22 @@ def test_summarize_with_telegram_file(mocker):
 
     assert result == "Telegram file summary"
     mock_download_tg.assert_called_once_with(mock_tg_file, ext=".ogg")
+
+
+def test_interactions_error_hierarchy_has_no_public_import_path():
+    """Canary for the private error import in ``summary.py``.
+
+    ``summary.py`` imports ``APIError`` from
+    ``google.genai._gaos.lib.compat_errors`` because google-genai 2.10.0
+    exposes no public path for the Interactions error hierarchy. A public
+    surface is unlikely to be announced in release notes, so this test fails
+    the suite the moment an SDK bump adds one. When it fails: switch the
+    import in ``summary.py`` (and the one at the top of this file) to the new
+    public path and delete this test.
+    """
+    # The surface the SDK's own docstrings reference but don't ship yet.
+    assert importlib.util.find_spec("google.genai._interactions") is None
+    # The two public modules where the hierarchy would plausibly appear.
+    for name in ("APIStatusError", "RateLimitError", "InternalServerError"):
+        assert not hasattr(genai_errors, name)
+        assert not hasattr(genai_interactions, name)

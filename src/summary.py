@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import logging
 from textwrap import dedent
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
 from curl_cffi.requests.exceptions import SSLError as CurlSSLError
-from google.genai import types
+
+# Private import: 2.10.0 exposes no public path for the Interactions error
+# hierarchy. A canary test in tests/test_summary.py ("no_public_import_path")
+# fails the suite when an SDK bump adds one — switch this import then.
+from google.genai._gaos.lib.compat_errors import APIError as InteractionsAPIError
 from google.genai.errors import ClientError, ServerError
 from requests.exceptions import SSLError
 from telebot.types import File
@@ -22,11 +26,11 @@ from tenacity import (
 from config import gemini_client
 from domain import format_prefixed_summary
 from download import download_castro, download_tg, download_yt
-from exceptions import FetchTranscriptError
+from exceptions import FetchTranscriptError, GeminiIncompleteResponseError
 from prompts import PROMPTS
 from services import (
     check_quota,
-    get_gemini_config,
+    get_gemini_kwargs,
     resolve_mime_type,
     upload_and_wait_for_file,
 )
@@ -34,6 +38,7 @@ from transcription import get_yt_transcript, transcribe
 from utils import clean_up, compress_audio, generate_temporary_name
 
 if TYPE_CHECKING:
+    from google.genai.interactions import Interaction
     from tenacity import _utils as tenacity_utils
 
 logger = logging.getLogger(__name__)
@@ -45,27 +50,35 @@ class Summarizer:
 
     @staticmethod
     def _generate_text(
-        prompt: str,
+        contents: str | list[Any],
         model: str,
         target_language: str,
         thinking_level: str,
     ) -> str:
-        """Run a single Gemini text-prompt generation with the standard config."""
-        config = get_gemini_config(target_language, thinking_level=thinking_level)
-        response = gemini_client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=config,
+        """Run a single Gemini interaction and return its non-empty text output."""
+        interaction = cast(
+            "Interaction",
+            gemini_client.interactions.create(
+                model=model,
+                input=contents,
+                **get_gemini_kwargs(target_language, thinking_level=thinking_level),
+            ),
         )
-        if response.text is None:
-            raise AttributeError
-        return response.text
+        if not interaction.output_text:
+            raise GeminiIncompleteResponseError
+        return interaction.output_text
 
     @retry(
         stop=stop_after_attempt(2),
         wait=wait_fixed(30),
         retry=retry_if_exception_type(
-            (ServerError, AttributeError, ClientError, SSLError),
+            (
+                ServerError,
+                GeminiIncompleteResponseError,
+                ClientError,
+                SSLError,
+                InteractionsAPIError,
+            ),
         ),
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
@@ -97,7 +110,8 @@ class Summarizer:
             str: Generated summary text from the audio content.
 
         Raises:
-            AttributeError: If Gemini returns incomplete file or response metadata.
+            GeminiIncompleteResponseError: If Gemini returns incomplete file or
+                response metadata.
             ValueError: If Gemini reports a failed processing state.
             RetryError: If transient Gemini or network errors persist after retries.
 
@@ -113,30 +127,21 @@ class Summarizer:
         audio_file_name = audio_file.name
         try:
             if audio_file.uri is None or audio_file.mime_type is None:
-                raise AttributeError
+                raise GeminiIncompleteResponseError
             check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-            response = gemini_client.models.generate_content(
-                model=model,
-                contents=[
-                    types.Content(
-                        role="user",
-                        parts=[
-                            types.Part.from_text(text=prompt),
-                            types.Part.from_uri(
-                                file_uri=audio_file.uri,
-                                mime_type=audio_file.mime_type,
-                            ),
-                        ],
-                    ),
+            return self._generate_text(
+                [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "audio",
+                        "uri": audio_file.uri,
+                        "mime_type": audio_file.mime_type,
+                    },
                 ],
-                config=get_gemini_config(
-                    target_language,
-                    thinking_level=thinking_level,
-                ),
+                model,
+                target_language,
+                thinking_level,
             )
-            if response.text is None:
-                raise AttributeError
-            return response.text
         finally:
             if audio_file_name is not None:
                 try:
@@ -152,7 +157,12 @@ class Summarizer:
         stop=stop_after_attempt(2),
         wait=wait_fixed(30),
         retry=retry_if_exception_type(
-            (ServerError, AttributeError, ClientError),
+            (
+                ServerError,
+                GeminiIncompleteResponseError,
+                ClientError,
+                InteractionsAPIError,
+            ),
         ),
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
@@ -182,7 +192,7 @@ class Summarizer:
             str: Generated summary text.
 
         Raises:
-            AttributeError: If Gemini returns an empty response.
+            GeminiIncompleteResponseError: If Gemini returns an empty response.
             RetryError: If transient Gemini or network errors persist after retries.
 
         """
@@ -246,11 +256,12 @@ class Summarizer:
         retry=retry_if_exception_type(
             (
                 ServerError,
-                AttributeError,
+                GeminiIncompleteResponseError,
                 ClientError,
                 SSLError,
                 CurlSSLError,
                 CurlConnectionError,
+                InteractionsAPIError,
             ),
         ),
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
@@ -285,7 +296,8 @@ class Summarizer:
             str: Generated summary text from the document content.
 
         Raises:
-            AttributeError: If Gemini returns incomplete file or response metadata.
+            GeminiIncompleteResponseError: If Gemini returns incomplete file or
+                response metadata.
             ValueError: If the document processing fails on Gemini's side.
             RetryError: If the operation fails after all retry attempts.
 
@@ -302,28 +314,22 @@ class Summarizer:
                 sleep_time=sleep_time,
             )
             document_file_name = document_file.name
+            if document_file.uri is None or document_file.mime_type is None:
+                raise GeminiIncompleteResponseError
             check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-            response = gemini_client.models.generate_content(
-                model=model,
-                contents=[
-                    types.Content(
-                        role="user",
-                        parts=[
-                            types.Part.from_text(text=prompt),
-                            types.Part.from_uri(
-                                file_uri=cast("str", document_file.uri),
-                                mime_type=cast("str", document_file.mime_type),
-                            ),
-                        ],
-                    ),
+            summary_text = self._generate_text(
+                [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "document",
+                        "uri": document_file.uri,
+                        "mime_type": document_file.mime_type,
+                    },
                 ],
-                config=get_gemini_config(
-                    target_language,
-                    thinking_level=thinking_level,
-                ),
+                model,
+                target_language,
+                thinking_level,
             )
-            if response.text is None:
-                raise AttributeError
         finally:
             if document_file_name is not None:
                 try:
@@ -336,7 +342,7 @@ class Summarizer:
                     )
             if data is not None:
                 clean_up(file=data)
-        return response.text
+        return summary_text
 
     def summarize(
         self,
