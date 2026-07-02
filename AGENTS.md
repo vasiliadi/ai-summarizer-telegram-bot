@@ -23,7 +23,7 @@ Before your first file edit, ensure you are not on `main`. If you are, create a 
 9. Pre-commit hooks (`.pre-commit-config.yaml`) enforce format/lint/type/test checks at commit time — do not run them manually before committing, and never bypass them with `--no-verify`. When the pytest hook runs, review its coverage output — no new uncovered lines.
 10. Don't rush to commit: it's fine to keep iterating with uncommitted work; commit when the user asks or a unit of work is genuinely complete (message format: `docs/context/git-guide.md`). Never stage `docs/summaries/` or `docs/archive/` (gitignored); under `docs/`, only `docs/context/` is tracked.
 11. Never amend, rebase, or otherwise rewrite an existing commit unless the user asks for that directly.
-12. **Never `git push` on your own — a push happens only via the user invoking `/create-pr`.**
+12. **Never `git push` on your own — a push happens only via the user invoking `/create-pr` or pushing it themselves.**
 13. When changing code, update or add tests in the same PR. Treat test maintenance as mandatory — skipping it is equivalent to bypassing the pre-commit hooks in Rule 9.
 
 ## Handoff Template
