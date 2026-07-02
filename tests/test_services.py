@@ -197,13 +197,16 @@ def test_upload_and_wait_for_file_name_none(mocker):
         upload_and_wait_for_file("path", "audio/ogg", 1)
 
 
-def test_upload_and_wait_for_file_missing_uri(mocker):
+@pytest.mark.parametrize("missing_field", ["uri", "mime_type"])
+def test_upload_and_wait_for_file_missing_metadata(mocker, missing_field):
     """upload_and_wait_for_file raises when uri or mime_type is None."""
     mock_client = mocker.patch("services.gemini_client")
     mock_file = mocker.MagicMock()
     mock_file.name = "name"
     mock_file.state = "ACTIVE"
-    mock_file.uri = None
+    mock_file.uri = "uri"
+    mock_file.mime_type = "audio/ogg"
+    setattr(mock_file, missing_field, None)
     mock_client.files.upload.return_value = mock_file
 
     with pytest.raises(GeminiIncompleteResponseError):
