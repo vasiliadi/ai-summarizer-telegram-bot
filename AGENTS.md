@@ -4,7 +4,7 @@
 
 Read the latest handoff in `docs/summaries/` if one exists. Load only the files that handoff references — not all summaries. If no handoff exists, ask: what is the project, what type of work, what is the target deliverable.
 
-For a quick orientation to the codebase (component map and data flow), read `docs/context/architecture.md` if present.
+For a quick orientation to the codebase (component map and data flow), read `docs/context/architecture.md` if present. Before writing code, also read `docs/context/style-guide.md` for the conventions Ruff does not enforce.
 
 Before starting work, state: what you understand the project state to be, what you plan to do this session, and any open questions.
 
@@ -21,6 +21,7 @@ Before your first file edit, ensure you are not on `main`. If you are, create a 
 7. When you want to commit, see `docs/context/git-guide.md`. Follow-up fixes go into new commits — never amend, rebase, or otherwise rewrite an existing commit unless the user asks for that directly. Never stage `docs/summaries/` or `docs/archive/` (gitignored); under `docs/`, only `docs/context/` is tracked.
 8. **Never `git push` on your own — a push happens only via the user invoking `/create-pr` or pushing it themselves.**
 9. When changing code, update or add tests in the same PR. Treat test maintenance as mandatory — skipping it is equivalent to bypassing the pre-commit hooks in Rule 6.
+10. When a change alters what a tracked `docs/context/` doc describes — the code architecture (`architecture.md`) or the coding conventions (`style-guide.md`) — update that doc in the same PR. Same discipline as Rule 9 for tests.
 
 ## Handoff Template
 
