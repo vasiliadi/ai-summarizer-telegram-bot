@@ -731,7 +731,7 @@ def test_summarize_with_document_raises_when_mime_type_none(mocker):
 def test_summarize_with_document_raises_when_upload_returns_none_uri(mocker):
     """Test summarize_with_document raises RetryError when upload_and_wait_for_file returns uri=None.
 
-    Bypasses the service-layer AttributeError so the inline guard in
+    Bypasses the service-layer GeminiIncompleteResponseError so the inline guard in
     summarize_with_document itself is exercised, before interactions.create
     is called.
     """

@@ -28,7 +28,7 @@ from config import (
     rate_limiter,
 )
 from domain import PrefixedText
-from exceptions import LimitExceededError
+from exceptions import GeminiIncompleteResponseError, LimitExceededError
 from prompts import SYSTEM_INSTRUCTION
 
 if TYPE_CHECKING:
@@ -181,7 +181,7 @@ class GeminiHelper:
             config={"mime_type": mime_type},
         )
         if uploaded.name is None:
-            raise AttributeError
+            raise GeminiIncompleteResponseError
         file_name = uploaded.name
         while uploaded.state == "PROCESSING":
             time.sleep(sleep_time)
@@ -189,7 +189,7 @@ class GeminiHelper:
         if uploaded.state == "FAILED":
             raise ValueError(uploaded.state)
         if uploaded.uri is None or uploaded.mime_type is None:
-            raise AttributeError
+            raise GeminiIncompleteResponseError
         return uploaded
 
 

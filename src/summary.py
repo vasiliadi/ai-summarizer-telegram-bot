@@ -26,7 +26,7 @@ from tenacity import (
 from config import gemini_client
 from domain import format_prefixed_summary
 from download import download_castro, download_tg, download_yt
-from exceptions import FetchTranscriptError
+from exceptions import FetchTranscriptError, GeminiIncompleteResponseError
 from prompts import PROMPTS
 from services import (
     check_quota,
@@ -65,14 +65,20 @@ class Summarizer:
             ),
         )
         if not interaction.output_text:
-            raise AttributeError
+            raise GeminiIncompleteResponseError
         return interaction.output_text
 
     @retry(
         stop=stop_after_attempt(2),
         wait=wait_fixed(30),
         retry=retry_if_exception_type(
-            (ServerError, AttributeError, ClientError, SSLError, InteractionsAPIError),
+            (
+                ServerError,
+                GeminiIncompleteResponseError,
+                ClientError,
+                SSLError,
+                InteractionsAPIError,
+            ),
         ),
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
@@ -104,7 +110,8 @@ class Summarizer:
             str: Generated summary text from the audio content.
 
         Raises:
-            AttributeError: If Gemini returns incomplete file or response metadata.
+            GeminiIncompleteResponseError: If Gemini returns incomplete file or
+                response metadata.
             ValueError: If Gemini reports a failed processing state.
             RetryError: If transient Gemini or network errors persist after retries.
 
@@ -120,7 +127,7 @@ class Summarizer:
         audio_file_name = audio_file.name
         try:
             if audio_file.uri is None or audio_file.mime_type is None:
-                raise AttributeError
+                raise GeminiIncompleteResponseError
             check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
             return self._generate_text(
                 [
@@ -150,7 +157,12 @@ class Summarizer:
         stop=stop_after_attempt(2),
         wait=wait_fixed(30),
         retry=retry_if_exception_type(
-            (ServerError, AttributeError, ClientError, InteractionsAPIError),
+            (
+                ServerError,
+                GeminiIncompleteResponseError,
+                ClientError,
+                InteractionsAPIError,
+            ),
         ),
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
@@ -180,7 +192,7 @@ class Summarizer:
             str: Generated summary text.
 
         Raises:
-            AttributeError: If Gemini returns an empty response.
+            GeminiIncompleteResponseError: If Gemini returns an empty response.
             RetryError: If transient Gemini or network errors persist after retries.
 
         """
@@ -244,7 +256,7 @@ class Summarizer:
         retry=retry_if_exception_type(
             (
                 ServerError,
-                AttributeError,
+                GeminiIncompleteResponseError,
                 ClientError,
                 SSLError,
                 CurlSSLError,
@@ -284,7 +296,8 @@ class Summarizer:
             str: Generated summary text from the document content.
 
         Raises:
-            AttributeError: If Gemini returns incomplete file or response metadata.
+            GeminiIncompleteResponseError: If Gemini returns incomplete file or
+                response metadata.
             ValueError: If the document processing fails on Gemini's side.
             RetryError: If the operation fails after all retry attempts.
 
@@ -302,7 +315,7 @@ class Summarizer:
             )
             document_file_name = document_file.name
             if document_file.uri is None or document_file.mime_type is None:
-                raise AttributeError
+                raise GeminiIncompleteResponseError
             check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
             summary_text = self._generate_text(
                 [

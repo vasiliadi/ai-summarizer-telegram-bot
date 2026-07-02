@@ -2,7 +2,7 @@ import pytest
 from limits.util import WindowStats
 
 import services as services_module
-from exceptions import LimitExceededError
+from exceptions import GeminiIncompleteResponseError, LimitExceededError
 from services import (
     check_quota,
     get_file_with_retry,
@@ -187,18 +187,18 @@ def test_resolve_mime_type_fallback_when_mimetypes_returns_none(mocker):
 
 
 def test_upload_and_wait_for_file_name_none(mocker):
-    """upload_and_wait_for_file raises AttributeError when upload returns no name."""
+    """upload_and_wait_for_file raises when upload returns no name."""
     mock_client = mocker.patch("services.gemini_client")
     mock_file = mocker.MagicMock()
     mock_file.name = None
     mock_client.files.upload.return_value = mock_file
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(GeminiIncompleteResponseError):
         upload_and_wait_for_file("path", "audio/ogg", 1)
 
 
 def test_upload_and_wait_for_file_missing_uri(mocker):
-    """upload_and_wait_for_file raises AttributeError when uri or mime_type is None."""
+    """upload_and_wait_for_file raises when uri or mime_type is None."""
     mock_client = mocker.patch("services.gemini_client")
     mock_file = mocker.MagicMock()
     mock_file.name = "name"
@@ -206,7 +206,7 @@ def test_upload_and_wait_for_file_missing_uri(mocker):
     mock_file.uri = None
     mock_client.files.upload.return_value = mock_file
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(GeminiIncompleteResponseError):
         upload_and_wait_for_file("path", "audio/ogg", 1)
 
 
