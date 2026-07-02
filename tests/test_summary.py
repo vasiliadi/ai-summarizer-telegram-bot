@@ -10,10 +10,9 @@ from exceptions import FetchTranscriptError, LimitExceededError
 from summary import (
     format_prefixed_summary,
     summarize,
-    summarize_webpage,
+    summarize_text,
     summarize_with_document,
     summarize_with_file,
-    summarize_with_transcript,
 )
 
 
@@ -95,16 +94,16 @@ def test_summarize_with_file_retries_on_missing_upload_metadata(mocker):
         )
 
 
-def test_summarize_with_transcript(mocker):
-    """Test summarize_with_transcript functionality."""
+def test_summarize_text_from_transcript(mocker):
+    """Test summarize_text feeds a transcript to Gemini."""
     mocker.patch("summary.check_quota", return_value=True)
     mock_client = mocker.patch("summary.gemini_client")
     mock_client.models.generate_content.return_value = mocker.MagicMock(
         text="Transcript summary.",
     )
 
-    result = summarize_with_transcript(
-        transcript="Hello world. This is a transcript.",
+    result = summarize_text(
+        text="Hello world. This is a transcript.",
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -121,16 +120,16 @@ def test_format_prefixed_summary_preserves_blank_line():
     assert format_prefixed_summary("📹", "\n- one\n- two\n") == "📹\n\n- one\n- two"
 
 
-def test_summarize_webpage(mocker):
-    """Test summarize_webpage feeds pre-parsed content to Gemini."""
+def test_summarize_text_from_webpage(mocker):
+    """Test summarize_text feeds pre-parsed webpage content to Gemini."""
     mocker.patch("summary.check_quota", return_value=True)
     mock_client = mocker.patch("summary.gemini_client")
     mock_client.models.generate_content.return_value = mocker.MagicMock(
         text="Webpage summary.",
     )
 
-    result = summarize_webpage(
-        content="Parsed page content.",
+    result = summarize_text(
+        text="Parsed page content.",
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -166,7 +165,7 @@ def test_summarize_with_file_upload_failure(mocker):
 
 
 def test_summarize_genai_exception(mocker):
-    """Test summarize_with_transcript raises RetryError when Gemini crashes."""
+    """Test summarize_text raises RetryError when Gemini crashes."""
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
@@ -182,8 +181,8 @@ def test_summarize_genai_exception(mocker):
     )
 
     with pytest.raises(RetryError):
-        summarize_with_transcript(
-            transcript="Hello",
+        summarize_text(
+            text="Hello",
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",
@@ -267,7 +266,7 @@ def test_summarize_youtube_always_attempts_transcript(mocker):
     )
     mocker.patch.object(
         summary_module.summarizer,
-        "summarize_with_transcript",
+        "summarize_text",
         return_value="Summary",
     )
 
@@ -294,7 +293,7 @@ def test_summarize_youtube_direct_transcript(mocker):
     )
     mock_sum_transcript = mocker.patch.object(
         summary_module.summarizer,
-        "summarize_with_transcript",
+        "summarize_text",
         return_value="- first point\n- second point",
     )
 
@@ -311,7 +310,7 @@ def test_summarize_youtube_direct_transcript(mocker):
     assert result.startswith("📹")
     assert result == "📹\n\n- first point\n- second point"
     mock_sum_transcript.assert_called_once_with(
-        transcript="YT Transcript content",
+        text="YT Transcript content",
         model="test-model",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
@@ -331,7 +330,7 @@ def test_summarize_youtube_fallback_transcript_uses_fallback_prefix(mocker):
     )
     mocker.patch.object(
         summary_module.summarizer,
-        "summarize_with_transcript",
+        "summarize_text",
         return_value="- first point\n- second point",
     )
 
@@ -365,7 +364,7 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
     mock_transcribe = mocker.patch("summary.transcribe")
     mocker.patch.object(
         summary_module.summarizer,
-        "summarize_with_transcript",
+        "summarize_text",
         side_effect=retry_error,
     )
 
@@ -441,7 +440,7 @@ def test_summarize_fallback_to_transcription(mocker):
     mocker.patch("summary.transcribe", return_value="Transcription text")
     mocker.patch.object(
         summary_module.summarizer,
-        "summarize_with_transcript",
+        "summarize_text",
         return_value="- transcript point\n- follow-up point",
     )
     mock_clean_up = mocker.patch("summary.clean_up")
@@ -621,16 +620,16 @@ def test_summarize_with_file_logs_warning_on_delete_failure(mocker):
     mock_logger.warning.assert_called_once()
 
 
-def test_summarize_with_transcript_raises_on_empty_response(mocker):
-    """Test summarize_with_transcript raises RetryError on repeated empty Gemini responses."""
+def test_summarize_text_raises_on_empty_response(mocker):
+    """Test summarize_text raises RetryError on repeated empty Gemini responses."""
     mocker.patch("summary.check_quota", return_value=True)
     mocker.patch("tenacity.nap.time.sleep")
     mock_client = mocker.patch("summary.gemini_client")
     mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
 
     with pytest.raises(RetryError):
-        summarize_with_transcript(
-            transcript="Hello world",
+        summarize_text(
+            text="Hello world",
             model="test-model",
             prompt_key="basic_prompt_for_transcript",
             target_language="English",

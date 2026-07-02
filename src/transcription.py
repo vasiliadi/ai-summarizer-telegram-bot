@@ -494,6 +494,4 @@ yt_transcriber = YouTubeTranscriber(api_backend, ytdlp_backend)
 # ---------------------------------------------------------------------------
 
 transcribe = audio_transcriber.transcribe
-fetch_transcript_via_api = api_backend.fetch_via_api
-fetch_transcript_via_ytdlp = ytdlp_backend.fetch_via_ytdlp
 get_yt_transcript = yt_transcriber.get_transcript

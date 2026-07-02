@@ -24,8 +24,6 @@ from transcription import (
     AudioTranscriber,
     YouTubeTranscriber,
     YtDlpBackend,
-    fetch_transcript_via_api,
-    fetch_transcript_via_ytdlp,
     get_yt_transcript,
 )
 
@@ -194,7 +192,7 @@ def test_fetch_transcript_via_api_falls_back_to_other_languages(mocker):
 
     mock_formatter.return_value.format_transcript.return_value = "Hola"
 
-    result = fetch_transcript_via_api("dQw4w9WgXcQ")
+    result = transcription.api_backend.fetch_via_api("dQw4w9WgXcQ")
 
     assert result == "Hola"
     # Verify it was called twice, once without languages, once with languages
@@ -310,7 +308,7 @@ def test_fetch_transcript_via_api_uses_proxy_when_configured(mocker):
     ).return_value.format_transcript.return_value = "Hello"
     mock_ytt.return_value.fetch.return_value = []
 
-    result = fetch_transcript_via_api("vid")
+    result = transcription.api_backend.fetch_via_api("vid")
 
     assert result == "Hello"
     mock_proxy_cfg.assert_called_once_with(https_url="http://proxy:8080")
@@ -332,7 +330,9 @@ def test_fetch_transcript_via_ytdlp_download_error_logged_and_retried(mocker, tm
     mock_logger = mocker.patch("transcription.logger")
 
     with pytest.raises(RetryError):
-        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+        transcription.ytdlp_backend.fetch_via_ytdlp(
+            "https://www.youtube.com/watch?v=test",
+        )
 
     assert ctx.download.call_count == 2
     mock_logger.warning.assert_any_call(
@@ -360,7 +360,9 @@ def test_fetch_transcript_via_ytdlp_unexpected_error_wrapped_and_retried(
     mock_logger = mocker.patch("transcription.logger")
 
     with pytest.raises(RetryError):
-        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+        transcription.ytdlp_backend.fetch_via_ytdlp(
+            "https://www.youtube.com/watch?v=test",
+        )
 
     assert ctx.download.call_count == 2
     mock_logger.warning.assert_any_call(
@@ -385,7 +387,9 @@ def test_fetch_transcript_via_ytdlp_unexpected_error_preserves_cause(mocker, tmp
     ctx.download.side_effect = original_exc
 
     with pytest.raises(RetryError) as exc_info:
-        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+        transcription.ytdlp_backend.fetch_via_ytdlp(
+            "https://www.youtube.com/watch?v=test",
+        )
 
     last_exc = exc_info.value.last_attempt.exception()
     assert isinstance(last_exc, TranscriptDownloadError)
@@ -406,7 +410,9 @@ def test_fetch_transcript_via_ytdlp_probe_download_error_logged_and_retried(
     mock_logger = mocker.patch("transcription.logger")
 
     with pytest.raises(RetryError):
-        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+        transcription.ytdlp_backend.fetch_via_ytdlp(
+            "https://www.youtube.com/watch?v=test",
+        )
 
     assert ctx.extract_info.call_count == 2
     mock_logger.warning.assert_any_call(
@@ -432,7 +438,9 @@ def test_fetch_transcript_via_ytdlp_probe_unexpected_error_wrapped_and_retried(
     mock_logger = mocker.patch("transcription.logger")
 
     with pytest.raises(RetryError) as exc_info:
-        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+        transcription.ytdlp_backend.fetch_via_ytdlp(
+            "https://www.youtube.com/watch?v=test",
+        )
 
     last_exc = exc_info.value.last_attempt.exception()
     assert isinstance(last_exc, TranscriptDownloadError)
@@ -480,7 +488,9 @@ def test_fetch_transcript_via_ytdlp_succeeds_on_second_attempt(mocker, tmp_path)
 
     mocker.patch("transcription.YoutubeDL", MockYDL)
 
-    result = fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+    result = transcription.ytdlp_backend.fetch_via_ytdlp(
+        "https://www.youtube.com/watch?v=test",
+    )
 
     assert result == "Hello"
     assert MockYDL.attempt == 2
@@ -493,7 +503,7 @@ def test_fetch_transcript_via_api_propagates_non_retryable_error(mocker):
     mock_ytt.return_value.fetch.side_effect = TranscriptsDisabled("vid")
 
     with pytest.raises(TranscriptsDisabled):
-        fetch_transcript_via_api("vid")
+        transcription.api_backend.fetch_via_api("vid")
 
 
 @pytest.mark.parametrize(
@@ -514,7 +524,7 @@ def test_fetch_transcript_via_api_retries_on_retryable_exception(mocker, exc):
     mock_ytt.return_value.fetch.side_effect = exc
 
     with pytest.raises(RetryError):
-        fetch_transcript_via_api("vid")
+        transcription.api_backend.fetch_via_api("vid")
 
     assert mock_ytt.return_value.fetch.call_count == 2
 
@@ -550,7 +560,9 @@ def test_fetch_transcript_via_ytdlp_non_english_fallback(mocker, tmp_path):
     mocker.patch("transcription.YoutubeDL", MockYDL)
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
 
-    result = fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+    result = transcription.ytdlp_backend.fetch_via_ytdlp(
+        "https://www.youtube.com/watch?v=test",
+    )
 
     assert result == "Bonjour"
     assert download_calls == [["fr"]]
@@ -587,7 +599,9 @@ def test_fetch_transcript_via_ytdlp_prefers_english_when_available(mocker, tmp_p
     mocker.patch("transcription.YoutubeDL", MockYDL)
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
 
-    result = fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+    result = transcription.ytdlp_backend.fetch_via_ytdlp(
+        "https://www.youtube.com/watch?v=test",
+    )
 
     assert result == "Hello"
     assert download_calls == [["en"]]
@@ -637,7 +651,9 @@ def test_fetch_transcript_via_ytdlp_manual_prefers_original_language_over_first_
     mocker.patch("transcription.YoutubeDL", MockYDL)
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
 
-    result = fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+    result = transcription.ytdlp_backend.fetch_via_ytdlp(
+        "https://www.youtube.com/watch?v=test",
+    )
 
     assert result == "Guten Tag"
     assert download_calls == [["de"]]
@@ -686,7 +702,9 @@ def test_fetch_transcript_via_ytdlp_auto_captions_uses_original_language(
     mocker.patch("transcription.YoutubeDL", MockYDL)
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
 
-    result = fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+    result = transcription.ytdlp_backend.fetch_via_ytdlp(
+        "https://www.youtube.com/watch?v=test",
+    )
 
     assert result == "Bonjour"
     assert download_calls == [["fr"]]
@@ -734,7 +752,9 @@ def test_fetch_transcript_via_ytdlp_auto_captions_prefers_orig_key_when_language
     mocker.patch("transcription.YoutubeDL", MockYDL)
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
 
-    result = fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+    result = transcription.ytdlp_backend.fetch_via_ytdlp(
+        "https://www.youtube.com/watch?v=test",
+    )
 
     assert result == "Hallo"
     assert download_calls == [["de-orig"]]
@@ -782,7 +802,9 @@ def test_fetch_transcript_via_ytdlp_auto_captions_falls_back_to_first_key(
     mocker.patch("transcription.YoutubeDL", MockYDL)
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
 
-    result = fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+    result = transcription.ytdlp_backend.fetch_via_ytdlp(
+        "https://www.youtube.com/watch?v=test",
+    )
 
     assert result == "Hola"
     assert download_calls == [["es"]]
@@ -828,7 +850,9 @@ def test_fetch_transcript_via_ytdlp_ignores_live_chat_pseudo_track(mocker, tmp_p
     mocker.patch("transcription.YoutubeDL", MockYDL)
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
 
-    result = fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+    result = transcription.ytdlp_backend.fetch_via_ytdlp(
+        "https://www.youtube.com/watch?v=test",
+    )
 
     assert result == "Bonjour"
     assert download_calls == [["fr"]]
@@ -843,7 +867,9 @@ def test_fetch_transcript_via_ytdlp_no_subtitles_skips_download(mocker, tmp_path
     ctx.extract_info.return_value = {"subtitles": {}, "automatic_captions": {}}
 
     with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
-        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+        transcription.ytdlp_backend.fetch_via_ytdlp(
+            "https://www.youtube.com/watch?v=test",
+        )
 
     ctx.download.assert_not_called()
 
@@ -857,7 +883,9 @@ def test_fetch_transcript_via_ytdlp_extract_info_none_raises(mocker, tmp_path):
     ctx.extract_info.return_value = None
 
     with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
-        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+        transcription.ytdlp_backend.fetch_via_ytdlp(
+            "https://www.youtube.com/watch?v=test",
+        )
 
     ctx.download.assert_not_called()
 
@@ -881,7 +909,9 @@ def test_fetch_transcript_via_ytdlp_vtt_read_error_raises_download_error(
     mocker.patch.object(YtDlpBackend, "_vtt_to_text", side_effect=OSError("disk full"))
 
     with pytest.raises(DownloadError, match="Failed to read downloaded VTT file"):
-        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+        transcription.ytdlp_backend.fetch_via_ytdlp(
+            "https://www.youtube.com/watch?v=test",
+        )
 
 
 def test_fetch_transcript_via_ytdlp_no_vtt_after_download_raises(mocker, tmp_path):
@@ -898,7 +928,9 @@ def test_fetch_transcript_via_ytdlp_no_vtt_after_download_raises(mocker, tmp_pat
     # download() succeeds but writes nothing to tmp_path
 
     with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
-        fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+        transcription.ytdlp_backend.fetch_via_ytdlp(
+            "https://www.youtube.com/watch?v=test",
+        )
 
     ctx.download.assert_called_once()
 
@@ -926,7 +958,7 @@ def test_fetch_transcript_via_ytdlp_pins_proxy_across_probe_and_download(
         "automatic_captions": {},
     }
 
-    fetch_transcript_via_ytdlp("https://www.youtube.com/watch?v=test")
+    transcription.ytdlp_backend.fetch_via_ytdlp("https://www.youtube.com/watch?v=test")
 
     assert mock_ydl_cls.call_count == 2
     probe_opts, download_opts = (call.args[0] for call in mock_ydl_cls.call_args_list)

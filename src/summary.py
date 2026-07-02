@@ -43,24 +43,6 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 class Summarizer:
     """Generates Gemini-powered summaries from audio, video, documents, and URLs."""
 
-    @staticmethod
-    def _generate_text(
-        prompt: str,
-        model: str,
-        target_language: str,
-        thinking_level: str,
-    ) -> str:
-        """Run a single Gemini text-prompt generation with the standard config."""
-        config = get_gemini_config(target_language, thinking_level=thinking_level)
-        response = gemini_client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=config,
-        )
-        if response.text is None:
-            raise AttributeError
-        return response.text
-
     @retry(
         stop=stop_after_attempt(2),
         wait=wait_fixed(30),
@@ -157,7 +139,16 @@ class Summarizer:
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
-    def _summarize_text(
+    @retry(
+        stop=stop_after_attempt(2),
+        wait=wait_fixed(30),
+        retry=retry_if_exception_type(
+            (ServerError, AttributeError, ClientError),
+        ),
+        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+        reraise=False,
+    )
+    def summarize_text(
         self,
         text: str,
         model: str,
@@ -188,57 +179,15 @@ class Summarizer:
         """
         prompt = (f"{dedent(PROMPTS[prompt_key])} {text}").strip()
         check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-        return self._generate_text(prompt, model, target_language, thinking_level)
-
-    def summarize_with_transcript(
-        self,
-        transcript: str,
-        model: str,
-        prompt_key: str,
-        target_language: str,
-        user_id: int,
-        daily_limit: int,
-        thinking_level: str,
-    ) -> str:
-        """Generate a summary from a transcript using Gemini API.
-
-        Thin wrapper over :meth:`_summarize_text`; see it for the full contract.
-
-        """
-        return self._summarize_text(
-            transcript,
-            model,
-            prompt_key,
-            target_language,
-            user_id,
-            daily_limit,
-            thinking_level,
+        config = get_gemini_config(target_language, thinking_level=thinking_level)
+        response = gemini_client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=config,
         )
-
-    def summarize_webpage(
-        self,
-        content: str,
-        model: str,
-        prompt_key: str,
-        target_language: str,
-        user_id: int,
-        daily_limit: int,
-        thinking_level: str,
-    ) -> str:
-        """Generate a summary from pre-parsed webpage content using Gemini API.
-
-        Thin wrapper over :meth:`_summarize_text`; see it for the full contract.
-
-        """
-        return self._summarize_text(
-            content,
-            model,
-            prompt_key,
-            target_language,
-            user_id,
-            daily_limit,
-            thinking_level,
-        )
+        if response.text is None:
+            raise AttributeError
+        return response.text
 
     @retry(
         stop=stop_after_attempt(2),
@@ -390,8 +339,8 @@ class Summarizer:
                 else:
                     return format_prefixed_summary(
                         transcript_result.prefix,
-                        self.summarize_with_transcript(
-                            transcript=transcript_result.text,
+                        self.summarize_text(
+                            text=transcript_result.text,
                             model=model,
                             prompt_key=prompt_key,
                             target_language=target_language,
@@ -422,8 +371,8 @@ class Summarizer:
                 transcription = transcribe(new_file)
                 return format_prefixed_summary(
                     "📝",
-                    self.summarize_with_transcript(
-                        transcript=transcription,
+                    self.summarize_text(
+                        text=transcription,
                         model=model,
                         prompt_key=prompt_key,
                         target_language=target_language,
@@ -450,7 +399,6 @@ summarizer = Summarizer()
 # ---------------------------------------------------------------------------
 
 summarize_with_file = summarizer.summarize_with_file
-summarize_with_transcript = summarizer.summarize_with_transcript
-summarize_webpage = summarizer.summarize_webpage
+summarize_text = summarizer.summarize_text
 summarize_with_document = summarizer.summarize_with_document
 summarize = summarizer.summarize
