@@ -12,3 +12,7 @@ class TranscriptDownloadError(Exception):
 
 class FetchTranscriptError(Exception):
     """Exception raised when transcript retrieval fails via all backends."""
+
+
+class GeminiIncompleteResponseError(Exception):
+    """Exception raised when Gemini returns empty output or incomplete file metadata."""

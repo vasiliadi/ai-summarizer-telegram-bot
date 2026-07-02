@@ -1,13 +1,12 @@
 import pytest
-from google.genai import types
 from limits.util import WindowStats
 
 import services as services_module
-from exceptions import LimitExceededError
+from exceptions import GeminiIncompleteResponseError, LimitExceededError
 from services import (
     check_quota,
     get_file_with_retry,
-    get_gemini_config,
+    get_gemini_kwargs,
     get_remaining_quota,
     resolve_mime_type,
     send_answer,
@@ -81,31 +80,33 @@ def test_send_answer_multi_chunk(mocker):
     assert mock_reply.call_count == 2
 
 
-def test_get_gemini_config_content():
-    """Test get_gemini_config includes the correct language in instruction."""
-    config = get_gemini_config("French", thinking_level="HIGH")
-    assert "French" in config.system_instruction
+def test_get_gemini_kwargs_content():
+    """Test get_gemini_kwargs includes the correct language in the system instruction."""
+    kwargs = get_gemini_kwargs("French", thinking_level="HIGH")
+    assert "French" in kwargs["system_instruction"]
 
 
-def test_get_gemini_config_thinking_enabled():
-    """Test that thinking config is set based on the passed thinking level."""
-    config = get_gemini_config("English", thinking_level="MEDIUM")
-    assert config.thinking_config is not None
-    assert config.thinking_config.thinking_level == types.ThinkingLevel.MEDIUM
+def test_get_gemini_kwargs_thinking_level_lowercased():
+    """Test that the per-user thinking level is lowercased for generation_config."""
+    kwargs = get_gemini_kwargs("English", thinking_level="MEDIUM")
+    assert kwargs["generation_config"] == {"thinking_level": "medium"}
 
 
-def test_get_gemini_config_invalid_thinking_level():
+def test_get_gemini_kwargs_store_false():
+    """Test that store is always False (no server-side retention of interactions)."""
+    kwargs = get_gemini_kwargs("English", thinking_level="HIGH")
+    assert kwargs["store"] is False
+
+
+def test_get_gemini_kwargs_invalid_thinking_level_passes_through():
     """Lock current behavior on unknown thinking levels.
 
-    ``google.genai.types.ThinkingLevel`` accepts unknown values, emits a
-    ``UserWarning``, and returns a dynamically-created enum member rather than
-    raising. ``get_gemini_config`` inherits that lenient behavior — it does not
-    validate or fall back. This test pins both halves of the contract so any
-    future change (added validation, silent fallback, or raise) is caught.
+    ``generation_config`` is a plain TypedDict now, so there is no enum
+    validation: unknown levels flow through to the API untouched (just
+    lowercased), with no warning and no raise.
     """
-    with pytest.warns(UserWarning, match="INVALID is not a valid ThinkingLevel"):
-        config = get_gemini_config("English", thinking_level="INVALID")
-    assert config.thinking_config is not None
+    kwargs = get_gemini_kwargs("English", thinking_level="INVALID")
+    assert kwargs["generation_config"] == {"thinking_level": "invalid"}
 
 
 def test_upload_and_wait_for_file_happy(mocker):
@@ -186,26 +187,29 @@ def test_resolve_mime_type_fallback_when_mimetypes_returns_none(mocker):
 
 
 def test_upload_and_wait_for_file_name_none(mocker):
-    """upload_and_wait_for_file raises AttributeError when upload returns no name."""
+    """upload_and_wait_for_file raises when upload returns no name."""
     mock_client = mocker.patch("services.gemini_client")
     mock_file = mocker.MagicMock()
     mock_file.name = None
     mock_client.files.upload.return_value = mock_file
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(GeminiIncompleteResponseError):
         upload_and_wait_for_file("path", "audio/ogg", 1)
 
 
-def test_upload_and_wait_for_file_missing_uri(mocker):
-    """upload_and_wait_for_file raises AttributeError when uri or mime_type is None."""
+@pytest.mark.parametrize("missing_field", ["uri", "mime_type"])
+def test_upload_and_wait_for_file_missing_metadata(mocker, missing_field):
+    """upload_and_wait_for_file raises when uri or mime_type is None."""
     mock_client = mocker.patch("services.gemini_client")
     mock_file = mocker.MagicMock()
     mock_file.name = "name"
     mock_file.state = "ACTIVE"
-    mock_file.uri = None
+    mock_file.uri = "uri"
+    mock_file.mime_type = "audio/ogg"
+    setattr(mock_file, missing_field, None)
     mock_client.files.upload.return_value = mock_file
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(GeminiIncompleteResponseError):
         upload_and_wait_for_file("path", "audio/ogg", 1)
 
 
