@@ -142,12 +142,12 @@ def test_handle_url_unsupported_pattern(message_factory, mocker):
     msg = message_factory(content_type="text", text="This is not a url.")
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
     mock_send_message = mocker.patch("main.bot.send_message")
-    mock_summarize_webpage = mocker.patch("handlers.summarize_webpage")
+    mock_summarize_text = mocker.patch("handlers.summarize_text")
 
     handle_message(msg)
 
     mock_send_message.assert_called_once_with(msg.chat.id, "No data to proceed.")
-    mock_summarize_webpage.assert_not_called()
+    mock_summarize_text.assert_not_called()
 
 
 def test_classify_url_uppercase_youtube_host():
@@ -197,8 +197,8 @@ def test_handle_url_other_http_pattern(message_factory, mocker):
         "handlers.parse_url",
         return_value=PrefixedText(text="Parsed page content.", prefix="🌐"),
     )
-    mock_summarize_webpage = mocker.patch(
-        "handlers.summarize_webpage",
+    mock_summarize_text = mocker.patch(
+        "handlers.summarize_text",
         return_value="Summary text.",
     )
     mock_send_answer = mocker.patch("handlers.send_answer")
@@ -206,7 +206,7 @@ def test_handle_url_other_http_pattern(message_factory, mocker):
     handle_message(msg)
 
     mock_parse_url.assert_called_once_with(url)
-    assert mock_summarize_webpage.call_args.kwargs["content"] == "Parsed page content."
+    assert mock_summarize_text.call_args.kwargs["text"] == "Parsed page content."
     answer = mock_send_answer.call_args.args[1]
     assert answer.startswith("🌐")
     assert "Summary text." in answer
@@ -219,7 +219,7 @@ def test_handle_url_web_preflight_blocks_before_parse_url(message_factory, mocke
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
     mocker.patch("handlers.check_quota", side_effect=LimitExceededError)
     mock_parse_url = mocker.patch("handlers.parse_url")
-    mock_summarize_webpage = mocker.patch("handlers.summarize_webpage")
+    mock_summarize_text = mocker.patch("handlers.summarize_text")
     mocker.patch("handlers.send_answer")
     mocker.patch("main.bot.reply_to")
     mocker.patch("main.capture_exception")
@@ -227,24 +227,24 @@ def test_handle_url_web_preflight_blocks_before_parse_url(message_factory, mocke
     handle_message(msg)
 
     mock_parse_url.assert_not_called()
-    mock_summarize_webpage.assert_not_called()
+    mock_summarize_text.assert_not_called()
 
 
 def test_handle_url_web_parse_error_skips_summarize(message_factory, mocker):
-    """Test that WebParseError from parse_url short-circuits before summarize_webpage."""
+    """Test that WebParseError from parse_url short-circuits before summarize_text."""
     url = "https://example.com/article"
     msg = message_factory(content_type="text", text=url)
     mocker.patch("main.select_user", return_value=mocker.MagicMock(approved=True))
     mocker.patch("handlers.check_quota", return_value=True)
     mocker.patch("handlers.parse_url", side_effect=WebParseError("boom"))
-    mock_summarize_webpage = mocker.patch("handlers.summarize_webpage")
+    mock_summarize_text = mocker.patch("handlers.summarize_text")
     mocker.patch("handlers.send_answer")
     mocker.patch("main.bot.reply_to")
     mocker.patch("main.capture_exception")
 
     handle_message(msg)
 
-    mock_summarize_webpage.assert_not_called()
+    mock_summarize_text.assert_not_called()
 
 
 def test_handle_voice_happy_path(message_factory, mocker):

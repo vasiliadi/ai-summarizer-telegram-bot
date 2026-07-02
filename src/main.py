@@ -414,14 +414,12 @@ def handle_message(message: Message) -> None:
     - Audio files
     - General text messages
 
+    Catches and maps the pipeline's failure modes to user-facing replies:
+    LimitExceededError, WebParseError, RetryError, and any other Exception are
+    reported to Sentry and answered with an appropriate message.
+
     Args:
         message (Message): The message object from Telegram
-
-    Raises:
-        LimitExceededError: When user exceeds daily limit
-        RetryError: When multiple processing attempts fail
-        WebParseError: When a webpage URL cannot be parsed
-        Exception: For any other unexpected errors
 
     Returns:
         None

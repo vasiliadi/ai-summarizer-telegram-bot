@@ -12,7 +12,7 @@ from services import (
     get_file_with_retry,
     send_answer,
 )
-from summary import summarize, summarize_webpage, summarize_with_document
+from summary import summarize, summarize_text, summarize_with_document
 from utils import clean_up, compress_audio, generate_temporary_name
 
 if TYPE_CHECKING:
@@ -169,7 +169,7 @@ def handle_url(message: Message, user: UsersOrm, url: str) -> None:
         parsed = parse_url(url)
         answer = format_prefixed_summary(
             parsed.prefix,
-            summarize_webpage(content=parsed.text, **_summary_kwargs(user)),
+            summarize_text(text=parsed.text, **_summary_kwargs(user)),
         )
         send_answer(message, answer)
     else:

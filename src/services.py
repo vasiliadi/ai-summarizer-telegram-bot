@@ -3,12 +3,11 @@ from __future__ import annotations
 import logging
 import mimetypes
 import time
-from functools import lru_cache
 from textwrap import dedent
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from google.genai import types
-from limits import parse as _parse_rate_limit
+from limits import parse as parse_rate_limit
 from requests.exceptions import ReadTimeout
 from telebot.apihelper import ApiTelegramException
 from telegramify_markdown import convert, split_entities
@@ -39,7 +38,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
-parse_rate_limit = lru_cache(maxsize=64)(_parse_rate_limit)
 
 
 class Messenger:
@@ -215,12 +213,10 @@ upload_and_wait_for_file = gemini_helper.upload_and_wait_for_file
 __all__ = [
     "PrefixedText",
     "check_quota",
-    "gemini_helper",
     "get_file_with_retry",
     "get_gemini_config",
     "get_remaining_quota",
     "messenger",
-    "quota_manager",
     "resolve_mime_type",
     "send_answer",
     "upload_and_wait_for_file",
