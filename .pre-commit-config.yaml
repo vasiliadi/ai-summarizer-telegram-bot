@@ -37,14 +37,15 @@ repos:
         entry: uvx ty check .
         language: system
         pass_filenames: false
-        files: ^src/
+        files: ^src/|^(pyproject\.toml|uv\.lock)$
       - id: pytest
         name: pytest
-        entry: uv run pytest --cov
+        entry: uv run pytest --cov -q
         language: system
         pass_filenames: false
         always_run: false
-        files: ^(src|tests)/
+        files: ^(src|tests)/|^(pyproject\.toml|uv\.lock)$
+        verbose: true
 
   - repo: local
     hooks:
