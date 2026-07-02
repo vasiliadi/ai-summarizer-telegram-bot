@@ -12,18 +12,17 @@ Before your first file edit, ensure you are not on `main`. If you are, create a 
 
 ## Rules
 
-1. If the session pivots to an unrelated project or topic, do not absorb it: finalize the current handoff (Rule 4) and suggest a new session. One session = one context; `docs/summaries/` keeps one active handoff at a time.
-2. Write state to disk, not conversation. After completing meaningful work, record it in the session handoff at `docs/summaries/handoff-[date]-[topic].md` using the Handoff template below — create it on first write, update it as work progresses. Include: decisions with rationale, exact numbers, file paths, open items.
-3. Before compaction or session end, write to disk: every number, every decision with rationale, every open question, every file path, exact next action.
-4. When switching work types (research → writing → review) or ending the session, finalize the handoff at `docs/summaries/handoff-[date]-[topic].md` using the Handoff template below (fill the optional tail) and suggest a new session.
-5. Do not silently resolve open questions. Mark them OPEN or ASSUMED.
-6. Do not bulk-read documents. Process one at a time: read, summarize to disk, release from context before reading next. For the detailed protocol, read `docs/context/processing-protocol.md`.
-7. Sub-agent returns must be structured (numbers, file paths, decisions, open items), not free-form prose. See `docs/context/subagent-rules.md`.
-8. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
-9. Pre-commit hooks enforce format/lint/type/test checks at commit time — do not run them manually before committing, and never bypass them with `--no-verify`. When the pytest hook runs, review its coverage output — no new uncovered lines.
-10. Don't rush to commit: it's fine to keep iterating with uncommitted work; commit when the user asks or a unit of work is genuinely complete (message format: `docs/context/git-guide.md`). Follow-up fixes go into new commits — never amend, rebase, or otherwise rewrite an existing commit unless the user asks for that directly. Never stage `docs/summaries/` or `docs/archive/` (gitignored); under `docs/`, only `docs/context/` is tracked.
-11. **Never `git push` on your own — a push happens only via the user invoking `/create-pr` or pushing it themselves.**
-12. When changing code, update or add tests in the same PR. Treat test maintenance as mandatory — skipping it is equivalent to bypassing the pre-commit hooks in Rule 9.
+1. Write state to disk, not conversation. After completing meaningful work, record it in the session handoff at `docs/summaries/handoff-[date]-[topic].md` using the Handoff template below — create it on first write, update it as work progresses. Include decisions with rationale, exact numbers, file paths, and open items.
+2. Before compaction or session end, update the active handoff from Rule 1 with every number, every decision with rationale, every open question, every file path, and the exact next action. Do not create a separate recovery or checkpoint artifact.
+3. When switching work types (research → writing → review) or ending the session, finalize the handoff using `.claude/commands/handoff.md` (or follow that file's steps directly if slash commands are unavailable).
+4. Do not silently resolve open questions. Mark unresolved items as OPEN or ASSUMED in the handoff and in the final answer when relevant.
+5. Use `docs/context/processing-protocol.md` for multiple documents, large files, docs dumps, broad research, big diffs, incident traces, or broad codebase exploration. Targeted lookup in a few short files does not require source-summary overhead.
+6. When sub-agents are used, their returns must be structured with exact numbers, file paths, decisions with rationale, and open items — not free-form prose. See `docs/context/subagent-rules.md`.
+7. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
+8. Pre-commit hooks enforce format/lint/type/test checks at commit time — do not run them manually before committing, and never bypass them with `--no-verify`. When the pytest hook runs, review its coverage output — no new uncovered lines.
+9. When you want to commit, see `docs/context/git-guide.md`. Follow-up fixes go into new commits — never amend, rebase, or otherwise rewrite an existing commit unless the user asks for that directly. Never stage `docs/summaries/` or `docs/archive/` (gitignored); under `docs/`, only `docs/context/` is tracked.
+10. **Never `git push` on your own — a push happens only via the user invoking `/create-pr` or pushing it themselves.**
+11. When changing code, update or add tests in the same PR. Treat test maintenance as mandatory — skipping it is equivalent to bypassing the pre-commit hooks in Rule 8.
 
 ## Handoff Template
 
@@ -78,8 +77,8 @@ Write to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md`. Create it after the f
 
 ## Error Recovery
 
-If context degrades or auto-compact fires unexpectedly: do not try to reconstruct state from memory. Re-read the active handoff in `docs/summaries/` and verify its contents against the working tree (`git status`, `git log`) before continuing. Tell the user what may have been lost, and if the handoff is stale relative to the actual work, say so explicitly rather than guessing. If the handoff plus working tree cannot reconstruct reliable state, suggest a fresh session — the handoff exists precisely so a new session can pick up.
+If context degrades or auto-compact fires unexpectedly: re-read the active handoff in `docs/summaries/` and verify it against `git status` and `git log`. Do not invent a recovery handoff from degraded context. If disk state is stale or unreliable, say so and suggest a fresh session.
 
 ## Before Delivering Output
 
-Verify: exact numbers preserved, open questions marked OPEN, output matches what was requested (not assumed), claims backed by specific data, output consistent with decision records in `docs/summaries/`, handoff written/updated to disk for this session's work.
+Before responding, verify that exact numbers are preserved, unresolved questions are marked OPEN or ASSUMED, the output matches the request, claims are backed by specific data, and the handoff status is correct for this session's work.
