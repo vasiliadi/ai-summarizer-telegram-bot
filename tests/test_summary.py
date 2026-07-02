@@ -1,7 +1,10 @@
+import importlib.util
 from types import SimpleNamespace
 
 import httpx
 import pytest
+from google.genai import errors as genai_errors
+from google.genai import interactions as genai_interactions
 from google.genai._gaos.lib.compat_errors import APIError as InteractionsAPIError
 from telebot.types import File
 from tenacity import RetryError
@@ -887,3 +890,22 @@ def test_summarize_with_telegram_file(mocker):
 
     assert result == "Telegram file summary"
     mock_download_tg.assert_called_once_with(mock_tg_file, ext=".ogg")
+
+
+def test_interactions_error_hierarchy_has_no_public_import_path():
+    """Canary for the private error import in ``summary.py``.
+
+    ``summary.py`` imports ``APIError`` from
+    ``google.genai._gaos.lib.compat_errors`` because google-genai 2.10.0
+    exposes no public path for the Interactions error hierarchy. A public
+    surface is unlikely to be announced in release notes, so this test fails
+    the suite the moment an SDK bump adds one. When it fails: switch the
+    import in ``summary.py`` (and the one at the top of this file) to the new
+    public path and delete this test.
+    """
+    # The surface the SDK's own docstrings reference but don't ship yet.
+    assert importlib.util.find_spec("google.genai._interactions") is None
+    # The two public modules where the hierarchy would plausibly appear.
+    for name in ("APIStatusError", "RateLimitError", "InternalServerError"):
+        assert not hasattr(genai_errors, name)
+        assert not hasattr(genai_interactions, name)

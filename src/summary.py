@@ -8,8 +8,8 @@ from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
 from curl_cffi.requests.exceptions import SSLError as CurlSSLError
 
 # Private import: 2.10.0 exposes no public path for the Interactions error
-# hierarchy (the `google.genai._interactions` module referenced in SDK
-# docstrings does not exist). Revisit this on the next SDK bump.
+# hierarchy. A canary test in tests/test_summary.py ("no_public_import_path")
+# fails the suite when an SDK bump adds one — switch this import then.
 from google.genai._gaos.lib.compat_errors import APIError as InteractionsAPIError
 from google.genai.errors import ClientError, ServerError
 from requests.exceptions import SSLError
