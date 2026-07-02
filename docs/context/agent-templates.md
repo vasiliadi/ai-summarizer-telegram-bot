@@ -28,8 +28,8 @@
 | `[path]` | [what changed] |
 
 ## Verification
-- `uvx ruff format .`, `uvx ruff check .`, `uvx ty check .` — [result]
-- `uv run pytest` — [exact pass count, e.g. **207 passed**]
+- pre-commit hooks at commit time — [result]
+- pytest hook — [exact pass count, e.g. **207 passed**; no new uncovered lines]
 
 ## Open Items
 - [next step / unresolved item] or None
