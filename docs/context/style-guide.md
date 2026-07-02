@@ -34,6 +34,11 @@ Use `# noqa` sparingly and always specify the exact rule code.
   `SummarizationError`); inherit from `ValueError` or `Exception`.
 - Only catch exceptions you can handle gracefully; let unexpected programming errors propagate.
   Never use a bare `except:`.
+- **PEP 758 (Python 3.14+):** parentheses around a tuple of exception types are optional when there
+  is no `as` binding — write `except ExceptionA, ExceptionB, ExceptionC:` directly. Parentheses are
+  still required when binding the exception, e.g. `except (ExceptionA, ExceptionB) as exc:`. This
+  syntax is valid on the interpreter this repo targets, so validate with `uv run` (3.14), not a
+  system `python3`.
 - Use the stdlib `logging` module. Levels: `ERROR` (failures needing attention — include
   `exc_info=True`), `WARNING` (handled-but-unexpected, e.g. fallbacks/retries), `INFO` (important
   state changes), `DEBUG` (development diagnostics).

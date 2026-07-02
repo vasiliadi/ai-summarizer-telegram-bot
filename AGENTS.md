@@ -65,7 +65,6 @@ Write to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md`. Create it after the f
   - `architecture.md` — high-level component map and data flow. Stable; update only on architectural change, not every handoff.
   - `agent-templates.md` — decision, analysis, and source-summary templates (read on demand). The session handoff template lives inline in `AGENTS.md` above.
   - `processing-protocol.md` — full document processing steps
-  - `archive-rules.md` — summary lifecycle and file archival rules
   - `style-guide.md` — writing or coding conventions
   - `git-guide.md` — git workflow and repository conventions
   - `uv-guide.md` — running the project and managing dependencies with `uv`
