@@ -12,17 +12,15 @@ Before your first file edit, ensure you are not on `main`. If you are, create a 
 
 ## Rules
 
-1. Write state to disk, not conversation. After completing meaningful work, record it in the session handoff at `docs/summaries/handoff-[date]-[topic].md` using the Handoff template below — create it on first write, update it as work progresses. Include decisions with rationale, exact numbers, file paths, and open items.
-2. Before compaction or session end, update the active handoff from Rule 1 with every number, every decision with rationale, every open question, every file path, and the exact next action. Do not create a separate recovery or checkpoint artifact.
-3. When switching work types (research → writing → review) or ending the session, finalize the handoff using `.claude/commands/handoff.md` (or follow that file's steps directly if slash commands are unavailable).
-4. Do not silently resolve open questions. Mark unresolved items as OPEN or ASSUMED in the handoff and in the final answer when relevant.
-5. Use `docs/context/processing-protocol.md` for multiple documents, large files, docs dumps, broad research, big diffs, incident traces, or broad codebase exploration. Targeted lookup in a few short files does not require source-summary overhead.
-6. When sub-agents are used, their returns must be structured with exact numbers, file paths, decisions with rationale, and open items — not free-form prose. See `docs/context/subagent-rules.md`.
-7. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
-8. Pre-commit hooks enforce format/lint/type/test checks at commit time — do not run them manually before committing, and never bypass them with `--no-verify`. When the pytest hook runs, review its coverage output — no new uncovered lines.
-9. When you want to commit, see `docs/context/git-guide.md`. Follow-up fixes go into new commits — never amend, rebase, or otherwise rewrite an existing commit unless the user asks for that directly. Never stage `docs/summaries/` or `docs/archive/` (gitignored); under `docs/`, only `docs/context/` is tracked.
-10. **Never `git push` on your own — a push happens only via the user invoking `/create-pr` or pushing it themselves.**
-11. When changing code, update or add tests in the same PR. Treat test maintenance as mandatory — skipping it is equivalent to bypassing the pre-commit hooks in Rule 8.
+1. **Write state to disk, not conversation.** Record work in the session handoff at `docs/summaries/handoff-[date]-[topic].md` using the Handoff template below — create it on first meaningful write and update it as work progresses, capturing decisions with rationale, exact numbers, file paths, and open items. Before compaction, before switching work types (research → writing → review), and at session end, do a full update: every number, every decision with rationale, every open question, every file path, and the exact next action — finalizing with `.claude/commands/handoff.md` (the `/handoff` command, or follow its steps directly if slash commands are unavailable). Do not create a separate recovery or checkpoint artifact.
+2. **Do not silently resolve open questions.** Mark unresolved items as OPEN or ASSUMED in the handoff and in the final answer when relevant. Before delivering output, verify that exact numbers are preserved and that claims are backed by specific data.
+3. Use `docs/context/processing-protocol.md` for multiple documents, large files, docs dumps, broad research, big diffs, incident traces, or broad codebase exploration. Targeted lookup in a few short files does not require source-summary overhead.
+4. When sub-agents are used, their returns must be structured with exact numbers, file paths, decisions with rationale, and open items — not free-form prose. See `docs/context/subagent-rules.md`.
+5. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
+6. Pre-commit hooks enforce format/lint/type/test checks at commit time — do not run them manually before committing, and never bypass them with `--no-verify`. When the pytest hook runs, review its coverage output — no new uncovered lines.
+7. When you want to commit, see `docs/context/git-guide.md`. Follow-up fixes go into new commits — never amend, rebase, or otherwise rewrite an existing commit unless the user asks for that directly. Never stage `docs/summaries/` or `docs/archive/` (gitignored); under `docs/`, only `docs/context/` is tracked.
+8. **Never `git push` on your own — a push happens only via the user invoking `/create-pr` or pushing it themselves.**
+9. When changing code, update or add tests in the same PR. Treat test maintenance as mandatory — skipping it is equivalent to bypassing the pre-commit hooks in Rule 6.
 
 ## Handoff Template
 
@@ -74,11 +72,3 @@ Write to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md`. Create it after the f
   - `subagent-rules.md` — rules for sub-agent usage and outputs
 - `docs/archive/` — processed raw files. Do not read unless explicitly told. **(gitignored — not committed)**
 - `.claude/commands/` — step-by-step routine for **handoff** (`handoff.md`). Claude Code exposes it as the `/handoff` slash command; agents without slash-command support should read that file and follow the steps directly.
-
-## Error Recovery
-
-If context degrades or auto-compact fires unexpectedly: re-read the active handoff in `docs/summaries/` and verify it against `git status` and `git log`. Do not invent a recovery handoff from degraded context. If disk state is stale or unreliable, say so and suggest a fresh session.
-
-## Before Delivering Output
-
-Before responding, verify that exact numbers are preserved, unresolved questions are marked OPEN or ASSUMED, the output matches the request, claims are backed by specific data, and the handoff status is correct for this session's work.
