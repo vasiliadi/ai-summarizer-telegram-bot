@@ -38,13 +38,6 @@ ci: update codecov action
 
 ## Pre-Commit Checks
 
-All four checks also run automatically via pre-commit hooks. Still run them manually before each commit — the manual run covers the whole tree and does not depend on `pre-commit install` having been set up. The manual commands below invoke `ruff` and `ty` through `uvx` so they resolve to the latest published version rather than a system-installed one; note the hooks pin Ruff via the `astral-sh/ruff-pre-commit` mirror, so the hook and manual Ruff versions can differ.
+All checks (lint, format, types, tests) run automatically as pre-commit hooks when you commit — do not run them manually first, and never bypass them with `--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again. If no hooks run at commit time (fresh clone), run `pre-commit install` first.
 
-1. `uvx ruff format .`
-2. `uvx ruff check .`
-3. `uvx ty check .`
-4. `uv run pytest --cov`
-
-**Coverage:** The project is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report from step 4 manually and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
-
-**Workflow:** Run `uvx ruff format .` before committing to automatically format your code. Run `uvx ruff check --fix` to automatically resolve fixable linting errors.
+**Coverage:** The project is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report printed by the pytest hook and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
