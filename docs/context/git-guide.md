@@ -38,8 +38,8 @@ ci: update codecov action
 
 ## Pre-Commit Checks
 
-All checks (lint, format, types, tests) run automatically as pre-commit hooks when you commit — do not run them manually first, and never bypass them with `--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again.
+All checks (lint, format, types, tests) run automatically as pre-commit hooks when you commit — do not run them manually first (the ruff auto-fixers under **Workflow** below are the exception), and never bypass them with `--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again.
 
 **Coverage:** The project is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report printed by the pytest hook and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
 
-**Workflow:** Run `uvx ruff format .` before committing to automatically format your code. Run `uvx ruff check --fix` to automatically resolve fixable linting errors.
+**Workflow:** Run `uvx ruff format .` before committing to automatically format your code. Run `uvx ruff check --fix` to automatically resolve fixable linting errors. Note: `uvx` resolves the latest Ruff while the hooks pin their own version, so the two can disagree after a Ruff release — if the format hook still modifies files, trust the hook's output.
