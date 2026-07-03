@@ -35,11 +35,13 @@ polling-based (`bot.infinity_polling`); no webhooks, no async framework.
 | `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (config, MIME, file upload/poll). |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
+| `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`. |
 | `config.py` | All clients/singletons + labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION`. |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. |
 | `utils.py` | Proxy pick, temp-name gen, `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
 | `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight PT, so daily budgets reset in step with Gemini's free-tier quota. |
+| `scripts/db.py` | Standalone bootstrap script — creates the `users` table via its own `Base`/engine (separate from `src/models.py`); runs `create_all` at import. |
 
 ## Request flow
 
@@ -54,7 +56,7 @@ Telegram update
     video / video_note ──────────► download_tg(.mp4) → compress_audio(.ogg) → summarize(path)
     document ────────────────────► summarize_with_document(File, mime)
     text (treated as URL) ── _classify_url ──┬─ "media" (YT/Castro) ► summarize(url)
-                                             └─ "web"  ► parse_url → summarize_webpage
+                                             └─ "web"  ► parse_url → summarize_text
 ```
 
 ### Summarizer input branching (`summary.py:summarize`)
@@ -65,7 +67,7 @@ Telegram update
 - **Telegram File** → `download_tg(.ogg)` → file path.
 - **File path** → `summarize_with_file` (upload to Gemini, generate). If that
   exhausts retries → fallback: `compress_audio` → `transcribe` (Replicate) →
-  `summarize_with_transcript`.
+  `summarize_text`.
 
 So there are two layered fallbacks for spoken content: transcript-first for
 YouTube, and Gemini-file-first with a Replicate-transcription rescue for any
