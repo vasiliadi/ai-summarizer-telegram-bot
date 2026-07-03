@@ -32,8 +32,8 @@ Use `# noqa` sparingly and always specify the exact rule code.
 
 ## Error Handling & Logging
 
-- **Custom exceptions** for domain-specific errors (e.g. `MessageTooLongError`,
-  `SummarizationError`); inherit from `ValueError` or `Exception`.
+- **Custom exceptions** for domain-specific errors (e.g. `LimitExceededError`,
+  `WebParseError`); inherit from `ValueError` or `Exception`.
 - Only catch exceptions you can handle gracefully; let unexpected programming errors propagate.
   Never use a bare `except:`.
 - **PEP 758 (Python 3.14+):** for a tuple of exception types with no `as` binding, `ruff format`
@@ -54,6 +54,17 @@ Use `# noqa` sparingly and always specify the exact rule code.
 - Modern syntax: `|` over `Union`, `Type | None` over `Optional[Type]`, built-in generics
   (`dict[str, Any]`, `list[int]`).
 - For circular-import types, use `from __future__ import annotations` and `if TYPE_CHECKING:` blocks.
+
+## Classes
+
+Service modules follow the class → module-singleton → method-alias pattern documented in
+`docs/context/architecture.md` (Cross-cutting patterns); don't restate it here. Beyond that:
+
+- `@staticmethod` is reserved for **private** helpers (`_name`) that need no instance state.
+  Public methods keep `self` even when they don't use it — they form the aliased singleton
+  surface (`check_quota = quota_manager.check_quota`), so they must stay bound methods.
+- Annotate class-level constants with `ClassVar`, e.g.
+  `_EXT_MIME_FALLBACK: ClassVar[dict[str, str]]`.
 
 ## Testing
 
