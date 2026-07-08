@@ -1,5 +1,4 @@
 import logging
-from urllib.parse import urlparse
 
 import pytest
 from tavily.errors import TimeoutError as TavilyTimeoutError
@@ -432,15 +431,10 @@ def test_resolve_blocks_non_public_initial_url(mocker, caplog):
 
 def test_resolve_blocks_redirect_to_private_host(mocker, caplog):
     """Test resolve returns the original URL when a redirect lands on a private host."""
-
-    def _is_example_host(u):
-        host = urlparse(u).hostname
-        return bool(host) and (host == "example.com" or host.endswith(".example.com"))
-
     mocker.patch.object(
         parsing.UrlResolver,
         "_is_public",
-        side_effect=_is_example_host,
+        side_effect=[True, False],  # public initial URL, private redirect
     )
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="http://169.254.169.254/latest/meta-data/")
