@@ -434,7 +434,7 @@ def test_resolve_blocks_redirect_to_private_host(mocker, caplog):
     mocker.patch.object(
         parsing.UrlResolver,
         "_is_public",
-        side_effect=lambda u: "example.com" in u,
+        side_effect=[True, False],  # public initial URL, private redirect
     )
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="http://169.254.169.254/latest/meta-data/")
