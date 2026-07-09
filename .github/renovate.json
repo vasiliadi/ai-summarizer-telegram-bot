@@ -1,6 +1,10 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    "docker:pinDigests"
+  ],
   "schedule": ["on sunday"],
   "minimumReleaseAge": "3 days",
   "rangeStrategy": "widen",
@@ -86,6 +90,12 @@
     {
       "description": "github-actions: auto-merge all update types (digests are pinned)",
       "matchManagers": ["github-actions"],
+      "automerge": true
+    },
+    {
+      "description": "docker: auto-merge digest updates (tags are pinned by sha256)",
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["digest", "pinDigest"],
       "automerge": true
     }
   ]
