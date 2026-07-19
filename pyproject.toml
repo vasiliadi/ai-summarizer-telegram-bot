@@ -15,7 +15,7 @@ dependencies = [
     "psycopg2-binary==2.9.12",
     "pytelegrambotapi==4.34.0",
     "replicate==1.0.7",
-    "sentry-sdk==2.65.0",
+    "sentry-sdk==2.66.0",
     "sqlalchemy==2.0.51",
     "tavily-python==0.7.26",
     "telegramify-markdown==1.2.0",
