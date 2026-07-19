@@ -61,7 +61,7 @@ requires-dist = [
     { name = "google-genai", specifier = "==2.11.0" },
     { name = "limits", extras = ["redis"], specifier = "==5.8.0" },
     { name = "psycopg2-binary", specifier = "==2.9.12" },
-    { name = "pytelegrambotapi", specifier = "==4.34.0" },
+    { name = "pytelegrambotapi", specifier = "==4.35.0" },
     { name = "replicate", specifier = "==1.0.7" },
     { name = "sentry-sdk", specifier = "==2.64.0" },
     { name = "sqlalchemy", specifier = "==2.0.51" },
@@ -1368,15 +1368,15 @@ wheels = [
 
 [[package]]
 name = "pytelegrambotapi"
-version = "4.34.0"
+version = "4.35.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/81/6d/11705e63ac5922bddb8fe93dbe6010b2f46e1366c1e534d0c3866b46140d/pytelegrambotapi-4.34.0.tar.gz", hash = "sha256:ec56b339690c4f4a2c867cc677d01a9bfa9e4af58227a54596e2f366c0947df9", size = 1388791, upload-time = "2026-06-03T20:25:28.851Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/97/00/939d98b0717420428505745c1b4217f4c5d7ee4425009fd342b98332cf48/pytelegrambotapi-4.35.0.tar.gz", hash = "sha256:425a5556fcb85684e3720bd6716d4045860eda982e4cfe749e953b90d748974f", size = 1399352, upload-time = "2026-07-12T16:40:42.105Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/83/e9/18d614a0846a33639dc88c561122e665209798196f074f7dbca60c6145a0/pytelegrambotapi-4.34.0-py3-none-any.whl", hash = "sha256:470bec408033ceebe089cf968cc92cc1ff2d79b912ee5a983a07926ff79d4053", size = 317168, upload-time = "2026-06-03T20:25:27.425Z" },
+    { url = "https://files.pythonhosted.org/packages/62/6d/5b2bab9411e9b4dc7cac846b8af00827684bee8654855d019c6ad0793fea/pytelegrambotapi-4.35.0-py3-none-any.whl", hash = "sha256:d4492b0af8ba0ed7d749754cadfb19f282e3770aaaa6b568527aa6dff56f0b64", size = 326340, upload-time = "2026-07-12T16:40:39.944Z" },
 ]
 
 [[package]]
