@@ -1,6 +1,7 @@
 FROM python:3.14-slim@sha256:cea0e6040540fb2b965b6e7fb5ffa00871e632eef63719f0ea54bca189ce14a6 AS builder
 ENV ENV=BUILD \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    MODAL_BUILD_VALIDATION=ignore
 ARG DSN
 ARG MODAL_TOKEN_ID
 ARG MODAL_TOKEN_SECRET
