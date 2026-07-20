@@ -13,7 +13,7 @@ dependencies = [
     "google-genai==2.12.1",
     "limits[redis]==5.8.0",
     "psycopg2-binary==2.9.12",
-    "pytelegrambotapi==4.34.0",
+    "pytelegrambotapi==4.35.0",
     "replicate==1.0.7",
     "sentry-sdk==2.66.0",
     "sqlalchemy==2.0.51",
