@@ -3,6 +3,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
+from config import (
+    DEFAULT_MODEL_ID_FOR_SUMMARY,
+    DEFAULT_PROMPT_KEY,
+    DEFAULT_THINKING_LEVEL,
+)
 from database import (
     check_auth,
     register_user,
@@ -32,6 +37,19 @@ def test_register_user_success(mock_db_session):
     assert result is True
     assert mock_db_session.add.called
     assert mock_db_session.commit.called
+
+
+def test_register_user_stores_defaults(monkeypatch, sqlite_session_factory):
+    """Test register_user stores the configured defaults when nothing is overridden."""
+    monkeypatch.setattr("database.Session", sqlite_session_factory)
+
+    assert register_user(123, "First", "Last", "user") is True
+    with sqlite_session_factory() as session:
+        user = session.get(UsersOrm, 123)
+        assert user is not None
+        assert user.summarizing_model == DEFAULT_MODEL_ID_FOR_SUMMARY
+        assert user.prompt_key_for_summary == DEFAULT_PROMPT_KEY
+        assert user.thinking_level == DEFAULT_THINKING_LEVEL
 
 
 def test_register_user_duplicate(mock_db_session):
@@ -147,7 +165,7 @@ def test_set_thinking_level_rejects_unknown_value(monkeypatch, sqlite_session_fa
     with sqlite_session_factory() as session:
         user = session.get(UsersOrm, 123)
         assert user is not None
-        assert user.thinking_level == "MINIMAL"
+        assert user.thinking_level == DEFAULT_THINKING_LEVEL
 
 
 @pytest.mark.parametrize(

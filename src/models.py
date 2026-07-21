@@ -39,10 +39,10 @@ class UsersOrm(Base):
     approved: Mapped[bool] = mapped_column(server_default="False")
     target_language: Mapped[str] = mapped_column(server_default="English")
     summarizing_model: Mapped[str] = mapped_column(
-        server_default="gemini-3.5-flash",
+        server_default="gemini-3.5-flash-lite",
     )
     prompt_key_for_summary: Mapped[str] = mapped_column(
         server_default="basic_prompt_for_transcript",
     )
     daily_limit: Mapped[int] = mapped_column(server_default="0")
-    thinking_level: Mapped[str] = mapped_column(server_default="MINIMAL")
+    thinking_level: Mapped[str] = mapped_column(server_default="HIGH")
