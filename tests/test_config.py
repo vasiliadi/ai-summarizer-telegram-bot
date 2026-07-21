@@ -41,7 +41,7 @@ def test_proxy_env_parsing_empty_string(monkeypatch):
     assert config.PROXIES == []
 
 
-def test_langfuse_disabled_when_keys_unset(monkeypatch):
+def test_langfuse_disabled_when_keys_blank(monkeypatch):
     """Test langfuse_client stays None when either Langfuse key is blank.
 
     Uses blank values rather than delenv: reload() re-runs load_dotenv(),
