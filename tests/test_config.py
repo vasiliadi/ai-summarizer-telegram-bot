@@ -39,3 +39,16 @@ def test_proxy_env_parsing_empty_string(monkeypatch):
     monkeypatch.delenv("PROXY", raising=False)
     importlib.reload(config)
     assert config.PROXIES == []
+
+
+def test_langfuse_disabled_when_keys_unset(monkeypatch):
+    """Test langfuse_client stays None when either Langfuse key is blank.
+
+    Uses blank values rather than delenv: reload() re-runs load_dotenv(),
+    which backfills any *absent* var from the real .env file, masking this
+    branch. python-dotenv never overrides a var already present (even blank).
+    """
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "")
+    importlib.reload(config)
+    assert config.langfuse_client is None
