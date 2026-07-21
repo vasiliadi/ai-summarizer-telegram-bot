@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from config import (
+    ALLOWED_THINKING_LEVELS,
     DEFAULT_MODEL_ID_FOR_SUMMARY,
     DEFAULT_PROMPT_KEY,
     DEFAULT_THINKING_LEVEL,
@@ -50,6 +51,19 @@ def test_register_user_stores_defaults(monkeypatch, sqlite_session_factory):
         assert user.summarizing_model == DEFAULT_MODEL_ID_FOR_SUMMARY
         assert user.prompt_key_for_summary == DEFAULT_PROMPT_KEY
         assert user.thinking_level == DEFAULT_THINKING_LEVEL
+
+
+@pytest.mark.parametrize(
+    ("column", "expected"),
+    [
+        ("summarizing_model", DEFAULT_MODEL_ID_FOR_SUMMARY),
+        ("prompt_key_for_summary", DEFAULT_PROMPT_KEY),
+        ("thinking_level", DEFAULT_THINKING_LEVEL),
+    ],
+)
+def test_orm_server_defaults_match_config(column, expected):
+    """Test the column server defaults stay in sync with the config constants."""
+    assert UsersOrm.__table__.c[column].server_default.arg == expected
 
 
 def test_register_user_duplicate(mock_db_session):
@@ -157,15 +171,20 @@ def test_set_setting_rejects_unsupported(
 
 
 def test_set_thinking_level_rejects_unknown_value(monkeypatch, sqlite_session_factory):
-    """Test set_thinking_level returns False and leaves the default unchanged."""
+    """Test set_thinking_level returns False and leaves the stored level unchanged."""
     monkeypatch.setattr("database.Session", sqlite_session_factory)
     register_user(123, "First", "Last", "user")
+    # Move off the default first, so a rejected value cannot be mistaken for it.
+    other_level = next(
+        level for level in ALLOWED_THINKING_LEVELS if level != DEFAULT_THINKING_LEVEL
+    )
+    assert set_thinking_level(123, other_level) is True
 
     assert set_thinking_level(123, "bogus") is False
     with sqlite_session_factory() as session:
         user = session.get(UsersOrm, 123)
         assert user is not None
-        assert user.thinking_level == DEFAULT_THINKING_LEVEL
+        assert user.thinking_level == other_level
 
 
 @pytest.mark.parametrize(
