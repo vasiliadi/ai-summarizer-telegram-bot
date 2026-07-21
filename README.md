@@ -55,7 +55,16 @@ PROXY=""
 LOG_LEVEL="ERROR"
 MODAL_TOKEN_ID="your_token"
 MODAL_TOKEN_SECRET="your_token_secret"
+# Optional: set both keys to enable Langfuse tracing of Gemini calls.
+LANGFUSE_PUBLIC_KEY=""
+LANGFUSE_SECRET_KEY=""
+LANGFUSE_BASE_URL=""
 ```
+
+`LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are optional — set both to trace
+Gemini calls to [Langfuse](https://langfuse.com); leave them unset to disable
+tracing. `LANGFUSE_BASE_URL` defaults to Langfuse Cloud (EU); use
+`https://us.cloud.langfuse.com` for the US region or your self-hosted URL.
 
 Pass in an empty string to `PROXY` for direct connection. \
 Or use `schema`://`username`:`password`@`proxy_address`:`port` \
@@ -209,7 +218,8 @@ While text transcripts can provide a solid foundation for understanding the cont
 [limits](https://github.com/alisaifee/limits) \
 [tavily-python](https://docs.tavily.com/welcome) \
 [exa-py](https://github.com/exa-labs/exa-py) \
-[curl_cffi](https://github.com/lexiforest/curl_cffi)
+[curl_cffi](https://github.com/lexiforest/curl_cffi) \
+[langfuse](https://langfuse.com/docs/observability/sdk/overview)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
