@@ -93,6 +93,15 @@ def test_clean_up_single_file_protected(mocker):
     mock_unlink.assert_not_called()
 
 
+def test_clean_up_no_args_is_noop(mocker):
+    """Test that clean_up() with no arguments does nothing."""
+    mock_unlink = mocker.patch("utils.Path.unlink")
+
+    clean_up()
+
+    mock_unlink.assert_not_called()
+
+
 def test_clean_up_all_downloads(mocker):
     """Test that clean_up(all_downloads=True) only deletes unprotected files."""
     # Create mock paths
