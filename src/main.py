@@ -22,6 +22,7 @@ from config import (
     THINKING_LEVEL_LABELS,
     THINKING_LEVEL_LABELS_REVERSE,
     bot,
+    langfuse_client,
 )
 from database import (
     check_auth,
@@ -41,7 +42,7 @@ from handlers import (
     handle_video_note,
     handle_voice,
 )
-from services import get_remaining_quota
+from services import get_remaining_quota, observe_message
 from utils import clean_up
 
 if TYPE_CHECKING:
@@ -435,7 +436,8 @@ def handle_message(message: Message) -> None:
             bot.send_message(message.chat.id, "You are not approved.")
             return
 
-        process_message_content(message, user)
+        with observe_message(user.user_id, message.content_type):
+            process_message_content(message, user)
 
     except LimitExceededError as e:
         capture_exception(e)
@@ -462,3 +464,5 @@ if __name__ == "__main__":
         bot.infinity_polling(timeout=20)
     finally:
         clean_up(all_downloads=True)
+        if langfuse_client is not None:
+            langfuse_client.shutdown()

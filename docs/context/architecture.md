@@ -115,3 +115,11 @@ to Gemini — return the raw model text with **no** prefix.
   startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest.
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
+- **Tracing (optional).** Langfuse tracing is enabled only when `LANGFUSE_PUBLIC_KEY`
+  and `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`, else `None`). When on,
+  the OpenInference `GoogleGenAIInstrumentor` auto-captures every Gemini
+  `generate_content` call, and `services.observe_message` (used in
+  `main.handle_message`) wraps each Telegram message in one root span attributed to
+  the user and tagged with the content type, so all Gemini calls for a message nest
+  under a single trace. `langfuse_client.shutdown()` flushes on exit. Coexists with
+  Sentry tracing; a no-op when disabled.

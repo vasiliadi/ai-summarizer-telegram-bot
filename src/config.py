@@ -9,9 +9,11 @@ import telebot
 from exa_py import Exa
 from google import genai
 from google.genai import types
+from langfuse import Langfuse
 from limits import parse as parse_rate_limit
 from limits.storage import RedisStorage
 from limits.strategies import FixedWindowRateLimiter
+from openinference.instrumentation.google_genai import GoogleGenAIInstrumentor
 from tavily import TavilyClient
 
 if os.environ.get("ENV") != "PROD":
@@ -108,6 +110,23 @@ GEMINI_CONFIG = types.GenerateContentConfig(
     safety_settings=SAFETY_SETTINGS,
     response_mime_type="text/plain",
 )
+
+
+# Langfuse config
+# Optional: tracing is enabled only when both keys are present, so local runs
+# and tests work without Langfuse. When enabled, the OpenInference instrumentor
+# auto-captures every Gemini generate_content call.
+LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_PUBLIC_KEY")
+LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY")
+LANGFUSE_BASE_URL = os.environ.get("LANGFUSE_BASE_URL")
+langfuse_client: Langfuse | None = None
+if LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY:
+    langfuse_client = Langfuse(
+        public_key=LANGFUSE_PUBLIC_KEY,
+        secret_key=LANGFUSE_SECRET_KEY,
+        base_url=LANGFUSE_BASE_URL,
+    )
+    GoogleGenAIInstrumentor().instrument()
 
 
 # Prompts

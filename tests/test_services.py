@@ -9,6 +9,7 @@ from services import (
     get_file_with_retry,
     get_gemini_config,
     get_remaining_quota,
+    observe_message,
     resolve_mime_type,
     send_answer,
     upload_and_wait_for_file,
@@ -277,3 +278,28 @@ def test_check_quota_sleeps_when_per_minute_limited(mocker):
 
     assert result is True
     mock_sleep.assert_called_once_with(7.5)
+
+
+def test_observe_message_noop_when_langfuse_disabled(mocker):
+    """observe_message is a no-op context manager when Langfuse is not configured."""
+    mocker.patch("services.langfuse_client", None)
+    mock_propagate = mocker.patch("services.propagate_attributes")
+
+    with observe_message(user_id=42, content_type="voice"):
+        pass
+
+    mock_propagate.assert_not_called()
+
+
+def test_observe_message_opens_trace_when_langfuse_enabled(mocker):
+    """observe_message opens a root span attributed to the user and content type."""
+    mock_client = mocker.patch("services.langfuse_client")
+    mock_propagate = mocker.patch("services.propagate_attributes")
+
+    with observe_message(user_id=42, content_type="voice"):
+        pass
+
+    mock_client.start_as_current_observation.assert_called_once_with(
+        name="handle_message",
+    )
+    mock_propagate.assert_called_once_with(user_id="42", tags=["voice"])

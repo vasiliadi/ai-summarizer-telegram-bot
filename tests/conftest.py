@@ -20,6 +20,13 @@ os.environ["GEMINI_API_KEY"] = "mock_gemini_key"
 os.environ["REPLICATE_API_TOKEN"] = "mock_replicate_token"
 os.environ["TAVILY_API_KEY"] = "mock_tavily_key"
 os.environ["EXA_API_KEY"] = "mock_exa_key"
+# Dummy Langfuse keys keep tracing hermetic: config's enabled branch runs (so it
+# is covered), while LANGFUSE_TRACING_ENABLED=false stops the client from
+# exporting any spans to a real project during tests.
+os.environ["LANGFUSE_PUBLIC_KEY"] = "pk-lf-mock"
+os.environ["LANGFUSE_SECRET_KEY"] = "sk-lf-mock"
+os.environ["LANGFUSE_BASE_URL"] = "http://localhost:3000"
+os.environ["LANGFUSE_TRACING_ENABLED"] = "false"
 
 import sentry_sdk
 
