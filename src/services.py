@@ -31,7 +31,6 @@ from config import (
     per_minute_rate,
     rate_limiter,
 )
-from domain import PrefixedText
 from exceptions import LimitExceededError
 from prompts import SYSTEM_INSTRUCTION
 
@@ -59,13 +58,10 @@ class Messenger:
     def _reply_with_retry(
         message: Message,
         text: str,
-        entities: list[dict[str, object]] | None = None,
+        entities: list[dict[str, object]],
     ) -> None:
         """Send a reply with retry logic on Telegram API errors."""
-        if entities is None:
-            bot.reply_to(message, text)
-        else:
-            bot.reply_to(message, text, entities=entities)
+        bot.reply_to(message, text, entities=entities)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -245,9 +241,7 @@ resolve_mime_type = gemini_helper.resolve_mime_type
 upload_and_wait_for_file = gemini_helper.upload_and_wait_for_file
 
 
-# Re-export PrefixedText so existing `from services import PrefixedText` imports work.
 __all__ = [
-    "PrefixedText",
     "check_quota",
     "get_file_with_retry",
     "get_gemini_config",

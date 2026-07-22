@@ -16,14 +16,14 @@ from services import (
 )
 
 
-def test__reply_with_retry_happy_path(mocker):
-    """Test _reply_with_retry sends message successfully."""
+def test__reply_with_retry_empty_entities(mocker):
+    """Test _reply_with_retry sends message with an empty entities list."""
     mock_bot = mocker.patch("services.bot")
     mock_msg = mocker.MagicMock()
 
-    services_module.messenger._reply_with_retry(mock_msg, "hello")
+    services_module.messenger._reply_with_retry(mock_msg, "hello", entities=[])
 
-    mock_bot.reply_to.assert_called_once_with(mock_msg, "hello")
+    mock_bot.reply_to.assert_called_once_with(mock_msg, "hello", entities=[])
 
 
 def test__reply_with_retry_with_entities(mocker):
