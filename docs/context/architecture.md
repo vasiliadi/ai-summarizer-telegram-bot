@@ -122,4 +122,5 @@ to Gemini — return the raw model text with **no** prefix.
   `main.handle_message`) wraps each Telegram message in one root span attributed to
   the user and tagged with the content type, so all Gemini calls for a message nest
   under a single trace. `langfuse_client.shutdown()` flushes on exit. Independent
-  of Sentry, which is used for error capture only; a no-op when disabled.
+  of Sentry, which handles error capture and logs; the Langfuse tracing is a
+  no-op when disabled.
