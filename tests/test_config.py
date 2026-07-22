@@ -50,11 +50,19 @@ def test_dotenv_skipped_in_prod(monkeypatch, mocker):
     so it would trigger the opposite branch. Patch dotenv.load_dotenv at the
     source — the name is only bound into config's namespace when the import
     inside the skipped block runs, so config.load_dotenv does not exist here.
+
+    Reloading mutates the process-global config module, so a finally block
+    restores ENV and reloads it back to the TEST baseline even if the
+    assertion fails, preventing later tests from observing PROD settings.
     """
     monkeypatch.setenv("ENV", "PROD")
     mock_load_dotenv = mocker.patch("dotenv.load_dotenv")
-    importlib.reload(config)
-    mock_load_dotenv.assert_not_called()
+    try:
+        importlib.reload(config)
+        mock_load_dotenv.assert_not_called()
+    finally:
+        monkeypatch.setenv("ENV", "TEST")
+        importlib.reload(config)
 
 
 def test_langfuse_disabled_when_keys_blank(monkeypatch):
