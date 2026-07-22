@@ -41,6 +41,22 @@ def test_proxy_env_parsing_empty_string(monkeypatch):
     assert config.PROXIES == []
 
 
+def test_dotenv_skipped_in_prod(monkeypatch, mocker):
+    """Test load_dotenv is not invoked when ENV=PROD (production).
+
+    Every other test runs with ENV=TEST, so the dotenv-skip branch
+    (ENV=PROD, as in the real container) is otherwise never exercised.
+    Set the literal "PROD" rather than delenv: an absent ENV is not "PROD",
+    so it would trigger the opposite branch. Patch dotenv.load_dotenv at the
+    source — the name is only bound into config's namespace when the import
+    inside the skipped block runs, so config.load_dotenv does not exist here.
+    """
+    monkeypatch.setenv("ENV", "PROD")
+    mock_load_dotenv = mocker.patch("dotenv.load_dotenv")
+    importlib.reload(config)
+    mock_load_dotenv.assert_not_called()
+
+
 def test_langfuse_disabled_when_keys_blank(monkeypatch):
     """Test langfuse_client stays None when either Langfuse key is blank.
 
