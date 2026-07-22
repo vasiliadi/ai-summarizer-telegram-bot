@@ -1,10 +1,10 @@
 from telebot import types
 from tenacity import RetryError
 
+from domain import PrefixedText
 from exceptions import LimitExceededError, WebParseError
 from handlers import _classify_url
 from main import handle_message, process_message_content
-from services import PrefixedText
 
 
 def test_unauthorized_user(message_factory, mocker):

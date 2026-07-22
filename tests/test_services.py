@@ -16,21 +16,11 @@ from services import (
 )
 
 
-def test__reply_with_retry_happy_path(mocker):
-    """Test _reply_with_retry sends message successfully."""
+@pytest.mark.parametrize("entities", [[], [{"type": "bold"}]])
+def test__reply_with_retry_forwards_entities(mocker, entities):
+    """Test _reply_with_retry forwards entities (empty or not) to bot.reply_to."""
     mock_bot = mocker.patch("services.bot")
     mock_msg = mocker.MagicMock()
-
-    services_module.messenger._reply_with_retry(mock_msg, "hello")
-
-    mock_bot.reply_to.assert_called_once_with(mock_msg, "hello")
-
-
-def test__reply_with_retry_with_entities(mocker):
-    """Test _reply_with_retry sends message with entities."""
-    mock_bot = mocker.patch("services.bot")
-    mock_msg = mocker.MagicMock()
-    entities = [{"type": "bold"}]
 
     services_module.messenger._reply_with_retry(mock_msg, "hello", entities=entities)
 
