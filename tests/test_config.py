@@ -1,4 +1,5 @@
 import importlib
+import logging
 
 import config
 import utils
@@ -62,6 +63,23 @@ def test_dotenv_skipped_in_prod(monkeypatch, mocker):
         mock_load_dotenv.assert_not_called()
     finally:
         monkeypatch.setenv("ENV", "TEST")
+        importlib.reload(config)
+
+
+def test_log_level_falls_back_on_non_level_attribute(monkeypatch):
+    """Test NUMERIC_LOG_LEVEL falls back to ERROR for non-level logging names.
+
+    Resolving LOG_LEVEL through logging.getLevelNamesMapping() (not a bare
+    getattr on the logging module) keeps names like BASIC_FORMAT — a real but
+    non-int module attribute — from reaching basicConfig, where they would
+    raise ValueError at import. The finally block restores the baseline.
+    """
+    monkeypatch.setenv("LOG_LEVEL", "BASIC_FORMAT")
+    try:
+        importlib.reload(config)
+        assert config.NUMERIC_LOG_LEVEL == logging.ERROR
+    finally:
+        monkeypatch.delenv("LOG_LEVEL", raising=False)
         importlib.reload(config)
 
 

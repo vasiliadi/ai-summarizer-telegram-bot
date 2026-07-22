@@ -30,7 +30,7 @@ sentry_sdk.init(
 
 # Logging
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "ERROR").upper()
-NUMERIC_LOG_LEVEL = getattr(logging, LOG_LEVEL, logging.ERROR)
+NUMERIC_LOG_LEVEL = logging.getLevelNamesMapping().get(LOG_LEVEL, logging.ERROR)
 LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 
 # Ensure root logger is configured for all modules, not just telebot.
