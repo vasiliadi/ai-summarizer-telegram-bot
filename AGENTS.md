@@ -12,7 +12,7 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
 
 ## Rules
 
-1. **Write state to disk, not conversation.** Record work in the session handoff at `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md` using the Handoff template below — create it on first meaningful write, update it as work progresses. Before compaction, before switching work types, and at session end, do a full update: every number, decision with rationale, open question, file path, and the exact next action — finalizing with `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly). The handoff is the only session-state artifact.
+1. **Write state to disk, not conversation.** Record work in the session handoff at `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md` using the Handoff template below — create it on first meaningful write, update it as work progresses. Before compaction, before switching work types, and at session end, do a full update: every number, decision with rationale, open question, file path, and the exact next action — finalizing with `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly). The handoff is the only session-state artifact; decision records and analyses are separate outputs.
 2. **Surface every open question.** Mark unresolved items OPEN or ASSUMED in the handoff and in the final answer. Before delivering output, verify exact numbers are preserved and claims are backed by specific data.
 3. For docs dumps, big diffs, incident traces, or broad codebase exploration, summarize to `docs/summaries/` as you go instead of holding raw content in context. Targeted lookup in a few short files needs no such overhead.
 4. Sub-agent returns must be structured — exact numbers, file paths, decisions with rationale, open items — not free-form prose. Target 1,000–2,000 tokens.
@@ -59,7 +59,7 @@ Fill the optional tail when ending or switching the session, then move the previ
 
 ## Where Things Live
 
-- `docs/summaries/` — active session state: latest handoff, decision records, analyses. **(gitignored)**
+- `docs/summaries/` — session outputs: the handoff (session state), decision records, analyses. **(gitignored)**
 - `docs/context/` — reusable domain knowledge, loaded only when relevant. **(tracked)**
   - `architecture.md` — component map and data flow; update only on architectural change
   - `style-guide.md` — coding conventions Ruff does not enforce
