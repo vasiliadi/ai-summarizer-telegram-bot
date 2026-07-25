@@ -1,17 +1,13 @@
 # Architecture
 
-High-level component map and data flow for orientation at session start.
-**Stable** — update only when the architecture actually changes (a new component,
-a new flow, a routing/fallback rewrite), not every handoff.
+High-level component map and data flow for orientation at session start. **Stable** —
+update only on a real architectural change (new component, new flow, routing/fallback
+rewrite), not every handoff. Not a source mirror: read the source for function
+signatures, dependencies, and env vars.
 
-This file is deliberately **not** a source mirror. It does not list functions
-line-by-line, dependencies, or env vars — read the source for that.
-
-- Stack list → `pyproject.toml` + `README.md`
-- *Why* the core infra was chosen (sync polling, Valkey, Gemini+Replicate,
-  Postgres+Valkey split, Modal cron) → `docs/summaries/decision-10-architecture-rationale.md`
-- Per-feature decisions → `docs/summaries/decision-*.md`
-- External-service gotchas → `docs/summaries/decision-*.md` and source comments
+- Stack → `pyproject.toml` + `README.md`
+- *Why* the core infra was chosen → `docs/summaries/decision-10-architecture-rationale.md`
+- Per-feature decisions and external-service gotchas → `docs/summaries/decision-*.md`
 
 ---
 
@@ -92,15 +88,12 @@ to Gemini — return the raw model text with **no** prefix.
 ## Cross-cutting patterns
 
 - **OOP + singleton + alias.** Each service module defines a (mostly stateless)
-  class, instantiates one module-level singleton, then exports module-level
-  aliases to its methods so the original functional public API (`module.func`)
-  still works — importers and `mocker.patch("module.func")` calls depend on
-  those aliases today. OOP is the intended direction: a proposal to *unwind* it
-  — remove the classes and revert to plain module-level functions — was reviewed
-  and rejected, so don't go back that way. A future refactor toward stricter OOP
-  is welcome; note the alias layer is a backward-compatibility shim, not an OOP
-  goal, so such a refactor may drop it, but must migrate importers and the
-  `mocker.patch("module.func")` test calls in the same change.
+  class, instantiates one module-level singleton, then aliases its methods at
+  module level so the functional API (`module.func`) still works — importers and
+  `mocker.patch("module.func")` calls depend on those aliases. A proposal to
+  *unwind* this back to plain functions was reviewed and **rejected**; don't go
+  that way. Stricter OOP is welcome, and may drop the alias shim — but must
+  migrate importers and the `mocker.patch` test calls in the same change.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
   unit. A global per-minute limit throttles by sleeping. Counters live in Valkey;

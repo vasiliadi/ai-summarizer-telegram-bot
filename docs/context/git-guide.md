@@ -1,14 +1,10 @@
 # Git Guide
 
-This guide establishes the Git conventions, workflow, and pre-commit checks for the AI Summarizer Telegram Bot project.
+## Commit Convention
 
-## Git Conventions
-
-All commit messages must use the **scope-prefixed** format. Lead with the area of the codebase
-that changed, not a change type — the description already conveys what kind of change it is, and
-the scope is what people actually scan for when debugging or reviewing history.
-
-**Format:**
+All commit messages use the **scope-prefixed** format. Lead with the area of the codebase that
+changed, not a change type — the description already conveys what kind of change it is, and the
+scope is what people actually scan for when debugging or reviewing history.
 
 ```text
 scope: description
@@ -24,22 +20,16 @@ scope: description
 
 Do not use Conventional Commit types (`feat`, `fix`, `chore`, …) and do not add gitmoji.
 
-**Examples:**
-
 ```text
 summary: handle empty transcript
-prompts: tighten system instruction
 deps: bump google-genai to 2.8.0
-docs: link SOCKS proxy release
 ci: update codecov action
 ```
 
----
-
 ## Pre-Commit Checks
 
-All checks (lint, format, types, tests) run automatically as pre-commit hooks when you commit — do not run them manually first (the ruff auto-fixers under **Workflow** below are the exception), and never bypass them with `--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again.
+All checks (lint, format, types, tests) run automatically as pre-commit hooks when you commit — do not run them manually first (the ruff auto-fixers below are the exception), and never bypass them with `--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again.
 
 **Coverage:** The project is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report printed by the pytest hook and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
 
-**Workflow:** Run `uvx ruff format .` before committing to automatically format your code. Run `uvx ruff check --fix` to automatically resolve fixable linting errors. Note: `uvx` resolves the latest Ruff while the hooks pin their own version, so the two can disagree after a Ruff release — if the format hook still modifies files, trust the hook's output.
+**Ruff:** Run `uvx ruff format .` and `uvx ruff check --fix` before committing. `uvx` resolves the latest Ruff while the hooks pin their own version, so the two can disagree after a Ruff release — if the format hook still modifies files, trust the hook's output.
