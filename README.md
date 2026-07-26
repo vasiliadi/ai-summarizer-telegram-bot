@@ -187,19 +187,14 @@ To avoid multiple docker images, I use a [Modal](https://modal.com/) for cron jo
 
 Modal Image Builder Version required to be `2025.06`. Set in Settings -> Image Builder Version.
 
-## Audio vs Text Summaries (AI answer)
+## Audio vs text summaries
 
-There are a few reasons why providing an audio file might lead to a more detailed and comprehensive summary compared to a text transcript:
+Audio carries what a transcript drops — intonation, emphasis, pauses, speaker turns, and non-verbal
+cues like laughter — so a summary built from audio can be richer than one built from the same words
+as text.
 
-1. **Contextual Understanding:** When processing audio, I can leverage the nuances of speech, such as intonation, emphasis, and pauses, to better understand the speaker's intent and the overall context of the conversation. This contextual understanding helps me identify the main points and supporting arguments more accurately.
-
-2. **Speaker Identification and Role:** In audio files, I can often distinguish between different speakers and their roles in the conversation. This allows me to attribute specific statements and opinions to the correct individuals, which can be crucial for understanding the dynamics of the discussion.
-
-3. **Non-verbal Cues:** While text transcripts provide the words spoken, they lack the non-verbal cues that often accompany speech, such as laughter, sighs, or changes in tone. These cues can convey additional information and emotions that can significantly impact the overall meaning of the conversation.
-
-4. **Advanced Audio Processing Techniques:** My underlying technology can analyze audio files for various features, including speaker identification, sentiment analysis, and topic modeling. These techniques can help me identify key points, summarize the content, and even extract specific information, such as names, dates, or locations.
-
-While text transcripts can provide a solid foundation for understanding the content, they lack the richness and depth of information that can be gleaned from audio files. By incorporating advanced audio processing techniques and considering the broader context of the conversation, I can provide more detailed and insightful summaries when working with audio files.
+The bot still tries the YouTube transcript first and downloads audio only when that fails: the
+transcript path is faster and cheaper, and for most content the difference is small.
 
 ## Docs
 
