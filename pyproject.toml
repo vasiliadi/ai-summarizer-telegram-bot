@@ -123,7 +123,7 @@ select = [
     # "PD",    # pandas-vet — not used
     "TRY",   # tryceratops
 ]
-ignore = ["S603", "S607", "D100", "D401", "PLR0913", "FBT001", "FBT002", "BLE001"]
+ignore = ["S603", "S607", "D100", "D401", "PLR0913", "PLR0917", "FBT001", "FBT002", "BLE001"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ANN", "S101", "S105", "PLR2004", "SLF001", "ARG002", "ARG005", "PYI034", "E501", "EM101", "TRY003"]
