@@ -32,4 +32,4 @@ jobs:
         run: uv sync
 
       - name: Run ty check
-        run: uvx ty check src/
+        run: uvx ty@latest check src/

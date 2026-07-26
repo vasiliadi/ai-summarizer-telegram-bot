@@ -37,7 +37,7 @@ repos:
         files: \.py$|^pyproject\.toml$
       - id: ty
         name: ty
-        entry: uvx ty check .
+        entry: uvx ty@latest check .
         language: system
         pass_filenames: false
         files: ^src/|^(pyproject\.toml|uv\.lock)$
