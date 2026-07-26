@@ -1,14 +1,10 @@
 # Git Guide
 
-This guide establishes the Git conventions, workflow, and pre-commit checks for the AI Summarizer Telegram Bot project.
+## Commit Convention
 
-## Git Conventions
-
-All commit messages must use the **scope-prefixed** format. Lead with the area of the codebase
-that changed, not a change type — the description already conveys what kind of change it is, and
-the scope is what people actually scan for when debugging or reviewing history.
-
-**Format:**
+All commit messages use the **scope-prefixed** format. Lead with the area of the codebase that
+changed, not a change type — the description already conveys what kind of change it is, and the
+scope is what people actually scan for when debugging or reviewing history.
 
 ```text
 scope: description
@@ -24,22 +20,18 @@ scope: description
 
 Do not use Conventional Commit types (`feat`, `fix`, `chore`, …) and do not add gitmoji.
 
-**Examples:**
-
 ```text
 summary: handle empty transcript
-prompts: tighten system instruction
 deps: bump google-genai to 2.8.0
-docs: link SOCKS proxy release
 ci: update codecov action
 ```
 
----
-
 ## Pre-Commit Checks
 
-All checks (lint, format, types, tests) run automatically as pre-commit hooks when you commit — do not run them manually first (the ruff auto-fixers under **Workflow** below are the exception), and never bypass them with `--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again.
+Hooks run automatically at commit time, each scoped to the files it matches — the ruff hooks to any staged Python file, `ty` and `pytest` to `src/`, `tests/`, `pyproject.toml`, and `uv.lock` — so a docs-only commit skips all four. Do not run them manually first, and never bypass them with `--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again.
 
 **Coverage:** The project is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report printed by the pytest hook and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
 
-**Workflow:** Run `uvx ruff@latest format .` before committing to automatically format your code. Run `uvx ruff@latest check --fix` to automatically resolve fixable linting errors. The hooks run the same Ruff over the files you staged, so the two never disagree — but a Ruff release can surface new rules at commit time, and only CI sweeps files your commit did not touch. Keep the `@latest`: bare `uvx ruff` reuses a `uv tool install`ed Ruff, which may lag behind CI.
+**Ruff:** the hooks auto-fix and format, so no manual run is needed. They see only your staged files — a green commit is not a green tree, and only CI sweeps the rest.
+
+**Always `@latest`:** every uvx call site pins it — both ruff hooks, the `ty` hook, and `.github/workflows/typechecking.yml`. Bare `uvx <tool>` reuses a `uv tool install`ed copy that may lag behind CI.

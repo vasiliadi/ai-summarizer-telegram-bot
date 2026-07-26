@@ -1,6 +1,6 @@
 # Agent Templates — On-Demand Reference
 
-> **Do NOT read this file at session start.** Read it only when you need to write a decision record, analysis summary, or source-document summary. The session handoff template lives inline in AGENTS.md — not here.
+> **Do NOT read this file at session start.** Read it only when writing a decision record or an analysis summary. The session handoff template lives inline in `AGENTS.md`.
 
 ---
 
@@ -66,45 +66,6 @@
 - EVIDENCE: [specific supporting data, file:line]
 - CONFIDENCE: [high/medium/low]
 
-## Conditional Conclusions
-- IF [condition], THEN [conclusion], BECAUSE [evidence]
-- IF [alternative condition], THEN [different conclusion]
-
-## What This Analysis Does NOT Cover
-- [topic not addressed / data not available]
-
 ## Recommended Next Steps
 1. [action] — priority [high/medium/low], depends on [what]
 ```
-
----
-
-## Template 3: Source Document Summary
-
-**Use when:** Processing an external docs dump — library API docs, RFCs, migration guides, changelogs — before adopting or upgrading a dependency. Replaces the raw document; see `docs/context/processing-protocol.md`.
-
-**Write to:** `docs/summaries/source-[library]-[topic].md`
-
-```markdown
-# Source Summary: [Document Name]
-**Processed:** [YYYY-MM-DD]
-**Source:** [path or URL]
-**Type:** [library docs / RFC / changelog / migration guide]
-**Confidence:** [high = understood everything / medium = some interpretation / low = gaps]
-
-## Exact Numbers & Facts
-<!-- Copy every version, limit, timeout, default exactly. Do NOT round or paraphrase. -->
-- [item]: [exact value] (section ref if available)
-
-## Key Points
-- [fact] — [section ref]
-
-## Open Questions
-- [UNCLEAR / MISSING item] — needs [what] or None
-```
-
----
-
-## End of Templates
-
-**Return to your task after reading the template you need. Do not keep this file in active context.**
