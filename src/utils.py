@@ -27,7 +27,12 @@ def classify_url(url: str) -> str | None:
             other http(s) URL, None when the URL has no usable scheme or host.
 
     """
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        # urlsplit rejects bracket-malformed authorities ("https://[") outright,
+        # so treat them as unusable rather than letting the error reach the user.
+        return None
     if parts.scheme not in ("http", "https"):
         return None
     host = (parts.hostname or "").lower().removeprefix("www.")

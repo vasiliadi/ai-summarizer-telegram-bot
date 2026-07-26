@@ -183,6 +183,17 @@ def test_classify_url_rejects_non_http_scheme():
     assert classify_url("ftp://example.com/file.txt") is None
 
 
+def test_classify_url_returns_none_for_unparseable_authority():
+    """Test classify_url returns None when urlsplit rejects the authority.
+
+    urlsplit raises ValueError on bracket-malformed hosts. Left uncaught it
+    escapes handle_url's kind check and reaches handle_message's catch-all, so
+    the user sees "Unexpected: ValueError" instead of "No data to proceed.".
+    """
+    assert classify_url("https://[") is None
+    assert classify_url("http://[::1") is None
+
+
 def test_classify_url_http_youtube_is_web():
     """Test classify_url only treats https media hosts as media."""
     assert classify_url("http://youtube.com/watch?v=dQw4w9WgXcQ") == "web"
