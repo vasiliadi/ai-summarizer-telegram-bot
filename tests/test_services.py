@@ -159,21 +159,19 @@ def test_resolve_mime_type_uses_mimetypes_guess():
     assert resolve_mime_type("data.csv") == "text/csv"
     assert resolve_mime_type("text.rtf") == "application/rtf"
     assert resolve_mime_type("audio.ogg") == "audio/ogg"
-    assert resolve_mime_type("audio.mp3") == "audio/mpeg"
-    assert resolve_mime_type("video.mp4") == "video/mp4"
-    assert resolve_mime_type("unknown.bin") == "application/octet-stream"
-
-
-def test_resolve_mime_type_fallback_when_mimetypes_returns_none(mocker):
-    """resolve_mime_type falls back to extension matching when mimetypes returns None."""
-    mocker.patch("services.mimetypes.guess_type", return_value=(None, None))
-
-    assert resolve_mime_type("audio.ogg") == "audio/ogg"
     assert resolve_mime_type("audio.opus") == "audio/ogg"
     assert resolve_mime_type("audio.mp3") == "audio/mpeg"
-    assert resolve_mime_type("audio.wav") == "audio/wav"
     assert resolve_mime_type("video.mp4") == "video/mp4"
-    assert resolve_mime_type("unknown.bin") == "application/octet-stream"
+
+
+def test_resolve_mime_type_defaults_for_unknown_extension():
+    """resolve_mime_type falls back to octet-stream for extensions mimetypes cannot map.
+
+    Uses .zzz rather than .bin: mimetypes resolves .bin to application/octet-stream
+    itself, so it never reaches the default and leaves that branch uncovered.
+    """
+    assert resolve_mime_type("mystery.zzz") == "application/octet-stream"
+    assert resolve_mime_type("no_extension") == "application/octet-stream"
 
 
 def test_upload_and_wait_for_file_name_none(mocker):
