@@ -80,6 +80,16 @@ class UserRepository:
         user = self.select_user(user_id)
         return user.approved
 
+    def _update_field(self, user_id: int, field: str, value: str) -> bool:
+        """Persist a single validated settings field; False if the user is unknown."""
+        with Session() as session:
+            user = session.get(UsersOrm, user_id)
+            if user is None:
+                return False
+            setattr(user, field, value)
+            session.commit()
+            return True
+
     def set_target_language(self, user_id: int, target_language: str) -> bool:
         """Set the target language for a user.
 
@@ -87,15 +97,10 @@ class UserRepository:
             bool: True on success, False if language unsupported or user not found.
 
         """
-        if target_language.title() not in SUPPORTED_LANGUAGES:
+        normalized = target_language.title()
+        if normalized not in SUPPORTED_LANGUAGES:
             return False
-        with Session() as session:
-            user = session.get(UsersOrm, user_id)
-            if user is not None:
-                user.target_language = target_language
-                session.commit()
-                return True
-            return False
+        return self._update_field(user_id, "target_language", normalized)
 
     def set_summarizing_model(self, user_id: int, summarizing_model: str) -> bool:
         """Set the summarizing model for a user.
@@ -104,15 +109,10 @@ class UserRepository:
             bool: True on success, False if model unsupported or user not found.
 
         """
-        if summarizing_model.lower() not in ALLOWED_MODELS_FOR_SUMMARY:
+        normalized = summarizing_model.lower()
+        if normalized not in ALLOWED_MODELS_FOR_SUMMARY:
             return False
-        with Session() as session:
-            user = session.get(UsersOrm, user_id)
-            if user is not None:
-                user.summarizing_model = summarizing_model
-                session.commit()
-                return True
-            return False
+        return self._update_field(user_id, "summarizing_model", normalized)
 
     def set_thinking_level(self, user_id: int, thinking_level: str) -> bool:
         """Set the AI thinking level for a user.
@@ -124,13 +124,7 @@ class UserRepository:
         normalized = thinking_level.upper()
         if normalized not in ALLOWED_THINKING_LEVELS:
             return False
-        with Session() as session:
-            user = session.get(UsersOrm, user_id)
-            if user is not None:
-                user.thinking_level = normalized
-                session.commit()
-                return True
-            return False
+        return self._update_field(user_id, "thinking_level", normalized)
 
     def set_prompt_strategy(self, user_id: int, prompt_key_for_summary: str) -> bool:
         """Set the prompt strategy for a user.
@@ -139,15 +133,10 @@ class UserRepository:
             bool: True on success, False if key unsupported or user not found.
 
         """
-        if prompt_key_for_summary.lower() not in ALLOWED_PROMPT_KEYS:
+        normalized = prompt_key_for_summary.lower()
+        if normalized not in ALLOWED_PROMPT_KEYS:
             return False
-        with Session() as session:
-            user = session.get(UsersOrm, user_id)
-            if user is not None:
-                user.prompt_key_for_summary = prompt_key_for_summary
-                session.commit()
-                return True
-            return False
+        return self._update_field(user_id, "prompt_key_for_summary", normalized)
 
 
 # ---------------------------------------------------------------------------

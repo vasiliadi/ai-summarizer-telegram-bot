@@ -159,21 +159,19 @@ def test_resolve_mime_type_uses_mimetypes_guess():
     assert resolve_mime_type("data.csv") == "text/csv"
     assert resolve_mime_type("text.rtf") == "application/rtf"
     assert resolve_mime_type("audio.ogg") == "audio/ogg"
-    assert resolve_mime_type("audio.mp3") == "audio/mpeg"
-    assert resolve_mime_type("video.mp4") == "video/mp4"
-    assert resolve_mime_type("unknown.bin") == "application/octet-stream"
-
-
-def test_resolve_mime_type_fallback_when_mimetypes_returns_none(mocker):
-    """resolve_mime_type falls back to extension matching when mimetypes returns None."""
-    mocker.patch("services.mimetypes.guess_type", return_value=(None, None))
-
-    assert resolve_mime_type("audio.ogg") == "audio/ogg"
     assert resolve_mime_type("audio.opus") == "audio/ogg"
     assert resolve_mime_type("audio.mp3") == "audio/mpeg"
-    assert resolve_mime_type("audio.wav") == "audio/wav"
     assert resolve_mime_type("video.mp4") == "video/mp4"
-    assert resolve_mime_type("unknown.bin") == "application/octet-stream"
+
+
+def test_resolve_mime_type_defaults_for_unknown_extension():
+    """resolve_mime_type falls back to octet-stream for extensions mimetypes cannot map.
+
+    Uses .zzz rather than .bin: mimetypes resolves .bin to application/octet-stream
+    itself, so it never reaches the default and leaves that branch uncovered.
+    """
+    assert resolve_mime_type("mystery.zzz") == "application/octet-stream"
+    assert resolve_mime_type("no_extension") == "application/octet-stream"
 
 
 def test_upload_and_wait_for_file_name_none(mocker):
@@ -182,6 +180,32 @@ def test_upload_and_wait_for_file_name_none(mocker):
     mock_file = mocker.MagicMock()
     mock_file.name = None
     mock_client.files.upload.return_value = mock_file
+
+    with pytest.raises(AttributeError):
+        upload_and_wait_for_file("path", "audio/ogg", 1)
+
+
+def test_upload_and_wait_for_file_name_none_after_polling(mocker):
+    """upload_and_wait_for_file raises AttributeError when the polled file has no name.
+
+    The pre-loop check only sees the upload response; callers cast .name on the
+    returned object, so the polled result must be validated too.
+    """
+    mock_client = mocker.patch("services.gemini_client")
+    mocker.patch("services.time.sleep")
+
+    mock_file_proc = mocker.MagicMock()
+    mock_file_proc.name = "name"
+    mock_file_proc.state = "PROCESSING"
+
+    mock_file_done = mocker.MagicMock()
+    mock_file_done.name = None
+    mock_file_done.state = "ACTIVE"
+    mock_file_done.uri = "uri"
+    mock_file_done.mime_type = "audio/ogg"
+
+    mock_client.files.upload.return_value = mock_file_proc
+    mock_client.files.get.return_value = mock_file_done
 
     with pytest.raises(AttributeError):
         upload_and_wait_for_file("path", "audio/ogg", 1)

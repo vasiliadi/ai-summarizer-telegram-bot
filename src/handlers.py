@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypedDict
-from urllib.parse import urlsplit
 
-from config import CASTRO_HOST, TG_MAX_FILE_SIZE, YT_HOSTS, bot
+from config import TG_MAX_FILE_SIZE, bot
 from domain import format_prefixed_summary
 from download import download_tg
 from parsing import parse_url
@@ -13,7 +12,7 @@ from services import (
     send_answer,
 )
 from summary import summarize, summarize_text, summarize_with_document
-from utils import clean_up, compress_audio, generate_temporary_name
+from utils import classify_url, clean_up, compress_audio, generate_temporary_name
 
 if TYPE_CHECKING:
     from telebot.types import Audio, Document, File, Message, Video, VideoNote, Voice
@@ -136,29 +135,10 @@ def handle_document(message: Message, user: UsersOrm) -> None:
     send_answer(message, answer)
 
 
-def _classify_url(url: str) -> str | None:
-    """Return 'media' for https YT/Castro URLs, 'web' for any http(s) URL, else None."""
-    parts = urlsplit(url)
-    if parts.scheme not in ("http", "https"):
-        return None
-    host = (parts.hostname or "").lower().removeprefix("www.")
-    if not host:
-        return None
-    if parts.scheme == "https" and host in YT_HOSTS:
-        return "media"
-    if (
-        parts.scheme == "https"
-        and host == CASTRO_HOST
-        and parts.path.startswith("/episode/")
-    ):
-        return "media"
-    return "web"
-
-
 def handle_url(message: Message, user: UsersOrm, url: str) -> None:
     """Handle URL processing."""
-    kind = _classify_url(url)
-    if kind == "media":
+    kind = classify_url(url)
+    if kind in ("youtube", "castro"):
         answer = summarize(
             data=url,
             **_summary_kwargs(user),

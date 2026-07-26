@@ -170,6 +170,48 @@ def test_set_setting_rejects_unsupported(
     assert setter(123, bad_value) is False
 
 
+@pytest.mark.parametrize(
+    ("setter", "value", "orm_attr", "stored_value"),
+    [
+        (set_target_language, "english", "target_language", "English"),
+        (
+            set_summarizing_model,
+            "GEMINI-3.5-FLASH",
+            "summarizing_model",
+            "gemini-3.5-flash",
+        ),
+        (
+            set_prompt_strategy,
+            "Key_Points_For_Transcript",
+            "prompt_key_for_summary",
+            "key_points_for_transcript",
+        ),
+    ],
+)
+def test_set_setting_stores_normalized_value(
+    monkeypatch,
+    sqlite_session_factory,
+    setter,
+    value,
+    orm_attr,
+    stored_value,
+):
+    """Test setters persist the canonical form, not the caller's casing.
+
+    Validation already normalizes before checking the allow-list, so storing the
+    raw input would let a non-canonical value through: PROMPTS[...] would raise
+    KeyError and a mis-cased model id would be rejected by the Gemini API.
+    """
+    monkeypatch.setattr("database.Session", sqlite_session_factory)
+    register_user(123, "First", "Last", "user")
+
+    assert setter(123, value) is True
+    with sqlite_session_factory() as session:
+        user = session.get(UsersOrm, 123)
+        assert user is not None
+        assert getattr(user, orm_attr) == stored_value
+
+
 def test_set_thinking_level_rejects_unknown_value(monkeypatch, sqlite_session_factory):
     """Test set_thinking_level returns False and leaves the stored level unchanged."""
     monkeypatch.setattr("database.Session", sqlite_session_factory)

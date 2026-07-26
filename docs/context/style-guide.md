@@ -59,8 +59,8 @@ Service modules follow the class → module-singleton → method-alias pattern d
 - `@staticmethod` is reserved for **private** helpers (`_name`) that need no instance state.
   Public methods keep `self` even when they don't use it — they form the aliased singleton
   surface (`check_quota = quota_manager.check_quota`), so they must stay bound methods.
-- Annotate class-level constants with `ClassVar`, e.g.
-  `_EXT_MIME_FALLBACK: ClassVar[dict[str, str]]`.
+- Annotate class-level constants with `ClassVar`, e.g. `_DEFAULTS: ClassVar[dict[str, str]]` —
+  without it Ruff (`RUF012`) reads a mutable class attribute as an un-annotated instance field.
 
 ## Testing
 

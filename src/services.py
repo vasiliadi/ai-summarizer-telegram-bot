@@ -5,7 +5,7 @@ import mimetypes
 import time
 from contextlib import contextmanager
 from textwrap import dedent
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, cast
 
 from google.genai import types
 from langfuse import propagate_attributes
@@ -125,14 +125,6 @@ class QuotaManager:
 class GeminiHelper:
     """Utilities for Gemini model configuration and file management."""
 
-    _EXT_MIME_FALLBACK: ClassVar[dict[str, str]] = {
-        ".ogg": "audio/ogg",
-        ".opus": "audio/ogg",
-        ".mp3": "audio/mpeg",
-        ".wav": "audio/wav",
-        ".mp4": "video/mp4",
-    }
-
     def get_gemini_config(
         self,
         target_language: str,
@@ -152,14 +144,8 @@ class GeminiHelper:
         )
 
     def resolve_mime_type(self, file: str) -> str:
-        """Resolve the MIME type for a file path, with fallbacks."""
-        mime_type = mimetypes.guess_type(file)[0]
-        if mime_type is not None:
-            return mime_type
-        for ext, mt in self._EXT_MIME_FALLBACK.items():
-            if file.endswith(ext):
-                return mt
-        return "application/octet-stream"
+        """Resolve the MIME type for a file path, defaulting to octet-stream."""
+        return mimetypes.guess_type(file)[0] or "application/octet-stream"
 
     def upload_and_wait_for_file(
         self,
@@ -180,7 +166,9 @@ class GeminiHelper:
             uploaded = gemini_client.files.get(name=file_name)
         if uploaded.state == "FAILED":
             raise ValueError(uploaded.state)
-        if uploaded.uri is None or uploaded.mime_type is None:
+        # Re-check name on the polled object, not just the upload response:
+        # callers rely on name/uri/mime_type all being set on what is returned.
+        if uploaded.name is None or uploaded.uri is None or uploaded.mime_type is None:
             raise AttributeError
         return uploaded
 
@@ -239,16 +227,3 @@ get_remaining_quota = quota_manager.get_remaining_quota
 get_gemini_config = gemini_helper.get_gemini_config
 resolve_mime_type = gemini_helper.resolve_mime_type
 upload_and_wait_for_file = gemini_helper.upload_and_wait_for_file
-
-
-__all__ = [
-    "check_quota",
-    "get_file_with_retry",
-    "get_gemini_config",
-    "get_remaining_quota",
-    "messenger",
-    "observe_message",
-    "resolve_mime_type",
-    "send_answer",
-    "upload_and_wait_for_file",
-]
