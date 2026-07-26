@@ -140,7 +140,7 @@ brew install pixi
 pixi run start  # ffmpeg available
 ```
 
-Run `ruff` and `ty` through `uvx` with an explicit `@latest`. Do **not** `uv tool install` them:
+Run `ruff` and `ty` through `uvx` with an explicit `@latest`:
 
 ```bash
 uvx ruff@latest format .

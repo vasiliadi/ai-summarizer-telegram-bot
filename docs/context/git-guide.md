@@ -34,4 +34,4 @@ Hooks run automatically at commit time, each scoped to the files it matches — 
 
 **Ruff:** the hooks auto-fix and format, so no manual run is needed. They see only your staged files — a green commit is not a green tree, and only CI sweeps the rest.
 
-**Always `@latest`:** every uvx call site pins it — both ruff hooks, the `ty` hook, and `.github/workflows/typechecking.yml`. Bare `uvx <tool>` reuses a `uv tool install`ed copy that may lag behind CI, which is why the README tells contributors not to install `ruff` or `ty` locally at all.
+**Always `@latest`:** every uvx call site pins it — both ruff hooks, the `ty` hook, and `.github/workflows/typechecking.yml`. Bare `uvx <tool>` reuses a `uv tool install`ed copy that may lag behind CI.
