@@ -140,12 +140,13 @@ brew install pixi
 pixi run start  # ffmpeg available
 ```
 
-Run `ruff` and `ty` through `uvx` with an explicit `@latest`:
+`ruff` and `ty` run in the pre-commit hooks, so you do not need to install or invoke them. To check
+the whole repo the way CI does:
 
 ```bash
-uvx ruff@latest format .
-uvx ruff@latest check --fix
-uvx ty@latest check src/
+uvx ruff@latest check .
+uvx ruff@latest format --check .
+uvx ty@latest check .
 ```
 
 The `@latest` is required: bare `uvx ruff` reuses a `uv tool install`ed copy, which silently lags
@@ -160,7 +161,7 @@ brew install direnv
 #### Git hooks
 
 Install `pre-commit` — unlike `ruff` and `ty` it is not invoked through `uvx`, so a local install is
-fine. Upgrade it later with `uv tool upgrade --all`.
+fine. Upgrade it later with `uv tool upgrade pre-commit`.
 
 ```bash
 uv tool install pre-commit
