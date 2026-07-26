@@ -31,7 +31,7 @@ from services import (
     upload_and_wait_for_file,
 )
 from transcription import get_yt_transcript, transcribe
-from utils import clean_up, compress_audio, generate_temporary_name
+from utils import classify_url, clean_up, compress_audio, generate_temporary_name
 
 if TYPE_CHECKING:
     from tenacity import _utils as tenacity_utils
@@ -79,7 +79,8 @@ class Summarizer:
             str: Generated summary text from the audio content.
 
         Raises:
-            AttributeError: If Gemini returns incomplete file or response metadata.
+            AttributeError: If Gemini returns an empty response, or the upload
+                helper reports incomplete file metadata.
             ValueError: If Gemini reports a failed processing state.
             RetryError: If transient Gemini or network errors persist after retries.
 
@@ -92,10 +93,8 @@ class Summarizer:
             mime_type=mime_type,
             sleep_time=sleep_time,
         )
-        audio_file_name = audio_file.name
+        audio_file_name = cast("str", audio_file.name)
         try:
-            if audio_file.uri is None or audio_file.mime_type is None:
-                raise AttributeError
             check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
             response = gemini_client.models.generate_content(
                 model=model,
@@ -105,8 +104,8 @@ class Summarizer:
                         parts=[
                             types.Part.from_text(text=prompt),
                             types.Part.from_uri(
-                                file_uri=audio_file.uri,
-                                mime_type=audio_file.mime_type,
+                                file_uri=cast("str", audio_file.uri),
+                                mime_type=cast("str", audio_file.mime_type),
                             ),
                         ],
                     ),
@@ -120,15 +119,14 @@ class Summarizer:
                 raise AttributeError
             return response.text
         finally:
-            if audio_file_name is not None:
-                try:
-                    gemini_client.files.delete(name=audio_file_name)
-                except Exception as e:
-                    logger.warning(
-                        "Failed to delete Gemini file %s: %s",
-                        audio_file_name,
-                        e,
-                    )
+            try:
+                gemini_client.files.delete(name=audio_file_name)
+            except Exception as e:
+                logger.warning(
+                    "Failed to delete Gemini file %s: %s",
+                    audio_file_name,
+                    e,
+                )
 
     @retry(
         stop=stop_after_attempt(2),
@@ -311,15 +309,10 @@ class Summarizer:
         """
         check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
         if isinstance(data, str):
-            if data.startswith("https://castro.fm/episode/"):
+            kind = classify_url(data)
+            if kind == "castro":
                 data = download_castro(data)
-            if data.startswith(
-                (
-                    "https://youtu.be/",
-                    "https://www.youtube.com/",
-                    "https://youtube.com/",
-                ),
-            ):
+            elif kind == "youtube":
                 try:
                     transcript_result = get_yt_transcript(data)
                 except (FetchTranscriptError, ValueError) as e:

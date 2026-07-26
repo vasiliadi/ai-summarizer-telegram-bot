@@ -6,6 +6,7 @@ from telebot.types import File
 from tenacity import RetryError
 
 import summary as summary_module
+from domain import PrefixedText
 from exceptions import FetchTranscriptError, LimitExceededError
 from summary import (
     format_prefixed_summary,
@@ -62,25 +63,6 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
     mock_client = mocker.patch("summary.gemini_client")
     mocker.patch("services.gemini_client", mock_client)
     mock_client.models.generate_content.return_value = mocker.MagicMock(text=None)
-
-    with pytest.raises(RetryError):
-        summarize_with_file(
-            file="test_audio.ogg",
-            model="test-model",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="MINIMAL",
-        )
-
-
-def test_summarize_with_file_retries_on_missing_upload_metadata(mocker):
-    """Test summarize_with_file raises RetryError on repeated missing upload metadata."""
-    mocker.patch("summary.check_quota", return_value=True)
-    mocker.patch("tenacity.nap.time.sleep")
-    mock_audio_file = SimpleNamespace(name=None, uri=None, mime_type="audio/ogg")
-    mocker.patch("summary.upload_and_wait_for_file", return_value=mock_audio_file)
 
     with pytest.raises(RetryError):
         summarize_with_file(
@@ -514,6 +496,74 @@ def test_summarize_castro(mocker):
     )
 
     assert result == "Castro summary"
+
+
+def test_summarize_castro_www_host(mocker):
+    """Test summarize() downloads a www-prefixed Castro URL instead of uploading it.
+
+    Regression: the URL used to be re-classified with a literal
+    "https://castro.fm/episode/" prefix check, so a www-prefixed link skipped
+    download_castro and was passed to summarize_with_file as a file path.
+    """
+    mocker.patch("summary.check_quota", return_value=True)
+    mock_download = mocker.patch("summary.download_castro", return_value="dl.mp3")
+    mock_with_file = mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_file",
+        return_value="Castro summary",
+    )
+    mocker.patch("summary.clean_up")
+
+    result = summarize(
+        data="https://www.castro.fm/episode/123",
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+        thinking_level="MINIMAL",
+    )
+
+    assert result == "Castro summary"
+    mock_download.assert_called_once_with("https://www.castro.fm/episode/123")
+    assert mock_with_file.call_args.kwargs["file"] == "dl.mp3"
+
+
+def test_summarize_youtube_uppercase_host_uses_transcript(mocker):
+    """Test summarize() routes an uppercase-host YouTube URL to the transcript path.
+
+    Regression: the old literal prefix check was case-sensitive, so an
+    uppercase host bypassed the transcript path entirely.
+    """
+    url = "https://YouTube.com/watch?v=dQw4w9WgXcQ"
+    mocker.patch("summary.check_quota", return_value=True)
+    mock_transcript = mocker.patch(
+        "summary.get_yt_transcript",
+        return_value=PrefixedText(text="transcript text", prefix="📺"),
+    )
+    mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_text",
+        return_value="YT summary",
+    )
+    mock_with_file = mocker.patch.object(
+        summary_module.summarizer,
+        "summarize_with_file",
+    )
+
+    result = summarize(
+        data=url,
+        model="test-model",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+        thinking_level="MINIMAL",
+    )
+
+    assert result == "📺\n\nYT summary"
+    mock_transcript.assert_called_once_with(url)
+    mock_with_file.assert_not_called()
 
 
 def test_summarize_preflight_blocks_before_download(mocker):
