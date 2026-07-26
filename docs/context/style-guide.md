@@ -3,7 +3,7 @@
 Conventions that are **not** already enforced automatically. All formatting, naming, import
 sorting, and line-length rules are enforced by Ruff (configured in `pyproject.toml` under
 `[tool.ruff]`, `[tool.ruff.format]`, and `[tool.ruff.lint]`) — that file is the source of truth,
-not this one. See `docs/context/git-guide.md` for how to run it.
+not this one. See `docs/context/git-guide.md` for how it runs at commit time.
 
 ## Inline Suppressions
 

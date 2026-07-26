@@ -28,10 +28,10 @@ ci: update codecov action
 
 ## Pre-Commit Checks
 
-Hooks run automatically at commit time, each scoped to the files it matches — the ruff hooks to any staged Python file, `ty` and `pytest` to `src/`, `tests/`, `pyproject.toml`, and `uv.lock` — so a docs-only commit skips all four. Do not run them manually first (the ruff auto-fixers below are the exception), and never bypass them with `--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again.
+Hooks run automatically at commit time, each scoped to the files it matches — the ruff hooks to any staged Python file, `ty` and `pytest` to `src/`, `tests/`, `pyproject.toml`, and `uv.lock` — so a docs-only commit skips all four. Do not run them manually first, and never bypass them with `--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again.
 
 **Coverage:** The project is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report printed by the pytest hook and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
 
-**Ruff:** Run `uvx ruff@latest format .` and `uvx ruff@latest check --fix` before committing — the only checks worth running by hand. The hooks run that same Ruff over your staged files, so the two never disagree; a release can still surface new rules at commit time, and only CI sweeps files your commit did not touch.
+**Ruff:** the hooks auto-fix and format, so no manual run is needed. They see only your staged files — a green commit is not a green tree, and only CI sweeps the rest.
 
 **Always `@latest`:** every uvx call site pins it — both ruff hooks, the `ty` hook, and `.github/workflows/typechecking.yml`. Bare `uvx <tool>` reuses a `uv tool install`ed copy that may lag behind CI, which is why the README tells contributors not to install `ruff` or `ty` locally at all.
