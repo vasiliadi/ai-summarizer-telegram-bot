@@ -34,4 +34,4 @@ Hooks run automatically at commit time, each scoped to the files it matches — 
 
 **Ruff:** Run `uvx ruff@latest format .` and `uvx ruff@latest check --fix` before committing — the only checks worth running by hand. The hooks run that same Ruff over your staged files, so the two never disagree; a release can still surface new rules at commit time, and only CI sweeps files your commit did not touch.
 
-**Always `@latest`:** every uvx call site pins it — both ruff hooks, the `ty` hook, and `.github/workflows/typechecking.yml`. Bare `uvx <tool>` reuses a `uv tool install`ed copy that may lag behind CI, and the README tells contributors to install both tools exactly that way.
+**Always `@latest`:** every uvx call site pins it — both ruff hooks, the `ty` hook, and `.github/workflows/typechecking.yml`. Bare `uvx <tool>` reuses a `uv tool install`ed copy that may lag behind CI, which is why the README tells contributors not to install `ruff` or `ty` locally at all.

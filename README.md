@@ -140,18 +140,17 @@ brew install pixi
 pixi run start  # ffmpeg available
 ```
 
-Install `ruff` and `ty` as system-wide tools or use `uvx`:
+Run `ruff` and `ty` through `uvx` with an explicit `@latest`. Do **not** `uv tool install` them:
 
 ```bash
-uv tool install ruff
-uv tool install ty
+uvx ruff@latest format .
+uvx ruff@latest check --fix
+uvx ty@latest check src/
 ```
 
-To upgrade all installed tools to their latest versions:
-
-```bash
-uv tool upgrade --all
-```
+The `@latest` is required: bare `uvx ruff` reuses a `uv tool install`ed copy, which silently lags
+behind the Ruff that the pre-commit hooks and CI run. Keeping no local copy removes the drift
+entirely — see `docs/context/git-guide.md`.
 
 Optionally, install [direnv](https://direnv.net/) to automatically load `.env` when entering the project directory:
 
@@ -161,7 +160,8 @@ brew install direnv
 
 #### Git hooks
 
-Install `pre-commit`.
+Install `pre-commit` — unlike `ruff` and `ty` it is not invoked through `uvx`, so a local install is
+fine. Upgrade it later with `uv tool upgrade --all`.
 
 ```bash
 uv tool install pre-commit
