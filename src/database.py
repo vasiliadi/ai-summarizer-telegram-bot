@@ -97,9 +97,10 @@ class UserRepository:
             bool: True on success, False if language unsupported or user not found.
 
         """
-        if target_language.title() not in SUPPORTED_LANGUAGES:
+        normalized = target_language.title()
+        if normalized not in SUPPORTED_LANGUAGES:
             return False
-        return self._update_field(user_id, "target_language", target_language)
+        return self._update_field(user_id, "target_language", normalized)
 
     def set_summarizing_model(self, user_id: int, summarizing_model: str) -> bool:
         """Set the summarizing model for a user.
@@ -108,9 +109,10 @@ class UserRepository:
             bool: True on success, False if model unsupported or user not found.
 
         """
-        if summarizing_model.lower() not in ALLOWED_MODELS_FOR_SUMMARY:
+        normalized = summarizing_model.lower()
+        if normalized not in ALLOWED_MODELS_FOR_SUMMARY:
             return False
-        return self._update_field(user_id, "summarizing_model", summarizing_model)
+        return self._update_field(user_id, "summarizing_model", normalized)
 
     def set_thinking_level(self, user_id: int, thinking_level: str) -> bool:
         """Set the AI thinking level for a user.
@@ -131,13 +133,10 @@ class UserRepository:
             bool: True on success, False if key unsupported or user not found.
 
         """
-        if prompt_key_for_summary.lower() not in ALLOWED_PROMPT_KEYS:
+        normalized = prompt_key_for_summary.lower()
+        if normalized not in ALLOWED_PROMPT_KEYS:
             return False
-        return self._update_field(
-            user_id,
-            "prompt_key_for_summary",
-            prompt_key_for_summary,
-        )
+        return self._update_field(user_id, "prompt_key_for_summary", normalized)
 
 
 # ---------------------------------------------------------------------------

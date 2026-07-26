@@ -185,6 +185,32 @@ def test_upload_and_wait_for_file_name_none(mocker):
         upload_and_wait_for_file("path", "audio/ogg", 1)
 
 
+def test_upload_and_wait_for_file_name_none_after_polling(mocker):
+    """upload_and_wait_for_file raises AttributeError when the polled file has no name.
+
+    The pre-loop check only sees the upload response; callers cast .name on the
+    returned object, so the polled result must be validated too.
+    """
+    mock_client = mocker.patch("services.gemini_client")
+    mocker.patch("services.time.sleep")
+
+    mock_file_proc = mocker.MagicMock()
+    mock_file_proc.name = "name"
+    mock_file_proc.state = "PROCESSING"
+
+    mock_file_done = mocker.MagicMock()
+    mock_file_done.name = None
+    mock_file_done.state = "ACTIVE"
+    mock_file_done.uri = "uri"
+    mock_file_done.mime_type = "audio/ogg"
+
+    mock_client.files.upload.return_value = mock_file_proc
+    mock_client.files.get.return_value = mock_file_done
+
+    with pytest.raises(AttributeError):
+        upload_and_wait_for_file("path", "audio/ogg", 1)
+
+
 def test_upload_and_wait_for_file_missing_uri(mocker):
     """upload_and_wait_for_file raises AttributeError when uri or mime_type is None."""
     mock_client = mocker.patch("services.gemini_client")

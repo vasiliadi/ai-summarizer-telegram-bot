@@ -166,7 +166,9 @@ class GeminiHelper:
             uploaded = gemini_client.files.get(name=file_name)
         if uploaded.state == "FAILED":
             raise ValueError(uploaded.state)
-        if uploaded.uri is None or uploaded.mime_type is None:
+        # Re-check name on the polled object, not just the upload response:
+        # callers rely on name/uri/mime_type all being set on what is returned.
+        if uploaded.name is None or uploaded.uri is None or uploaded.mime_type is None:
             raise AttributeError
         return uploaded
 
