@@ -359,7 +359,7 @@ class YtDlpBackend(TranscriptBackend):
                 raise DownloadError(msg)
 
             try:
-                return self._vtt_to_text(sorted(vtt_files)[0])
+                return self._vtt_to_text(min(vtt_files))
             except Exception as e:
                 msg = "Failed to read downloaded VTT file"
                 raise DownloadError(msg) from e
