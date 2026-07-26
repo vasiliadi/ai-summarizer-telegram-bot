@@ -161,7 +161,7 @@ brew install direnv
 #### Git hooks
 
 Install `pre-commit` — unlike `ruff` and `ty` it is not invoked through `uvx`, so a local install is
-fine. Upgrade it later with `uv tool upgrade pre-commit`.
+fine. Upgrade it later with `uv tool upgrade --all` or `uv tool upgrade pre-commit`.
 
 ```bash
 uv tool install pre-commit
