@@ -21,17 +21,20 @@ repos:
     hooks:
       - id: uv-lock
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.22
-    hooks:
-      - id: ruff-check
-        args: [--fix]
-        files: ^(src|tests)/
-      - id: ruff-format
-        files: ^(src|tests)/
-
   - repo: local
     hooks:
+      - id: ruff-check
+        name: ruff-check
+        entry: uvx ruff check . --fix
+        language: system
+        pass_filenames: false
+        files: \.py$|^pyproject\.toml$
+      - id: ruff-format
+        name: ruff-format
+        entry: uvx ruff format .
+        language: system
+        pass_filenames: false
+        files: \.py$|^pyproject\.toml$
       - id: ty
         name: ty
         entry: uvx ty check .
