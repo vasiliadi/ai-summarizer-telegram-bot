@@ -35,7 +35,7 @@ polling-based (`bot.infinity_polling`); no webhooks, no async framework.
 | `config.py` | All clients/singletons + labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION`. |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. |
-| `utils.py` | Proxy pick, temp-name gen, `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
+| `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
 | `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight PT, so daily budgets reset in step with Gemini's free-tier quota. |
 | `scripts/db.py` | Standalone bootstrap script — creates the `users` table via its own `Base`/engine (separate from `src/models.py`); runs `create_all` at import. |
 
@@ -51,11 +51,17 @@ Telegram update
     audio / voice ───────────────► summarize(File)
     video / video_note ──────────► download_tg(.mp4) → compress_audio(.ogg) → summarize(path)
     document ────────────────────► summarize_with_document(File, mime)
-    text (treated as URL) ── _classify_url ──┬─ "media" (YT/Castro) ► summarize(url)
-                                             └─ "web"  ► parse_url → summarize_text
+    text (treated as URL) ── classify_url ──┬─ "youtube" / "castro" ► summarize(url)
+                                            └─ "web"  ► parse_url → summarize_text
 ```
 
 ### Summarizer input branching (`summary.py:summarize`)
+
+`utils.classify_url` is the **single** source of URL routing: `handlers.handle_url`
+calls it to pick the summarize path and `summarize` calls it again to pick the
+download path. Neither may re-derive the kind on its own — a second, narrower
+classifier here previously let www-prefixed and uppercase-host media URLs reach
+the Gemini file upload with the URL string as their file path.
 
 - **YouTube URL** → try transcript (`get_yt_transcript`); on success summarize
   the transcript. On failure → `download_yt` audio, then the file path below.
