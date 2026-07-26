@@ -149,8 +149,7 @@ uvx ty@latest check src/
 ```
 
 The `@latest` is required: bare `uvx ruff` reuses a `uv tool install`ed copy, which silently lags
-behind the Ruff that the pre-commit hooks and CI run. Keeping no local copy removes the drift
-entirely — see `docs/context/git-guide.md`.
+behind the Ruff that the pre-commit hooks and CI run.
 
 Optionally, install [direnv](https://direnv.net/) to automatically load `.env` when entering the project directory:
 
