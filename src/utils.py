@@ -1,14 +1,47 @@
 import random
 import subprocess
 from pathlib import Path
+from urllib.parse import urlsplit
 from uuid import uuid4
 
-from config import PROTECTED_FILES, PROXIES
+from config import CASTRO_HOST, PROTECTED_FILES, PROXIES, YT_HOSTS
 
 
 def get_proxy() -> str:
     """Return a random proxy URL from PROXIES, or '' if none configured."""
     return random.choice(PROXIES) if PROXIES else ""  # noqa: S311
+
+
+def classify_url(url: str) -> str | None:
+    """Classify a URL by the pipeline that can summarize it.
+
+    Single source of truth for URL routing: `handlers.handle_url` uses it to pick
+    the summarize path, and `summary.summarize` uses it to pick the download path.
+    Both must agree, so neither may re-derive the kind on its own.
+
+    Args:
+        url (str): The URL to classify.
+
+    Returns:
+        str | None: "youtube" or "castro" for https media URLs, "web" for any
+            other http(s) URL, None when the URL has no usable scheme or host.
+
+    """
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https"):
+        return None
+    host = (parts.hostname or "").lower().removeprefix("www.")
+    if not host:
+        return None
+    if parts.scheme == "https" and host in YT_HOSTS:
+        return "youtube"
+    if (
+        parts.scheme == "https"
+        and host == CASTRO_HOST
+        and parts.path.startswith("/episode/")
+    ):
+        return "castro"
+    return "web"
 
 
 def generate_temporary_name(ext: str = "") -> str:
