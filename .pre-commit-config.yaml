@@ -25,13 +25,13 @@ repos:
     hooks:
       - id: ruff-check
         name: ruff-check
-        entry: uvx ruff check . --fix
+        entry: uvx ruff@latest check . --fix
         language: system
         pass_filenames: false
         files: \.py$|^pyproject\.toml$
       - id: ruff-format
         name: ruff-format
-        entry: uvx ruff format .
+        entry: uvx ruff@latest format .
         language: system
         pass_filenames: false
         files: \.py$|^pyproject\.toml$

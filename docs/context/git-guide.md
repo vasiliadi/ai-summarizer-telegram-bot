@@ -42,4 +42,4 @@ All checks (lint, format, types, tests) run automatically as pre-commit hooks wh
 
 **Coverage:** The project is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report printed by the pytest hook and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
 
-**Workflow:** Run `uvx ruff format .` before committing to automatically format your code. Run `uvx ruff check --fix` to automatically resolve fixable linting errors. The hooks run the same unpinned `uvx ruff`, so manual runs and hooks never disagree — but a Ruff release can surface new rules at commit time.
+**Workflow:** Run `uvx ruff@latest format .` before committing to automatically format your code. Run `uvx ruff@latest check --fix` to automatically resolve fixable linting errors. The hooks run those exact commands, so manual runs and hooks never disagree — but a Ruff release can surface new rules at commit time. Keep the `@latest`: bare `uvx ruff` reuses a `uv tool install`ed Ruff, which may lag behind CI.
