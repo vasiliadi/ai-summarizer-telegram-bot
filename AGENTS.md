@@ -4,7 +4,7 @@
 
 Handoffs in `docs/summaries/` and `docs/archive/handoffs/` are a work log, not session context — never load one on your own. When the user points at previous work, read every handoff they name, then follow each one's Files to Load Next Session and skip whatever its What NOT to Re-Read lists.
 
-Read `docs/context/architecture.md` before touching code; add `docs/context/style-guide.md` before writing it, for the conventions Ruff does not enforce. Docs-only work needs neither.
+Read `docs/context/architecture.md` before touching code; add `docs/context/style-guide.md` before writing code, for the conventions Ruff does not enforce. Docs-only work needs neither.
 
 Then state what you plan to do this session and any open questions.
 
@@ -12,7 +12,7 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
 
 ## Rules
 
-1. **The handoff is a history log, written on demand.** Do not create or update it while work is in progress — write it only when the user asks, via `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly), to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md` using the template below. Decision records and analyses are separate outputs.
+1. **The handoff is a history log, written on demand.** Do not create or update it while work is in progress — write it only when the user asks, via `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly), to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md` using the template below. Decision records and analyses are separate on-demand outputs — templates in `docs/context/agent-templates.md`.
 2. **Surface every open question.** Mark unresolved items OPEN or ASSUMED in the final answer, and in the handoff when one is written. Before delivering output, verify exact numbers are preserved and claims are backed by specific data.
 3. Sub-agent returns must be structured — exact numbers, file paths, decisions with rationale, open items — not free-form prose. Target 1,000–2,000 tokens.
 4. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
@@ -23,6 +23,8 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
 ## Handoff Template
 
 After writing the new handoff, move the previous one to `docs/archive/handoffs/`.
+
+Under What NOT to Re-Read list the handoffs, plans, and analyses this session actually opened that a later reader should skip, naming what replaces each — a reason to *read* something belongs in Files to Load instead.
 
 ```markdown
 # Handoff: [Topic]
@@ -49,11 +51,10 @@ After writing the new handoff, move the previous one to `docs/archive/handoffs/`
 - [ordered, specific action with paths] or None
 
 ## Files to Load Next Session
-- `[path]` (~L[start]-[end]) — [what it holds, and the condition that makes it worth loading]
+- `[path]` — [what it holds and when it matters; add `~L[start]-[end]` if only one region does]
 
 ## What NOT to Re-Read
 - `[path]` — superseded by / already summarized in / unrelated to `[path]`
-- [List every prior handoff, plan, or analysis a reader might chase but should skip, with which one replaces it. A reason to *read* something belongs in Files to Load, not here.]
 ```
 
 ## Where Things Live
