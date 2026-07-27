@@ -4,7 +4,7 @@
 
 Handoffs in `docs/summaries/` and `docs/archive/handoffs/` are a work log, not session context — never load one on your own. When the user points at previous work, read every handoff they name, then follow each one's Files to Load Next Session and skip whatever its What NOT to Re-Read lists.
 
-Read `docs/context/architecture.md` before touching code; add `docs/context/style-guide.md` before writing code, for the conventions Ruff does not enforce. Docs-only work needs neither.
+Read `docs/context/architecture.md` before touching code, and `docs/context/style-guide.md` before writing code, for the conventions Ruff does not enforce. Docs-only work needs neither.
 
 Then state what you plan to do this session and any open questions.
 
