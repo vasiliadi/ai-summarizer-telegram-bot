@@ -2,7 +2,7 @@
 
 ## Session Start
 
-Handoffs in `docs/summaries/` are a work log, not session context — read one only when the user says this session continues from it.
+Handoffs in `docs/summaries/` and `docs/archive/handoffs/` are a work log, not session context — never load one on your own. When the user points at previous work, read every handoff they name, then follow each one's Files to Load Next Session and skip whatever its What NOT to Re-Read lists.
 
 Read `docs/context/architecture.md` before touching code; add `docs/context/style-guide.md` before writing it, for the conventions Ruff does not enforce. Docs-only work needs neither.
 
@@ -47,6 +47,13 @@ After writing the new handoff, move the previous one to `docs/archive/handoffs/`
 
 ## Unfinished Work
 - [ordered, specific action with paths] or None
+
+## Files to Load Next Session
+- `[path]` (~L[start]-[end]) — [what it holds, and the condition that makes it worth loading]
+
+## What NOT to Re-Read
+- `[path]` — superseded by / already summarized in / unrelated to `[path]`
+- [List every prior handoff, plan, or analysis a reader might chase but should skip, with which one replaces it. A reason to *read* something belongs in Files to Load, not here.]
 ```
 
 ## Where Things Live
