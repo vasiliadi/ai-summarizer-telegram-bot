@@ -22,12 +22,12 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
 
 ## Where Things Live
 
-- `docs/summaries/` — session outputs: handoffs (work log) and Rule 3 overflow files. **(gitignored)**
+- `docs/summaries/` — session outputs: handoffs (`handoff-*.md`, work log) and Rule 3 overflow analyses (`analysis-*.md`). **(gitignored)**
 - `docs/context/` — reusable domain knowledge, loaded only when relevant. **(tracked)**
   - `architecture.md` — component map and data flow; update only on architectural change
   - `style-guide.md` — coding conventions Ruff does not enforce
   - `git-guide.md` — commit format, pre-commit hooks, coverage
   - `uv-guide.md` — running the project and managing dependencies
-  - `agent-templates.md` — handoff and Rule 3 overflow templates (read on demand)
+  - `agent-templates.md` — handoff and analysis (Rule 3 overflow) templates (read on demand)
 - `docs/archive/` — processed raw files. Do not read unless explicitly told. **(gitignored)**
 - `.claude/commands/handoff.md` — the `/handoff` routine; agents without slash commands follow its steps directly.

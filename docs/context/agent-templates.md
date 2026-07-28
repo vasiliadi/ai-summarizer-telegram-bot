@@ -45,7 +45,7 @@ Under What NOT to Re-Read list the handoffs, plans, and analyses this session ac
 
 ---
 
-## Template 2: Sub-Agent Overflow
+## Template 2: Analysis (Rule 3 Overflow)
 
 **Use when:** A sub-agent return exceeds the Rule 3 budget and goes to a file instead of into the reply. Keep only the latest version per topic (archive the old one if re-run).
 
