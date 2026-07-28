@@ -6,7 +6,6 @@ rewrite), not every handoff. Not a source mirror: read the source for function
 signatures, dependencies, and env vars.
 
 - Stack → `pyproject.toml` + `README.md`
-- *Why* the core infra was chosen → `docs/summaries/decision-10-architecture-rationale.md`
 - Per-feature decisions and external-service gotchas → `docs/summaries/decision-*.md`
 
 ---
@@ -17,6 +16,26 @@ A private Telegram bot that summarizes content — webpages, YouTube/Castro
 links, audio, voice, video, video notes, and documents — with Gemini, and
 replies with the summary in the user's chosen language. Synchronous,
 polling-based (`bot.infinity_polling`); no webhooks, no async framework.
+
+## Why this stack
+
+Rationale for the standing infrastructure choices — mostly not derivable from
+`pyproject.toml` or `README.md`. Treat each as settled unless its bullet says
+otherwise; reverse one only as a deliberate decision, not incidental cleanup.
+
+- **Synchronous polling** (see above) — no webhooks or async framework are needed
+  for this workload.
+- **Valkey over Redis** — Aiven offers a free managed Valkey instance (linked in
+  `README.md`); that is the whole reason. **Not** a settled constraint: the client
+  speaks the Redis protocol, so either server works and swapping is fair game.
+- **Gemini primary, Replicate fallback** — Replicate (WhisperX) is the transcription
+  rescue path taken when Gemini file processing exhausts its retries, not a swappable
+  summarization model.
+- **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
+  the two have different durability needs.
+- **Modal for serverless cron** — clears the bot's own per-user daily counters in
+  Valkey, in step with Gemini's quota window, without running a second container.
+  Also stated in `README.md`; keep the two in step.
 
 ## Component map (`src/`)
 

@@ -184,7 +184,7 @@ Parsing runs a fixed two-stage flow: [Exa.ai](https://exa.ai) is tried first, an
 
 #### Remote functions
 
-To avoid multiple docker images, I use a [Modal](https://modal.com/) for cron jobs to reset the Gemini rate limit. [Modal Secrets](https://modal.com/docs/guide/secrets) should include `REDIS_URL`.
+To avoid multiple docker images, I use a [Modal](https://modal.com/) for cron jobs to reset the bot's own daily request counters. [Modal Secrets](https://modal.com/docs/guide/secrets) should include `REDIS_URL`.
 
 Modal Image Builder Version required to be `2025.06`. Set in Settings -> Image Builder Version.
 
