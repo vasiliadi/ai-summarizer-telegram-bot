@@ -12,9 +12,9 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
 
 ## Rules
 
-1. **The handoff is a history log, written on demand.** Do not create or update it while work is in progress — write it only when the user asks, by following `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly). Decision records and analyses are separate on-demand outputs — templates in `docs/context/agent-templates.md`.
+1. **The handoff is a history log, written on demand.** Do not create or update it while work is in progress — write it only when the user asks, by following `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly). Decision records and analyses are separate outputs, written when the user asks or when Rule 3 requires one — templates in `docs/context/agent-templates.md`.
 2. **Surface every open question.** Mark unresolved items OPEN or ASSUMED in the final answer, and in the handoff when one is written. Before delivering output, verify exact numbers are preserved and claims are backed by specific data.
-3. Sub-agent returns must be structured — exact numbers, file paths, decisions with rationale, open items — not free-form prose. Target 1,000–2,000 tokens.
+3. Sub-agent returns must be structured — exact numbers, file paths, decisions with rationale, open items — not free-form prose. Target 1,000–2,000 tokens per return; write anything longer to `docs/summaries/analysis-<topic>.md` and return the path.
 4. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
 5. Commit per `docs/context/git-guide.md`, which also covers the pre-commit hooks and the coverage report. Never bypass hooks with `--no-verify`. Follow-up fixes go into new commits — never amend, rebase, or otherwise rewrite an existing commit unless the user asks for that directly. Under `docs/`, stage only `docs/context/` — the rest is gitignored.
 6. **Never `git push` on your own — a push happens only via the user invoking `/create-pr` or pushing it themselves.**
