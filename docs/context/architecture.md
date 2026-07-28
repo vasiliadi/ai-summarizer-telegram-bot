@@ -25,13 +25,16 @@ deliberate decision, not incidental cleanup.
 
 - **Synchronous polling** (see above) — no webhooks or async framework are needed
   for this workload.
-- **Valkey over Redis** — Redis-protocol compatible, and avoids Redis's licensing terms.
-- **Gemini primary, Replicate fallback** — Replicate gives model flexibility without
-  code changes.
+- **Valkey over Redis** — Redis-protocol compatible and BSD-3-Clause, after Redis
+  relicensed away from BSD-3-Clause in 2024.
+- **Gemini primary, Replicate fallback** — Replicate (WhisperX) is the transcription
+  rescue path taken when Gemini file processing exhausts its retries, not a swappable
+  summarization model.
 - **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
   the two have different durability needs.
-- **Modal for serverless cron** — resets Gemini daily rate limits without running a
-  second container. Also stated in `README.md`; keep the two in step.
+- **Modal for serverless cron** — clears the bot's own per-user daily counters in
+  Valkey, in step with Gemini's quota window, without running a second container.
+  Also stated in `README.md`; keep the two in step.
 
 ## Component map (`src/`)
 
