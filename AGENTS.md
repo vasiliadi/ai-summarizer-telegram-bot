@@ -12,7 +12,7 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
 
 ## Rules
 
-1. **The handoff is a history log, written on demand.** Do not create or update it while work is in progress — write it only when the user asks, via `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly), to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md`. Decision records and analyses are separate on-demand outputs. Templates for all three: `docs/context/agent-templates.md`.
+1. **The handoff is a history log, written on demand.** Do not create or update it while work is in progress — write it only when the user asks, by following `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly). Decision records and analyses are separate on-demand outputs — templates in `docs/context/agent-templates.md`.
 2. **Surface every open question.** Mark unresolved items OPEN or ASSUMED in the final answer, and in the handoff when one is written. Before delivering output, verify exact numbers are preserved and claims are backed by specific data.
 3. Sub-agent returns must be structured — exact numbers, file paths, decisions with rationale, open items — not free-form prose. Target 1,000–2,000 tokens.
 4. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
