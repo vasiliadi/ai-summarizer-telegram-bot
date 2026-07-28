@@ -47,7 +47,7 @@ Under What NOT to Re-Read list the handoffs, plans, and analyses this session ac
 
 ## Template 2: Analysis (Rule 3 Overflow)
 
-**Use when:** A sub-agent return exceeds the Rule 3 budget and goes to a file instead of into the reply. Keep only the latest version per topic (archive the old one if re-run).
+**Use when:** A sub-agent return exceeds the Rule 3 budget and goes to a file instead of into the reply. Keep only the latest version per topic — on a re-run, move the existing `docs/summaries/analysis-[topic].md` to `docs/archive/summaries/` before writing the new one.
 
 **Write to:** `docs/summaries/analysis-[topic].md`
 
