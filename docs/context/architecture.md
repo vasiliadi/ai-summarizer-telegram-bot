@@ -2,11 +2,11 @@
 
 High-level component map and data flow for orientation at session start. **Stable** —
 update only on a real architectural change (new component, new flow, routing/fallback
-rewrite), not every handoff. Not a source mirror: read the source for function
+rewrite) or a durable external-service gotcha (→ Cross-cutting patterns), not every
+handoff. Not a source mirror: read the source for function
 signatures, dependencies, and env vars.
 
 - Stack → `pyproject.toml` + `README.md`
-- Per-feature decisions and external-service gotchas → `docs/summaries/decision-*.md`
 
 ---
 

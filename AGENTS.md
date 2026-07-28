@@ -12,7 +12,7 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
 
 ## Rules
 
-1. **The handoff is a history log, written on demand.** Do not create or update it while work is in progress — write it only when the user asks, by following `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly). Decision records and analyses are separate outputs, written when the user asks or when Rule 3 requires one — templates in `docs/context/agent-templates.md`.
+1. **The handoff is a history log, written on demand.** Do not create or update it while work is in progress — write it only when the user asks, by following `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly). Rule 3 overflow files are a separate output — template in `docs/context/agent-templates.md`.
 2. **Surface every open question.** Mark unresolved items OPEN or ASSUMED in the final answer, and in the handoff when one is written. Before delivering output, verify exact numbers are preserved and claims are backed by specific data.
 3. Sub-agent returns must be structured — exact numbers, file paths, decisions with rationale, open items — not free-form prose. Target 1,000–2,000 tokens per return; write anything longer to `docs/summaries/analysis-<topic>.md` and return the path.
 4. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
@@ -22,12 +22,12 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
 
 ## Where Things Live
 
-- `docs/summaries/` — session outputs: handoffs (work log), decision records, analyses. **(gitignored)**
+- `docs/summaries/` — session outputs: handoffs (`handoff-*.md`, work log) and Rule 3 overflow analyses (`analysis-*.md`). **(gitignored)**
 - `docs/context/` — reusable domain knowledge, loaded only when relevant. **(tracked)**
   - `architecture.md` — component map and data flow; update only on architectural change
   - `style-guide.md` — coding conventions Ruff does not enforce
   - `git-guide.md` — commit format, pre-commit hooks, coverage
   - `uv-guide.md` — running the project and managing dependencies
-  - `agent-templates.md` — handoff, decision-record, and analysis templates (read on demand)
+  - `agent-templates.md` — handoff and analysis (Rule 3 overflow) templates (read on demand)
 - `docs/archive/` — processed raw files. Do not read unless explicitly told. **(gitignored)**
 - `.claude/commands/handoff.md` — the `/handoff` routine; agents without slash commands follow its steps directly.
