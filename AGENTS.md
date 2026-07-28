@@ -2,28 +2,29 @@
 
 ## Session Start
 
-Read the latest handoff in `docs/summaries/` if one exists, loading only the files it references. If no handoff exists, ask: what is the project, what type of work, what is the target deliverable.
+Handoffs in `docs/summaries/` and `docs/archive/handoffs/` are a work log, not session context — never load one on your own. When the user points at previous work, read every handoff they name, then follow each one's Files to Load Next Session and skip whatever its What NOT to Re-Read lists.
 
-For codebase orientation read `docs/context/architecture.md`; before writing code also read `docs/context/style-guide.md` for the conventions Ruff does not enforce.
+Read `docs/context/architecture.md` before touching code, and `docs/context/style-guide.md` before writing code, for the conventions Ruff does not enforce. Docs-only work needs neither.
 
-Then state: what you understand the project state to be, what you plan to do this session, and any open questions.
+Then state what you plan to do this session and any open questions.
 
 Before your first edit to a tracked file, branch off `main` (`git checkout -b <scope>-<short-desc>`, matching the commit scope convention in `docs/context/git-guide.md`). A `PreToolUse` hook enforces this; gitignored files such as handoffs in `docs/summaries/` are exempt.
 
 ## Rules
 
-1. **Write state to disk, not conversation.** Record work in the session handoff at `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md` using the Handoff template below — create it on first meaningful write, update it as work progresses. Before compaction, before switching work types, and at session end, do a full update: every number, decision with rationale, open question, file path, and the exact next action — finalizing with `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly). The handoff is the only session-state artifact; decision records and analyses are separate outputs.
-2. **Surface every open question.** Mark unresolved items OPEN or ASSUMED in the handoff and in the final answer. Before delivering output, verify exact numbers are preserved and claims are backed by specific data.
-3. For docs dumps, big diffs, incident traces, or broad codebase exploration, summarize to `docs/summaries/` as you go instead of holding raw content in context. Targeted lookup in a few short files needs no such overhead.
-4. Sub-agent returns must be structured — exact numbers, file paths, decisions with rationale, open items — not free-form prose. Target 1,000–2,000 tokens.
-5. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
-6. Commit per `docs/context/git-guide.md`, which also covers the pre-commit hooks and the coverage report. Never bypass hooks with `--no-verify`. Follow-up fixes go into new commits — never amend, rebase, or otherwise rewrite an existing commit unless the user asks for that directly. Under `docs/`, stage only `docs/context/` — the rest is gitignored.
-7. **Never `git push` on your own — a push happens only via the user invoking `/create-pr` or pushing it themselves.**
-8. A code change updates its tests **and** any `docs/context/` doc it invalidates (`architecture.md` for architecture, `style-guide.md` for conventions) in the same PR. Treat both as mandatory — skipping either is equivalent to bypassing the pre-commit hooks.
+1. **The handoff is a history log, written on demand.** Do not create or update it while work is in progress — write it only when the user asks, via `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly), to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md` using the template below. Decision records and analyses are separate on-demand outputs — templates in `docs/context/agent-templates.md`.
+2. **Surface every open question.** Mark unresolved items OPEN or ASSUMED in the final answer, and in the handoff when one is written. Before delivering output, verify exact numbers are preserved and claims are backed by specific data.
+3. Sub-agent returns must be structured — exact numbers, file paths, decisions with rationale, open items — not free-form prose. Target 1,000–2,000 tokens.
+4. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
+5. Commit per `docs/context/git-guide.md`, which also covers the pre-commit hooks and the coverage report. Never bypass hooks with `--no-verify`. Follow-up fixes go into new commits — never amend, rebase, or otherwise rewrite an existing commit unless the user asks for that directly. Under `docs/`, stage only `docs/context/` — the rest is gitignored.
+6. **Never `git push` on your own — a push happens only via the user invoking `/create-pr` or pushing it themselves.**
+7. A code change updates its tests **and** any `docs/context/` doc it invalidates (`architecture.md` for architecture, `style-guide.md` for conventions) in the same PR. Treat both as mandatory — skipping either is equivalent to bypassing the pre-commit hooks.
 
 ## Handoff Template
 
-Fill the optional tail when ending or switching the session, then move the previous handoff to `docs/archive/handoffs/`.
+After writing the new handoff, move the previous one to `docs/archive/handoffs/`.
+
+Under What NOT to Re-Read list the handoffs, plans, and analyses this session actually opened that a later reader should skip, naming what replaces each — a reason to *read* something belongs in Files to Load instead.
 
 ```markdown
 # Handoff: [Topic]
@@ -46,20 +47,19 @@ Fill the optional tail when ending or switching the session, then move the previ
 ## Open Questions
 - [OPEN/ASSUMED item] or None
 
-<!-- Optional tail — fill only when ending/switching the session (handoff): -->
-## What the Next Session Should Do
-1. [ordered, specific action with paths]
+## Unfinished Work
+- [ordered, specific action with paths] or None
 
 ## Files to Load Next Session
-- `[path]` — [why]
+- `[path]` — [what it holds and when it matters; add `~L[start]-[end]` if only one region does]
 
 ## What NOT to Re-Read
-- `[path]` — already summarized in `[path]`
+- `[path]` — superseded by / already summarized in / unrelated to `[path]`
 ```
 
 ## Where Things Live
 
-- `docs/summaries/` — session outputs: the handoff (session state), decision records, analyses. **(gitignored)**
+- `docs/summaries/` — session outputs: handoffs (work log), decision records, analyses. **(gitignored)**
 - `docs/context/` — reusable domain knowledge, loaded only when relevant. **(tracked)**
   - `architecture.md` — component map and data flow; update only on architectural change
   - `style-guide.md` — coding conventions Ruff does not enforce
