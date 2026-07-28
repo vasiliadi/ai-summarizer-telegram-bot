@@ -12,50 +12,13 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
 
 ## Rules
 
-1. **The handoff is a history log, written on demand.** Do not create or update it while work is in progress — write it only when the user asks, via `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly), to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md` using the template below. Decision records and analyses are separate on-demand outputs — templates in `docs/context/agent-templates.md`.
+1. **The handoff is a history log, written on demand.** Do not create or update it while work is in progress — write it only when the user asks, by following `.claude/commands/handoff.md` (the `/handoff` command, or its steps directly). Decision records and analyses are separate on-demand outputs — templates in `docs/context/agent-templates.md`.
 2. **Surface every open question.** Mark unresolved items OPEN or ASSUMED in the final answer, and in the handoff when one is written. Before delivering output, verify exact numbers are preserved and claims are backed by specific data.
 3. Sub-agent returns must be structured — exact numbers, file paths, decisions with rationale, open items — not free-form prose. Target 1,000–2,000 tokens.
 4. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
 5. Commit per `docs/context/git-guide.md`, which also covers the pre-commit hooks and the coverage report. Never bypass hooks with `--no-verify`. Follow-up fixes go into new commits — never amend, rebase, or otherwise rewrite an existing commit unless the user asks for that directly. Under `docs/`, stage only `docs/context/` — the rest is gitignored.
 6. **Never `git push` on your own — a push happens only via the user invoking `/create-pr` or pushing it themselves.**
 7. A code change updates its tests **and** any `docs/context/` doc it invalidates (`architecture.md` for architecture, `style-guide.md` for conventions) in the same PR. Treat both as mandatory — skipping either is equivalent to bypassing the pre-commit hooks.
-
-## Handoff Template
-
-After writing the new handoff, move the previous one to `docs/archive/handoffs/`.
-
-Under What NOT to Re-Read list the handoffs, plans, and analyses this session actually opened that a later reader should skip, naming what replaces each — a reason to *read* something belongs in Files to Load instead.
-
-```markdown
-# Handoff: [Topic]
-**Date:** [YYYY-MM-DD]  **Branch:** [branch]  **Focus:** [one sentence]
-
-## What Was Accomplished
-- [task] → `[file:line]`
-
-## Decisions Made
-- [decision] BECAUSE [rationale] — STATUS: [confirmed/provisional]
-
-## Key Numbers
-- [exact test counts, timings, values — do not round]
-
-## Files Modified
-| File | Action | Description |
-|------|--------|-------------|
-| `[path]` | Created/Modified | [what and why] |
-
-## Open Questions
-- [OPEN/ASSUMED item] or None
-
-## Unfinished Work
-- [ordered, specific action with paths] or None
-
-## Files to Load Next Session
-- `[path]` — [what it holds and when it matters; add `~L[start]-[end]` if only one region does]
-
-## What NOT to Re-Read
-- `[path]` — superseded by / already summarized in / unrelated to `[path]`
-```
 
 ## Where Things Live
 
@@ -65,6 +28,6 @@ Under What NOT to Re-Read list the handoffs, plans, and analyses this session ac
   - `style-guide.md` — coding conventions Ruff does not enforce
   - `git-guide.md` — commit format, pre-commit hooks, coverage
   - `uv-guide.md` — running the project and managing dependencies
-  - `agent-templates.md` — decision-record and analysis templates (read on demand)
+  - `agent-templates.md` — handoff, decision-record, and analysis templates (read on demand)
 - `docs/archive/` — processed raw files. Do not read unless explicitly told. **(gitignored)**
 - `.claude/commands/handoff.md` — the `/handoff` routine; agents without slash commands follow its steps directly.
