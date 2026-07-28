@@ -8,7 +8,7 @@
 
 **Use when:** The user asks for one (`/handoff`). It is a history log — never created or updated while work is in progress.
 
-**Write to:** `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md`
+**Write to:** `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md` — then move the previous handoff, if one is there, to `docs/archive/handoffs/`.
 
 Under What NOT to Re-Read list the handoffs, plans, and analyses this session actually opened that a later reader should skip, naming what replaces each — a reason to *read* something belongs in Files to Load instead.
 
