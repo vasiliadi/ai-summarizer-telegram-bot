@@ -1,6 +1,6 @@
 # Agent Templates — On-Demand Reference
 
-> **Do NOT read this file at session start.** Read it only when writing a handoff, a decision record, or an analysis summary.
+> **Do NOT read this file at session start.** Read it only when writing a handoff or a Rule 3 overflow file.
 
 ---
 
@@ -45,68 +45,22 @@ Under What NOT to Re-Read list the handoffs, plans, and analyses this session ac
 
 ---
 
-## Template 2: Decision Record
+## Template 2: Sub-Agent Overflow
 
-**Use when:** A significant decision is made during a session (library choice, architecture, migration strategy, error-handling approach). These persist in `docs/summaries/` as the project's ADRs.
-
-**Write to:** `docs/summaries/decision-[number]-[topic].md`
-
-```markdown
-# Decision [N]: [Short Title] ([ticket if any])
-**Date:** [YYYY-MM-DD]  **Branch:** [branch]  **Issue:** [link/id, if any]
-
-## Problem
-[2-3 sentences: what situation prompted this decision]
-
-## Decision
-[One clear statement of what was decided]
-- CHOSE [option] BECAUSE [specific reason] — STATUS: [confirmed (user) / provisional]
-- REJECTED [alternative] BECAUSE [specific reason]
-
-## Files Modified
-| File | Change |
-|------|--------|
-| `[path]` | [what changed] |
-
-## Verification
-- pre-commit hooks at commit time — [result]
-- pytest hook — [exact pass count, e.g. **207 passed**; no new uncovered lines]
-
-## Open Items
-- [next step / unresolved item] or None
-```
-
----
-
-## Template 3: Analysis / Research Summary
-
-**Use when:** Completing a technical evaluation, feasibility check, incident investigation, or refactor scoping. Keep only the latest version per topic (archive the old one if re-run).
+**Use when:** A sub-agent return exceeds the Rule 3 budget and goes to a file instead of into the reply. Keep only the latest version per topic (archive the old one if re-run).
 
 **Write to:** `docs/summaries/analysis-[topic].md`
 
 ```markdown
-# Analysis Summary: [Topic]
-**Completed:** [YYYY-MM-DD]
-**Analysis Type:** [technical / feasibility / incident / refactor]
-**Sources Used:** [file paths or URLs]
-**Confidence:** [high / medium / low — and WHY]
+# Analysis: [Topic]
+**Date:** [YYYY-MM-DD]  **Scope:** [what was investigated]
 
-## Core Finding (One Sentence)
-[Single sentence: the most important conclusion]
+## Core Finding
+[one sentence]
 
-## Evidence Base
-<!-- Specific data points. Exact values only — do not round. -->
-| Data Point | Value | Source | Date of Data |
-|-----------|-------|--------|-------------|
-| [metric]  | [exact value] | [source] | [date] |
+## Findings
+- WHAT: [finding] — EVIDENCE: [`file:line`, exact numbers — do not round] — SO WHAT: [why it matters here]
 
-## Detailed Findings
-### Finding 1: [Name]
-- WHAT: [the finding]
-- SO WHAT: [why it matters for this project]
-- EVIDENCE: [specific supporting data, file:line]
-- CONFIDENCE: [high/medium/low]
-
-## Recommended Next Steps
-1. [action] — priority [high/medium/low], depends on [what]
+## Open Items
+- [OPEN/ASSUMED item, or next step] or None
 ```

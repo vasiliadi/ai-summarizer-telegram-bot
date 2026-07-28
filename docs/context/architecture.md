@@ -6,7 +6,6 @@ rewrite), not every handoff. Not a source mirror: read the source for function
 signatures, dependencies, and env vars.
 
 - Stack → `pyproject.toml` + `README.md`
-- Per-feature decisions and external-service gotchas → `docs/summaries/decision-*.md`
 
 ---
 
