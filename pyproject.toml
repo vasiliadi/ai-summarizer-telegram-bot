@@ -10,7 +10,7 @@ dependencies = [
     "beautifulsoup4==4.15.0",
     "curl-cffi==0.15.0",
     "exa-py==2.16.2",
-    "google-genai==2.15.0",
+    "google-genai==2.16.0",
     "langfuse==4.14.2",
     "limits[redis]==5.8.0",
     "openinference-instrumentation-google-genai==1.2.0",
