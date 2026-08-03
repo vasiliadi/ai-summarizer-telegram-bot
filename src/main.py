@@ -302,8 +302,9 @@ def process_message_content(message: Message, user: UsersOrm) -> None:
 def handle_message(message: Message) -> None:
     """Universal entry point: authorize the sender, then route and trace the message.
 
-    Every failure mode of the pipeline terminates here — each is reported to
-    Sentry and answered with a user-facing message.
+    Every failure the summarization pipeline raises terminates here — reported to
+    Sentry, answered with a user-facing message. The command and settings handlers
+    are separate entry points and are not covered by this guard.
     """
     try:
         if message.from_user is None:

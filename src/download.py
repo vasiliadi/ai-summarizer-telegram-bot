@@ -153,10 +153,14 @@ class Downloader:
         reraise=False,
     )
     def download_castro(self, url: str) -> str:
-        """Scrape a Castro episode page for its audio and save it as an MP3.
+        """Scrape a Castro episode page for its audio URL and stream it to a file.
+
+        The bytes are stored as fetched, with no transcoding; the `.mp3` temp name
+        reflects the common case, not a verified container.
 
         Raises:
             ValueError: If the audio source tag or URL is missing on the page.
+            TypeError: If the page's source `src` is not a string.
             HTTPError: If the HTTP request fails.
             RetryError: If SSL/connection failures persist after retries.
 
