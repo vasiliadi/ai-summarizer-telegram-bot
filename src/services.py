@@ -4,10 +4,8 @@ import logging
 import mimetypes
 import time
 from contextlib import contextmanager
-from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
-from google.genai import types
 from langfuse import propagate_attributes
 from limits import parse as parse_rate_limit
 from requests.exceptions import ReadTimeout
@@ -23,7 +21,6 @@ from tenacity import (
 
 from config import (
     DAILY_LIMIT_KEY,
-    GEMINI_CONFIG,
     MINUTE_LIMIT_KEY,
     bot,
     gemini_client,
@@ -32,11 +29,11 @@ from config import (
     rate_limiter,
 )
 from exceptions import LimitExceededError
-from prompts import SYSTEM_INSTRUCTION
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    from google.genai import types
     from telebot.types import File, Message
     from tenacity import _utils as tenacity_utils
 
@@ -123,25 +120,7 @@ class QuotaManager:
 
 
 class GeminiHelper:
-    """Utilities for Gemini model configuration and file management."""
-
-    def get_gemini_config(
-        self,
-        target_language: str,
-        thinking_level: str,
-    ) -> types.GenerateContentConfig:
-        """Get Gemini config with system instruction and thinking enabled."""
-        system_instruction = dedent(
-            SYSTEM_INSTRUCTION.format(language=target_language),
-        ).strip()
-        return GEMINI_CONFIG.model_copy(
-            update={
-                "system_instruction": system_instruction,
-                "thinking_config": types.ThinkingConfig(
-                    thinking_level=types.ThinkingLevel(thinking_level),
-                ),
-            },
-        )
+    """Utilities for Gemini file management."""
 
     def resolve_mime_type(self, file: str) -> str:
         """Resolve the MIME type for a file path, defaulting to octet-stream."""
@@ -180,11 +159,11 @@ class GeminiHelper:
 
 @contextmanager
 def observe_message(user_id: int, content_type: str) -> Generator[None]:
-    """Group all Gemini calls for one Telegram message into a single trace.
+    """Group all model calls for one Telegram message into a single trace.
 
     Opens a Langfuse root span attributed to the user and tagged with the
-    message content type, so the generation spans emitted by the OpenInference
-    instrumentor nest under one trace. A no-op when Langfuse is not configured.
+    message content type, so the generation spans emitted by pydantic-ai nest
+    under one trace. A no-op when Langfuse is not configured.
 
     Args:
         user_id (int): Telegram user ID, recorded as the trace's user id.
@@ -224,6 +203,5 @@ send_answer = messenger.send_answer
 check_quota = quota_manager.check_quota
 get_remaining_quota = quota_manager.get_remaining_quota
 
-get_gemini_config = gemini_helper.get_gemini_config
 resolve_mime_type = gemini_helper.resolve_mime_type
 upload_and_wait_for_file = gemini_helper.upload_and_wait_for_file

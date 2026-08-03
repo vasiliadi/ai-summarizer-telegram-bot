@@ -55,14 +55,14 @@ PROXY=""
 LOG_LEVEL="ERROR"
 MODAL_TOKEN_ID="your_token"
 MODAL_TOKEN_SECRET="your_token_secret"
-# Optional: set both keys to enable Langfuse tracing of Gemini calls.
+# Optional: set both keys to enable Langfuse tracing of model calls.
 LANGFUSE_PUBLIC_KEY=""
 LANGFUSE_SECRET_KEY=""
 LANGFUSE_BASE_URL=""
 ```
 
 `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are optional — set both to trace
-Gemini calls to [Langfuse](https://langfuse.com); leave them unset to disable
+model calls to [Langfuse](https://langfuse.com); leave them unset to disable
 tracing. `LANGFUSE_BASE_URL` defaults to Langfuse Cloud (EU); use
 `https://us.cloud.langfuse.com` for the US region or your self-hosted URL.
 

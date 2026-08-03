@@ -13,7 +13,7 @@ signatures, dependencies, and env vars.
 ## What it is
 
 A private Telegram bot that summarizes content — webpages, YouTube/Castro
-links, audio, voice, video, video notes, and documents — with Gemini, and
+links, audio, voice, video, video notes, and documents — with an LLM, and
 replies with the summary in the user's chosen language. Synchronous,
 polling-based (`bot.infinity_polling`); no webhooks, no async framework.
 
@@ -31,6 +31,12 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 - **Gemini primary, Replicate fallback** — Replicate (WhisperX) is the transcription
   rescue path taken when Gemini file processing exhausts its retries, not a swappable
   summarization model.
+- **pydantic-ai as the provider seam** — every model call goes through `llm.py`, so the
+  registry (`config.MODEL_SPECS`) is what decides which provider serves a model id.
+  Only Gemini models are registered today; the seam exists so adding one from another
+  provider is a registry row plus a dependency extra, not a rewrite of `summary.py`.
+  The Gemini Files API is still called directly (`services.GeminiHelper`), because
+  base64-inlining a 20 MB Telegram file inflates it past the inline-request limit.
 - **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
   the two have different durability needs.
 - **Modal for serverless cron** — clears the bot's own per-user daily counters in
@@ -43,15 +49,16 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 |--------|------|
 | `main.py` | Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. |
 | `handlers.py` | Per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
-| `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching and the Gemini calls. |
+| `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls `llm.run_model`. |
+| `llm.py` | `LLMClient` — the provider seam. One pydantic-ai `Agent`; model, instructions and settings are resolved per run from `config.MODEL_SPECS`. Provider-specific settings (Gemini safety settings) live here. |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
-| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (config, MIME, file upload/poll). |
+| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll). |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
 | `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`. |
-| `config.py` | All clients/singletons + labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
+| `config.py` | All clients/singletons + the `MODEL_SPECS` registry, labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION`. |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. |
 | `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
@@ -94,6 +101,19 @@ So there are two layered fallbacks for spoken content: transcript-first for
 YouTube, and Gemini-file-first with a Replicate-transcription rescue for any
 audio that Gemini can't process.
 
+Both the rescue path and the modality check below go through
+`_summarize_via_transcription`; the rescue call is nested inside its own `try`
+so a `RetryError` raised by the transcription path does not re-enter it.
+
+### Modality routing
+
+`ModelSpec.supports_audio` gates the native file-upload path: a model that
+cannot read audio takes the Replicate transcription route instead, in
+`summarize` and — because `SUPPORTED_DOCUMENT_MIME_TYPES` accepts `audio/ogg` —
+in `summarize_with_document`. Every registered model is currently audio-capable,
+so the branch is dormant in production and covered by tests with a synthetic
+spec. It exists so a text-only model is a registry row, not a code change.
+
 ## Source-provenance prefixes
 
 Summaries from the transcript, web-parse, and Replicate-rescue paths are
@@ -135,10 +155,10 @@ to Gemini — return the raw model text with **no** prefix.
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
 - **Tracing (optional).** Langfuse tracing is enabled only when `LANGFUSE_PUBLIC_KEY`
   and `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`, else `None`). When on,
-  the OpenInference `GoogleGenAIInstrumentor` auto-captures every Gemini
-  `generate_content` call, and `services.observe_message` (used in
-  `main.handle_message`) wraps each Telegram message in one root span attributed to
-  the user and tagged with the content type, so all Gemini calls for a message nest
-  under a single trace. `langfuse_client.shutdown()` flushes on exit. Independent
-  of Sentry, which handles error capture and logs; the Langfuse tracing is a
-  no-op when disabled.
+  `Agent.instrument_all()` makes pydantic-ai emit an OpenTelemetry span per model
+  call, which the OTel-based Langfuse SDK ingests — no provider-specific
+  instrumentor. `services.observe_message` (used in `main.handle_message`) wraps
+  each Telegram message in one root span attributed to the user and tagged with the
+  content type, so all model calls for a message nest under a single trace.
+  `langfuse_client.shutdown()` flushes on exit. Independent of Sentry, which handles
+  error capture and logs; the Langfuse tracing is a no-op when disabled.
