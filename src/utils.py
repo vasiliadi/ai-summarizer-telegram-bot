@@ -19,9 +19,6 @@ def classify_url(url: str) -> str | None:
     the summarize path, and `summary.summarize` uses it to pick the download path.
     Both must agree, so neither may re-derive the kind on its own.
 
-    Args:
-        url (str): The URL to classify.
-
     Returns:
         str | None: "youtube" or "castro" for https media URLs, "web" for any
             other http(s) URL, None when the URL has no usable scheme or host.
@@ -50,45 +47,17 @@ def classify_url(url: str) -> str | None:
 
 
 def generate_temporary_name(ext: str = "") -> str:
-    """Generate a unique temporary filename with an optional extension.
-
-    Args:
-        ext (str, optional): File extension to append to the generated name.
-
-    Returns:
-        str: A unique filename string consisting of a UUID with the optional extension.
-
-    Example:
-        >>> generate_temporary_name(".mp3")
-        '123e4567-e89b-12d3-a456-426614174000.mp3'
-        >>> generate_temporary_name()
-        '123e4567-e89b-12d3-a456-426614174000'
-
-    """
+    """Generate a UUID filename, with `ext` appended when given."""
     return f"{uuid4()!s}{ext}"
 
 
 def compress_audio(input_file: str, output_file: str) -> None:
-    """Compress an audio file using FFmpeg with Opus codec.
+    """Compress an audio file to mono 16 kbps Opus, stripping any video stream.
 
-    This function compresses the input file using FFmpeg with the following settings:
-    - Single audio channel (mono)
-    - Opus codec
-    - 16kbps bitrate
-    - Strips any video streams
-
-    Args:
-        input_file (str): Path to the input audio file to be compressed.
-        output_file (str): Path where the compressed audio file will be saved.
+    Requires ffmpeg on PATH.
 
     Raises:
         subprocess.CalledProcessError: If the ffmpeg command fails.
-
-    Requirements:
-        - ffmpeg must be installed and available in system PATH
-
-    Example:
-        >>> compress_audio("input.mp3", "output.ogg")
 
     """
     subprocess.run(
@@ -113,20 +82,11 @@ def compress_audio(input_file: str, output_file: str) -> None:
 
 
 def clean_up(file: str | None = None, all_downloads: bool = False) -> None:
-    """Remove temporary files from the current working directory.
+    """Remove `file`, or sweep the working directory when `all_downloads` is set.
 
-    This function can either remove a single specified file or all non-protected files
-    in the current working directory.
-
-    Args:
-        file (str | None, optional): Path to a specific file to remove.
-        all_downloads (bool): If True, removes all non-protected files in the
-                              current working directory.
-
-    Example:
-        >>> clean_up("temp.mp3")  # Remove a single file
-        >>> clean_up(all_downloads=True)  # Remove all non-protected files
-
+    The sweep unlinks every regular file in the CWD, not only downloads. Both paths
+    skip `config.PROTECTED_FILES`, the startup snapshot — in PROD the container's
+    CWD is `src/`, so that snapshot covers the source tree.
     """
     if all_downloads:
         for file_name in Path.cwd().iterdir():

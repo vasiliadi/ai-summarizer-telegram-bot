@@ -34,11 +34,11 @@ class UserRepository:
         prompt_key_for_summary: str = DEFAULT_PROMPT_KEY,
         thinking_level: str = DEFAULT_THINKING_LEVEL,
     ) -> bool:
-        """Register a new user in the database.
+        """Register a new user; False on any IntegrityError.
 
-        Returns:
-            bool: True if registration is successful, False if already registered.
-
+        For `handle_start`'s input that means a duplicate user id, which is why it
+        reads False as "already registered". Any other violation — a NOT NULL
+        column passed None, or constraints added later — reports identically.
         """
         with Session() as session:
             try:
@@ -91,65 +91,39 @@ class UserRepository:
             return True
 
     def set_target_language(self, user_id: int, target_language: str) -> bool:
-        """Set the target language for a user.
-
-        Returns:
-            bool: True on success, False if language unsupported or user not found.
-
-        """
+        """Set the user's target language; False if unsupported or user unknown."""
         normalized = target_language.title()
         if normalized not in SUPPORTED_LANGUAGES:
             return False
         return self._update_field(user_id, "target_language", normalized)
 
     def set_summarizing_model(self, user_id: int, summarizing_model: str) -> bool:
-        """Set the summarizing model for a user.
-
-        Returns:
-            bool: True on success, False if model unsupported or user not found.
-
-        """
+        """Set the user's summarizing model; False if unsupported or user unknown."""
         normalized = summarizing_model.lower()
         if normalized not in ALLOWED_MODELS_FOR_SUMMARY:
             return False
         return self._update_field(user_id, "summarizing_model", normalized)
 
     def set_thinking_level(self, user_id: int, thinking_level: str) -> bool:
-        """Set the AI thinking level for a user.
-
-        Returns:
-            bool: True on success, False if level unsupported or user not found.
-
-        """
+        """Set the user's thinking level; False if unsupported or user unknown."""
         normalized = thinking_level.upper()
         if normalized not in ALLOWED_THINKING_LEVELS:
             return False
         return self._update_field(user_id, "thinking_level", normalized)
 
     def set_prompt_strategy(self, user_id: int, prompt_key_for_summary: str) -> bool:
-        """Set the prompt strategy for a user.
-
-        Returns:
-            bool: True on success, False if key unsupported or user not found.
-
-        """
+        """Set the user's prompt strategy; False if unsupported or user unknown."""
         normalized = prompt_key_for_summary.lower()
         if normalized not in ALLOWED_PROMPT_KEYS:
             return False
         return self._update_field(user_id, "prompt_key_for_summary", normalized)
 
 
-# ---------------------------------------------------------------------------
 # Module-level singleton
-# ---------------------------------------------------------------------------
-
 user_repo = UserRepository()
 
 
-# ---------------------------------------------------------------------------
 # Module-level aliases — preserve the existing public API
-# ---------------------------------------------------------------------------
-
 register_user = user_repo.register_user
 select_user = user_repo.select_user
 check_auth = user_repo.check_auth
