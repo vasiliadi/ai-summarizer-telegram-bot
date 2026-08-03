@@ -214,7 +214,8 @@ transcript path is faster and cheaper, and for most content the difference is sm
 [tavily-python](https://docs.tavily.com/welcome) \
 [exa-py](https://github.com/exa-labs/exa-py) \
 [curl_cffi](https://github.com/lexiforest/curl_cffi) \
-[langfuse](https://langfuse.com/docs/observability/sdk/overview)
+[langfuse](https://langfuse.com/docs/observability/sdk/overview) \
+[Pydantic AI](https://pydantic.dev/docs/ai/overview/)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
@@ -225,7 +226,7 @@ transcript path is faster and cheaper, and for most content the difference is sm
 [crontab guru](https://crontab.guru/) \
 [Gemini API Cookbook](https://github.com/google-gemini/cookbook/) \
 Uptime stats: [Gemini Models](https://openrouter.ai/google) \
-[AI Agent Framework](https://github.com/Poorna-Repos/claude-context-survival-kit), [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+[AI Agent Framework](https://github.com/Arkya-AI/claude-context-os), [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices)
 
 ### Cloud DBs
 
