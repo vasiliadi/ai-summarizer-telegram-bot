@@ -5,7 +5,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
 from pydantic_ai import Agent, UploadedFile
-from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.settings import ModelSettings
 
@@ -51,20 +51,31 @@ class LLMClient:
         """
         return _build_model(model_id)
 
-    def build_settings(self, thinking_level: str) -> ModelSettings:
-        """Build the per-run settings.
+    def build_settings(self, model_id: str, thinking_level: str) -> ModelSettings:
+        """Build the per-run settings, adding provider-specific options.
 
-        Provider-specific options would branch here on the spec's provider — a
-        `GoogleModelSettings` field, say. Nothing needs one today, so the
-        settings are the provider-agnostic thinking level alone.
+        Google goes through `google_thinking_config` rather than the agnostic
+        `thinking` effort: the effort mapping also sets `include_thoughts`, so
+        Gemini would generate thought summaries that `run` discards. Passing the
+        level straight through keeps the request shape and stays lenient about
+        an unrecognized level, which the provider decides on rather than us.
 
         Args:
+            model_id (str): A key of `config.MODEL_SPECS`.
             thinking_level (str): One of `config.ALLOWED_THINKING_LEVELS`.
 
         Returns:
             ModelSettings: Settings carrying the thinking level.
 
         """
+        if MODEL_SPECS[model_id].provider == "google":
+            return GoogleModelSettings(
+                google_thinking_config={
+                    # Cast, not types.ThinkingLevel(...): an unrecognized level
+                    # stays a plain string for the provider to rule on.
+                    "thinking_level": cast("types.ThinkingLevel", thinking_level),
+                },
+            )
         return ModelSettings(thinking=cast("ThinkingLevel", thinking_level.lower()))
 
     def build_uploaded_file(self, model_id: str, file: types.File) -> UploadedFile:
@@ -79,7 +90,17 @@ class LLMClient:
             UploadedFile: A message part pointing at the stored file. For Google
                 the identifier is the file's uri, not its name.
 
+        Raises:
+            ValueError: If the model is not served by the provider that stores
+                the file. `services.upload_and_wait_for_file` only ever uploads
+                to Gemini, so referencing it from anything else would hand the
+                model an id it cannot resolve.
+
         """
+        spec = MODEL_SPECS[model_id]
+        if spec.provider != "google":
+            msg = f"Cannot reference a Gemini file from a {spec.provider} model"
+            raise ValueError(msg)
         return UploadedFile(
             file_id=cast("str", file.uri),
             media_type=cast("str", file.mime_type),
@@ -119,7 +140,10 @@ class LLMClient:
             content,
             model=self.build_model(model_id),
             instructions=instructions,
-            model_settings=self.build_settings(thinking_level=thinking_level),
+            model_settings=self.build_settings(
+                model_id,
+                thinking_level=thinking_level,
+            ),
         )
         if not result.output:
             raise AttributeError

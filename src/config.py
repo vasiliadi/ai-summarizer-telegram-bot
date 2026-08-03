@@ -71,8 +71,11 @@ gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 class ModelSpec:
     """A selectable summarizing model: its label, provider, and input modalities.
 
-    `provider` names the pydantic-ai provider the model is reached through, and
-    drives the provider-specific settings built in `llm.LLMClient.build_settings`.
+    `provider` names the pydantic-ai provider the model is reached through. It
+    dispatches in three places, all of which a new provider has to answer for:
+    `llm._build_model` (which raises for a provider it cannot build),
+    `llm.LLMClient.build_settings`, and `llm.LLMClient.build_uploaded_file`
+    (which serves the Gemini Files API only).
     `supports_audio` is False for text-only models, which routes spoken content
     through Replicate transcription instead of a native file upload.
     """
