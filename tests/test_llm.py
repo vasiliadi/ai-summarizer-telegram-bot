@@ -1,0 +1,248 @@
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
+from pydantic_ai.models import ModelRequestParameters
+from pydantic_ai.models.function import FunctionModel
+from pydantic_ai.models.google import GoogleModel
+
+import llm as llm_module
+from config import ModelSpec
+from llm import build_model, build_settings, build_uploaded_file, run_model
+
+
+@pytest.fixture(autouse=True)
+def _clear_model_cache():
+    """Keep the module-level model cache from leaking between tests."""
+    llm_module._build_model.cache_clear()
+    yield
+    llm_module._build_model.cache_clear()
+
+
+def test_build_model_returns_google_model():
+    """Test build_model wires a registered Gemini id to a GoogleModel."""
+    model = build_model("gemini-3.5-flash-lite")
+    assert isinstance(model, GoogleModel)
+    assert model.model_name == "gemini-3.5-flash-lite"
+    assert model.system == "google"
+
+
+def test_build_model_is_cached_per_id():
+    """Test build_model reuses one model object per id, so clients are shared."""
+    assert build_model("gemini-3.5-flash") is build_model("gemini-3.5-flash")
+    assert build_model("gemini-3.5-flash") is not build_model("gemini-3.6-flash")
+
+
+def test_build_model_rejects_unregistered_model():
+    """Test an id missing from MODEL_SPECS fails loudly rather than guessing."""
+    with pytest.raises(KeyError):
+        build_model("no-such-model")
+
+
+def test_build_model_rejects_provider_without_builder(mocker):
+    """Test a registered provider with no builder raises instead of defaulting."""
+    mocker.patch.dict(
+        llm_module.MODEL_SPECS,
+        {
+            "mystery-1": ModelSpec(
+                label="Mystery 1",
+                provider="mystery",
+                supports_audio=True,
+            ),
+        },
+    )
+
+    with pytest.raises(ValueError, match="No model builder for provider: mystery"):
+        build_model("mystery-1")
+
+
+@pytest.mark.parametrize("thinking_level", ["MINIMAL", "LOW", "MEDIUM", "HIGH"])
+def test_build_settings_passes_google_thinking_level_through(thinking_level):
+    """Test Google gets the level verbatim, not the agnostic effort mapping."""
+    settings = build_settings("gemini-3.5-flash", thinking_level=thinking_level)
+    assert settings == {"google_thinking_config": {"thinking_level": thinking_level}}
+
+
+def test_build_settings_uses_agnostic_effort_for_other_providers(mocker):
+    """Test a non-Google provider gets the portable `thinking` effort instead."""
+    mocker.patch.dict(
+        llm_module.MODEL_SPECS,
+        {
+            "mystery-1": ModelSpec(
+                label="Mystery 1",
+                provider="mystery",
+                supports_audio=True,
+            ),
+        },
+    )
+
+    assert build_settings("mystery-1", thinking_level="LOW") == {"thinking": "low"}
+
+
+def test_build_settings_does_not_reject_unknown_thinking_level():
+    """Lock the lenient handling of a thinking level outside the allow-list.
+
+    A stale `users.thinking_level` must not blow up before the request is even
+    built — the provider decides what to do with an unrecognized level, exactly
+    as it did when the level went through `types.ThinkingLevel`. The agnostic
+    `thinking` effort would raise KeyError here.
+    """
+    settings = build_settings("gemini-3.5-flash", thinking_level="INVALID")
+    assert settings["google_thinking_config"] == {"thinking_level": "INVALID"}
+
+
+def test_build_uploaded_file_uses_uri_as_file_id():
+    """Test the uploaded-file part carries the uri, not the file name."""
+    file = SimpleNamespace(
+        name="files/mock123",
+        uri="https://generativelanguage.googleapis.com/v1beta/files/mock123",
+        mime_type="audio/ogg",
+    )
+
+    part = build_uploaded_file(model_id="gemini-3.5-flash", file=file)
+
+    assert part.file_id == file.uri
+    assert part.media_type == "audio/ogg"
+    assert part.provider_name == "google"
+
+
+def test_build_uploaded_file_rejects_non_google_model(mocker):
+    """Test a Gemini-stored file is never handed to another provider's model.
+
+    upload_and_wait_for_file always uploads to Gemini, so a non-Google model
+    would receive a file id it cannot resolve.
+    """
+    mocker.patch.dict(
+        llm_module.MODEL_SPECS,
+        {
+            "mystery-1": ModelSpec(
+                label="Mystery 1",
+                provider="mystery",
+                supports_audio=True,
+            ),
+        },
+    )
+    file = SimpleNamespace(name="files/x", uri="https://x", mime_type="audio/ogg")
+
+    with pytest.raises(ValueError, match="Cannot reference a Gemini file"):
+        build_uploaded_file(model_id="mystery-1", file=file)
+
+
+def test_run_drives_a_real_agent_run(mocker):
+    """Test run against the real Agent, with only the model itself substituted.
+
+    The other run tests stub `_agent.run_sync`, so they would keep passing if a
+    keyword were renamed or pydantic-ai changed the signature. This one goes
+    through the real call and asserts on what the model actually received.
+    """
+    seen = {}
+
+    def capture(messages, info):
+        seen["instructions"] = messages[0].instructions
+        seen["prompt"] = messages[0].parts[-1].content
+        seen["settings"] = info.model_settings
+        return ModelResponse(parts=[TextPart(content="A summary.")])
+
+    mocker.patch.object(
+        llm_module,
+        "_build_model",
+        return_value=FunctionModel(capture),
+    )
+
+    result = run_model(
+        content="Summarize this.",
+        model_id="gemini-3.6-flash",
+        target_language="Ukrainian",
+        thinking_level="MEDIUM",
+    )
+
+    assert result == "A summary."
+    assert seen["prompt"] == "Summarize this."
+    assert "Ukrainian" in seen["instructions"]
+    assert seen["settings"]["google_thinking_config"] == {"thinking_level": "MEDIUM"}
+
+
+def test_run_builds_the_expected_gemini_request_config():
+    """Test the settings reach GenerateContentConfig in the pre-seam shape.
+
+    include_thoughts must stay unset: pydantic-ai's agnostic thinking effort
+    turns it on, which makes Gemini emit thought summaries that run() discards.
+    """
+    model = build_model("gemini-3.5-flash-lite")
+    settings = build_settings("gemini-3.5-flash-lite", thinking_level="HIGH")
+    messages = [ModelRequest(parts=[UserPromptPart(content="hello")])]
+
+    # Reaches into a GoogleModel private: it is the only way to see the real
+    # GenerateContentConfig without a live call. Re-verify on a pydantic-ai bump.
+    _, config = asyncio.run(
+        model._build_content_and_config(
+            messages,
+            settings,
+            ModelRequestParameters(),
+        ),
+    )
+
+    assert config["thinking_config"] == {"thinking_level": "HIGH"}
+    assert config["tools"] is None
+    assert config["response_json_schema"] is None
+
+
+def test_run_passes_model_and_instructions(mocker):
+    """Test run resolves the model and the language instruction per call."""
+    mock_run_sync = mocker.patch.object(
+        llm_module._agent,
+        "run_sync",
+        return_value=SimpleNamespace(output="A summary."),
+    )
+
+    result = run_model(
+        content="Summarize this.",
+        model_id="gemini-3.6-flash",
+        target_language="Ukrainian",
+        thinking_level="MEDIUM",
+    )
+
+    assert result == "A summary."
+    call = mock_run_sync.call_args
+    assert call.args[0] == "Summarize this."
+    assert call.kwargs["model"].model_name == "gemini-3.6-flash"
+    assert "Ukrainian" in call.kwargs["instructions"]
+
+
+def test_run_instructions_are_dedented(mocker):
+    """Test the system instruction is dedented and stripped before being sent."""
+    mock_run_sync = mocker.patch.object(
+        llm_module._agent,
+        "run_sync",
+        return_value=SimpleNamespace(output="A summary."),
+    )
+
+    run_model(
+        content="Summarize this.",
+        model_id="gemini-3.5-flash",
+        target_language="English",
+        thinking_level="HIGH",
+    )
+
+    instructions = mock_run_sync.call_args.kwargs["instructions"]
+    assert not instructions.startswith((" ", "\n"))
+    assert "\n    " not in instructions
+
+
+@pytest.mark.parametrize("output", ["", None])
+def test_run_raises_on_empty_output(mocker, output):
+    """Test an empty response raises AttributeError, which the retries catch."""
+    mocker.patch.object(
+        llm_module._agent,
+        "run_sync",
+        return_value=SimpleNamespace(output=output),
+    )
+
+    with pytest.raises(AttributeError):
+        run_model(
+            content="Summarize this.",
+            model_id="gemini-3.5-flash",
+            target_language="English",
+            thinking_level="HIGH",
+        )

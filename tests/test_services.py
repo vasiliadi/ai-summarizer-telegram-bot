@@ -1,5 +1,4 @@
 import pytest
-from google.genai import types
 from limits.util import WindowStats
 
 import services as services_module
@@ -7,7 +6,6 @@ from exceptions import LimitExceededError
 from services import (
     check_quota,
     get_file_with_retry,
-    get_gemini_config,
     get_remaining_quota,
     observe_message,
     resolve_mime_type,
@@ -70,33 +68,6 @@ def test_send_answer_multi_chunk(mocker):
     send_answer(mock_msg, "long answer")
 
     assert mock_reply.call_count == 2
-
-
-def test_get_gemini_config_content():
-    """Test get_gemini_config includes the correct language in instruction."""
-    config = get_gemini_config("French", thinking_level="HIGH")
-    assert "French" in config.system_instruction
-
-
-def test_get_gemini_config_thinking_enabled():
-    """Test that thinking config is set based on the passed thinking level."""
-    config = get_gemini_config("English", thinking_level="MEDIUM")
-    assert config.thinking_config is not None
-    assert config.thinking_config.thinking_level == types.ThinkingLevel.MEDIUM
-
-
-def test_get_gemini_config_invalid_thinking_level():
-    """Lock current behavior on unknown thinking levels.
-
-    ``google.genai.types.ThinkingLevel`` accepts unknown values, emits a
-    ``UserWarning``, and returns a dynamically-created enum member rather than
-    raising. ``get_gemini_config`` inherits that lenient behavior — it does not
-    validate or fall back. This test pins both halves of the contract so any
-    future change (added validation, silent fallback, or raise) is caught.
-    """
-    with pytest.warns(UserWarning, match="INVALID is not a valid ThinkingLevel"):
-        config = get_gemini_config("English", thinking_level="INVALID")
-    assert config.thinking_config is not None
 
 
 def test_upload_and_wait_for_file_happy(mocker):

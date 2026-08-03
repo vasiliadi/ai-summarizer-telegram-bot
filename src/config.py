@@ -1,19 +1,20 @@
 import logging
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import replicate
 import sentry_sdk
 import telebot
 from exa_py import Exa
 from google import genai
-from google.genai import types
 from langfuse import Langfuse
 from limits import parse as parse_rate_limit
 from limits.storage import RedisStorage
 from limits.strategies import FixedWindowRateLimiter
-from openinference.instrumentation.google_genai import GoogleGenAIInstrumentor
+from pydantic_ai import Agent
 from tavily import TavilyClient
 
 if os.environ.get("ENV") != "PROD":
@@ -63,33 +64,49 @@ bot = telebot.TeleBot(token=TG_API_TOKEN, disable_web_page_preview=True)
 # Gemini config
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-MODEL_LABELS: dict[str, str] = {
-    "gemini-3.5-flash": "Gemini 3.5 Flash",
-    "gemini-3.6-flash": "Gemini 3.6 Flash",
-    "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite",
+
+
+# Summarizing model registry
+@dataclass(frozen=True)
+class ModelSpec:
+    """A selectable summarizing model: its label, provider, and input modalities.
+
+    `provider` names the pydantic-ai provider the model is reached through. It
+    dispatches in three places, all of which a new provider has to answer for:
+    `llm._build_model` (which raises for a provider it cannot build),
+    `llm.LLMClient.build_settings`, and `llm.LLMClient.build_uploaded_file`
+    (which serves the Gemini Files API only).
+    `supports_audio` is False for text-only models, which routes spoken content
+    through Replicate transcription instead of a native file upload.
+    """
+
+    label: str
+    provider: Literal["google"]
+    supports_audio: bool
+
+
+MODEL_SPECS: dict[str, ModelSpec] = {
+    "gemini-3.5-flash": ModelSpec(
+        label="Gemini 3.5 Flash",
+        provider="google",
+        supports_audio=True,
+    ),
+    "gemini-3.6-flash": ModelSpec(
+        label="Gemini 3.6 Flash",
+        provider="google",
+        supports_audio=True,
+    ),
+    "gemini-3.5-flash-lite": ModelSpec(
+        label="Gemini 3.5 Flash Lite",
+        provider="google",
+        supports_audio=True,
+    ),
 }
+MODEL_LABELS: dict[str, str] = {k: v.label for k, v in MODEL_SPECS.items()}
 MODEL_LABELS_REVERSE: dict[str, str] = {v: k for k, v in MODEL_LABELS.items()}
-ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_LABELS.keys())
+ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_SPECS.keys())
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
 DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.5-flash-lite"
-SAFETY_SETTINGS = [
-    types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
-        threshold=types.HarmBlockThreshold.BLOCK_NONE,
-    ),
-    types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-        threshold=types.HarmBlockThreshold.BLOCK_NONE,
-    ),
-    types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-        threshold=types.HarmBlockThreshold.BLOCK_NONE,
-    ),
-    types.SafetySetting(
-        category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-        threshold=types.HarmBlockThreshold.BLOCK_NONE,
-    ),
-]
 DEFAULT_THINKING_LEVEL = "HIGH"
 THINKING_LEVEL_LABELS: dict[str, str] = {
     "MINIMAL": "Minimal",
@@ -101,17 +118,12 @@ THINKING_LEVEL_LABELS_REVERSE: dict[str, str] = {
     v: k for k, v in THINKING_LEVEL_LABELS.items()
 }
 ALLOWED_THINKING_LEVELS = list(THINKING_LEVEL_LABELS.keys())
-GEMINI_CONFIG = types.GenerateContentConfig(
-    system_instruction=None,
-    safety_settings=SAFETY_SETTINGS,
-    response_mime_type="text/plain",
-)
 
 
 # Langfuse config
 # Optional: tracing is enabled only when both keys are present, so local runs
-# and tests work without Langfuse. When enabled, the OpenInference instrumentor
-# auto-captures every Gemini generate_content call.
+# and tests work without Langfuse. When enabled, pydantic-ai emits an OpenTelemetry
+# span per model call, which the OTel-based Langfuse SDK ingests.
 LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_PUBLIC_KEY")
 LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY")
 LANGFUSE_BASE_URL = os.environ.get("LANGFUSE_BASE_URL")
@@ -122,7 +134,7 @@ if LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY:
         secret_key=LANGFUSE_SECRET_KEY,
         base_url=LANGFUSE_BASE_URL,
     )
-    GoogleGenAIInstrumentor().instrument()
+    Agent.instrument_all()
 
 
 # Prompts
