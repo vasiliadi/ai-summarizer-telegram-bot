@@ -36,9 +36,9 @@ class UserRepository:
     ) -> bool:
         """Register a new user; False on any IntegrityError.
 
-        The primary key is this table's only constraint, so in practice that means
-        a duplicate user id — which is why `handle_start` reads False as "already
-        registered". A schema change adding constraints would break that reading.
+        For `handle_start`'s input that means a duplicate user id, which is why it
+        reads False as "already registered". Any other violation — a NOT NULL
+        column passed None, or constraints added later — reports identically.
         """
         with Session() as session:
             try:
