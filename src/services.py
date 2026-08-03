@@ -152,11 +152,6 @@ class GeminiHelper:
         return uploaded
 
 
-# ---------------------------------------------------------------------------
-# Langfuse tracing
-# ---------------------------------------------------------------------------
-
-
 @contextmanager
 def observe_message(user_id: int, content_type: str) -> Generator[None]:
     """Group all model calls for one Telegram message into a single trace.
@@ -164,14 +159,6 @@ def observe_message(user_id: int, content_type: str) -> Generator[None]:
     Opens a Langfuse root span attributed to the user and tagged with the
     message content type, so the generation spans emitted by pydantic-ai nest
     under one trace. A no-op when Langfuse is not configured.
-
-    Args:
-        user_id (int): Telegram user ID, recorded as the trace's user id.
-        content_type (str): Telegram message content type, recorded as a tag.
-
-    Yields:
-        None
-
     """
     if langfuse_client is None:
         yield
@@ -183,20 +170,14 @@ def observe_message(user_id: int, content_type: str) -> Generator[None]:
         yield
 
 
-# ---------------------------------------------------------------------------
 # Module-level singletons
-# ---------------------------------------------------------------------------
-
 messenger = Messenger()
 quota_manager = QuotaManager()
 gemini_helper = GeminiHelper()
 
 
-# ---------------------------------------------------------------------------
 # Module-level aliases — keep the existing public API intact so that
 # all importers and mocker.patch("services.*") calls continue to work.
-# ---------------------------------------------------------------------------
-
 get_file_with_retry = messenger.get_file_with_retry
 send_answer = messenger.send_answer
 

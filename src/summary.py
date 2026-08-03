@@ -64,19 +64,6 @@ class Summarizer:
     ) -> str:
         """Summarize audio content by uploading it to the provider's file API.
 
-        Args:
-            file (str): Path to the audio file to be summarized.
-            model (str): The summarizing model identifier.
-            prompt_key (str): Key to retrieve the prompt template from PROMPTS.
-            target_language (str): The language to translate the summary into.
-            user_id (int): Telegram user ID for per-user quota enforcement.
-            daily_limit (int): The user's configured daily request cap.
-            thinking_level (str): AI thinking level.
-            sleep_time (int, optional): Time between processing checks. Defaults to 10.
-
-        Returns:
-            str: Generated summary text from the audio content.
-
         Raises:
             AttributeError: If the model returns an empty response, or the upload
                 helper reports incomplete file metadata.
@@ -135,18 +122,6 @@ class Summarizer:
     ) -> str:
         """Summarize already-extracted text (a transcript or webpage content).
 
-        Args:
-            text (str): The text to summarize (transcript or pre-parsed webpage).
-            model (str): The summarizing model identifier.
-            prompt_key (str): Key to retrieve the prompt template from PROMPTS.
-            target_language (str): The language to translate the summary into.
-            user_id (int): Telegram user ID for per-user quota enforcement.
-            daily_limit (int): The user's configured daily request cap.
-            thinking_level (str): AI thinking level.
-
-        Returns:
-            str: Generated summary text.
-
         Raises:
             AttributeError: If the model returns an empty response.
             RetryError: If transient model or network errors persist after retries.
@@ -193,20 +168,6 @@ class Summarizer:
 
         Audio documents sent to a model that cannot read audio take the Replicate
         transcription path instead, and so carry the 📝 prefix.
-
-        Args:
-            file (File): Telegram File object for the document to be summarized.
-            model (str): The summarizing model identifier.
-            prompt_key (str): Key to retrieve the prompt template from PROMPTS.
-            target_language (str): The language to translate the summary into.
-            mime_type (str): MIME type of the document being uploaded.
-            user_id (int): Telegram user ID for per-user quota enforcement.
-            daily_limit (int): The user's configured daily request cap.
-            thinking_level (str): AI thinking level.
-            sleep_time (int, optional): Time between processing checks. Defaults to 10.
-
-        Returns:
-            str: Generated summary text from the document content.
 
         Raises:
             AttributeError: If the provider returns incomplete file metadata, or
@@ -276,22 +237,11 @@ class Summarizer:
         daily_limit: int,
         thinking_level: str,
     ) -> str:
-        """Generate a summary from various input sources.
-
-        Args:
-            data (str | File): Input data to summarize. Can be:
-                - YouTube URL
-                - Castro.fm episode URL
-                - Telegram File object
-            model (str): The summarizing model identifier.
-            prompt_key (str): Key to retrieve the prompt template from PROMPTS.
-            target_language (str): The language to translate the summary into.
-            user_id (int): Telegram user ID for per-user quota enforcement.
-            daily_limit (int): The user's configured daily request cap.
-            thinking_level (str): AI thinking level.
+        """Generate a summary from a YouTube/Castro URL, a Telegram file, or a path.
 
         Returns:
-            str: Generated summary of the content, prefixed with the source emoji.
+            str: The summary, carrying a source-provenance prefix on the
+                transcript and Replicate-transcription paths only.
 
         Raises:
             RetryError: If all summarization attempts fail after retries.
@@ -400,17 +350,11 @@ class Summarizer:
             clean_up(file=new_file)
 
 
-# ---------------------------------------------------------------------------
 # Module-level singleton
-# ---------------------------------------------------------------------------
-
 summarizer = Summarizer()
 
 
-# ---------------------------------------------------------------------------
 # Module-level aliases — preserve the existing public API
-# ---------------------------------------------------------------------------
-
 summarize_with_file = summarizer.summarize_with_file
 summarize_text = summarizer.summarize_text
 summarize_with_document = summarizer.summarize_with_document

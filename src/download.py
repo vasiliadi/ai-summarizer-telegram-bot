@@ -105,13 +105,7 @@ class Downloader:
         reraise=False,
     )
     def download_yt(self, url: str) -> str:
-        """Download audio from a YouTube video and convert it to MP3 format.
-
-        Args:
-            url (str): The YouTube video URL to download from.
-
-        Returns:
-            str: Path to the downloaded temporary MP3 file.
+        """Download a YouTube video's audio as MP3, returning the temp file path.
 
         Raises:
             RetryError: If the download fails after 2 retry attempts.
@@ -159,13 +153,7 @@ class Downloader:
         reraise=False,
     )
     def download_castro(self, url: str) -> str:
-        """Download audio from a Castro podcast URL and save it as an MP3 file.
-
-        Args:
-            url (str): The Castro podcast URL to download from.
-
-        Returns:
-            str: Path to the downloaded temporary MP3 file.
+        """Scrape a Castro episode page for its audio and save it as an MP3.
 
         Raises:
             ValueError: If the audio source tag or URL is missing on the page.
@@ -203,14 +191,7 @@ class Downloader:
         return temporary_file_name
 
     def download_tg(self, file_id: File, ext: str = "") -> str:
-        """Download a file from Telegram and save it locally.
-
-        Args:
-            file_id (File): The Telegram File object containing file information.
-            ext (str, optional): File extension for the output file.
-
-        Returns:
-            str: Path to the downloaded temporary file.
+        """Fetch a Telegram file, returning the local temp path.
 
         Raises:
             ValueError: If the Telegram file path is missing.
@@ -227,17 +208,11 @@ class Downloader:
         return temporary_file_name
 
 
-# ---------------------------------------------------------------------------
 # Module-level singleton
-# ---------------------------------------------------------------------------
-
 downloader = Downloader()
 
 
-# ---------------------------------------------------------------------------
 # Module-level aliases — preserve the existing public API
-# ---------------------------------------------------------------------------
-
 download_yt = downloader.download_yt
 download_castro = downloader.download_castro
 download_tg = downloader.download_tg

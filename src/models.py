@@ -7,23 +7,10 @@ class Base(DeclarativeBase):
 
 
 class UsersOrm(Base):
-    """SQLAlchemy ORM model representing users in the database.
+    """The `users` table: identity, approval, per-user settings, and daily cap.
 
-    This class defines the structure of the 'users' table, storing user preferences
-    and settings for various features of the application.
-
-    Attributes:
-        user_id (int): Primary key identifier for the user.
-        first_name (str | None): User's first name, optional.
-        last_name (str | None): User's last name, optional.
-        username (str | None): User's username, optional.
-        approved (bool): Flag indicating if the user is approved, defaults to False.
-        target_language (str): Language for translations, defaults to "English".
-        summarizing_model (str): Model for summary.
-        prompt_key_for_summary (str): Prompt key for summarization strategy.
-        daily_limit (int): Max requests per day for this user, defaults to 0 (blocked).
-        thinking_level (str): AI thinking level
-
+    Server defaults must stay in step with the matching constants in `config.py`.
+    A `daily_limit` of 0 blocks the user.
     """
 
     __tablename__ = "users"

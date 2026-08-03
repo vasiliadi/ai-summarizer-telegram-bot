@@ -55,20 +55,7 @@ if TYPE_CHECKING:
 # /start
 @bot.message_handler(commands=["start"])
 def handle_start(message: Message) -> None:
-    """Handle the /start command for the bot.
-
-    This function registers new users and sends a welcome message. If the user is
-    registering for the first time, they receive an initial greeting. Otherwise,
-    they receive a confirmation message.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                           and chat details.
-
-    Returns:
-        None
-
-    """
+    """Handle /start: register a new user, or welcome back an existing one."""
     if message.from_user is None:
         bot.reply_to(message, "User information is missing.")
         return
@@ -92,18 +79,7 @@ def handle_start(message: Message) -> None:
 # /info
 @bot.message_handler(commands=["info"])
 def handle_info(message: Message) -> None:
-    """Handle the /info command for the bot.
-
-    This function sends back the user's Telegram ID when they use the /info command.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                           and chat details.
-
-    Returns:
-        None
-
-    """
+    """Handle /info: reply with the sender's Telegram user ID."""
     if message.from_user is None:
         bot.reply_to(message, "User information is missing.")
         return
@@ -118,21 +94,7 @@ def handle_info(message: Message) -> None:
     ),
 )
 def handle_myinfo(message: Message) -> None:
-    """Handle the /myinfo command for the bot.
-
-    This function retrieves and sends detailed information about the user.
-    It checks if the user is authenticated and then fetches their information
-    from the database, including their user ID, approval status, translation
-    settings, target language, and parsing strategy.
-
-    Args:
-        message (Message): The message object from Telegram containing user information
-                           and chat details.
-
-    Returns:
-        None
-
-    """
+    """Handle /myinfo: reply with the user's settings, limit, and remaining quota."""
     if message.from_user is None:
         bot.reply_to(message, "User information is missing.")
         return
@@ -181,23 +143,7 @@ def handle_set_target_language(message: Message) -> None:
 
 
 def proceed_set_target_language(message: Message) -> None:
-    """Process the target language selection and update user settings.
-
-    This function is called after the user selects a language from the keyboard markup.
-    It attempts to set the user's target language preference and sends a confirmation
-    message. If the selected language is not supported, it raises a ValueError.
-
-    Args:
-        message (Message): The message object from Telegram containing the selected
-                          language and user information.
-
-    Raises:
-        ValueError: If the selected language is not supported.
-
-    Returns:
-        None
-
-    """
+    """Apply the language picked from the keyboard, or report it as unknown."""
     if message.from_user is None or message.text is None:
         bot.reply_to(message, "User information or language is missing.")
         return
@@ -232,20 +178,7 @@ def handle_set_summarizing_model(message: Message) -> None:
 
 
 def proceed_set_summarizing_model(message: Message) -> None:
-    """Process the summarizing model selection and update user settings.
-
-    This function is called after the user selects a model from the keyboard markup.
-    It attempts to set the user's summarizing model preference and sends a confirmation
-    message. If the selected model is not supported, it sends an error message.
-
-    Args:
-        message (Message): The message object from Telegram containing the selected
-                          model and user information.
-
-    Returns:
-        None
-
-    """
+    """Apply the model picked from the keyboard, or report it as unknown."""
     if message.from_user is None or message.text is None:
         bot.reply_to(message, "User information or model is missing.")
         return
@@ -282,20 +215,7 @@ def handle_set_prompt_strategy(message: Message) -> None:
 
 
 def proceed_set_prompt_strategy(message: Message) -> None:
-    """Process the prompt strategy selection and update user settings.
-
-    This function is called after the user selects a strategy from the keyboard markup.
-    It attempts to set the user's prompt strategy preference and sends a confirmation
-    message. If the selected strategy is not supported, it sends an error message.
-
-    Args:
-        message (Message): The message object from Telegram containing the selected
-                           strategy and user information.
-
-    Returns:
-        None
-
-    """
+    """Apply the strategy picked from the keyboard, or report it as unknown."""
     if message.from_user is None or message.text is None:
         bot.reply_to(message, "User information or strategy is missing.")
         return
@@ -332,21 +252,7 @@ def handle_set_thinking_level(message: Message) -> None:
 
 
 def proceed_set_thinking_level(message: Message) -> None:
-    """Process the thinking level selection and update user settings.
-
-    This function is called after the user selects a level from the keyboard markup.
-    It attempts to set the user's thinking level preference and sends a
-    confirmation message. If the selected level is not supported, it sends an
-    error message.
-
-    Args:
-        message (Message): The message object from Telegram containing the selected
-                           level and user information.
-
-    Returns:
-        None
-
-    """
+    """Apply the thinking level picked from the keyboard, or report it as unknown."""
     if message.from_user is None or message.text is None:
         bot.reply_to(message, "User information or level is missing.")
         return
@@ -366,16 +272,7 @@ def proceed_set_thinking_level(message: Message) -> None:
 
 
 def process_message_content(message: Message, user: UsersOrm) -> None:
-    """Process the content of a validated message.
-
-    Args:
-        message (Message): The message object from Telegram
-        user (UsersOrm): The authenticated user object
-
-    Returns:
-        None
-
-    """
+    """Route a validated message to the handler for its content type."""
     if message.content_type == "audio":
         handle_audio(message, user)
     elif (
@@ -403,24 +300,10 @@ def process_message_content(message: Message, user: UsersOrm) -> None:
     content_types=["text", "audio", "document", "video_note", "voice", "video"],
 )
 def handle_message(message: Message) -> None:
-    """Universal message handler for the bot.
+    """Universal entry point: authorize the sender, then route and trace the message.
 
-    This function processes various types of content:
-    - YouTube and Castro.fm URLs
-    - Other webpage URLs
-    - Audio files
-    - General text messages
-
-    Catches and maps the pipeline's failure modes to user-facing replies:
-    LimitExceededError, WebParseError, RetryError, and any other Exception are
-    reported to Sentry and answered with an appropriate message.
-
-    Args:
-        message (Message): The message object from Telegram
-
-    Returns:
-        None
-
+    Every failure mode of the pipeline terminates here — each is reported to
+    Sentry and answered with a user-facing message.
     """
     try:
         if message.from_user is None:

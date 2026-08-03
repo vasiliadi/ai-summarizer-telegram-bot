@@ -40,15 +40,7 @@ class LLMClient:
     """Provider-agnostic entry point for every summarization model call."""
 
     def build_model(self, model_id: str) -> Model:
-        """Return the provider model for a registered model id.
-
-        Args:
-            model_id (str): A key of `config.MODEL_SPECS`.
-
-        Returns:
-            Model: The pydantic-ai model, shared across calls for that id.
-
-        """
+        """Return the pydantic-ai model for a registered id, shared across calls."""
         return _build_model(model_id)
 
     def build_settings(self, model_id: str, thinking_level: str) -> ModelSettings:
@@ -59,14 +51,6 @@ class LLMClient:
         Gemini would generate thought summaries that `run` discards. Passing the
         level straight through keeps the request shape and stays lenient about
         an unrecognized level, which the provider decides on rather than us.
-
-        Args:
-            model_id (str): A key of `config.MODEL_SPECS`.
-            thinking_level (str): One of `config.ALLOWED_THINKING_LEVELS`.
-
-        Returns:
-            ModelSettings: Settings carrying the thinking level.
-
         """
         if MODEL_SPECS[model_id].provider == "google":
             return GoogleModelSettings(
@@ -80,11 +64,6 @@ class LLMClient:
 
     def build_uploaded_file(self, model_id: str, file: types.File) -> UploadedFile:
         """Reference a file already uploaded to the provider's file API.
-
-        Args:
-            model_id (str): A key of `config.MODEL_SPECS`.
-            file (types.File): The processed file returned by
-                `services.upload_and_wait_for_file`.
 
         Returns:
             UploadedFile: A message part pointing at the stored file. For Google
@@ -119,15 +98,8 @@ class LLMClient:
     ) -> str:
         """Run one summarization request and return the model's text output.
 
-        Args:
-            content (str | Sequence[UserContent]): The prompt, either on its own
-                or followed by the file parts it refers to.
-            model_id (str): A key of `config.MODEL_SPECS`.
-            target_language (str): The language to write the summary in.
-            thinking_level (str): One of `config.ALLOWED_THINKING_LEVELS`.
-
-        Returns:
-            str: The generated text.
+        `content` is the prompt on its own, or the prompt followed by the file
+        parts it refers to.
 
         Raises:
             AttributeError: If the model returns an empty response.
@@ -150,17 +122,11 @@ class LLMClient:
         return result.output
 
 
-# ---------------------------------------------------------------------------
 # Module-level singleton
-# ---------------------------------------------------------------------------
-
 llm_client = LLMClient()
 
 
-# ---------------------------------------------------------------------------
 # Module-level aliases — preserve the existing public API
-# ---------------------------------------------------------------------------
-
 build_model = llm_client.build_model
 build_settings = llm_client.build_settings
 build_uploaded_file = llm_client.build_uploaded_file

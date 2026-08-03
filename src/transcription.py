@@ -64,14 +64,7 @@ class AudioTranscriber:
         reraise=False,
     )
     def transcribe(self, file: str, sleep_time: int = 10) -> str:
-        """Transcribe an audio file using WhisperX model.
-
-        Args:
-            file (str): Path to the audio file to transcribe.
-            sleep_time (int, optional): Time in seconds to wait between status checks.
-
-        Returns:
-            str: The transcribed text from the audio file.
+        """Transcribe an audio file with the WhisperX model on Replicate.
 
         Raises:
             ModelError: If the transcription fails, is canceled, or output is invalid.
@@ -140,12 +133,6 @@ class ApiBackend(TranscriptBackend):
     def fetch_via_api(self, video_id: str) -> str:
         """Retrieve and format a YouTube transcript via youtube_transcript_api.
 
-        Args:
-            video_id (str): The YouTube video ID.
-
-        Returns:
-            str: The formatted transcript text.
-
         Raises:
             NoTranscriptFound: If no transcript is found in any language.
             CouldNotRetrieveTranscript: Subclasses propagate to the caller.
@@ -185,15 +172,7 @@ class YtDlpBackend(TranscriptBackend):
 
     @staticmethod
     def _vtt_to_text(vtt_path: Path) -> str:
-        """Convert a VTT subtitle file to deduplicated plain text.
-
-        Args:
-            vtt_path (Path): Path to the .vtt file.
-
-        Returns:
-            str: Clean transcript text with duplicate lines removed.
-
-        """
+        """Convert a VTT subtitle file to deduplicated plain text."""
         lines = vtt_path.read_text(encoding="utf-8").splitlines()
         out: list[str] = []
         prev = ""
@@ -237,12 +216,6 @@ class YtDlpBackend(TranscriptBackend):
         Probes available tracks first, preferring genuine manual subtitles (English
         when present) and otherwise the video's original-language automatic captions,
         then converts to vtt via ffmpeg.
-
-        Args:
-            url (str): The YouTube video URL.
-
-        Returns:
-            str: The transcript as plain text.
 
         Raises:
             DownloadError: If no subtitles are available or vtt conversion fails.
@@ -437,12 +410,9 @@ class YouTubeTranscriber:
         failure (including an empty result). With the default wiring this means
         the API first, then yt-dlp.
 
-        Args:
-            url (str): The YouTube video URL.
-
         Returns:
-            PrefixedText: The transcript text and display prefix. 📺 =
-                youtube_transcript_api; 📹 = yt-dlp.
+            PrefixedText: The transcript and its display prefix — 📺 for
+                youtube_transcript_api, 📹 for yt-dlp.
 
         Raises:
             ValueError: If the URL format is not recognized.
@@ -479,19 +449,13 @@ class YouTubeTranscriber:
         return PrefixedText(text=text, prefix=self._primary.prefix)
 
 
-# ---------------------------------------------------------------------------
 # Module-level singletons
-# ---------------------------------------------------------------------------
-
 audio_transcriber = AudioTranscriber(replicate_client)
 api_backend = ApiBackend()
 ytdlp_backend = YtDlpBackend()
 yt_transcriber = YouTubeTranscriber(api_backend, ytdlp_backend)
 
 
-# ---------------------------------------------------------------------------
 # Module-level aliases — preserve the existing public API
-# ---------------------------------------------------------------------------
-
 transcribe = audio_transcriber.transcribe
 get_yt_transcript = yt_transcriber.get_transcript

@@ -20,8 +20,11 @@ Use `# noqa` sparingly and always specify the exact rule code.
 
 ## Docstrings & Comments
 
-- Public functions, classes, and methods use **Google-style** docstrings — define `Args:`,
-  `Returns:`, and `Raises:` where applicable; keep descriptions concise.
+- Public functions, classes, and methods use **Google-style** docstrings led by a one-line summary.
+  Skip `Args:` — annotations are complete, so a param block only restates the signature; fold
+  anything non-obvious into the summary instead. Keep `Raises:` (the `RetryError` contracts the
+  `@retry` decorators create are not derivable from the body), and `Returns:` only where it says
+  something the return type does not.
 - Docstrings for private (`_method`) members are optional when behavior is obvious.
 - Use inline `#` comments sparingly, and only to explain *why* non-obvious logic exists — not *what*
   the code does. Code should be self-documenting through naming.
