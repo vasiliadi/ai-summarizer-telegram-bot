@@ -17,7 +17,7 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
 3. Sub-agent returns must be structured — exact numbers, file paths, decisions with rationale, open items — not free-form prose. Target 1,000–2,000 tokens per return; write anything longer to `docs/summaries/analysis-<topic>.md` and return the path.
 4. Before running any Python command or modifying dependencies, read `docs/context/uv-guide.md`.
 5. Commit per `docs/context/git-guide.md`, which also covers the pre-commit hooks and the coverage report. Never bypass hooks with `--no-verify`. Follow-up fixes go into new commits — never amend, rebase, or otherwise rewrite an existing commit unless the user asks for that directly. Under `docs/`, stage only `docs/context/` — the rest is gitignored.
-6. **Never `git push`** — one per `/create-pr`, none after. Commit later work (review fixes included) locally and report it ready.
+6. **Never `git push` unprompted** — only on `/create-pr` or a direct ask to push, one push each. Otherwise commit locally and report it ready.
 7. A code change updates its tests **and** any `docs/context/` doc it invalidates (`architecture.md` for architecture, `style-guide.md` for conventions) in the same PR. Treat both as mandatory — skipping either is equivalent to bypassing the pre-commit hooks.
 
 ## Where Things Live
