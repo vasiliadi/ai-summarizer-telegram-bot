@@ -10,7 +10,6 @@ import sentry_sdk
 import telebot
 from exa_py import Exa
 from google import genai
-from google.genai import types
 from langfuse import Langfuse
 from limits import parse as parse_rate_limit
 from limits.storage import RedisStorage
@@ -105,26 +104,6 @@ MODEL_LABELS_REVERSE: dict[str, str] = {v: k for k, v in MODEL_LABELS.items()}
 ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_SPECS.keys())
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
 DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.5-flash-lite"
-# Plain dicts, not types.SafetySetting: this is the shape
-# GoogleModelSettings["google_safety_settings"] is typed for.
-SAFETY_SETTINGS: list[types.SafetySettingDict] = [
-    {
-        "category": types.HarmCategory.HARM_CATEGORY_HARASSMENT,
-        "threshold": types.HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-        "category": types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-        "threshold": types.HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-        "category": types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-        "threshold": types.HarmBlockThreshold.BLOCK_NONE,
-    },
-    {
-        "category": types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-        "threshold": types.HarmBlockThreshold.BLOCK_NONE,
-    },
-]
 DEFAULT_THINKING_LEVEL = "HIGH"
 THINKING_LEVEL_LABELS: dict[str, str] = {
     "MINIMAL": "Minimal",

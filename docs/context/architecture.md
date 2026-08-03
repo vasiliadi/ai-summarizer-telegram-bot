@@ -50,7 +50,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `main.py` | Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. |
 | `handlers.py` | Per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls `llm.run_model`. |
-| `llm.py` | `LLMClient` — the provider seam. One pydantic-ai `Agent`; model, instructions and settings are resolved per run from `config.MODEL_SPECS`. Provider-specific settings (Gemini safety settings) live here. |
+| `llm.py` | `LLMClient` — the provider seam. One pydantic-ai `Agent`; model, instructions and settings are resolved per run. Provider dispatch lives in `_build_model` (keyed on `config.MODEL_SPECS[...].provider`); `build_settings` currently carries only the provider-agnostic thinking level. |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |

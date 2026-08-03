@@ -59,34 +59,16 @@ def test_build_model_rejects_provider_without_builder(mocker):
 )
 def test_build_settings_maps_thinking_level(thinking_level, expected):
     """Test every allowed thinking level maps to its provider-agnostic effort."""
-    settings = build_settings("gemini-3.5-flash", thinking_level=thinking_level)
-    assert settings["thinking"] == expected
+    assert build_settings(thinking_level=thinking_level)["thinking"] == expected
 
 
-def test_build_settings_applies_google_safety_settings():
-    """Test Google models get the permissive BLOCK_NONE safety settings."""
-    settings = build_settings("gemini-3.5-flash", thinking_level="HIGH")
-    thresholds = {s["threshold"] for s in settings["google_safety_settings"]}
-    assert thresholds == {"BLOCK_NONE"}
-    assert len(settings["google_safety_settings"]) == 4
+def test_build_settings_carries_nothing_but_thinking():
+    """Test no provider-specific option leaks into the settings.
 
-
-def test_build_settings_omits_safety_settings_for_other_providers(mocker):
-    """Test the google-only settings stay out of a non-Google provider's request."""
-    mocker.patch.dict(
-        llm_module.MODEL_SPECS,
-        {
-            "mystery-1": ModelSpec(
-                label="Mystery 1",
-                provider="mystery",
-                supports_audio=True,
-            ),
-        },
-    )
-
-    settings = build_settings("mystery-1", thinking_level="LOW")
-
-    assert settings == {"thinking": "low"}
+    Safety settings used to live here; the request must now carry the model's
+    defaults, so a stray google_* key would be a real behavior change.
+    """
+    assert build_settings(thinking_level="HIGH") == {"thinking": "high"}
 
 
 def test_build_uploaded_file_uses_uri_as_file_id():

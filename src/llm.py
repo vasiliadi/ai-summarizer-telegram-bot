@@ -5,11 +5,11 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
 from pydantic_ai import Agent, UploadedFile
-from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
+from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.settings import ModelSettings
 
-from config import MODEL_SPECS, SAFETY_SETTINGS, gemini_client
+from config import MODEL_SPECS, gemini_client
 from prompts import SYSTEM_INSTRUCTION
 
 if TYPE_CHECKING:
@@ -51,25 +51,21 @@ class LLMClient:
         """
         return _build_model(model_id)
 
-    def build_settings(self, model_id: str, thinking_level: str) -> ModelSettings:
-        """Build the per-run settings, adding provider-specific options.
+    def build_settings(self, thinking_level: str) -> ModelSettings:
+        """Build the per-run settings.
+
+        Provider-specific options would branch here on the spec's provider — a
+        `GoogleModelSettings` field, say. Nothing needs one today, so the
+        settings are the provider-agnostic thinking level alone.
 
         Args:
-            model_id (str): A key of `config.MODEL_SPECS`.
             thinking_level (str): One of `config.ALLOWED_THINKING_LEVELS`.
 
         Returns:
-            ModelSettings: Settings carrying the thinking level, plus the
-                permissive safety settings when the provider supports them.
+            ModelSettings: Settings carrying the thinking level.
 
         """
-        thinking = cast("ThinkingLevel", thinking_level.lower())
-        if MODEL_SPECS[model_id].provider == "google":
-            return GoogleModelSettings(
-                thinking=thinking,
-                google_safety_settings=SAFETY_SETTINGS,
-            )
-        return ModelSettings(thinking=thinking)
+        return ModelSettings(thinking=cast("ThinkingLevel", thinking_level.lower()))
 
     def build_uploaded_file(self, model_id: str, file: types.File) -> UploadedFile:
         """Reference a file already uploaded to the provider's file API.
@@ -123,10 +119,7 @@ class LLMClient:
             content,
             model=self.build_model(model_id),
             instructions=instructions,
-            model_settings=self.build_settings(
-                model_id,
-                thinking_level=thinking_level,
-            ),
+            model_settings=self.build_settings(thinking_level=thinking_level),
         )
         if not result.output:
             raise AttributeError
