@@ -173,6 +173,8 @@ def test_run_builds_the_expected_gemini_request_config():
     settings = build_settings("gemini-3.5-flash-lite", thinking_level="HIGH")
     messages = [ModelRequest(parts=[UserPromptPart(content="hello")])]
 
+    # Reaches into a GoogleModel private: it is the only way to see the real
+    # GenerateContentConfig without a live call. Re-verify on a pydantic-ai bump.
     _, config = asyncio.run(
         model._build_content_and_config(
             messages,
