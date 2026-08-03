@@ -34,7 +34,12 @@ class UserRepository:
         prompt_key_for_summary: str = DEFAULT_PROMPT_KEY,
         thinking_level: str = DEFAULT_THINKING_LEVEL,
     ) -> bool:
-        """Register a new user; False if that user id is already present."""
+        """Register a new user; False on any IntegrityError.
+
+        The primary key is this table's only constraint, so in practice that means
+        a duplicate user id — which is why `handle_start` reads False as "already
+        registered". A schema change adding constraints would break that reading.
+        """
         with Session() as session:
             try:
                 stmt = UsersOrm(
