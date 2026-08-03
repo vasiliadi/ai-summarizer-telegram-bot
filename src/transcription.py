@@ -172,7 +172,10 @@ class YtDlpBackend(TranscriptBackend):
 
     @staticmethod
     def _vtt_to_text(vtt_path: Path) -> str:
-        """Convert a VTT subtitle file to deduplicated plain text."""
+        """Convert a VTT subtitle file to plain text, collapsing consecutive repeats.
+
+        Only adjacent duplicates are dropped; a line recurring later is kept.
+        """
         lines = vtt_path.read_text(encoding="utf-8").splitlines()
         out: list[str] = []
         prev = ""

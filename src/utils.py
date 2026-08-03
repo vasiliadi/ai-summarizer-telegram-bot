@@ -82,10 +82,11 @@ def compress_audio(input_file: str, output_file: str) -> None:
 
 
 def clean_up(file: str | None = None, all_downloads: bool = False) -> None:
-    """Remove `file`, or every download when `all_downloads` is set.
+    """Remove `file`, or sweep the working directory when `all_downloads` is set.
 
-    Both paths skip anything in `config.PROTECTED_FILES`, the startup snapshot of
-    the working directory.
+    The sweep unlinks every regular file in the CWD, not only downloads. Both paths
+    skip `config.PROTECTED_FILES`, the startup snapshot — in PROD the container's
+    CWD is `src/`, so that snapshot covers the source tree.
     """
     if all_downloads:
         for file_name in Path.cwd().iterdir():
