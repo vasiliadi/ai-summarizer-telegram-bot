@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from helpers import make_app
 from main import BotApp, build_app
 
@@ -82,6 +84,19 @@ def test_authorized_gates_on_a_known_approved_sender(mocker):
     assert fakes.user_repo.check_auth.call_count == 2
 
 
+def test_authorized_reads_an_unregistered_sender_as_unauthorized(mocker):
+    """_authorized answers False rather than raising for an unknown user.
+
+    TeleBot evaluates func= filters unguarded, so a ValueError out of
+    check_auth would abort handler matching for the whole update — the sender
+    would get silence instead of falling through to handle_message.
+    """
+    app, fakes = make_app(mocker)
+    fakes.user_repo.check_auth.side_effect = ValueError("User not found")
+
+    assert app._authorized(mocker.MagicMock()) is False
+
+
 def test_run_starts_infinity_polling(mocker):
     """run() polls Telegram with the fixed 20s timeout."""
     app, fakes = make_app(mocker)
@@ -103,4 +118,19 @@ def test_shutdown_cleans_up_and_flushes_the_tracer(mocker):
     app.shutdown()
 
     mock_clean_up.assert_called_once_with(all_downloads=True)
+    fakes.tracer.shutdown.assert_called_once_with()
+
+
+def test_shutdown_flushes_the_tracer_when_the_sweep_fails(mocker):
+    """A failing temp-file sweep still lets buffered spans flush.
+
+    clean_up unlinks files directly, so a single OSError would otherwise cost
+    everything the tracer has buffered.
+    """
+    app, fakes = make_app(mocker)
+    mocker.patch("main.clean_up", side_effect=OSError("device busy"))
+
+    with pytest.raises(OSError, match="device busy"):
+        app.shutdown()
+
     fakes.tracer.shutdown.assert_called_once_with()

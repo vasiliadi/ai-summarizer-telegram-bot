@@ -1,5 +1,7 @@
 import pytest
 from limits import parse as parse_rate_limit
+from limits.storage import MemoryStorage
+from limits.strategies import FixedWindowRateLimiter
 from limits.util import WindowStats
 
 from exceptions import LimitExceededError
@@ -257,6 +259,40 @@ def test_check_quota_raises_when_daily_redis_counter_exhausted(mocker):
 
     with pytest.raises(LimitExceededError):
         quota_manager.check_quota(user_id=789, daily_limit=3)
+
+
+def test_check_quota_precheck_rejects_an_exhausted_daily_window():
+    """The quantity=0 pre-check rejects once the real daily window is spent.
+
+    Driven by a real FixedWindowRateLimiter rather than a mock: the bug this
+    guards against lived in the limiter's semantics, where hit(cost=0)
+    increments by nothing and so reports a spent window as still open.
+    """
+    quota_manager = QuotaManager(
+        FixedWindowRateLimiter(MemoryStorage()),
+        parse_rate_limit("100 per minute"),
+    )
+
+    assert quota_manager.check_quota(user_id=42, daily_limit=2, quantity=0) is True
+    assert quota_manager.check_quota(user_id=42, daily_limit=2, quantity=1) is True
+    assert quota_manager.check_quota(user_id=42, daily_limit=2, quantity=1) is True
+
+    assert quota_manager.get_remaining_quota(user_id=42, daily_limit=2) == 0
+    with pytest.raises(LimitExceededError):
+        quota_manager.check_quota(user_id=42, daily_limit=2, quantity=0)
+
+
+def test_check_quota_precheck_consumes_nothing():
+    """The quantity=0 pre-check leaves the daily budget untouched."""
+    quota_manager = QuotaManager(
+        FixedWindowRateLimiter(MemoryStorage()),
+        parse_rate_limit("100 per minute"),
+    )
+
+    for _ in range(5):
+        assert quota_manager.check_quota(user_id=7, daily_limit=3, quantity=0) is True
+
+    assert quota_manager.get_remaining_quota(user_id=7, daily_limit=3) == 3
 
 
 def test_check_quota_sleeps_when_per_minute_limited(mocker):

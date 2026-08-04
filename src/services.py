@@ -105,11 +105,15 @@ class QuotaManager:
             msg = "The daily limit for requests has been exceeded"
             raise LimitExceededError(msg)
         daily_rate = parse_rate_limit(f"{daily_limit} per day")
-        if not self._rate_limiter.hit(
-            daily_rate,
-            f"{DAILY_LIMIT_KEY}:{user_id}",
-            cost=quantity,
-        ):
+        daily_key = f"{DAILY_LIMIT_KEY}:{user_id}"
+        # quantity=0 is the non-consuming pre-check. hit(cost=0) increments by
+        # nothing, so an exhausted window still compares <= the limit and reads
+        # as open; test() asks whether one more unit would fit, without taking it.
+        if quantity == 0:
+            allowed = self._rate_limiter.test(daily_rate, daily_key)
+        else:
+            allowed = self._rate_limiter.hit(daily_rate, daily_key, cost=quantity)
+        if not allowed:
             msg = "The daily limit for requests has been exceeded"
             raise LimitExceededError(msg)
         while not self._rate_limiter.hit(

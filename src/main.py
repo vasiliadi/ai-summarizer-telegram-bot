@@ -313,10 +313,19 @@ class BotApp:
             self._bot.reply_to(message, f"Unexpected: {type(e).__name__}")
 
     def _authorized(self, message: Message) -> bool:
-        """Gate the settings commands on a known, approved sender."""
-        return message.from_user is not None and self._user_repo.check_auth(
-            message.from_user.id,
-        )
+        """Gate the settings commands on a known, approved sender.
+
+        Runs as TeleBot's `func=` filter, which is evaluated outside
+        `handle_message` and is not guarded by the library: an exception here
+        aborts handler matching for the whole update, so an unregistered sender
+        has to read as unauthorized rather than raise.
+        """
+        if message.from_user is None:
+            return False
+        try:
+            return self._user_repo.check_auth(message.from_user.id)
+        except ValueError:
+            return False
 
     def register(self) -> None:
         """Register every handler on the bot. Replaces the import-time decorators."""
@@ -351,9 +360,15 @@ class BotApp:
         self._bot.infinity_polling(timeout=20)
 
     def shutdown(self) -> None:
-        """Remove temp download files and flush the tracer."""
-        clean_up(all_downloads=True)
-        self._tracer.shutdown()
+        """Remove temp download files and flush the tracer.
+
+        The sweep unlinks files directly, so one `OSError` would otherwise cost
+        every span still buffered in the tracer.
+        """
+        try:
+            clean_up(all_downloads=True)
+        finally:
+            self._tracer.shutdown()
 
 
 def build_app(container: Container) -> BotApp:
