@@ -11,10 +11,10 @@ from download import Downloader
 from llm import LLMClient
 from parsing import ExaBackend, TavilyBackend, UrlResolver, WebParser
 from services import GeminiHelper, Messenger, QuotaManager, Tracer
+from transcription import ApiBackend, AudioTranscriber, YouTubeTranscriber, YtDlpBackend
 
-# Later slices append audio_transcriber, yt_transcriber, summarizer, and the
-# handlers to this dataclass; main.py adopts the container in a later slice
-# (STG-135).
+# Later slices append summarizer and the handlers to this dataclass; main.py
+# adopts the container in a later slice (STG-135).
 
 
 @dataclass(frozen=True)
@@ -29,6 +29,8 @@ class Container:
     llm_client: LLMClient
     downloader: Downloader
     web_parser: WebParser
+    audio_transcriber: AudioTranscriber
+    yt_transcriber: YouTubeTranscriber
 
 
 def build_container() -> Container:
@@ -46,4 +48,6 @@ def build_container() -> Container:
             TavilyBackend(config.tavily_client),
             UrlResolver(),
         ),
+        audio_transcriber=AudioTranscriber(config.replicate_client),
+        yt_transcriber=YouTubeTranscriber(ApiBackend(), YtDlpBackend()),
     )

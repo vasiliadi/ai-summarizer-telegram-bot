@@ -452,13 +452,14 @@ class YouTubeTranscriber:
         return PrefixedText(text=text, prefix=self._primary.prefix)
 
 
-# Module-level singletons
+# Module-level singletons and aliases — transitional shim (STG-135).
+# summary.py still imports transcribe and get_yt_transcript; removed once
+# every consumer is migrated to constructor injection. The config client
+# above is imported for this block alone.
 audio_transcriber = AudioTranscriber(replicate_client)
 api_backend = ApiBackend()
 ytdlp_backend = YtDlpBackend()
 yt_transcriber = YouTubeTranscriber(api_backend, ytdlp_backend)
 
-
-# Module-level aliases — preserve the existing public API
 transcribe = audio_transcriber.transcribe
 get_yt_transcript = yt_transcriber.get_transcript

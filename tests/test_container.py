@@ -4,6 +4,7 @@ from download import Downloader
 from llm import LLMClient
 from parsing import WebParser
 from services import GeminiHelper, Messenger, QuotaManager, Tracer
+from transcription import ApiBackend, AudioTranscriber, YouTubeTranscriber, YtDlpBackend
 
 
 def test_build_container_returns_wired_container():
@@ -18,6 +19,8 @@ def test_build_container_returns_wired_container():
     assert isinstance(container.llm_client, LLMClient)
     assert isinstance(container.downloader, Downloader)
     assert isinstance(container.web_parser, WebParser)
+    assert isinstance(container.audio_transcriber, AudioTranscriber)
+    assert isinstance(container.yt_transcriber, YouTubeTranscriber)
 
     assert container.messenger._bot is config.bot
     assert container.quota_manager._rate_limiter is config.rate_limiter
@@ -28,3 +31,6 @@ def test_build_container_returns_wired_container():
     assert container.downloader._tg_api_token is config.TG_API_TOKEN
     assert container.web_parser._primary._client is config.exa_client
     assert container.web_parser._fallback._client is config.tavily_client
+    assert container.audio_transcriber._client is config.replicate_client
+    assert isinstance(container.yt_transcriber._primary, ApiBackend)
+    assert isinstance(container.yt_transcriber._fallback, YtDlpBackend)
