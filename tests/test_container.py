@@ -1,5 +1,7 @@
 import config
+import database
 from container import Container, build_container
+from database import UserRepository
 from download import Downloader
 from handlers import MessageHandlers
 from llm import LLMClient
@@ -19,6 +21,7 @@ def test_build_container_returns_wired_container():
     assert isinstance(container.quota_manager, QuotaManager)
     assert isinstance(container.gemini_helper, GeminiHelper)
     assert isinstance(container.tracer, Tracer)
+    assert isinstance(container.user_repo, UserRepository)
     assert isinstance(container.llm_client, LLMClient)
     assert isinstance(container.downloader, Downloader)
     assert isinstance(container.web_parser, WebParser)
@@ -32,6 +35,7 @@ def test_build_container_returns_wired_container():
     assert container.quota_manager._per_minute_rate is config.per_minute_rate
     assert container.gemini_helper._client is config.gemini_client
     assert container.tracer._client is config.langfuse_client
+    assert container.user_repo._session_factory is database.Session
     assert container.llm_client._client is config.gemini_client
     assert container.downloader._tg_api_token is config.TG_API_TOKEN
     assert container.web_parser._primary._client is config.exa_client
