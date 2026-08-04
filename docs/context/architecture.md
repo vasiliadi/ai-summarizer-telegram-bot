@@ -55,7 +55,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
 | `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (Langfuse root span per message). |
-| `container.py` | `Container` + `build_container()` — the composition root; wires `services.py` collaborators to `config`'s clients. |
+| `container.py` | `Container` + `build_container()` — the composition root; wires collaborators to `config`'s clients. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
 | `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`. |
@@ -135,13 +135,13 @@ to Gemini — return the raw model text with **no** prefix.
 
 - **Constructor injection migration (STG-135, in progress).** Service classes
   are moving from module-level singletons to `__init__`-injected collaborators,
-  wired once by `container.py`'s composition root. `services.py` is migrated
-  (`Messenger`, `QuotaManager`, `GeminiHelper`, `Tracer` all take their client
-  in `__init__`); other service modules still carry the older class →
-  module-singleton → method-alias shim so `module.func` and
-  `mocker.patch("module.func")` keep working, dropped module by module as each
-  one's importers and tests move to injection. Unwinding back to plain
-  functions remains **rejected**.
+  wired once by `container.py`'s composition root. `services.py` and
+  `database.py` are migrated (`Messenger`, `QuotaManager`, `GeminiHelper`,
+  `Tracer`, `UserRepository` all take their client/factory in `__init__`);
+  other modules still carry the older class → module-singleton → method-alias
+  shim (`module.func`, `mocker.patch("module.func")` keep working) until their
+  importers and tests migrate too. Unwinding back to plain functions remains
+  **rejected**.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
   unit. A global per-minute limit throttles by sleeping. Counters live in Valkey;

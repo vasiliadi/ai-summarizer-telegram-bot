@@ -35,23 +35,6 @@ sentry_sdk.init = lambda *args, **kwargs: None
 
 
 @pytest.fixture
-def mock_db_session(mocker):
-    """Fixture to mock the database session."""
-    session_mock = mocker.MagicMock()
-    # Mocking the Session factory from our database module
-    # The actual database functions do:
-    # with Session() as session:
-    # So Session() must return a context manager that yields session_mock
-    context_manager_mock = mocker.MagicMock()
-    context_manager_mock.__enter__.return_value = session_mock
-
-    mocker.patch("database.Session", return_value=context_manager_mock)
-    # Also mock engine if accessed
-    mocker.patch("database.engine", mocker.MagicMock())
-    return session_mock
-
-
-@pytest.fixture
 def message_factory():
     """Fixture to generate a mock telebot Message with variable content."""
 

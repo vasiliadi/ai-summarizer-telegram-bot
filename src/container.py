@@ -5,11 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import config
+import database
+from database import UserRepository
 from services import GeminiHelper, Messenger, QuotaManager, Tracer
 
-# Later slices append user_repo, llm_client, downloader, web_parser,
-# audio_transcriber, yt_transcriber, summarizer, and the handlers to this
-# dataclass; main.py adopts the container in a later slice (STG-135).
+# Later slices append llm_client, downloader, web_parser, audio_transcriber,
+# yt_transcriber, summarizer, and the handlers to this dataclass; main.py
+# adopts the container in a later slice (STG-135).
 
 
 @dataclass(frozen=True)
@@ -20,6 +22,7 @@ class Container:
     quota_manager: QuotaManager
     gemini_helper: GeminiHelper
     tracer: Tracer
+    user_repo: UserRepository
 
 
 def build_container() -> Container:
@@ -29,4 +32,5 @@ def build_container() -> Container:
         quota_manager=QuotaManager(config.rate_limiter, config.per_minute_rate),
         gemini_helper=GeminiHelper(config.gemini_client),
         tracer=Tracer(config.langfuse_client),
+        user_repo=UserRepository(database.Session),
     )
