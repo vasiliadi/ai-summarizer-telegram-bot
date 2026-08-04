@@ -1,6 +1,7 @@
 import config
 from container import Container, build_container
 from download import Downloader
+from handlers import MessageHandlers
 from llm import LLMClient
 from parsing import WebParser
 from services import GeminiHelper, Messenger, QuotaManager, Tracer
@@ -23,6 +24,7 @@ def test_build_container_returns_wired_container():
     assert isinstance(container.audio_transcriber, AudioTranscriber)
     assert isinstance(container.yt_transcriber, YouTubeTranscriber)
     assert isinstance(container.summarizer, Summarizer)
+    assert isinstance(container.handlers, MessageHandlers)
 
     assert container.messenger._bot is config.bot
     assert container.quota_manager._rate_limiter is config.rate_limiter
@@ -45,3 +47,11 @@ def test_build_container_returns_wired_container():
     assert container.summarizer._downloader is container.downloader
     assert container.summarizer._audio_transcriber is container.audio_transcriber
     assert container.summarizer._yt_transcriber is container.yt_transcriber
+
+    # The handlers' collaborators must be the container's own instances too.
+    assert container.handlers._bot is config.bot
+    assert container.handlers._messenger is container.messenger
+    assert container.handlers._summarizer is container.summarizer
+    assert container.handlers._web_parser is container.web_parser
+    assert container.handlers._quota_manager is container.quota_manager
+    assert container.handlers._downloader is container.downloader

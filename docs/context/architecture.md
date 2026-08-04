@@ -48,7 +48,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | Module | Role |
 |--------|------|
 | `main.py` | Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. |
-| `handlers.py` | Per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
+| `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
 | `llm.py` | `LLMClient` — the provider seam. Each instance holds one pydantic-ai `Agent`; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`); `build_settings` currently carries only the provider-agnostic thinking level. |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
@@ -79,7 +79,7 @@ Telegram update
     video / video_note ──────────► download_tg(.mp4) → compress_audio(.ogg) → summarize(path)
     document ────────────────────► summarize_with_document(File, mime)
     text (treated as URL) ── classify_url ──┬─ "youtube" / "castro" ► summarize(url)
-                                            └─ "web"  ► parse_url → summarize_text
+                                            └─ "web"  ► WebParser.parse → summarize_text
 ```
 
 ### Summarizer input branching (`summary.py:summarize`)
@@ -140,8 +140,8 @@ to Gemini — return the raw model text with **no** prefix.
   `Tracer` (`services.py`); `UserRepository` (`database.py`); `LLMClient`
   (`llm.py`); `Downloader` (`download.py`); `WebParser` (`parsing.py`);
   `AudioTranscriber`/`YouTubeTranscriber` (`transcription.py`); `Summarizer`
-  (`summary.py`). Remaining modules keep the shim until migrated. Unwinding
-  to plain functions is **rejected**.
+  (`summary.py`); `MessageHandlers` (`handlers.py`). Only `main.py` adopting
+  the container remains. Unwinding to plain functions is **rejected**.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
   unit. A global per-minute limit throttles by sleeping. Counters live in Valkey;
