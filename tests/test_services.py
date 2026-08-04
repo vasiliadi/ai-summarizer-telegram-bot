@@ -245,9 +245,8 @@ def test_check_quota_uses_per_user_redis_key(mocker):
     mock_rate_limiter.hit.return_value = True
     quota_manager = QuotaManager(mock_rate_limiter, parse_rate_limit("5 per minute"))
 
-    result = quota_manager.check_quota(user_id=456, daily_limit=5)
+    quota_manager.check_quota(user_id=456, daily_limit=5)
 
-    assert result is True
     assert mock_rate_limiter.hit.call_args_list[0].args[1] == "RPD:456"
 
 
@@ -273,9 +272,9 @@ def test_check_quota_precheck_rejects_an_exhausted_daily_window():
         parse_rate_limit("100 per minute"),
     )
 
-    assert quota_manager.check_quota(user_id=42, daily_limit=2, quantity=0) is True
-    assert quota_manager.check_quota(user_id=42, daily_limit=2, quantity=1) is True
-    assert quota_manager.check_quota(user_id=42, daily_limit=2, quantity=1) is True
+    quota_manager.check_quota(user_id=42, daily_limit=2, quantity=0)
+    quota_manager.check_quota(user_id=42, daily_limit=2, quantity=1)
+    quota_manager.check_quota(user_id=42, daily_limit=2, quantity=1)
 
     assert quota_manager.get_remaining_quota(user_id=42, daily_limit=2) == 0
     with pytest.raises(LimitExceededError):
@@ -290,7 +289,7 @@ def test_check_quota_precheck_consumes_nothing():
     )
 
     for _ in range(5):
-        assert quota_manager.check_quota(user_id=7, daily_limit=3, quantity=0) is True
+        quota_manager.check_quota(user_id=7, daily_limit=3, quantity=0)
 
     assert quota_manager.get_remaining_quota(user_id=7, daily_limit=3) == 3
 
@@ -313,9 +312,8 @@ def test_check_quota_sleeps_when_per_minute_limited(mocker):
     )
     quota_manager = QuotaManager(mock_rate_limiter, parse_rate_limit("5 per minute"))
 
-    result = quota_manager.check_quota(user_id=321, daily_limit=5)
+    quota_manager.check_quota(user_id=321, daily_limit=5)
 
-    assert result is True
     mock_sleep.assert_called_once_with(7.5)
 
 

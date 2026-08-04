@@ -22,20 +22,16 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Container:
-    """The wired-up collaborators the application runs on."""
+    """The wired-up collaborators `main.build_app` runs on.
+
+    Only the roots BotApp holds directly; everything else in the graph is reached
+    through `handlers`, which owns the collaborators it needs.
+    """
 
     bot: telebot.TeleBot
-    messenger: Messenger
     quota_manager: QuotaManager
-    gemini_helper: GeminiHelper
     tracer: Tracer
     user_repo: UserRepository
-    llm_client: LLMClient
-    downloader: Downloader
-    web_parser: WebParser
-    audio_transcriber: AudioTranscriber
-    yt_transcriber: YouTubeTranscriber
-    summarizer: Summarizer
     handlers: MessageHandlers
 
 
@@ -64,17 +60,9 @@ def build_container() -> Container:
     )
     return Container(
         bot=bot,
-        messenger=messenger,
         quota_manager=quota_manager,
-        gemini_helper=gemini_helper,
         tracer=Tracer(config.langfuse_client),
         user_repo=UserRepository(database.Session),
-        llm_client=llm_client,
-        downloader=downloader,
-        web_parser=web_parser,
-        audio_transcriber=audio_transcriber,
-        yt_transcriber=yt_transcriber,
-        summarizer=summarizer,
         handlers=MessageHandlers(
             bot,
             messenger,

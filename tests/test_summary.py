@@ -9,7 +9,7 @@ import summary as summary_module
 from config import ModelSpec
 from domain import PrefixedText
 from exceptions import FetchTranscriptError, LimitExceededError
-from summary import Summarizer, format_prefixed_summary
+from summary import Summarizer
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -107,32 +107,12 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
         )
 
 
-def test_summarize_text_from_transcript(mocker):
-    """Test summarize_text feeds a transcript to the model."""
-    summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
-    fakes.llm_client.run.return_value = "Transcript summary."
-
-    result = summarizer.summarize_text(
-        text="Hello world. This is a transcript.",
-        model="gemini-3.5-flash-lite",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="MINIMAL",
-    )
-
-    assert result == "Transcript summary."
-
-
-def test_format_prefixed_summary_preserves_blank_line():
-    """Test prefixed summaries always include exactly one blank line."""
-    assert format_prefixed_summary("📹", "\n- one\n- two\n") == "📹\n\n- one\n- two"
-
-
 def test_summarize_text_from_webpage(mocker):
-    """Test summarize_text sends pre-parsed webpage content as a plain prompt."""
+    """Test summarize_text sends pre-parsed webpage content as a plain prompt.
+
+    The transcript paths reach the model through this same method, so this
+    covers them too — only the caller differs.
+    """
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
     fakes.llm_client.run.return_value = "Webpage summary."
@@ -266,38 +246,17 @@ def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
     mock_clean_up.assert_called_once_with(file="temp_doc.pdf")
 
 
-def test_summarize_youtube_always_attempts_transcript(mocker):
-    """get_transcript is always called for YouTube URLs (no user toggle)."""
-    summarizer, fakes = _make_summarizer(mocker)
-    url = "https://youtube.com/watch?v=123"
-    fakes.quota_manager.check_quota.return_value = True
-    fakes.yt_transcriber.get_transcript.return_value = SimpleNamespace(
-        text="YT Transcript",
-        prefix="📹",
-    )
-    mocker.patch.object(summarizer, "summarize_text", return_value="Summary")
-
-    summarizer.summarize(
-        data=url,
-        model="gemini-3.5-flash-lite",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="MINIMAL",
-    )
-
-    fakes.yt_transcriber.get_transcript.assert_called_once_with(url)
-
-
-def test_summarize_youtube_direct_transcript(mocker):
-    """Test summarize() using direct YouTube transcript (📹 prefix)."""
+# 📺 is the youtube_transcript_api primary, 📹 the yt-dlp fallback. Summarizer
+# does not pick either — it passes through whatever the transcriber reports.
+@pytest.mark.parametrize("prefix", ["📺", "📹"])
+def test_summarize_youtube_transcript_carries_the_backend_prefix(mocker, prefix):
+    """Test summarize() always tries the transcript and keeps its source prefix."""
     summarizer, fakes = _make_summarizer(mocker)
     url = "https://youtube.com/watch?v=123"
     fakes.quota_manager.check_quota.return_value = True
     fakes.yt_transcriber.get_transcript.return_value = SimpleNamespace(
         text="YT Transcript content",
-        prefix="📹",
+        prefix=prefix,
     )
     mock_sum_transcript = mocker.patch.object(
         summarizer,
@@ -315,8 +274,8 @@ def test_summarize_youtube_direct_transcript(mocker):
         thinking_level="MINIMAL",
     )
 
-    assert result.startswith("📹")
-    assert result == "📹\n\n- first point\n- second point"
+    assert result == f"{prefix}\n\n- first point\n- second point"
+    fakes.yt_transcriber.get_transcript.assert_called_once_with(url)
     mock_sum_transcript.assert_called_once_with(
         text="YT Transcript content",
         model="gemini-3.5-flash-lite",
@@ -326,34 +285,6 @@ def test_summarize_youtube_direct_transcript(mocker):
         daily_limit=10,
         thinking_level="MINIMAL",
     )
-
-
-def test_summarize_youtube_fallback_transcript_uses_fallback_prefix(mocker):
-    """Test fallback YouTube transcript summaries use the 📺 prefix."""
-    summarizer, fakes = _make_summarizer(mocker)
-    url = "https://youtube.com/watch?v=123"
-    fakes.quota_manager.check_quota.return_value = True
-    fakes.yt_transcriber.get_transcript.return_value = SimpleNamespace(
-        text="YT Transcript content",
-        prefix="📺",
-    )
-    mocker.patch.object(
-        summarizer,
-        "summarize_text",
-        return_value="- first point\n- second point",
-    )
-
-    result = summarizer.summarize(
-        data=url,
-        model="gemini-3.5-flash-lite",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="MINIMAL",
-    )
-
-    assert result == "📺\n\n- first point\n- second point"
 
 
 def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):

@@ -7,11 +7,55 @@ from yt_dlp.utils import DownloadError
 
 from download import Downloader
 
+_AUDIO_ONLY_INFO = {
+    "formats": [
+        {
+            "format_id": "139",
+            "acodec": "mp4a.40.5",
+            "vcodec": "none",
+            "abr": 49,
+            "tbr": 49,
+        },
+    ],
+}
+
 
 @pytest.fixture
 def downloader():
     """Downloader instance wired to a fixed test token."""
     return Downloader("TEST_TOKEN")
+
+
+def _arrange_failing_yt_download(mocker, unlink_side_effect=None):
+    """Drive download_yt to a DownloadError on both attempts, leaving one partial.
+
+    The temp name is pinned so the glob pattern is known ahead of the call, and
+    the YoutubeDL contexts alternate extract_info/download across both attempts.
+
+    Returns:
+        (mock_cwd, partial) — the patched Path.cwd and the leftover file mock.
+
+    """
+    mock_ydl = mocker.patch("download.YoutubeDL")
+    mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
+    mocker.patch("time.sleep")  # suppress tenacity wait between retries
+
+    info_ydl = mocker.MagicMock()
+    info_ydl.extract_info.return_value = _AUDIO_ONLY_INFO
+    download_ydl = mocker.MagicMock()
+    download_ydl.download.side_effect = DownloadError("boom")
+    mock_ydl.side_effect = [
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),
+        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
+    ]
+
+    partial = mocker.MagicMock(spec=Path)
+    partial.unlink.side_effect = unlink_side_effect
+    mock_cwd = mocker.patch("download.Path.cwd")
+    mock_cwd.return_value.glob.return_value = [partial]
+    return mock_cwd, partial
 
 
 def test_download_tg_happy_path(mocker, downloader):
@@ -149,37 +193,7 @@ def test_download_yt_extract_info_returns_none(mocker, downloader):
 
 def test_download_yt_removes_partials_on_download_error(mocker, downloader):
     """Test download_yt deletes yt-dlp partial files when the download fails."""
-    mock_ydl = mocker.patch("download.YoutubeDL")
-    # Fixed name kept: the glob assertion below checks the exact pattern built
-    # from the output stem, which must be known ahead of the call.
-    mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
-    mocker.patch("time.sleep")  # suppress tenacity wait between retries
-
-    info_ydl = mocker.MagicMock()
-    info_ydl.extract_info.return_value = {
-        "formats": [
-            {
-                "format_id": "139",
-                "acodec": "mp4a.40.5",
-                "vcodec": "none",
-                "abr": 49,
-                "tbr": 49,
-            },
-        ],
-    }
-    download_ydl = mocker.MagicMock()
-    download_ydl.download.side_effect = DownloadError("boom")
-    # extract_info + download contexts alternate across the two retry attempts.
-    mock_ydl.side_effect = [
-        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),
-        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
-        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),
-        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
-    ]
-
-    partial = mocker.MagicMock(spec=Path)
-    mock_cwd = mocker.patch("download.Path.cwd")
-    mock_cwd.return_value.glob.return_value = [partial]
+    mock_cwd, partial = _arrange_failing_yt_download(mocker)
 
     with pytest.raises(RetryError):
         downloader.download_yt("https://youtube.com/watch?v=123")
@@ -190,36 +204,7 @@ def test_download_yt_removes_partials_on_download_error(mocker, downloader):
 
 def test_download_yt_unlink_oserror_does_not_hide_download_error(mocker, downloader):
     """Test that an OSError from unlink is suppressed and DownloadError still propagates."""
-    mock_ydl = mocker.patch("download.YoutubeDL")
-    # Fixed name kept: matches the pre-created partial file's expected stem.
-    mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
-    mocker.patch("time.sleep")
-
-    info_ydl = mocker.MagicMock()
-    info_ydl.extract_info.return_value = {
-        "formats": [
-            {
-                "format_id": "139",
-                "acodec": "mp4a.40.5",
-                "vcodec": "none",
-                "abr": 49,
-                "tbr": 49,
-            },
-        ],
-    }
-    download_ydl = mocker.MagicMock()
-    download_ydl.download.side_effect = DownloadError("boom")
-    mock_ydl.side_effect = [
-        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),
-        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
-        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),
-        mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
-    ]
-
-    partial = mocker.MagicMock(spec=Path)
-    partial.unlink.side_effect = PermissionError("locked")
-    mock_cwd = mocker.patch("download.Path.cwd")
-    mock_cwd.return_value.glob.return_value = [partial]
+    _arrange_failing_yt_download(mocker, unlink_side_effect=PermissionError("locked"))
 
     # PermissionError from unlink must not surface; RetryError wraps DownloadError.
     with pytest.raises(RetryError):
@@ -231,17 +216,7 @@ def test_download_yt_keeps_file_on_success(mocker, downloader):
     mock_ydl = mocker.patch("download.YoutubeDL")
 
     info_ydl = mocker.MagicMock()
-    info_ydl.extract_info.return_value = {
-        "formats": [
-            {
-                "format_id": "139",
-                "acodec": "mp4a.40.5",
-                "vcodec": "none",
-                "abr": 49,
-                "tbr": 49,
-            },
-        ],
-    }
+    info_ydl.extract_info.return_value = _AUDIO_ONLY_INFO
     download_ydl = mocker.MagicMock()
     mock_ydl.side_effect = [
         mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),

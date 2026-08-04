@@ -1,7 +1,56 @@
 from pathlib import Path
 
 from config import PROTECTED_FILES
-from utils import clean_up, compress_audio, generate_temporary_name
+from utils import classify_url, clean_up, compress_audio, generate_temporary_name
+
+
+def test_classify_url_uppercase_youtube_host():
+    """Test classify_url normalises uppercase YouTube hostnames to 'youtube'."""
+    assert classify_url("https://YOUTU.BE/dQw4w9WgXcQ") == "youtube"
+    assert classify_url("https://WWW.YOUTUBE.COM/watch?v=dQw4w9WgXcQ") == "youtube"
+
+
+def test_classify_url_strips_www_prefix():
+    """Test classify_url routes www-prefixed media hosts to their media kind.
+
+    Regression: routing used to be duplicated, and the second classifier matched
+    three literal lowercase prefixes. A www-prefixed Castro or youtu.be link was
+    classified as media in handlers, then failed the second check and reached the
+    Gemini file upload with the URL string as its file path.
+    """
+    assert classify_url("https://www.castro.fm/episode/123") == "castro"
+    assert classify_url("https://www.youtu.be/dQw4w9WgXcQ") == "youtube"
+
+
+def test_classify_url_castro_non_episode_path_is_web():
+    """Test classify_url only treats Castro /episode/ paths as media."""
+    assert classify_url("https://castro.fm/about") == "web"
+
+
+def test_classify_url_malformed_no_host():
+    """Test classify_url returns None for URLs with no parseable hostname."""
+    assert classify_url("https://") is None
+
+
+def test_classify_url_rejects_non_http_scheme():
+    """Test classify_url returns None for non-http(s) schemes."""
+    assert classify_url("ftp://example.com/file.txt") is None
+
+
+def test_classify_url_returns_none_for_unparseable_authority():
+    """Test classify_url returns None when urlsplit rejects the authority.
+
+    urlsplit raises ValueError on bracket-malformed hosts. Left uncaught it
+    escapes handle_url's kind check and reaches handle_message's catch-all, so
+    the user sees "Unexpected: ValueError" instead of "No data to proceed.".
+    """
+    assert classify_url("https://[") is None
+    assert classify_url("http://[::1") is None
+
+
+def test_classify_url_http_youtube_is_web():
+    """Test classify_url only treats https media hosts as media."""
+    assert classify_url("http://youtube.com/watch?v=dQw4w9WgXcQ") == "web"
 
 
 def test_generate_temporary_name_no_ext():
@@ -49,7 +98,6 @@ def test_compress_audio_calls_ffmpeg(mocker):
         expected_args,
         check=True,
         capture_output=False,
-        text=True,
     )
 
 
