@@ -192,6 +192,9 @@ def test_handle_media_rejects_file_over_the_telegram_cap(
     getattr(handlers, handler_name)(msg, mocker.MagicMock())
 
     fakes.bot.reply_to.assert_called_once_with(msg, "File is too big.")
+    # The cap exists because Telegram's getFile refuses files above it, so the
+    # guard has to short-circuit before the fetch, not just before summarizing.
+    fakes.messenger.get_file_with_retry.assert_not_called()
     fakes.summarizer.summarize.assert_not_called()
 
 
