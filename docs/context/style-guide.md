@@ -56,12 +56,13 @@ Use `# noqa` sparingly and always specify the exact rule code.
 
 ## Classes
 
-Service modules follow the class → module-singleton → method-alias pattern documented in
-`docs/context/architecture.md` (Cross-cutting patterns). Beyond that:
+Collaborators arrive via `__init__` and are stored on private attributes (e.g. `self._client`);
+`container.py`'s composition root does the wiring, once, from `config`'s clients. This is an
+in-progress migration (STG-135, see `docs/context/architecture.md`) — the class →
+module-singleton → method-alias blocks that remain in unmigrated modules are a transitional shim,
+removed slice by slice as each module's importers and tests move to injection.
 
 - `@staticmethod` is reserved for **private** helpers (`_name`) that need no instance state.
-  Public methods keep `self` even when they don't use it — they form the aliased singleton
-  surface (`check_quota = quota_manager.check_quota`), so they must stay bound methods.
 - Annotate class-level constants with `ClassVar`, e.g. `_DEFAULTS: ClassVar[dict[str, str]]` —
   without it Ruff (`RUF012`) reads a mutable class attribute as an un-annotated instance field.
 

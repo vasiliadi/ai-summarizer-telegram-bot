@@ -33,7 +33,12 @@ from exceptions import LimitExceededError
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    import telebot
+    from google import genai
     from google.genai import types
+    from langfuse import Langfuse
+    from limits import RateLimitItem
+    from limits.strategies import FixedWindowRateLimiter
     from telebot.types import File, Message
     from tenacity import _utils as tenacity_utils
 
@@ -44,7 +49,10 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 class Messenger:
     """Handles all Telegram bot messaging with retry logic."""
 
-    @staticmethod
+    def __init__(self, bot: telebot.TeleBot) -> None:
+        """Store the injected Telegram bot client."""
+        self._bot = bot
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_fixed(1),
@@ -53,12 +61,13 @@ class Messenger:
         reraise=True,
     )
     def _reply_with_retry(
+        self,
         message: Message,
         text: str,
         entities: list[dict[str, object]],
     ) -> None:
         """Send a reply with retry logic on Telegram API errors."""
-        bot.reply_to(message, text, entities=entities)
+        self._bot.reply_to(message, text, entities=entities)
 
     @retry(
         stop=stop_after_attempt(3),
@@ -69,7 +78,7 @@ class Messenger:
     )
     def get_file_with_retry(self, file_id: str) -> File:
         """Get file information from Telegram, with retries on timeout."""
-        return bot.get_file(file_id)
+        return self._bot.get_file(file_id)
 
     def send_answer(self, message: Message, answer: str) -> None:
         """Send a response message, splitting at Telegram's 4 096-code-unit limit."""
@@ -89,21 +98,37 @@ class Messenger:
 class QuotaManager:
     """Enforces per-user daily and global per-minute rate limits."""
 
+    def __init__(
+        self,
+        rate_limiter: FixedWindowRateLimiter,
+        per_minute_rate: RateLimitItem,
+    ) -> None:
+        """Store the injected rate limiter and its parsed per-minute rate."""
+        self._rate_limiter = rate_limiter
+        self._per_minute_rate = per_minute_rate
+
     def check_quota(self, user_id: int, daily_limit: int, quantity: int = 1) -> bool:
         """Enforce rate limits; raise if daily exceeded; sleep on per-minute."""
         if daily_limit <= 0:
             msg = "The daily limit for requests has been exceeded"
             raise LimitExceededError(msg)
         daily_rate = parse_rate_limit(f"{daily_limit} per day")
-        if not rate_limiter.hit(
+        if not self._rate_limiter.hit(
             daily_rate,
             f"{DAILY_LIMIT_KEY}:{user_id}",
             cost=quantity,
         ):
             msg = "The daily limit for requests has been exceeded"
             raise LimitExceededError(msg)
-        while not rate_limiter.hit(per_minute_rate, MINUTE_LIMIT_KEY, cost=quantity):
-            stats = rate_limiter.get_window_stats(per_minute_rate, MINUTE_LIMIT_KEY)
+        while not self._rate_limiter.hit(
+            self._per_minute_rate,
+            MINUTE_LIMIT_KEY,
+            cost=quantity,
+        ):
+            stats = self._rate_limiter.get_window_stats(
+                self._per_minute_rate,
+                MINUTE_LIMIT_KEY,
+            )
             time.sleep(max(0.0, stats.reset_time - time.time()))
         return True
 
@@ -112,7 +137,7 @@ class QuotaManager:
         if daily_limit <= 0:
             return 0
         daily_rate = parse_rate_limit(f"{daily_limit} per day")
-        stats = rate_limiter.get_window_stats(
+        stats = self._rate_limiter.get_window_stats(
             daily_rate,
             f"{DAILY_LIMIT_KEY}:{user_id}",
         )
@@ -121,6 +146,10 @@ class QuotaManager:
 
 class GeminiHelper:
     """Utilities for Gemini file management."""
+
+    def __init__(self, client: genai.Client) -> None:
+        """Store the injected Gemini client."""
+        self._client = client
 
     def resolve_mime_type(self, file: str) -> str:
         """Resolve the MIME type for a file path, defaulting to octet-stream."""
@@ -133,7 +162,7 @@ class GeminiHelper:
         sleep_time: int,
     ) -> types.File:
         """Upload a file to Gemini and wait for processing to finish."""
-        uploaded = gemini_client.files.upload(
+        uploaded = self._client.files.upload(
             file=file,
             config={"mime_type": mime_type},
         )
@@ -142,7 +171,7 @@ class GeminiHelper:
         file_name = uploaded.name
         while uploaded.state == "PROCESSING":
             time.sleep(sleep_time)
-            uploaded = gemini_client.files.get(name=file_name)
+            uploaded = self._client.files.get(name=file_name)
         if uploaded.state == "FAILED":
             raise ValueError(uploaded.state)
         # Re-check name on the polled object, not just the upload response:
@@ -152,37 +181,61 @@ class GeminiHelper:
         return uploaded
 
 
-@contextmanager
-def observe_message(user_id: int, content_type: str) -> Generator[None]:
-    """Group all model calls for one Telegram message into a single trace.
+class Tracer:
+    """Groups all model calls for one Telegram message into a single Langfuse trace."""
 
-    Opens a Langfuse root span attributed to the user and tagged with the
-    message content type, so the generation spans emitted by pydantic-ai nest
-    under one trace. A no-op when Langfuse is not configured.
-    """
-    if langfuse_client is None:
-        yield
-        return
-    with (
-        langfuse_client.start_as_current_observation(name="handle_message"),
-        propagate_attributes(user_id=str(user_id), tags=[content_type]),
-    ):
-        yield
+    def __init__(self, client: Langfuse | None) -> None:
+        """Store the injected Langfuse client (None when tracing is disabled)."""
+        self._client = client
+
+    @contextmanager
+    def observe_message(self, user_id: int, content_type: str) -> Generator[None]:
+        """Group all model calls for one Telegram message into a single trace.
+
+        Opens a Langfuse root span attributed to the user and tagged with the
+        message content type, so the generation spans emitted by pydantic-ai nest
+        under one trace. A no-op when Langfuse is not configured.
+        """
+        if self._client is None:
+            yield
+            return
+        with (
+            self._client.start_as_current_observation(name="handle_message"),
+            propagate_attributes(user_id=str(user_id), tags=[content_type]),
+        ):
+            yield
 
 
-# Module-level singletons
-messenger = Messenger()
-quota_manager = QuotaManager()
-gemini_helper = GeminiHelper()
+# Module-level singletons and aliases — transitional shim (STG-135).
+# Consumers (summary.py, handlers.py, main.py) still import these; removed once
+# every consumer is migrated to constructor injection. The config clients above
+# are imported for this block alone — no method body reads them.
+messenger = Messenger(bot)
+quota_manager = QuotaManager(rate_limiter, per_minute_rate)
+gemini_helper = GeminiHelper(gemini_client)
+tracer = Tracer(langfuse_client)
 
-
-# Module-level aliases — keep the existing public API intact so that
-# all importers and mocker.patch("services.*") calls continue to work.
 get_file_with_retry = messenger.get_file_with_retry
 send_answer = messenger.send_answer
-
 check_quota = quota_manager.check_quota
 get_remaining_quota = quota_manager.get_remaining_quota
-
 resolve_mime_type = gemini_helper.resolve_mime_type
-upload_and_wait_for_file = gemini_helper.upload_and_wait_for_file
+
+
+def upload_and_wait_for_file(file: str, mime_type: str, sleep_time: int) -> types.File:
+    """Transitional alias for `GeminiHelper.upload_and_wait_for_file` (STG-135).
+
+    Builds a fresh `GeminiHelper` around the current module-level `gemini_client`
+    on every call, rather than delegating to the `gemini_helper` singleton's
+    already-bound method, so `tests/test_summary.py`'s
+    `mocker.patch("services.gemini_client", ...)` calls keep working until that
+    test module migrates to injecting a `GeminiHelper` directly.
+    """
+    return GeminiHelper(gemini_client).upload_and_wait_for_file(
+        file,
+        mime_type,
+        sleep_time,
+    )
+
+
+observe_message = tracer.observe_message
