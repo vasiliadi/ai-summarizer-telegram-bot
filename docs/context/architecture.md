@@ -134,14 +134,13 @@ to Gemini — return the raw model text with **no** prefix.
 ## Cross-cutting patterns
 
 - **Constructor injection migration (STG-135, in progress).** Service classes
-  move from module-level singletons to `__init__`-injected collaborators, wired
-  once by `container.py`'s composition root. Migrated so far: `Messenger`,
-  `QuotaManager`, `GeminiHelper`, `Tracer` (`services.py`); `UserRepository`
-  (`database.py`); `LLMClient` (`llm.py`); `Downloader` (`download.py`). Other
-  modules still carry the class → module-singleton → method-alias shim
-  (`module.func`, `mocker.patch("module.func")` keep working) until their
-  importers and tests migrate too. Unwinding to plain functions is
-  **rejected**.
+  move from module-level singletons to injected collaborators, wired once by
+  `container.py`. Migrated so far: `Messenger`, `QuotaManager`, `GeminiHelper`,
+  `Tracer` (`services.py`); `UserRepository` (`database.py`); `LLMClient`
+  (`llm.py`); `Downloader` (`download.py`); `WebParser` (`parsing.py`).
+  Remaining modules keep the class → module-singleton → method-alias shim
+  (`module.func`, `mocker.patch("module.func")`) until migrated too. Unwinding
+  to plain functions is **rejected**.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
   unit. A global per-minute limit throttles by sleeping. Counters live in Valkey;

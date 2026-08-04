@@ -251,6 +251,10 @@ class WebParser:
                 raise WebParseError(msg) from fallback_error
 
 
+# Module-level singleton and alias — transitional shim (STG-135).
+# handlers.py still imports parse_url; removed once every consumer is
+# migrated to constructor injection. The config clients above are imported
+# for this block alone.
 web_parser = WebParser(
     ExaBackend(exa_client),
     TavilyBackend(tavily_client),

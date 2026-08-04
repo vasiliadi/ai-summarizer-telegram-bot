@@ -336,12 +336,16 @@ def test_is_public_returns_false_when_any_addr_is_private(mocker):
 
 def test_resolve_returns_final_url_after_redirect(mocker):
     """Test resolve returns the redirected URL and closes the response."""
-    mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
+    resolver = UrlResolver()
+    mocker.patch.object(resolver, "_is_public", return_value=True)
+    # get_proxy() reads config.PROXIES, which python-dotenv backfills from the
+    # developer's real .env (conftest.py never sets PROXY) — patch it so the
+    # test result does not depend on what happens to be in that file.
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/final")
     mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
 
-    result = UrlResolver().resolve("https://example.com/start")
+    result = resolver.resolve("https://example.com/start")
 
     assert result == "https://example.com/final"
     mock_resp.close.assert_called_once_with()
@@ -352,12 +356,13 @@ def test_resolve_returns_final_url_after_redirect(mocker):
 
 def test_resolve_returns_original_when_no_redirect(mocker):
     """Test resolve returns the input unchanged when there is no redirect."""
-    mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
+    resolver = UrlResolver()
+    mocker.patch.object(resolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/article")
     mocker.patch("parsing.requests.get", return_value=mock_resp)
 
-    result = UrlResolver().resolve("https://example.com/article")
+    result = resolver.resolve("https://example.com/article")
 
     assert result == "https://example.com/article"
     mock_resp.close.assert_called_once_with()
@@ -365,12 +370,13 @@ def test_resolve_returns_original_when_no_redirect(mocker):
 
 def test_resolve_falls_back_to_original_on_error(mocker, caplog):
     """Test resolve returns the original URL when the request raises."""
-    mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
+    resolver = UrlResolver()
+    mocker.patch.object(resolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mocker.patch("parsing.requests.get", side_effect=RuntimeError("boom"))
 
     with caplog.at_level(logging.WARNING, logger="parsing"):
-        result = UrlResolver().resolve("https://example.com/article")
+        result = resolver.resolve("https://example.com/article")
 
     assert result == "https://example.com/article"
     assert "Could not resolve redirects" in caplog.text
@@ -378,51 +384,55 @@ def test_resolve_falls_back_to_original_on_error(mocker, caplog):
 
 def test_resolve_passes_proxy_when_configured(mocker):
     """Test resolve forwards a configured proxy to requests.get."""
-    mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
+    resolver = UrlResolver()
+    mocker.patch.object(resolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="https://user:pass@proxy.com:1234")
     mock_resp = mocker.Mock(url="https://example.com/article")
     mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
 
-    UrlResolver().resolve("https://example.com/article")
+    resolver.resolve("https://example.com/article")
 
     assert mock_get.call_args.kwargs["proxy"] == "https://user:pass@proxy.com:1234"
 
 
 def test_resolve_omits_proxy_when_none_configured(mocker):
     """Test resolve passes proxy=None when no proxy is set."""
-    mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
+    resolver = UrlResolver()
+    mocker.patch.object(resolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/article")
     mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
 
-    UrlResolver().resolve("https://example.com/article")
+    resolver.resolve("https://example.com/article")
 
     assert mock_get.call_args.kwargs["proxy"] is None
 
 
 def test_resolve_passes_configured_timeout(mocker):
     """Test resolve forwards the instance timeout to requests.get."""
-    mocker.patch.object(parsing.UrlResolver, "_is_public", return_value=True)
+    resolver = UrlResolver(timeout=3)
+    mocker.patch.object(resolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/article")
     mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
 
-    UrlResolver(timeout=3).resolve("https://example.com/article")
+    resolver.resolve("https://example.com/article")
 
     assert mock_get.call_args.kwargs["timeout"] == 3
 
 
 def test_resolve_blocks_non_public_initial_url(mocker, caplog):
     """Test resolve returns the original URL without fetching for a private host."""
+    resolver = UrlResolver()
     mocker.patch.object(
-        parsing.UrlResolver,
+        resolver,
         "_is_public",
         side_effect=lambda u: u != "http://192.168.1.1/",
     )
     mock_get = mocker.patch("parsing.requests.get")
 
     with caplog.at_level(logging.WARNING, logger="parsing"):
-        result = UrlResolver().resolve("http://192.168.1.1/")
+        result = resolver.resolve("http://192.168.1.1/")
 
     assert result == "http://192.168.1.1/"
     mock_get.assert_not_called()
@@ -431,8 +441,9 @@ def test_resolve_blocks_non_public_initial_url(mocker, caplog):
 
 def test_resolve_blocks_redirect_to_private_host(mocker, caplog):
     """Test resolve returns the original URL when a redirect lands on a private host."""
+    resolver = UrlResolver()
     mocker.patch.object(
-        parsing.UrlResolver,
+        resolver,
         "_is_public",
         side_effect=[True, False],  # public initial URL, private redirect
     )
@@ -441,7 +452,7 @@ def test_resolve_blocks_redirect_to_private_host(mocker, caplog):
     mocker.patch("parsing.requests.get", return_value=mock_resp)
 
     with caplog.at_level(logging.WARNING, logger="parsing"):
-        result = UrlResolver().resolve("https://example.com/start")
+        result = resolver.resolve("https://example.com/start")
 
     assert result == "https://example.com/start"
     assert "Blocked redirect to non-public host" in caplog.text
