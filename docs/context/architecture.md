@@ -47,7 +47,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 
 | Module | Role |
 |--------|------|
-| `main.py` | Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. |
+| `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; the `__main__` block just calls `build_app`, `run`, `shutdown`. |
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
 | `llm.py` | `LLMClient` — the provider seam. Each instance holds one pydantic-ai `Agent`; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`); `build_settings` currently carries only the provider-agnostic thinking level. |
@@ -55,7 +55,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
 | `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (Langfuse root span per message). |
-| `container.py` | `Container` + `build_container()` — the composition root; wires collaborators to `config`'s clients. |
+| `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator, including the `bot` client, to `config`'s clients. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
 | `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`. |
@@ -70,7 +70,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 
 ```
 Telegram update
-  └─ main.handle_message
+  └─ BotApp.handle_message
        ├─ select_user (Postgres) ─ reject if not approved
        └─ process_message_content  ── routes by content_type ──┐
                                                                │
@@ -140,8 +140,9 @@ to Gemini — return the raw model text with **no** prefix.
   `Tracer` (`services.py`); `UserRepository` (`database.py`); `LLMClient`
   (`llm.py`); `Downloader` (`download.py`); `WebParser` (`parsing.py`);
   `AudioTranscriber`/`YouTubeTranscriber` (`transcription.py`); `Summarizer`
-  (`summary.py`); `MessageHandlers` (`handlers.py`). Only `main.py` adopting
-  the container remains. Unwinding to plain functions is **rejected**.
+  (`summary.py`); `MessageHandlers` (`handlers.py`); `BotApp` (`main.py`).
+  Only deleting the now-unused transitional shims remains. Unwinding to plain
+  functions is **rejected**.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
   unit. A global per-minute limit throttles by sleeping. Counters live in Valkey;
@@ -160,7 +161,7 @@ to Gemini — return the raw model text with **no** prefix.
   and `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`, else `None`). When on,
   `Agent.instrument_all()` makes pydantic-ai emit an OpenTelemetry span per model
   call, which the OTel-based Langfuse SDK ingests — no provider-specific
-  instrumentor. `services.observe_message` (used in `main.handle_message`) wraps
+  instrumentor. `Tracer.observe_message` (used in `BotApp.handle_message`) wraps
   each Telegram message in one root span attributed to the user and tagged with the
   content type, so all model calls for a message nest under a single trace.
   `langfuse_client.shutdown()` flushes on exit. Independent of Sentry, which handles

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import config
 import database
@@ -15,14 +16,17 @@ from services import GeminiHelper, Messenger, QuotaManager, Tracer
 from summary import Summarizer
 from transcription import ApiBackend, AudioTranscriber, YouTubeTranscriber, YtDlpBackend
 
-# main.py adopting the container (STG-135) is all that remains after this
-# slice.
+if TYPE_CHECKING:
+    import telebot
+
+# Only the shim deletion (STG-135) remains after this slice.
 
 
 @dataclass(frozen=True)
 class Container:
     """The wired-up collaborators the application runs on."""
 
+    bot: telebot.TeleBot
     messenger: Messenger
     quota_manager: QuotaManager
     gemini_helper: GeminiHelper
@@ -39,7 +43,8 @@ class Container:
 
 def build_container() -> Container:
     """Construct the application object graph from config's clients."""
-    messenger = Messenger(config.bot)
+    bot = config.bot
+    messenger = Messenger(bot)
     quota_manager = QuotaManager(config.rate_limiter, config.per_minute_rate)
     gemini_helper = GeminiHelper(config.gemini_client)
     llm_client = LLMClient(config.gemini_client)
@@ -60,6 +65,7 @@ def build_container() -> Container:
         yt_transcriber,
     )
     return Container(
+        bot=bot,
         messenger=messenger,
         quota_manager=quota_manager,
         gemini_helper=gemini_helper,
@@ -72,7 +78,7 @@ def build_container() -> Container:
         yt_transcriber=yt_transcriber,
         summarizer=summarizer,
         handlers=MessageHandlers(
-            config.bot,
+            bot,
             messenger,
             summarizer,
             web_parser,

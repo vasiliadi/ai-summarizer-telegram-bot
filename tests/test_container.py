@@ -14,6 +14,7 @@ def test_build_container_returns_wired_container():
     container = build_container()
 
     assert isinstance(container, Container)
+    assert container.bot is config.bot
     assert isinstance(container.messenger, Messenger)
     assert isinstance(container.quota_manager, QuotaManager)
     assert isinstance(container.gemini_helper, GeminiHelper)

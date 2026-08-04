@@ -192,6 +192,11 @@ class Tracer:
         """Store the injected Langfuse client (None when tracing is disabled)."""
         self._client = client
 
+    def shutdown(self) -> None:
+        """Flush buffered spans; a no-op when tracing is not configured."""
+        if self._client is not None:
+            self._client.shutdown()
+
     @contextmanager
     def observe_message(self, user_id: int, content_type: str) -> Generator[None]:
         """Group all model calls for one Telegram message into a single trace.

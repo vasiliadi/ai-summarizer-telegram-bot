@@ -283,6 +283,20 @@ def test_check_quota_sleeps_when_per_minute_limited(mocker):
     mock_sleep.assert_called_once_with(7.5)
 
 
+def test_tracer_shutdown_flushes_the_client(mocker):
+    """Tracer.shutdown flushes buffered spans when Langfuse is configured."""
+    mock_client = mocker.MagicMock()
+
+    Tracer(mock_client).shutdown()
+
+    mock_client.shutdown.assert_called_once_with()
+
+
+def test_tracer_shutdown_is_a_noop_when_langfuse_disabled():
+    """Tracer.shutdown does nothing when tracing is not configured."""
+    Tracer(None).shutdown()
+
+
 def test_observe_message_noop_when_langfuse_disabled(mocker):
     """observe_message is a no-op context manager when Langfuse is not configured."""
     mock_propagate = mocker.patch("services.propagate_attributes")
