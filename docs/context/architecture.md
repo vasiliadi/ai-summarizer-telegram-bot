@@ -50,7 +50,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `main.py` | Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. |
 | `handlers.py` | Per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls `llm.run_model`. |
-| `llm.py` | `LLMClient` — the provider seam. One pydantic-ai `Agent`; model, instructions and settings are resolved per run. Provider dispatch lives in `_build_model` (keyed on `config.MODEL_SPECS[...].provider`); `build_settings` currently carries only the provider-agnostic thinking level. |
+| `llm.py` | `LLMClient` — the provider seam. Each instance holds one pydantic-ai `Agent`; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`); `build_settings` currently carries only the provider-agnostic thinking level. |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
@@ -134,13 +134,13 @@ to Gemini — return the raw model text with **no** prefix.
 ## Cross-cutting patterns
 
 - **Constructor injection migration (STG-135, in progress).** Service classes
-  are moving from module-level singletons to `__init__`-injected collaborators,
-  wired once by `container.py`'s composition root. `services.py` and
-  `database.py` are migrated (`Messenger`, `QuotaManager`, `GeminiHelper`,
-  `Tracer`, `UserRepository` all take their client/factory in `__init__`);
-  other modules still carry the older class → module-singleton → method-alias
-  shim (`module.func`, `mocker.patch("module.func")` keep working) until their
-  importers and tests migrate too. Unwinding back to plain functions remains
+  move from module-level singletons to `__init__`-injected collaborators, wired
+  once by `container.py`'s composition root. `services.py`, `database.py`, and
+  `llm.py` are migrated (`Messenger`, `QuotaManager`, `GeminiHelper`, `Tracer`,
+  `UserRepository`, `LLMClient` take their client/factory in `__init__`); other
+  modules still carry the class → module-singleton → method-alias shim
+  (`module.func`, `mocker.patch("module.func")` keep working) until their
+  importers and tests migrate too. Unwinding to plain functions is
   **rejected**.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one

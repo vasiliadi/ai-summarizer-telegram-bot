@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import lru_cache
 from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
@@ -15,33 +14,37 @@ from prompts import SYSTEM_INSTRUCTION
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from google import genai
     from google.genai import types
     from pydantic_ai.messages import UploadedFileProviderName, UserContent
     from pydantic_ai.models import Model
     from pydantic_ai.settings import ThinkingLevel
 
 
-# A single agent serves every call: pydantic-ai takes the model, the instructions
-# and the settings per run, so nothing here is model-, language- or user-specific.
-_agent: Agent[None, str] = Agent()
-
-
-@lru_cache
-def _build_model(model_id: str) -> Model:
-    """Build the provider model for a registered id, cached for reuse."""
-    spec = MODEL_SPECS[model_id]
-    if spec.provider == "google":
-        return GoogleModel(model_id, provider=GoogleProvider(client=gemini_client))
-    msg = f"No model builder for provider: {spec.provider}"
-    raise ValueError(msg)
-
-
 class LLMClient:
     """Provider-agnostic entry point for every summarization model call."""
 
+    def __init__(self, client: genai.Client) -> None:
+        """Store the injected Gemini client and this client's model cache."""
+        self._client = client
+        # A single agent serves every call: pydantic-ai takes the model, the
+        # instructions and the settings per run, so nothing here is model-,
+        # language- or user-specific.
+        self._agent: Agent[None, str] = Agent()
+        self._models: dict[str, Model] = {}
+
     def build_model(self, model_id: str) -> Model:
         """Return the pydantic-ai model for a registered id, shared across calls."""
-        return _build_model(model_id)
+        if model_id not in self._models:
+            spec = MODEL_SPECS[model_id]
+            if spec.provider != "google":
+                msg = f"No model builder for provider: {spec.provider}"
+                raise ValueError(msg)
+            self._models[model_id] = GoogleModel(
+                model_id,
+                provider=GoogleProvider(client=self._client),
+            )
+        return self._models[model_id]
 
     def build_settings(self, model_id: str, thinking_level: str) -> ModelSettings:
         """Build the per-run settings, adding provider-specific options.
@@ -108,7 +111,7 @@ class LLMClient:
         instructions = dedent(
             SYSTEM_INSTRUCTION.format(language=target_language),
         ).strip()
-        result = _agent.run_sync(
+        result = self._agent.run_sync(
             content,
             model=self.build_model(model_id),
             instructions=instructions,
@@ -122,11 +125,11 @@ class LLMClient:
         return result.output
 
 
-# Module-level singleton
-llm_client = LLMClient()
+# Module-level singleton and aliases — transitional shim (STG-135).
+# summary.py still imports build_uploaded_file and run_model; removed once
+# every consumer is migrated to constructor injection.
+llm_client = LLMClient(gemini_client)
 
-
-# Module-level aliases — preserve the existing public API
 build_model = llm_client.build_model
 build_settings = llm_client.build_settings
 build_uploaded_file = llm_client.build_uploaded_file

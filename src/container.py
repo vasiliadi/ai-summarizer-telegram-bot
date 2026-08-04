@@ -7,9 +7,10 @@ from dataclasses import dataclass
 import config
 import database
 from database import UserRepository
+from llm import LLMClient
 from services import GeminiHelper, Messenger, QuotaManager, Tracer
 
-# Later slices append llm_client, downloader, web_parser, audio_transcriber,
+# Later slices append downloader, web_parser, audio_transcriber,
 # yt_transcriber, summarizer, and the handlers to this dataclass; main.py
 # adopts the container in a later slice (STG-135).
 
@@ -23,6 +24,7 @@ class Container:
     gemini_helper: GeminiHelper
     tracer: Tracer
     user_repo: UserRepository
+    llm_client: LLMClient
 
 
 def build_container() -> Container:
@@ -33,4 +35,5 @@ def build_container() -> Container:
         gemini_helper=GeminiHelper(config.gemini_client),
         tracer=Tracer(config.langfuse_client),
         user_repo=UserRepository(database.Session),
+        llm_client=LLMClient(config.gemini_client),
     )
