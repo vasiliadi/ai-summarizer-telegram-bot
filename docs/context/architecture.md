@@ -134,7 +134,7 @@ to Gemini — return the raw model text with **no** prefix.
 
 ## Cross-cutting patterns
 
-- **Constructor injection (settled, STG-135).** Collaborators arrive via
+- **Constructor injection.** Collaborators arrive via
   `__init__`, wired once by `container.py`'s `build_container()` from
   `config`'s third-party clients; `main.build_app` turns the graph into the
   running `BotApp`. No module-level service singletons or method aliases
