@@ -135,9 +135,9 @@ to Gemini — return the raw model text with **no** prefix.
 
 - **Constructor injection migration (STG-135, in progress).** Service classes
   move from module-level singletons to `__init__`-injected collaborators, wired
-  once by `container.py`'s composition root. `services.py`, `database.py`, and
-  `llm.py` are migrated (`Messenger`, `QuotaManager`, `GeminiHelper`, `Tracer`,
-  `UserRepository`, `LLMClient` take their client/factory in `__init__`); other
+  once by `container.py`'s composition root. Migrated so far: `Messenger`,
+  `QuotaManager`, `GeminiHelper`, `Tracer` (`services.py`); `UserRepository`
+  (`database.py`); `LLMClient` (`llm.py`); `Downloader` (`download.py`). Other
   modules still carry the class → module-singleton → method-alias shim
   (`module.func`, `mocker.patch("module.func")` keep working) until their
   importers and tests migrate too. Unwinding to plain functions is

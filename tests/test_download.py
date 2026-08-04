@@ -5,19 +5,21 @@ from curl_cffi.requests.exceptions import HTTPError
 from tenacity import RetryError
 from yt_dlp.utils import DownloadError
 
-from download import Downloader, download_castro, download_tg, download_yt
+from download import Downloader
 
 
-def test_download_tg_happy_path(mocker):
+@pytest.fixture
+def downloader():
+    """Downloader instance wired to a fixed test token."""
+    return Downloader("TEST_TOKEN")
+
+
+def test_download_tg_happy_path(mocker, downloader):
     """Test downloading a file from Telegram successfully."""
-    mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")
     mock_resp = mocker.MagicMock()
     mock_resp.iter_content.return_value = [b"test ", b"content"]
     mock_resp.status_code = 200
     mock_get = mocker.patch("download.requests.get", return_value=mock_resp)
-
-    # Mock generate_temporary_name to return a fixed name
-    mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
 
     mock_file = mocker.MagicMock()
     mock_file.file_path = "path/to/file"
@@ -25,9 +27,9 @@ def test_download_tg_happy_path(mocker):
     # We need to mock Path.open to avoid actual file system writes
     mock_path_open = mocker.patch("pathlib.Path.open", mocker.mock_open())
 
-    result = download_tg(mock_file, ext=".ext")
+    result = downloader.download_tg(mock_file, ext=".ext")
 
-    assert result == "temp_file.ext"
+    assert result.endswith(".ext")
     mock_get.assert_called_once_with(
         "https://api.telegram.org/file/botTEST_TOKEN/path/to/file",
         stream=True,
@@ -48,41 +50,38 @@ def test_download_tg_happy_path(mocker):
     assert mock_path_open().write.call_count == 2
 
 
-def test_download_tg_skips_empty_chunks(mocker):
+def test_download_tg_skips_empty_chunks(mocker, downloader):
     """Test download_tg skips empty chunks from iter_content."""
-    mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")
     mock_resp = mocker.MagicMock()
     mock_resp.iter_content.return_value = [b"", b"data", b""]
     mock_resp.status_code = 200
     mocker.patch("download.requests.get", return_value=mock_resp)
-    mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
 
     mock_file = mocker.MagicMock()
     mock_file.file_path = "path/to/file"
 
     mock_path_open = mocker.patch("pathlib.Path.open", mocker.mock_open())
 
-    result = download_tg(mock_file, ext=".ext")
+    result = downloader.download_tg(mock_file, ext=".ext")
 
-    assert result == "temp_file.ext"
+    assert result.endswith(".ext")
     mock_resp.iter_content.assert_called_once_with(chunk_size=8192)
     mock_path_open().write.assert_has_calls([mocker.call(b"data")])
     assert mock_path_open().write.call_count == 1
 
 
-def test_download_tg_missing_file_path(mocker):
+def test_download_tg_missing_file_path(mocker, downloader):
     """Test download_tg raises ValueError when file_path is missing."""
     mock_file = mocker.MagicMock()
     mock_file.file_path = None
 
     with pytest.raises(ValueError, match=r"Telegram file path is missing\."):
-        download_tg(mock_file)
+        downloader.download_tg(mock_file)
 
 
-def test_download_yt_happy_path(mocker):
+def test_download_yt_happy_path(mocker, downloader):
     """Test downloading a YouTube audio successfully."""
     mock_ydl = mocker.patch("download.YoutubeDL")
-    mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
 
     info_ydl = mocker.MagicMock()
     info_ydl.extract_info.return_value = {
@@ -109,9 +108,10 @@ def test_download_yt_happy_path(mocker):
         mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
     ]
 
-    result = download_yt("https://youtube.com/watch?v=123")
+    result = downloader.download_yt("https://youtube.com/watch?v=123")
 
-    assert result == "temp_yt.mp3"
+    assert result.endswith(".mp3")
+    output_stem = result.split(".", maxsplit=1)[0]
     info_ydl.extract_info.assert_called_once_with(
         "https://youtube.com/watch?v=123",
         download=False,
@@ -120,7 +120,7 @@ def test_download_yt_happy_path(mocker):
     mock_ydl.assert_any_call(
         {
             "format": "139",
-            "outtmpl": "temp_yt",
+            "outtmpl": output_stem,
             "nocheckcertificate": False,
             "proxy": mocker.ANY,
             "postprocessors": [
@@ -134,10 +134,9 @@ def test_download_yt_happy_path(mocker):
     download_ydl.download.assert_called_once_with("https://youtube.com/watch?v=123")
 
 
-def test_download_yt_extract_info_returns_none(mocker):
+def test_download_yt_extract_info_returns_none(mocker, downloader):
     """Test download_yt raises RetryError when extract_info returns None."""
     mock_ydl = mocker.patch("download.YoutubeDL")
-    mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
     mocker.patch("time.sleep")  # suppress tenacity wait between retries
 
     info_ydl = mocker.MagicMock()
@@ -145,12 +144,14 @@ def test_download_yt_extract_info_returns_none(mocker):
     mock_ydl.return_value.__enter__.return_value = info_ydl
 
     with pytest.raises(RetryError):
-        download_yt("https://youtube.com/watch?v=123")
+        downloader.download_yt("https://youtube.com/watch?v=123")
 
 
-def test_download_yt_removes_partials_on_download_error(mocker):
+def test_download_yt_removes_partials_on_download_error(mocker, downloader):
     """Test download_yt deletes yt-dlp partial files when the download fails."""
     mock_ydl = mocker.patch("download.YoutubeDL")
+    # Fixed name kept: the glob assertion below checks the exact pattern built
+    # from the output stem, which must be known ahead of the call.
     mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
     mocker.patch("time.sleep")  # suppress tenacity wait between retries
 
@@ -181,15 +182,16 @@ def test_download_yt_removes_partials_on_download_error(mocker):
     mock_cwd.return_value.glob.return_value = [partial]
 
     with pytest.raises(RetryError):
-        download_yt("https://youtube.com/watch?v=123")
+        downloader.download_yt("https://youtube.com/watch?v=123")
 
     mock_cwd.return_value.glob.assert_called_with("temp_yt*")
     partial.unlink.assert_called_with(missing_ok=True)
 
 
-def test_download_yt_unlink_oserror_does_not_hide_download_error(mocker):
+def test_download_yt_unlink_oserror_does_not_hide_download_error(mocker, downloader):
     """Test that an OSError from unlink is suppressed and DownloadError still propagates."""
     mock_ydl = mocker.patch("download.YoutubeDL")
+    # Fixed name kept: matches the pre-created partial file's expected stem.
     mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
     mocker.patch("time.sleep")
 
@@ -221,13 +223,12 @@ def test_download_yt_unlink_oserror_does_not_hide_download_error(mocker):
 
     # PermissionError from unlink must not surface; RetryError wraps DownloadError.
     with pytest.raises(RetryError):
-        download_yt("https://youtube.com/watch?v=123")
+        downloader.download_yt("https://youtube.com/watch?v=123")
 
 
-def test_download_yt_keeps_file_on_success(mocker):
+def test_download_yt_keeps_file_on_success(mocker, downloader):
     """Test download_yt does not run partial cleanup on the happy path."""
     mock_ydl = mocker.patch("download.YoutubeDL")
-    mocker.patch("download.generate_temporary_name", return_value="temp_yt.mp3")
 
     info_ydl = mocker.MagicMock()
     info_ydl.extract_info.return_value = {
@@ -248,13 +249,13 @@ def test_download_yt_keeps_file_on_success(mocker):
     ]
     mock_cwd = mocker.patch("download.Path.cwd")
 
-    result = download_yt("https://youtube.com/watch?v=123")
+    result = downloader.download_yt("https://youtube.com/watch?v=123")
 
-    assert result == "temp_yt.mp3"
+    assert result.endswith(".mp3")
     mock_cwd.return_value.glob.assert_not_called()
 
 
-def test_choose_yt_audio_format_falls_back_when_no_audio_only_formats():
+def test_choose_yt_audio_format_falls_back_when_no_audio_only_formats(downloader):
     """Test selector fallback when yt-dlp has no audio-only format ids."""
     info = {
         "formats": [
@@ -268,12 +269,12 @@ def test_choose_yt_audio_format_falls_back_when_no_audio_only_formats():
         ],
     }
 
-    result = Downloader._choose_yt_audio_format(info)
+    result = downloader._choose_yt_audio_format(info)
 
     assert result == "bestaudio/worst[acodec!=none]"
 
 
-def test_choose_yt_audio_format_ranks_missing_bitrates_last():
+def test_choose_yt_audio_format_ranks_missing_bitrates_last(downloader):
     """Test choose_yt_audio_format keeps numeric 0 bitrates ahead of missing values."""
     info = {
         "formats": [
@@ -295,15 +296,13 @@ def test_choose_yt_audio_format_ranks_missing_bitrates_last():
         ],
     }
 
-    result = Downloader._choose_yt_audio_format(info)
+    result = downloader._choose_yt_audio_format(info)
 
     assert result == "zero"
 
 
-def test_download_castro_happy_path(mocker):
+def test_download_castro_happy_path(mocker, downloader):
     """Test downloading a Castro podcast successfully."""
-    mocker.patch("download.generate_temporary_name", return_value="temp_castro.mp3")
-
     # Mock requests.get for the page content
     mock_page_resp = mocker.MagicMock()
     mock_page_resp.content = b'<html><source src="https://audio.link/file.mp3"></html>'
@@ -320,9 +319,9 @@ def test_download_castro_happy_path(mocker):
     # Mock Path.open
     mock_path_open = mocker.patch("pathlib.Path.open", mocker.mock_open())
 
-    result = download_castro("https://castro.fm/episode/123")
+    result = downloader.download_castro("https://castro.fm/episode/123")
 
-    assert result == "temp_castro.mp3"
+    assert result.endswith(".mp3")
     mock_audio_resp.iter_content.assert_called_once_with(chunk_size=8192)
     mock_audio_resp.raise_for_status.assert_called_once()
     mock_path_open.assert_called_once_with("wb")
@@ -335,7 +334,7 @@ def test_download_castro_happy_path(mocker):
     assert mock_path_open().write.call_count == 2
 
 
-def test_download_castro_missing_source_tag(mocker):
+def test_download_castro_missing_source_tag(mocker, downloader):
     """Test download_castro raises ValueError when <source> tag is missing."""
     mock_page_resp = mocker.MagicMock()
     mock_page_resp.content = b"<html><body>No source here</body></html>"
@@ -346,10 +345,10 @@ def test_download_castro_missing_source_tag(mocker):
         ValueError,
         match=r"Audio source tag not found in Castro page\.",
     ):
-        download_castro("https://castro.fm/episode/123")
+        downloader.download_castro("https://castro.fm/episode/123")
 
 
-def test_download_castro_missing_audio_url(mocker):
+def test_download_castro_missing_audio_url(mocker, downloader):
     """Test download_castro raises ValueError when source tag has no src."""
     mock_page_resp = mocker.MagicMock()
     mock_page_resp.content = b"<html><source></html>"
@@ -357,10 +356,10 @@ def test_download_castro_missing_audio_url(mocker):
     mocker.patch("download.requote_uri", side_effect=lambda x: x)
 
     with pytest.raises(ValueError, match=r"Audio URL not found in Castro page\."):
-        download_castro("https://castro.fm/episode/123")
+        downloader.download_castro("https://castro.fm/episode/123")
 
 
-def test_download_castro_non_string_audio_url(mocker):
+def test_download_castro_non_string_audio_url(mocker, downloader):
     """Test download_castro raises TypeError when src attribute is a list."""
     mock_page_resp = mocker.MagicMock()
     mock_page_resp.content = b'<html><source src="a.mp3 b.mp3"></html>'
@@ -374,13 +373,11 @@ def test_download_castro_non_string_audio_url(mocker):
     mocker.patch("download.BeautifulSoup", return_value=mock_soup)
 
     with pytest.raises(TypeError, match=r"Audio URL is not a string\."):
-        download_castro("https://castro.fm/episode/123")
+        downloader.download_castro("https://castro.fm/episode/123")
 
 
-def test_download_castro_http_error(mocker):
+def test_download_castro_http_error(mocker, downloader):
     """Test download_castro logs status code and re-raises HTTPError."""
-    mocker.patch("download.generate_temporary_name", return_value="temp_castro.mp3")
-
     mock_page_resp = mocker.MagicMock()
     mock_page_resp.content = b'<html><source src="https://audio.link/file.mp3"></html>'
 
@@ -393,12 +390,12 @@ def test_download_castro_http_error(mocker):
     mock_logger = mocker.patch("download.logger")
 
     with pytest.raises(HTTPError):
-        download_castro("https://castro.fm/episode/123")
+        downloader.download_castro("https://castro.fm/episode/123")
 
     mock_logger.exception.assert_called_once_with("%s: status code", 500)
 
 
-def test_download_castro_page_http_error(mocker):
+def test_download_castro_page_http_error(mocker, downloader):
     """Test download_castro surfaces an HTTP error from the page fetch."""
     mock_page_resp = mocker.MagicMock()
     mock_page_resp.raise_for_status.side_effect = HTTPError("404 Not Found")
@@ -407,18 +404,15 @@ def test_download_castro_page_http_error(mocker):
     mocker.patch("download.requote_uri", side_effect=lambda x: x)
 
     with pytest.raises(HTTPError):
-        download_castro("https://castro.fm/episode/123")
+        downloader.download_castro("https://castro.fm/episode/123")
 
     # Only the page fetch happens; the audio download is never reached.
     mock_get.assert_called_once()
     mock_page_resp.close.assert_called_once()
 
 
-def test_download_tg_http_error(mocker):
+def test_download_tg_http_error(mocker, downloader):
     """Test download_tg logs status code and re-raises HTTPError."""
-    mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")
-    mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
-
     mock_file = mocker.MagicMock()
     mock_file.file_path = "path/to/file"
 
@@ -429,16 +423,13 @@ def test_download_tg_http_error(mocker):
     mock_logger = mocker.patch("download.logger")
 
     with pytest.raises(HTTPError):
-        download_tg(mock_file, ext=".ext")
+        downloader.download_tg(mock_file, ext=".ext")
 
     mock_logger.exception.assert_called_once_with("%s: status code", 403)
 
 
-def test_stream_to_file_removes_partial_on_failure(mocker):
+def test_stream_to_file_removes_partial_on_failure(mocker, downloader):
     """Test _stream_to_file deletes the partial dest file when the write fails."""
-    mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")
-    mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
-
     mock_file = mocker.MagicMock()
     mock_file.file_path = "path/to/file"
 
@@ -451,17 +442,14 @@ def test_stream_to_file_removes_partial_on_failure(mocker):
     mock_unlink = mocker.patch("pathlib.Path.unlink")
 
     with pytest.raises(OSError, match="connection reset"):
-        download_tg(mock_file, ext=".ext")
+        downloader.download_tg(mock_file, ext=".ext")
 
     mock_unlink.assert_called_once_with(missing_ok=True)
     mock_resp.close.assert_called_once()
 
 
-def test_stream_to_file_unlink_oserror_does_not_hide_write_error(mocker):
+def test_stream_to_file_unlink_oserror_does_not_hide_write_error(mocker, downloader):
     """Test that an OSError from unlink is suppressed and the original write error propagates."""
-    mocker.patch("download.TG_API_TOKEN", "TEST_TOKEN")
-    mocker.patch("download.generate_temporary_name", return_value="temp_file.ext")
-
     mock_file = mocker.MagicMock()
     mock_file.file_path = "path/to/file"
 
@@ -475,4 +463,4 @@ def test_stream_to_file_unlink_oserror_does_not_hide_write_error(mocker):
 
     # PermissionError from unlink must not surface; original OSError propagates.
     with pytest.raises(OSError, match="connection reset"):
-        download_tg(mock_file, ext=".ext")
+        downloader.download_tg(mock_file, ext=".ext")

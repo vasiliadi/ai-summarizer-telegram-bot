@@ -37,6 +37,10 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 class Downloader:
     """Downloads media from YouTube, Castro, and Telegram."""
 
+    def __init__(self, tg_api_token: str) -> None:
+        """Store the injected Telegram bot API token."""
+        self._tg_api_token = tg_api_token
+
     @staticmethod
     def _choose_yt_audio_format(info: dict[str, Any]) -> str:
         """Return the most suitable audio format id for a YouTube video.
@@ -206,17 +210,18 @@ class Downloader:
             msg = "Telegram file path is missing."
             raise ValueError(msg)
         file_url = (
-            f"https://api.telegram.org/file/bot{TG_API_TOKEN}/{file_id.file_path}"
+            f"https://api.telegram.org/file/bot{self._tg_api_token}/{file_id.file_path}"
         )
         self._stream_to_file(file_url, temporary_file_name)
         return temporary_file_name
 
 
-# Module-level singleton
-downloader = Downloader()
+# Module-level singleton and aliases — transitional shim (STG-135).
+# summary.py and handlers.py still import these; removed once every consumer
+# is migrated to constructor injection. TG_API_TOKEN above is imported for
+# this block alone.
+downloader = Downloader(TG_API_TOKEN)
 
-
-# Module-level aliases — preserve the existing public API
 download_yt = downloader.download_yt
 download_castro = downloader.download_castro
 download_tg = downloader.download_tg
