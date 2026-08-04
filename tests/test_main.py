@@ -92,9 +92,14 @@ def test_authorized_reads_an_unregistered_sender_as_unauthorized(mocker):
     would get silence instead of falling through to handle_message.
     """
     app, fakes = make_app(mocker)
+    message = mocker.MagicMock()
+    message.from_user.id = 4242
     fakes.user_repo.check_auth.side_effect = ValueError("User not found")
 
-    assert app._authorized(mocker.MagicMock()) is False
+    assert app._authorized(message) is False
+    # Pins the sender's own id as the one looked up, which every other
+    # attribute of a MagicMock message would otherwise satisfy.
+    fakes.user_repo.check_auth.assert_called_once_with(4242)
 
 
 def test_run_starts_infinity_polling(mocker):
