@@ -37,6 +37,22 @@ def _make_summarizer(mocker):
     return summarizer, fakes
 
 
+def test_only_the_public_entry_points_carry_retry():
+    """Lock the retry topology: the shared helper must stay undecorated.
+
+    Both callers of _summarize_uploaded_file are themselves @retry-wrapped, so a
+    decorator here would nest a second layer. On a mixed failure sequence — one
+    the inner predicate skips and the outer retries, then one the inner retries —
+    the upload and its consuming quota check would run three times instead of
+    two, and Gemini bills failed calls. No behavioral test catches this: for a
+    single repeated exception type both topologies produce identical counts.
+    """
+    assert not hasattr(Summarizer._summarize_uploaded_file, "retry")
+    assert hasattr(Summarizer.summarize_with_file, "retry")
+    assert hasattr(Summarizer.summarize_with_document, "retry")
+    assert hasattr(Summarizer.summarize_text, "retry")
+
+
 def test_summarize_with_file_upload_and_model_call(mocker):
     """Test the complete summarize_with_file flow with the file API and model mocked."""
     summarizer, fakes = _make_summarizer(mocker)
@@ -66,7 +82,6 @@ def test_summarize_with_file_upload_and_model_call(mocker):
     fakes.gemini_helper.upload_and_wait_for_file.assert_called_once_with(
         file="test_audio.ogg",
         mime_type="audio/ogg",
-        sleep_time=10,
     )
     fakes.gemini_helper.delete_file.assert_called_once_with("files/mock123")
     fakes.llm_client.build_uploaded_file.assert_called_once_with(

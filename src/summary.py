@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from textwrap import dedent
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, cast
 
 from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
 from curl_cffi.requests.exceptions import SSLError as CurlSSLError
@@ -38,9 +38,6 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 class Summarizer:
     """Generates model-backed summaries from audio, video, documents, and URLs."""
-
-    # How long to wait between polls of the provider's file-processing state.
-    _UPLOAD_POLL_SECONDS: ClassVar[int] = 10
 
     def __init__(
         self,
@@ -80,7 +77,6 @@ class Summarizer:
         uploaded = self._gemini_helper.upload_and_wait_for_file(
             file=file,
             mime_type=mime_type,
-            sleep_time=self._UPLOAD_POLL_SECONDS,
         )
         uploaded_name = cast("str", uploaded.name)
         try:
@@ -133,10 +129,11 @@ class Summarizer:
         """Summarize audio content by uploading it to the provider's file API.
 
         Raises:
-            AttributeError: If the model returns an empty response, or the upload
-                helper reports incomplete file metadata.
             ValueError: If the provider reports a failed processing state.
-            RetryError: If transient model or network errors persist after retries.
+            RetryError: If transient model or network errors persist, or the
+                model keeps returning an empty response, or the upload helper
+                keeps reporting incomplete file metadata. Those three surface as
+                `AttributeError`, which the decorator retries and then wraps.
 
         """
         self._quota_manager.check_quota(
@@ -177,8 +174,9 @@ class Summarizer:
         """Summarize already-extracted text (a transcript or webpage content).
 
         Raises:
-            AttributeError: If the model returns an empty response.
-            RetryError: If transient model or network errors persist after retries.
+            RetryError: If transient model errors persist, or the model keeps
+                returning an empty response — the `AttributeError` that stands
+                for it is retried and then wrapped, never re-raised.
 
         """
         prompt = (f"{dedent(PROMPTS[prompt_key])} {text}").strip()
@@ -227,10 +225,10 @@ class Summarizer:
         transcription path instead, and so carry the 📝 prefix.
 
         Raises:
-            AttributeError: If the provider returns incomplete file metadata, or
-                the model returns an empty response.
             ValueError: If the document processing fails on the provider's side.
-            RetryError: If the operation fails after all retry attempts.
+            RetryError: If the operation fails after all retry attempts —
+                including incomplete file metadata and an empty model response,
+                which arrive as a retried, then wrapped, `AttributeError`.
 
         """
         self._quota_manager.check_quota(

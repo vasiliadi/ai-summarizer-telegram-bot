@@ -160,9 +160,12 @@ class GeminiHelper:
         self,
         file: str,
         mime_type: str,
-        sleep_time: int,
+        sleep_time: int = 10,
     ) -> types.File:
-        """Upload a file to Gemini and wait for processing to finish."""
+        """Upload a file to Gemini and wait for processing to finish.
+
+        `sleep_time` is the interval between polls of the processing state.
+        """
         uploaded = self._client.files.upload(
             file=file,
             config={"mime_type": mime_type},

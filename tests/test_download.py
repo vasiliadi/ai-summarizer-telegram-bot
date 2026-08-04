@@ -7,17 +7,24 @@ from yt_dlp.utils import DownloadError
 
 from download import Downloader
 
-_AUDIO_ONLY_INFO = {
-    "formats": [
-        {
-            "format_id": "139",
-            "acodec": "mp4a.40.5",
-            "vcodec": "none",
-            "abr": 49,
-            "tbr": 49,
-        },
-    ],
-}
+
+def _audio_only_info():
+    """Return a fresh single-audio-format extract_info payload.
+
+    A function, not a module constant: yt-dlp callers commonly annotate the info
+    dict in place, so a shared object would leak state between tests.
+    """
+    return {
+        "formats": [
+            {
+                "format_id": "139",
+                "acodec": "mp4a.40.5",
+                "vcodec": "none",
+                "abr": 49,
+                "tbr": 49,
+            },
+        ],
+    }
 
 
 @pytest.fixture
@@ -41,7 +48,7 @@ def _arrange_failing_yt_download(mocker, unlink_side_effect=None):
     mocker.patch("time.sleep")  # suppress tenacity wait between retries
 
     info_ydl = mocker.MagicMock()
-    info_ydl.extract_info.return_value = _AUDIO_ONLY_INFO
+    info_ydl.extract_info.return_value = _audio_only_info()
     download_ydl = mocker.MagicMock()
     download_ydl.download.side_effect = DownloadError("boom")
     mock_ydl.side_effect = [
@@ -216,7 +223,7 @@ def test_download_yt_keeps_file_on_success(mocker, downloader):
     mock_ydl = mocker.patch("download.YoutubeDL")
 
     info_ydl = mocker.MagicMock()
-    info_ydl.extract_info.return_value = _AUDIO_ONLY_INFO
+    info_ydl.extract_info.return_value = _audio_only_info()
     download_ydl = mocker.MagicMock()
     mock_ydl.side_effect = [
         mocker.MagicMock(__enter__=mocker.MagicMock(return_value=info_ydl)),
