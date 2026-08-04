@@ -20,9 +20,9 @@ from config import (
 from models import UsersOrm
 
 if TYPE_CHECKING:
-    # Aliased to avoid shadowing the module-level `Session` session-factory
-    # singleton below, which reuses the SQLAlchemy convention of naming a
-    # sessionmaker instance after the class it produces.
+    # Aliased to avoid shadowing the module-level `Session` session factory
+    # below, which reuses the SQLAlchemy convention of naming a sessionmaker
+    # instance after the class it produces.
     from sqlalchemy.orm import Session as SQLAlchemySession
 
 engine = create_engine(DSN, echo=False, pool_pre_ping=True)

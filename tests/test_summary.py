@@ -267,7 +267,7 @@ def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
 
 
 def test_summarize_youtube_always_attempts_transcript(mocker):
-    """get_yt_transcript is always called for YouTube URLs (no user toggle)."""
+    """get_transcript is always called for YouTube URLs (no user toggle)."""
     summarizer, fakes = _make_summarizer(mocker)
     url = "https://youtube.com/watch?v=123"
     fakes.quota_manager.check_quota.return_value = True
@@ -424,7 +424,7 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(
     fakes.downloader.download_yt.assert_called_once_with(url)
     mock_clean_up.assert_called_once_with(file="downloaded.ogg")
     mock_logger.warning.assert_called_once_with(
-        "get_yt_transcript failed, falling back to download: %s",
+        "get_transcript failed, falling back to download: %s",
         mocker.ANY,
     )
 

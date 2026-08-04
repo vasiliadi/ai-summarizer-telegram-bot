@@ -74,9 +74,9 @@ class LLMClient:
 
         Raises:
             ValueError: If the model is not served by the provider that stores
-                the file. `services.upload_and_wait_for_file` only ever uploads
-                to Gemini, so referencing it from anything else would hand the
-                model an id it cannot resolve.
+                the file. `services.GeminiHelper.upload_and_wait_for_file` only
+                ever uploads to Gemini, so referencing it from anything else
+                would hand the model an id it cannot resolve.
 
         """
         spec = MODEL_SPECS[model_id]

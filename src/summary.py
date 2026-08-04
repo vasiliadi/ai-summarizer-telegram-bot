@@ -305,7 +305,7 @@ class Summarizer:
                     transcript_result = self._yt_transcriber.get_transcript(data)
                 except (FetchTranscriptError, ValueError) as e:
                     logger.warning(
-                        "get_yt_transcript failed, falling back to download: %s",
+                        "get_transcript failed, falling back to download: %s",
                         e,
                     )
                 else:
