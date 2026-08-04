@@ -59,7 +59,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
 | `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`. |
-| `config.py` | All clients/singletons + the `MODEL_SPECS` registry, labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
+| `config.py` | All third-party clients (by design — see Cross-cutting patterns) + the `MODEL_SPECS` registry, labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION`. |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. |
 | `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
@@ -134,15 +134,13 @@ to Gemini — return the raw model text with **no** prefix.
 
 ## Cross-cutting patterns
 
-- **Constructor injection migration (STG-135, in progress).** Service classes
-  move from module-level singletons to collaborators injected once by
-  `container.py`. Migrated: `Messenger`, `QuotaManager`, `GeminiHelper`,
-  `Tracer` (`services.py`); `UserRepository` (`database.py`); `LLMClient`
-  (`llm.py`); `Downloader` (`download.py`); `WebParser` (`parsing.py`);
-  `AudioTranscriber`/`YouTubeTranscriber` (`transcription.py`); `Summarizer`
-  (`summary.py`); `MessageHandlers` (`handlers.py`); `BotApp` (`main.py`).
-  Only deleting the now-unused transitional shims remains. Unwinding to plain
-  functions is **rejected**.
+- **Constructor injection (settled, STG-135).** Collaborators arrive via
+  `__init__`, wired once by `container.py`'s `build_container()` from
+  `config`'s third-party clients; `main.build_app` turns the graph into the
+  running `BotApp`. No module-level service singletons or method aliases
+  remain. `config.py` keeps the clients by design — `container.py`, not
+  `config.py`, is the composition root. Unwinding to plain functions is
+  **rejected**.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
   unit. A global per-minute limit throttles by sleeping. Counters live in Valkey;

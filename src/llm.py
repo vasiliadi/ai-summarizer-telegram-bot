@@ -8,7 +8,7 @@ from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.settings import ModelSettings
 
-from config import MODEL_SPECS, gemini_client
+from config import MODEL_SPECS
 from prompts import SYSTEM_INSTRUCTION
 
 if TYPE_CHECKING:
@@ -123,14 +123,3 @@ class LLMClient:
         if not result.output:
             raise AttributeError
         return result.output
-
-
-# Module-level singleton and aliases — transitional shim (STG-135).
-# summary.py still imports build_uploaded_file and run_model; removed once
-# every consumer is migrated to constructor injection.
-llm_client = LLMClient(gemini_client)
-
-build_model = llm_client.build_model
-build_settings = llm_client.build_settings
-build_uploaded_file = llm_client.build_uploaded_file
-run_model = llm_client.run

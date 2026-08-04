@@ -4,10 +4,8 @@ import pytest
 from tavily.errors import TimeoutError as TavilyTimeoutError
 from tenacity import RetryError
 
-import parsing
-from domain import PrefixedText
 from exceptions import WebParseError
-from parsing import ExaBackend, TavilyBackend, UrlResolver, WebParser, parse_url
+from parsing import ExaBackend, TavilyBackend, UrlResolver, WebParser
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -239,21 +237,6 @@ def test_parse_resolves_url_before_extracting(mocker):
         text={"max_characters": 20000, "include_html_tags": True},
         max_age_hours=0,
     )
-
-
-def test_parse_url_delegates_to_web_parser(mocker):
-    """Test parse_url routes to the module-level web_parser singleton."""
-    mock_result = PrefixedText(text="hello", prefix="🌐")
-    mock_parse = mocker.patch.object(
-        parsing.web_parser,
-        "parse",
-        return_value=mock_result,
-    )
-
-    result = parse_url("https://example.com/start")
-
-    assert result is mock_result
-    mock_parse.assert_called_once_with("https://example.com/start")
 
 
 # ---------------------------------------------------------------------------

@@ -29,7 +29,7 @@ from youtube_transcript_api.proxies import GenericProxyConfig
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import YT_HOSTS, replicate_client
+from config import YT_HOSTS
 from domain import PrefixedText
 from exceptions import (
     FetchTranscriptError,
@@ -450,16 +450,3 @@ class YouTubeTranscriber:
                 raise FetchTranscriptError(msg) from fallback_error
             return PrefixedText(text=text, prefix=self._fallback.prefix)
         return PrefixedText(text=text, prefix=self._primary.prefix)
-
-
-# Module-level singletons and aliases — transitional shim (STG-135).
-# summary.py still imports transcribe and get_yt_transcript; removed once
-# every consumer is migrated to constructor injection. The config client
-# above is imported for this block alone.
-audio_transcriber = AudioTranscriber(replicate_client)
-api_backend = ApiBackend()
-ytdlp_backend = YtDlpBackend()
-yt_transcriber = YouTubeTranscriber(api_backend, ytdlp_backend)
-
-transcribe = audio_transcriber.transcribe
-get_yt_transcript = yt_transcriber.get_transcript

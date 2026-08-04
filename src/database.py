@@ -131,17 +131,3 @@ class UserRepository:
         if normalized not in ALLOWED_PROMPT_KEYS:
             return False
         return self._update_field(user_id, "prompt_key_for_summary", normalized)
-
-
-# Module-level singleton and aliases — transitional shim (STG-135).
-# main.py still imports these; removed once every consumer is migrated to
-# constructor injection.
-user_repo = UserRepository(Session)
-
-register_user = user_repo.register_user
-select_user = user_repo.select_user
-check_auth = user_repo.check_auth
-set_target_language = user_repo.set_target_language
-set_summarizing_model = user_repo.set_summarizing_model
-set_thinking_level = user_repo.set_thinking_level
-set_prompt_strategy = user_repo.set_prompt_strategy

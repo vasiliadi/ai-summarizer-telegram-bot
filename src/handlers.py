@@ -2,19 +2,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypedDict
 
-from config import TG_MAX_FILE_SIZE, bot
+from config import TG_MAX_FILE_SIZE
 from domain import format_prefixed_summary
-from download import Downloader, downloader
-from parsing import WebParser, web_parser
-from services import Messenger, QuotaManager, messenger, quota_manager
-from summary import Summarizer, summarizer
 from utils import classify_url, clean_up, compress_audio, generate_temporary_name
 
 if TYPE_CHECKING:
     import telebot
     from telebot.types import Audio, Document, File, Message, Video, VideoNote, Voice
 
+    from download import Downloader
     from models import UsersOrm
+    from parsing import WebParser
+    from services import Messenger, QuotaManager
+    from summary import Summarizer
 
     _SizedMedia = Audio | Voice | Video | VideoNote | Document
 
@@ -172,22 +172,3 @@ class MessageHandlers:
             self._messenger.send_answer(message, answer)
         else:
             self._bot.send_message(message.chat.id, "No data to proceed.")
-
-
-# Module-level singleton and aliases — transitional shim (STG-135).
-# main.py still imports these; removed once main.py adopts the container.
-message_handlers = MessageHandlers(
-    bot,
-    messenger,
-    summarizer,
-    web_parser,
-    quota_manager,
-    downloader,
-)
-
-handle_audio = message_handlers.handle_audio
-handle_voice = message_handlers.handle_voice
-handle_video = message_handlers.handle_video
-handle_video_note = message_handlers.handle_video_note
-handle_document = message_handlers.handle_document
-handle_url = message_handlers.handle_url

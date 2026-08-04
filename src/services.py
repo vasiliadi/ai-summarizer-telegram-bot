@@ -19,15 +19,7 @@ from tenacity import (
     wait_fixed,
 )
 
-from config import (
-    DAILY_LIMIT_KEY,
-    MINUTE_LIMIT_KEY,
-    bot,
-    gemini_client,
-    langfuse_client,
-    per_minute_rate,
-    rate_limiter,
-)
+from config import DAILY_LIMIT_KEY, MINUTE_LIMIT_KEY
 from exceptions import LimitExceededError
 
 if TYPE_CHECKING:
@@ -213,21 +205,3 @@ class Tracer:
             propagate_attributes(user_id=str(user_id), tags=[content_type]),
         ):
             yield
-
-
-# Module-level singletons and aliases — transitional shim (STG-135).
-# Consumers (summary.py, handlers.py, main.py) still import these; removed once
-# every consumer is migrated to constructor injection. The config clients above
-# are imported for this block alone — no method body reads them.
-messenger = Messenger(bot)
-quota_manager = QuotaManager(rate_limiter, per_minute_rate)
-gemini_helper = GeminiHelper(gemini_client)
-tracer = Tracer(langfuse_client)
-
-get_file_with_retry = messenger.get_file_with_retry
-send_answer = messenger.send_answer
-check_quota = quota_manager.check_quota
-get_remaining_quota = quota_manager.get_remaining_quota
-resolve_mime_type = gemini_helper.resolve_mime_type
-upload_and_wait_for_file = gemini_helper.upload_and_wait_for_file
-observe_message = tracer.observe_message

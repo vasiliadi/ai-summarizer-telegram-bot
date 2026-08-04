@@ -13,7 +13,6 @@ from youtube_transcript_api._errors import (
 )
 from yt_dlp.utils import DownloadError
 
-import transcription
 from domain import PrefixedText
 from exceptions import (
     FetchTranscriptError,
@@ -36,17 +35,6 @@ def _make_transcriber():
     primary = ApiBackend()
     fallback = YtDlpBackend()
     return YouTubeTranscriber(primary, fallback), primary, fallback
-
-
-def test_shim_transcriber_wires_api_as_primary():
-    """Test the module-level shim uses the API as primary and yt-dlp as fallback.
-
-    main.py still runs on the shim rather than the container, so its ordering
-    decides which prefix a summary carries. Delete with the shim (STG-135); the
-    container's own wiring is covered by tests/test_container.py.
-    """
-    assert isinstance(transcription.yt_transcriber._primary, ApiBackend)
-    assert isinstance(transcription.yt_transcriber._fallback, YtDlpBackend)
 
 
 def test_get_yt_transcript_uses_api_primary(mocker):

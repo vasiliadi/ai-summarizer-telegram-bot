@@ -21,7 +21,6 @@ from tenacity import (
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import TG_API_TOKEN
 from utils import generate_temporary_name, get_proxy
 
 if TYPE_CHECKING:
@@ -214,14 +213,3 @@ class Downloader:
         )
         self._stream_to_file(file_url, temporary_file_name)
         return temporary_file_name
-
-
-# Module-level singleton and aliases — transitional shim (STG-135).
-# summary.py and handlers.py still import these; removed once every consumer
-# is migrated to constructor injection. TG_API_TOKEN above is imported for
-# this block alone.
-downloader = Downloader(TG_API_TOKEN)
-
-download_yt = downloader.download_yt
-download_castro = downloader.download_castro
-download_tg = downloader.download_tg

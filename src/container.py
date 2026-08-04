@@ -19,8 +19,6 @@ from transcription import ApiBackend, AudioTranscriber, YouTubeTranscriber, YtDl
 if TYPE_CHECKING:
     import telebot
 
-# Only the shim deletion (STG-135) remains after this slice.
-
 
 @dataclass(frozen=True)
 class Container:

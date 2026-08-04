@@ -20,21 +20,17 @@ from tenacity import (
 
 from config import MODEL_SPECS
 from domain import format_prefixed_summary
-from download import Downloader, downloader
 from exceptions import FetchTranscriptError
-from llm import LLMClient, llm_client
 from prompts import PROMPTS
-from services import GeminiHelper, QuotaManager, gemini_helper, quota_manager
-from transcription import (
-    AudioTranscriber,
-    YouTubeTranscriber,
-    audio_transcriber,
-    yt_transcriber,
-)
 from utils import classify_url, clean_up, compress_audio, generate_temporary_name
 
 if TYPE_CHECKING:
     from tenacity import _utils as tenacity_utils
+
+    from download import Downloader
+    from llm import LLMClient
+    from services import GeminiHelper, QuotaManager
+    from transcription import AudioTranscriber, YouTubeTranscriber
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
@@ -400,23 +396,3 @@ class Summarizer:
             )
         finally:
             clean_up(file=new_file)
-
-
-# Module-level singleton and aliases — transitional shim (STG-135).
-# handlers.py still imports these; removed once every consumer is migrated
-# to constructor injection.
-summarizer = Summarizer(
-    quota_manager,
-    gemini_helper,
-    llm_client,
-    downloader,
-    audio_transcriber,
-    yt_transcriber,
-)
-
-
-# Module-level aliases — preserve the existing public API
-summarize_with_file = summarizer.summarize_with_file
-summarize_text = summarizer.summarize_text
-summarize_with_document = summarizer.summarize_with_document
-summarize = summarizer.summarize
