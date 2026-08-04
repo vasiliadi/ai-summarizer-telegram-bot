@@ -73,9 +73,11 @@ class ModelSpec:
 
     `provider` names the pydantic-ai provider the model is reached through. It
     dispatches in three places, all of which a new provider has to answer for:
-    `llm._build_model` (which raises for a provider it cannot build),
+    `llm.LLMClient.build_model` (which raises for a provider it cannot build),
     `llm.LLMClient.build_settings`, and `llm.LLMClient.build_uploaded_file`
-    (which serves the Gemini Files API only).
+    (which serves the Gemini Files API only). Only `"google"` is registered
+    today, so each non-Google branch is unreachable until the `Literal` widens
+    — they are the seam for the next provider, not dead code to remove.
     `supports_audio` is False for text-only models, which routes spoken content
     through Replicate transcription instead of a native file upload.
     """

@@ -35,6 +35,9 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   registry (`config.MODEL_SPECS`) is what decides which provider serves a model id.
   Only Gemini models are registered today; the seam exists so adding one from another
   provider is a registry row plus a dependency extra, not a rewrite of `summary.py`.
+  More providers are planned, so the non-Google branches in `llm.py` stay even though
+  `ModelSpec.provider` is `Literal["google"]` and nothing can reach them yet — they are
+  covered by tests that fabricate a spec, and are **not** dead code to clean up.
   The Gemini Files API is still called directly (`services.GeminiHelper`), because
   base64-inlining a 20 MB Telegram file inflates it past the inline-request limit.
 - **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
