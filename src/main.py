@@ -312,44 +312,35 @@ class BotApp:
             capture_exception(e)
             self._bot.reply_to(message, f"Unexpected: {type(e).__name__}")
 
+    def _authorized(self, message: Message) -> bool:
+        """Gate the settings commands on a known, approved sender."""
+        return message.from_user is not None and self._user_repo.check_auth(
+            message.from_user.id,
+        )
+
     def register(self) -> None:
         """Register every handler on the bot. Replaces the import-time decorators."""
         self._bot.message_handler(commands=["start"])(self.handle_start)
         self._bot.message_handler(commands=["info"])(self.handle_info)
         self._bot.message_handler(
             commands=["myinfo"],
-            func=lambda message: (
-                message.from_user is not None
-                and self._user_repo.check_auth(message.from_user.id)
-            ),
+            func=self._authorized,
         )(self.handle_myinfo)
         self._bot.message_handler(
             commands=["set_target_language"],
-            func=lambda message: (
-                message.from_user is not None
-                and self._user_repo.check_auth(message.from_user.id)
-            ),
+            func=self._authorized,
         )(self.handle_set_target_language)
         self._bot.message_handler(
             commands=["set_summarizing_model"],
-            func=lambda message: (
-                message.from_user is not None
-                and self._user_repo.check_auth(message.from_user.id)
-            ),
+            func=self._authorized,
         )(self.handle_set_summarizing_model)
         self._bot.message_handler(
             commands=["set_prompt_strategy"],
-            func=lambda message: (
-                message.from_user is not None
-                and self._user_repo.check_auth(message.from_user.id)
-            ),
+            func=self._authorized,
         )(self.handle_set_prompt_strategy)
         self._bot.message_handler(
             commands=["set_thinking_level"],
-            func=lambda message: (
-                message.from_user is not None
-                and self._user_repo.check_auth(message.from_user.id)
-            ),
+            func=self._authorized,
         )(self.handle_set_thinking_level)
         self._bot.message_handler(
             content_types=["text", "audio", "document", "video_note", "voice", "video"],

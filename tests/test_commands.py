@@ -1,34 +1,13 @@
-from types import SimpleNamespace
-
 import pytest
 
-from main import BotApp
+from helpers import make_app
 from models import UsersOrm
-
-
-def _make_app(mocker):
-    """Return (app, fakes) with every collaborator injected as a MagicMock."""
-    fakes = SimpleNamespace(
-        bot=mocker.MagicMock(),
-        user_repo=mocker.MagicMock(),
-        quota_manager=mocker.MagicMock(),
-        tracer=mocker.MagicMock(),
-        handlers=mocker.MagicMock(),
-    )
-    app = BotApp(
-        fakes.bot,
-        fakes.user_repo,
-        fakes.quota_manager,
-        fakes.tracer,
-        fakes.handlers,
-    )
-    return app, fakes
 
 
 def test_handle_start_new_user(message_factory, mocker):
     """Test /start for a new user (registration)."""
     msg = message_factory(content_type="text", text="/start")
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
     fakes.user_repo.register_user.return_value = True
 
     app.handle_start(msg)
@@ -41,7 +20,7 @@ def test_handle_start_new_user(message_factory, mocker):
 def test_handle_start_existing_user(message_factory, mocker):
     """Test /start for an existing user."""
     msg = message_factory(content_type="text", text="/start")
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
     fakes.user_repo.register_user.return_value = False
 
     app.handle_start(msg)
@@ -53,7 +32,7 @@ def test_handle_start_missing_user(message_factory, mocker):
     """Test /start rejects messages without Telegram user metadata."""
     msg = message_factory(content_type="text", text="/start")
     msg.from_user = None
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
 
     app.handle_start(msg)
 
@@ -64,7 +43,7 @@ def test_handle_start_missing_user(message_factory, mocker):
 def test_handle_info(message_factory, mocker):
     """Test /info command."""
     msg = message_factory(content_type="text", text="/info")
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
 
     app.handle_info(msg)
 
@@ -75,7 +54,7 @@ def test_handle_info_missing_user(message_factory, mocker):
     """Test /info rejects messages without Telegram user metadata."""
     msg = message_factory(content_type="text", text="/info")
     msg.from_user = None
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
 
     app.handle_info(msg)
 
@@ -85,7 +64,7 @@ def test_handle_info_missing_user(message_factory, mocker):
 def test_handle_myinfo(message_factory, mocker):
     """Test /myinfo command."""
     msg = message_factory(content_type="text", text="/myinfo")
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
     mock_user = UsersOrm(
         user_id=123,
         approved=True,
@@ -116,7 +95,7 @@ def test_handle_myinfo_missing_user(message_factory, mocker):
     """Test /myinfo rejects messages without Telegram user metadata."""
     msg = message_factory(content_type="text", text="/myinfo")
     msg.from_user = None
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
 
     app.handle_myinfo(msg)
 
@@ -157,7 +136,7 @@ def test_handle_set_setting_shows_keyboard(
 ):
     """Test each /set_* command shows its selection keyboard."""
     msg = message_factory(content_type="text")
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
 
     getattr(app, handler_name)(msg)
 
@@ -171,7 +150,7 @@ def test_handle_set_setting_shows_keyboard(
 def test_proceed_set_target_language_success(message_factory, mocker):
     """Test successful language selection."""
     msg = message_factory(content_type="text", text="Russian")
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
     fakes.user_repo.set_target_language.return_value = True
 
     app.proceed_set_target_language(msg)
@@ -185,7 +164,7 @@ def test_proceed_set_target_language_success(message_factory, mocker):
 def test_proceed_set_summarizing_model_success(message_factory, mocker):
     """Test successful model selection."""
     msg = message_factory(content_type="text", text="Gemini 3.5 Flash")
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
     fakes.user_repo.set_summarizing_model.return_value = True
 
     app.proceed_set_summarizing_model(msg)
@@ -203,7 +182,7 @@ def test_proceed_set_summarizing_model_success(message_factory, mocker):
 def test_proceed_set_prompt_strategy_success(message_factory, mocker):
     """Test successful strategy selection."""
     msg = message_factory(content_type="text", text="Detailed Summary")
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
     fakes.user_repo.set_prompt_strategy.return_value = True
 
     app.proceed_set_prompt_strategy(msg)
@@ -221,7 +200,7 @@ def test_proceed_set_prompt_strategy_success(message_factory, mocker):
 def test_proceed_set_thinking_level_success(message_factory, mocker):
     """Test successful thinking level selection."""
     msg = message_factory(content_type="text", text="High")
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
     fakes.user_repo.set_thinking_level.return_value = True
 
     app.proceed_set_thinking_level(msg)
@@ -270,7 +249,7 @@ def test_proceed_set_setting_missing_input(
     """Test each setting selection fails fast when user or text is missing."""
     msg = message_factory(content_type="text", text="Anything")
     setattr(msg, null_attr, None)
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
 
     getattr(app, proceed_name)(msg)
 
@@ -311,7 +290,7 @@ def test_proceed_set_setting_invalid_choice(
 ):
     """Test an invalid label short-circuits before calling the setter."""
     msg = message_factory(content_type="text", text=bad_text)
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
 
     getattr(app, proceed_name)(msg)
 
@@ -322,7 +301,7 @@ def test_proceed_set_setting_invalid_choice(
 def test_proceed_set_target_language_invalid_choice(message_factory, mocker):
     """Test an unknown language is rejected via the setter returning False."""
     msg = message_factory(content_type="text", text="Klingon")
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
     fakes.user_repo.set_target_language.return_value = False
 
     app.proceed_set_target_language(msg)
@@ -363,7 +342,7 @@ def test_proceed_set_setting_db_failure(
 ):
     """Test a DB failure returns a clear user-facing message, not success."""
     msg = message_factory(content_type="text", text=valid_text)
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
     getattr(fakes.user_repo, setter_name).return_value = False
 
     getattr(app, proceed_name)(msg)

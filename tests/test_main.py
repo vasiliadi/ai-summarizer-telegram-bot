@@ -1,29 +1,11 @@
 from types import SimpleNamespace
 
+from helpers import make_app
 from main import BotApp, build_app
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _make_app(mocker):
-    """Return (app, fakes) with every collaborator injected as a MagicMock."""
-    fakes = SimpleNamespace(
-        bot=mocker.MagicMock(),
-        user_repo=mocker.MagicMock(),
-        quota_manager=mocker.MagicMock(),
-        tracer=mocker.MagicMock(),
-        handlers=mocker.MagicMock(),
-    )
-    app = BotApp(
-        fakes.bot,
-        fakes.user_repo,
-        fakes.quota_manager,
-        fakes.tracer,
-        fakes.handlers,
-    )
-    return app, fakes
 
 
 def _make_fake_container(mocker):
@@ -55,7 +37,7 @@ def test_build_app_wires_container_and_registers_handlers(mocker):
 
 def test_register_registers_expected_handlers(mocker):
     """register() registers all eight handlers with their exact kwargs."""
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
 
     app.register()
 
@@ -77,20 +59,32 @@ def test_register_registers_expected_handlers(mocker):
         "video",
     ]
 
-    # The four auth-gated commands (myinfo, set_*) wire a func= predicate backed
-    # by user_repo.check_auth.
+    # The five auth-gated commands (myinfo and the four set_*) all wire the same
+    # func= predicate, backed by user_repo.check_auth.
     for call in calls[2:7]:
-        func = call.kwargs["func"]
-        message = mocker.MagicMock()
-        fakes.user_repo.check_auth.return_value = True
-        assert func(message) is True
-        message.from_user = None
-        assert func(message) is False
+        assert call.kwargs["func"] == app._authorized
+
+
+def test_authorized_gates_on_a_known_approved_sender(mocker):
+    """_authorized passes only a present sender that check_auth approves."""
+    app, fakes = make_app(mocker)
+    message = mocker.MagicMock()
+
+    fakes.user_repo.check_auth.return_value = True
+    assert app._authorized(message) is True
+
+    fakes.user_repo.check_auth.return_value = False
+    assert app._authorized(message) is False
+
+    message.from_user = None
+    assert app._authorized(message) is False
+    # The None guard short-circuits, so the repo is not consulted a third time.
+    assert fakes.user_repo.check_auth.call_count == 2
 
 
 def test_run_starts_infinity_polling(mocker):
     """run() polls Telegram with the fixed 20s timeout."""
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
 
     app.run()
 
@@ -103,7 +97,7 @@ def test_shutdown_cleans_up_and_flushes_the_tracer(mocker):
     Whether tracing is configured at all is Tracer.shutdown's decision, covered
     by tests/test_services.py::test_tracer_shutdown_*.
     """
-    app, fakes = _make_app(mocker)
+    app, fakes = make_app(mocker)
     mock_clean_up = mocker.patch("main.clean_up")
 
     app.shutdown()
