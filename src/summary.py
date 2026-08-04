@@ -18,22 +18,19 @@ from tenacity import (
     wait_fixed,
 )
 
-from config import MODEL_SPECS, gemini_client
+from config import MODEL_SPECS
 from domain import format_prefixed_summary
-from download import download_castro, download_tg, download_yt
 from exceptions import FetchTranscriptError
-from llm import build_uploaded_file, run_model
 from prompts import PROMPTS
-from services import (
-    check_quota,
-    resolve_mime_type,
-    upload_and_wait_for_file,
-)
-from transcription import get_yt_transcript, transcribe
 from utils import classify_url, clean_up, compress_audio, generate_temporary_name
 
 if TYPE_CHECKING:
     from tenacity import _utils as tenacity_utils
+
+    from download import Downloader
+    from llm import LLMClient
+    from services import GeminiHelper, QuotaManager
+    from transcription import AudioTranscriber, YouTubeTranscriber
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
@@ -41,6 +38,23 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 class Summarizer:
     """Generates model-backed summaries from audio, video, documents, and URLs."""
+
+    def __init__(
+        self,
+        quota_manager: QuotaManager,
+        gemini_helper: GeminiHelper,
+        llm_client: LLMClient,
+        downloader: Downloader,
+        audio_transcriber: AudioTranscriber,
+        yt_transcriber: YouTubeTranscriber,
+    ) -> None:
+        """Store the injected collaborators used to build a summary."""
+        self._quota_manager = quota_manager
+        self._gemini_helper = gemini_helper
+        self._llm_client = llm_client
+        self._downloader = downloader
+        self._audio_transcriber = audio_transcriber
+        self._yt_transcriber = yt_transcriber
 
     @retry(
         stop=stop_after_attempt(2),
@@ -71,21 +85,32 @@ class Summarizer:
             RetryError: If transient model or network errors persist after retries.
 
         """
-        check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
+        self._quota_manager.check_quota(
+            user_id=user_id,
+            daily_limit=daily_limit,
+            quantity=0,
+        )
         prompt = dedent(PROMPTS[prompt_key]).strip()
-        mime_type = resolve_mime_type(file)
-        audio_file = upload_and_wait_for_file(
+        mime_type = self._gemini_helper.resolve_mime_type(file)
+        audio_file = self._gemini_helper.upload_and_wait_for_file(
             file=file,
             mime_type=mime_type,
             sleep_time=sleep_time,
         )
         audio_file_name = cast("str", audio_file.name)
         try:
-            check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-            return run_model(
+            self._quota_manager.check_quota(
+                user_id=user_id,
+                daily_limit=daily_limit,
+                quantity=1,
+            )
+            return self._llm_client.run(
                 content=[
                     prompt,
-                    build_uploaded_file(model_id=model, file=audio_file),
+                    self._llm_client.build_uploaded_file(
+                        model_id=model,
+                        file=audio_file,
+                    ),
                 ],
                 model_id=model,
                 target_language=target_language,
@@ -93,7 +118,7 @@ class Summarizer:
             )
         finally:
             try:
-                gemini_client.files.delete(name=audio_file_name)
+                self._gemini_helper.delete_file(audio_file_name)
             except Exception as e:
                 logger.warning(
                     "Failed to delete Gemini file %s: %s",
@@ -128,8 +153,12 @@ class Summarizer:
 
         """
         prompt = (f"{dedent(PROMPTS[prompt_key])} {text}").strip()
-        check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-        return run_model(
+        self._quota_manager.check_quota(
+            user_id=user_id,
+            daily_limit=daily_limit,
+            quantity=1,
+        )
+        return self._llm_client.run(
             content=prompt,
             model_id=model,
             target_language=target_language,
@@ -179,8 +208,12 @@ class Summarizer:
         data: str | None = None
         document_file_name: str | None = None
         if mime_type.startswith("audio/") and not MODEL_SPECS[model].supports_audio:
-            check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
-            data = download_tg(file, ext=".ogg")
+            self._quota_manager.check_quota(
+                user_id=user_id,
+                daily_limit=daily_limit,
+                quantity=0,
+            )
+            data = self._downloader.download_tg(file, ext=".ogg")
             try:
                 return self._summarize_via_transcription(
                     data=data,
@@ -194,20 +227,31 @@ class Summarizer:
             finally:
                 clean_up(file=data)
         try:
-            check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
-            data = download_tg(file)
+            self._quota_manager.check_quota(
+                user_id=user_id,
+                daily_limit=daily_limit,
+                quantity=0,
+            )
+            data = self._downloader.download_tg(file)
             prompt = dedent(PROMPTS[prompt_key]).strip()
-            document_file = upload_and_wait_for_file(
+            document_file = self._gemini_helper.upload_and_wait_for_file(
                 file=data,
                 mime_type=mime_type,
                 sleep_time=sleep_time,
             )
             document_file_name = document_file.name
-            check_quota(user_id=user_id, daily_limit=daily_limit, quantity=1)
-            summary = run_model(
+            self._quota_manager.check_quota(
+                user_id=user_id,
+                daily_limit=daily_limit,
+                quantity=1,
+            )
+            summary = self._llm_client.run(
                 content=[
                     prompt,
-                    build_uploaded_file(model_id=model, file=document_file),
+                    self._llm_client.build_uploaded_file(
+                        model_id=model,
+                        file=document_file,
+                    ),
                 ],
                 model_id=model,
                 target_language=target_language,
@@ -216,7 +260,7 @@ class Summarizer:
         finally:
             if document_file_name is not None:
                 try:
-                    gemini_client.files.delete(name=document_file_name)
+                    self._gemini_helper.delete_file(document_file_name)
                 except Exception as e:
                     logger.warning(
                         "Failed to delete Gemini file %s: %s",
@@ -247,17 +291,21 @@ class Summarizer:
             RetryError: If all summarization attempts fail after retries.
 
         """
-        check_quota(user_id=user_id, daily_limit=daily_limit, quantity=0)
+        self._quota_manager.check_quota(
+            user_id=user_id,
+            daily_limit=daily_limit,
+            quantity=0,
+        )
         if isinstance(data, str):
             kind = classify_url(data)
             if kind == "castro":
-                data = download_castro(data)
+                data = self._downloader.download_castro(data)
             elif kind == "youtube":
                 try:
-                    transcript_result = get_yt_transcript(data)
+                    transcript_result = self._yt_transcriber.get_transcript(data)
                 except (FetchTranscriptError, ValueError) as e:
                     logger.warning(
-                        "get_yt_transcript failed, falling back to download: %s",
+                        "get_transcript failed, falling back to download: %s",
                         e,
                     )
                 else:
@@ -273,9 +321,9 @@ class Summarizer:
                             thinking_level=thinking_level,
                         ),
                     )
-                data = download_yt(data)
+                data = self._downloader.download_yt(data)
         if isinstance(data, File):
-            data = download_tg(data, ext=".ogg")
+            data = self._downloader.download_tg(data, ext=".ogg")
 
         try:
             if not MODEL_SPECS[model].supports_audio:
@@ -333,7 +381,7 @@ class Summarizer:
         new_file = generate_temporary_name(ext=".ogg")
         try:
             compress_audio(input_file=data, output_file=new_file)
-            transcription = transcribe(new_file)
+            transcription = self._audio_transcriber.transcribe(new_file)
             return format_prefixed_summary(
                 "📝",
                 self.summarize_text(
@@ -348,14 +396,3 @@ class Summarizer:
             )
         finally:
             clean_up(file=new_file)
-
-
-# Module-level singleton
-summarizer = Summarizer()
-
-
-# Module-level aliases — preserve the existing public API
-summarize_with_file = summarizer.summarize_with_file
-summarize_text = summarizer.summarize_text
-summarize_with_document = summarizer.summarize_with_document
-summarize = summarizer.summarize

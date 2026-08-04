@@ -56,6 +56,8 @@ default-groups = ["dev", "test"]
 exclude-newer = "3 days"
 
 [tool.ruff]
+# Both are import roots at test time, so isort treats each as first-party.
+src = ["src", "tests"]
 extend-exclude = ["temp", "migrations"]
 line-length = 88
 indent-width = 4
@@ -145,7 +147,8 @@ exclude = ["tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+# "tests" makes the shared builders in tests/helpers.py importable by name.
+pythonpath = ["src", "tests"]
 addopts = "-v --tb=short"
 
 [tool.coverage.run]

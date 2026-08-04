@@ -47,18 +47,19 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 
 | Module | Role |
 |--------|------|
-| `main.py` | Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. |
-| `handlers.py` | Per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
-| `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls `llm.run_model`. |
-| `llm.py` | `LLMClient` — the provider seam. One pydantic-ai `Agent`; model, instructions and settings are resolved per run. Provider dispatch lives in `_build_model` (keyed on `config.MODEL_SPECS[...].provider`); `build_settings` currently carries only the provider-agnostic thinking level. |
+| `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; the `__main__` block just calls `build_app`, `run`, `shutdown`. |
+| `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
+| `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
+| `llm.py` | `LLMClient` — the provider seam. Each instance holds one pydantic-ai `Agent`; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`); `build_settings` currently carries only the provider-agnostic thinking level. |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
-| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll). |
+| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (Langfuse root span per message). |
+| `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator, including the `bot` client, to `config`'s clients. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
 | `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`. |
-| `config.py` | All clients/singletons + the `MODEL_SPECS` registry, labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
+| `config.py` | All third-party clients (by design — see Cross-cutting patterns) + the `MODEL_SPECS` registry, labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION`. |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. |
 | `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
@@ -69,7 +70,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 
 ```
 Telegram update
-  └─ main.handle_message
+  └─ BotApp.handle_message
        ├─ select_user (Postgres) ─ reject if not approved
        └─ process_message_content  ── routes by content_type ──┐
                                                                │
@@ -78,7 +79,7 @@ Telegram update
     video / video_note ──────────► download_tg(.mp4) → compress_audio(.ogg) → summarize(path)
     document ────────────────────► summarize_with_document(File, mime)
     text (treated as URL) ── classify_url ──┬─ "youtube" / "castro" ► summarize(url)
-                                            └─ "web"  ► parse_url → summarize_text
+                                            └─ "web"  ► WebParser.parse → summarize_text
 ```
 
 ### Summarizer input branching (`summary.py:summarize`)
@@ -89,13 +90,14 @@ download path. Neither may re-derive the kind on its own — a second, narrower
 classifier here previously let www-prefixed and uppercase-host media URLs reach
 the Gemini file upload with the URL string as their file path.
 
-- **YouTube URL** → try transcript (`get_yt_transcript`); on success summarize
-  the transcript. On failure → `download_yt` audio, then the file path below.
-- **Castro URL** → `download_castro` audio → file path.
-- **Telegram File** → `download_tg(.ogg)` → file path.
+- **YouTube URL** → try transcript (`YouTubeTranscriber.get_transcript`); on
+  success summarize the transcript. On failure → `Downloader.download_yt`
+  audio, then the file path below.
+- **Castro URL** → `Downloader.download_castro` audio → file path.
+- **Telegram File** → `Downloader.download_tg(.ogg)` → file path.
 - **File path** → `summarize_with_file` (upload to Gemini, generate). If that
-  exhausts retries → fallback: `compress_audio` → `transcribe` (Replicate) →
-  `summarize_text`.
+  exhausts retries → fallback: `compress_audio` → `AudioTranscriber.transcribe`
+  (Replicate) → `summarize_text`.
 
 So there are two layered fallbacks for spoken content: transcript-first for
 YouTube, and Gemini-file-first with a Replicate-transcription rescue for any
@@ -132,13 +134,13 @@ to Gemini — return the raw model text with **no** prefix.
 
 ## Cross-cutting patterns
 
-- **OOP + singleton + alias.** Each service module defines a (mostly stateless)
-  class, instantiates one module-level singleton, then aliases its methods at
-  module level so the functional API (`module.func`) still works — importers and
-  `mocker.patch("module.func")` calls depend on those aliases. A proposal to
-  *unwind* this back to plain functions was reviewed and **rejected**; don't go
-  that way. Stricter OOP is welcome, and may drop the alias shim — but must
-  migrate importers and the `mocker.patch` test calls in the same change.
+- **Constructor injection.** Collaborators arrive via
+  `__init__`, wired once by `container.py`'s `build_container()` from
+  `config`'s third-party clients; `main.build_app` turns the graph into the
+  running `BotApp`. No module-level service singletons or method aliases
+  remain. `config.py` keeps the clients by design — `container.py`, not
+  `config.py`, is the composition root. Unwinding to plain functions is
+  **rejected**.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
   unit. A global per-minute limit throttles by sleeping. Counters live in Valkey;
@@ -157,7 +159,7 @@ to Gemini — return the raw model text with **no** prefix.
   and `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`, else `None`). When on,
   `Agent.instrument_all()` makes pydantic-ai emit an OpenTelemetry span per model
   call, which the OTel-based Langfuse SDK ingests — no provider-specific
-  instrumentor. `services.observe_message` (used in `main.handle_message`) wraps
+  instrumentor. `Tracer.observe_message` (used in `BotApp.handle_message`) wraps
   each Telegram message in one root span attributed to the user and tagged with the
   content type, so all model calls for a message nest under a single trace.
   `langfuse_client.shutdown()` flushes on exit. Independent of Sentry, which handles

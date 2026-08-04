@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
@@ -15,12 +19,22 @@ from config import (
 )
 from models import UsersOrm
 
+if TYPE_CHECKING:
+    # Aliased to avoid shadowing the module-level `Session` session factory
+    # below, which reuses the SQLAlchemy convention of naming a sessionmaker
+    # instance after the class it produces.
+    from sqlalchemy.orm import Session as SQLAlchemySession
+
 engine = create_engine(DSN, echo=False, pool_pre_ping=True)
 Session = sessionmaker(engine)
 
 
 class UserRepository:
     """Data-access object for the users table."""
+
+    def __init__(self, session_factory: sessionmaker[SQLAlchemySession]) -> None:
+        """Store the injected SQLAlchemy session factory."""
+        self._session_factory = session_factory
 
     def register_user(
         self,
@@ -40,7 +54,7 @@ class UserRepository:
         reads False as "already registered". Any other violation — a NOT NULL
         column passed None, or constraints added later — reports identically.
         """
-        with Session() as session:
+        with self._session_factory() as session:
             try:
                 stmt = UsersOrm(
                     user_id=user_id,
@@ -68,7 +82,7 @@ class UserRepository:
             ValueError: If the user is not found.
 
         """
-        with Session() as session:
+        with self._session_factory() as session:
             user = session.get(UsersOrm, user_id)
             if user is None:
                 msg = "User not found"
@@ -82,7 +96,7 @@ class UserRepository:
 
     def _update_field(self, user_id: int, field: str, value: str) -> bool:
         """Persist a single validated settings field; False if the user is unknown."""
-        with Session() as session:
+        with self._session_factory() as session:
             user = session.get(UsersOrm, user_id)
             if user is None:
                 return False
@@ -117,17 +131,3 @@ class UserRepository:
         if normalized not in ALLOWED_PROMPT_KEYS:
             return False
         return self._update_field(user_id, "prompt_key_for_summary", normalized)
-
-
-# Module-level singleton
-user_repo = UserRepository()
-
-
-# Module-level aliases — preserve the existing public API
-register_user = user_repo.register_user
-select_user = user_repo.select_user
-check_auth = user_repo.check_auth
-set_target_language = user_repo.set_target_language
-set_summarizing_model = user_repo.set_summarizing_model
-set_thinking_level = user_repo.set_thinking_level
-set_prompt_strategy = user_repo.set_prompt_strategy

@@ -18,7 +18,6 @@ from tenacity import (
     wait_fixed,
 )
 
-from config import exa_client, tavily_client
 from domain import PrefixedText
 from exceptions import WebParseError
 from utils import get_proxy
@@ -249,15 +248,3 @@ class WebParser:
                 )
                 msg = "Both parsing backends failed"
                 raise WebParseError(msg) from fallback_error
-
-
-web_parser = WebParser(
-    ExaBackend(exa_client),
-    TavilyBackend(tavily_client),
-    UrlResolver(),
-)
-
-
-def parse_url(url: str) -> PrefixedText:
-    """Extract main textual content from a URL via the default WebParser."""
-    return web_parser.parse(url)

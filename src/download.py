@@ -21,7 +21,6 @@ from tenacity import (
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from config import TG_API_TOKEN
 from utils import generate_temporary_name, get_proxy
 
 if TYPE_CHECKING:
@@ -36,6 +35,10 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 class Downloader:
     """Downloads media from YouTube, Castro, and Telegram."""
+
+    def __init__(self, tg_api_token: str) -> None:
+        """Store the injected Telegram bot API token."""
+        self._tg_api_token = tg_api_token
 
     @staticmethod
     def _choose_yt_audio_format(info: dict[str, Any]) -> str:
@@ -206,17 +209,7 @@ class Downloader:
             msg = "Telegram file path is missing."
             raise ValueError(msg)
         file_url = (
-            f"https://api.telegram.org/file/bot{TG_API_TOKEN}/{file_id.file_path}"
+            f"https://api.telegram.org/file/bot{self._tg_api_token}/{file_id.file_path}"
         )
         self._stream_to_file(file_url, temporary_file_name)
         return temporary_file_name
-
-
-# Module-level singleton
-downloader = Downloader()
-
-
-# Module-level aliases — preserve the existing public API
-download_yt = downloader.download_yt
-download_castro = downloader.download_castro
-download_tg = downloader.download_tg

@@ -1,6 +1,5 @@
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from config import (
@@ -9,15 +8,7 @@ from config import (
     DEFAULT_PROMPT_KEY,
     DEFAULT_THINKING_LEVEL,
 )
-from database import (
-    check_auth,
-    register_user,
-    select_user,
-    set_prompt_strategy,
-    set_summarizing_model,
-    set_target_language,
-    set_thinking_level,
-)
+from database import UserRepository
 from models import Base, UsersOrm
 
 
@@ -31,20 +22,25 @@ def sqlite_session_factory(tmp_path):
     engine.dispose()
 
 
-def test_register_user_success(mock_db_session):
+@pytest.fixture
+def user_repo(sqlite_session_factory):
+    """Provide a UserRepository backed by the isolated SQLite session factory."""
+    return UserRepository(sqlite_session_factory)
+
+
+def test_register_user_success(user_repo, sqlite_session_factory):
     """Test registering a new user successfully."""
-    result = register_user(123, "First", "Last", "user")
+    result = user_repo.register_user(123, "First", "Last", "user")
 
     assert result is True
-    assert mock_db_session.add.called
-    assert mock_db_session.commit.called
+    with sqlite_session_factory() as session:
+        user = session.get(UsersOrm, 123)
+        assert user is not None
 
 
-def test_register_user_stores_defaults(monkeypatch, sqlite_session_factory):
+def test_register_user_stores_defaults(user_repo, sqlite_session_factory):
     """Test register_user stores the configured defaults when nothing is overridden."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-
-    assert register_user(123, "First", "Last", "user") is True
+    assert user_repo.register_user(123, "First", "Last", "user") is True
     with sqlite_session_factory() as session:
         user = session.get(UsersOrm, 123)
         assert user is not None
@@ -66,70 +62,69 @@ def test_orm_server_defaults_match_config(column, expected):
     assert UsersOrm.__table__.c[column].server_default.arg == expected
 
 
-def test_register_user_duplicate(mock_db_session):
-    """Test register_user returns False when user already exists (IntegrityError)."""
-    mock_db_session.commit.side_effect = IntegrityError("msg", "params", "orig")
+def test_register_user_duplicate(mocker, user_repo, sqlite_session_factory):
+    """Test register_user returns False when user already exists (IntegrityError).
 
-    result = register_user(123, "First", "Last", "user")
+    Registering the same user_id twice raises a real IntegrityError from SQLite's
+    primary-key constraint. The rollback is spied on the Session class, not an
+    instance: the repository opens its own session, so there is none to spy on first.
+    """
+    assert user_repo.register_user(123, "First", "Last", "user") is True
+    rollback_spy = mocker.spy(sqlite_session_factory.class_, "rollback")
+
+    result = user_repo.register_user(123, "First", "Last", "user")
 
     assert result is False
-    assert mock_db_session.rollback.called
+    assert rollback_spy.called
 
 
-def test_select_user_missing(mock_db_session):
+def test_select_user_missing(user_repo):
     """Test select_user raises a clear error for unknown users."""
-    mock_db_session.get.return_value = None
-
     with pytest.raises(ValueError, match="User not found"):
-        select_user(999)
+        user_repo.select_user(999)
 
 
-def test_check_auth_approved_user(mock_db_session):
+def test_check_auth_approved_user(user_repo):
     """Test that an approved user returns True."""
-    mock_db_session.get.return_value = UsersOrm(user_id=123, approved=True)
+    user_repo.register_user(123, "First", "Last", "user", approved=True)
 
-    assert check_auth(123) is True
-    mock_db_session.get.assert_called_once_with(UsersOrm, 123)
+    assert user_repo.check_auth(123) is True
 
 
-def test_check_auth_unapproved_user(mock_db_session):
+def test_check_auth_unapproved_user(user_repo):
     """Test that an unapproved user returns False."""
-    mock_db_session.get.return_value = UsersOrm(user_id=123, approved=False)
+    user_repo.register_user(123, "First", "Last", "user", approved=False)
 
-    assert check_auth(123) is False
-    mock_db_session.get.assert_called_once_with(UsersOrm, 123)
+    assert user_repo.check_auth(123) is False
 
 
-def test_check_auth_unknown_user(mock_db_session):
+def test_check_auth_unknown_user(user_repo):
     """Test that an unknown user ID raises ValueError."""
-    mock_db_session.get.return_value = None
-
     with pytest.raises(ValueError, match="User not found"):
-        check_auth(999)
-    mock_db_session.get.assert_called_once_with(UsersOrm, 999)
+        user_repo.check_auth(999)
 
 
 @pytest.mark.parametrize(
     ("setter", "value", "orm_attr", "stored_value"),
     [
-        (set_target_language, "English", "target_language", "English"),
+        ("set_target_language", "English", "target_language", "English"),
         (
-            set_summarizing_model,
+            "set_summarizing_model",
             "gemini-3.5-flash",
             "summarizing_model",
             "gemini-3.5-flash",
         ),
         (
-            set_prompt_strategy,
+            "set_prompt_strategy",
             "basic_prompt_for_transcript",
             "prompt_key_for_summary",
             "basic_prompt_for_transcript",
         ),
-        (set_thinking_level, "high", "thinking_level", "HIGH"),
+        ("set_thinking_level", "high", "thinking_level", "HIGH"),
     ],
 )
 def test_set_setting_persists(
-    monkeypatch,
+    user_repo,
     sqlite_session_factory,
     setter,
     value,
@@ -137,10 +132,9 @@ def test_set_setting_persists(
     stored_value,
 ):
     """Test each setting setter persists to a real SQLite database."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-    register_user(123, "First", "Last", "user")
+    user_repo.register_user(123, "First", "Last", "user")
 
-    result = setter(123, value)
+    result = getattr(user_repo, setter)(123, value)
 
     assert result is True
     with sqlite_session_factory() as session:
@@ -152,36 +146,30 @@ def test_set_setting_persists(
 @pytest.mark.parametrize(
     ("setter", "bad_value"),
     [
-        (set_target_language, "Klingon"),
-        (set_summarizing_model, "gpt-4"),
-        (set_prompt_strategy, "bogus"),
+        ("set_target_language", "Klingon"),
+        ("set_summarizing_model", "gpt-4"),
+        ("set_prompt_strategy", "bogus"),
     ],
 )
-def test_set_setting_rejects_unsupported(
-    monkeypatch,
-    sqlite_session_factory,
-    setter,
-    bad_value,
-):
+def test_set_setting_rejects_unsupported(user_repo, setter, bad_value):
     """Test each setting setter returns False for unsupported values."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-    register_user(123, "First", "Last", "user")
+    user_repo.register_user(123, "First", "Last", "user")
 
-    assert setter(123, bad_value) is False
+    assert getattr(user_repo, setter)(123, bad_value) is False
 
 
 @pytest.mark.parametrize(
     ("setter", "value", "orm_attr", "stored_value"),
     [
-        (set_target_language, "english", "target_language", "English"),
+        ("set_target_language", "english", "target_language", "English"),
         (
-            set_summarizing_model,
+            "set_summarizing_model",
             "GEMINI-3.5-FLASH",
             "summarizing_model",
             "gemini-3.5-flash",
         ),
         (
-            set_prompt_strategy,
+            "set_prompt_strategy",
             "Key_Points_For_Transcript",
             "prompt_key_for_summary",
             "key_points_for_transcript",
@@ -189,7 +177,7 @@ def test_set_setting_rejects_unsupported(
     ],
 )
 def test_set_setting_stores_normalized_value(
-    monkeypatch,
+    user_repo,
     sqlite_session_factory,
     setter,
     value,
@@ -202,27 +190,25 @@ def test_set_setting_stores_normalized_value(
     raw input would let a non-canonical value through: PROMPTS[...] would raise
     KeyError and a mis-cased model id would be rejected by the Gemini API.
     """
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-    register_user(123, "First", "Last", "user")
+    user_repo.register_user(123, "First", "Last", "user")
 
-    assert setter(123, value) is True
+    assert getattr(user_repo, setter)(123, value) is True
     with sqlite_session_factory() as session:
         user = session.get(UsersOrm, 123)
         assert user is not None
         assert getattr(user, orm_attr) == stored_value
 
 
-def test_set_thinking_level_rejects_unknown_value(monkeypatch, sqlite_session_factory):
+def test_set_thinking_level_rejects_unknown_value(user_repo, sqlite_session_factory):
     """Test set_thinking_level returns False and leaves the stored level unchanged."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-    register_user(123, "First", "Last", "user")
+    user_repo.register_user(123, "First", "Last", "user")
     # Move off the default first, so a rejected value cannot be mistaken for it.
     other_level = next(
         level for level in ALLOWED_THINKING_LEVELS if level != DEFAULT_THINKING_LEVEL
     )
-    assert set_thinking_level(123, other_level) is True
+    assert user_repo.set_thinking_level(123, other_level) is True
 
-    assert set_thinking_level(123, "bogus") is False
+    assert user_repo.set_thinking_level(123, "bogus") is False
     with sqlite_session_factory() as session:
         user = session.get(UsersOrm, 123)
         assert user is not None
@@ -232,14 +218,12 @@ def test_set_thinking_level_rejects_unknown_value(monkeypatch, sqlite_session_fa
 @pytest.mark.parametrize(
     ("setter", "value"),
     [
-        (set_target_language, "English"),
-        (set_summarizing_model, "gemini-3.5-flash"),
-        (set_prompt_strategy, "key_points_for_transcript"),
-        (set_thinking_level, "HIGH"),
+        ("set_target_language", "English"),
+        ("set_summarizing_model", "gemini-3.5-flash"),
+        ("set_prompt_strategy", "key_points_for_transcript"),
+        ("set_thinking_level", "HIGH"),
     ],
 )
-def test_set_setting_missing_user(monkeypatch, sqlite_session_factory, setter, value):
+def test_set_setting_missing_user(user_repo, setter, value):
     """Test each setting setter returns False when the user does not exist."""
-    monkeypatch.setattr("database.Session", sqlite_session_factory)
-
-    assert setter(999, value) is False
+    assert getattr(user_repo, setter)(999, value) is False
