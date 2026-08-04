@@ -180,6 +180,10 @@ class GeminiHelper:
             raise AttributeError
         return uploaded
 
+    def delete_file(self, name: str) -> None:
+        """Delete a file from the provider's file API."""
+        self._client.files.delete(name=name)
+
 
 class Tracer:
     """Groups all model calls for one Telegram message into a single Langfuse trace."""
@@ -220,22 +224,5 @@ send_answer = messenger.send_answer
 check_quota = quota_manager.check_quota
 get_remaining_quota = quota_manager.get_remaining_quota
 resolve_mime_type = gemini_helper.resolve_mime_type
-
-
-def upload_and_wait_for_file(file: str, mime_type: str, sleep_time: int) -> types.File:
-    """Transitional alias for `GeminiHelper.upload_and_wait_for_file` (STG-135).
-
-    Builds a fresh `GeminiHelper` around the current module-level `gemini_client`
-    on every call, rather than delegating to the `gemini_helper` singleton's
-    already-bound method, so `tests/test_summary.py`'s
-    `mocker.patch("services.gemini_client", ...)` calls keep working until that
-    test module migrates to injecting a `GeminiHelper` directly.
-    """
-    return GeminiHelper(gemini_client).upload_and_wait_for_file(
-        file,
-        mime_type,
-        sleep_time,
-    )
-
-
+upload_and_wait_for_file = gemini_helper.upload_and_wait_for_file
 observe_message = tracer.observe_message

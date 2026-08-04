@@ -4,6 +4,7 @@ from download import Downloader
 from llm import LLMClient
 from parsing import WebParser
 from services import GeminiHelper, Messenger, QuotaManager, Tracer
+from summary import Summarizer
 from transcription import ApiBackend, AudioTranscriber, YouTubeTranscriber, YtDlpBackend
 
 
@@ -21,6 +22,7 @@ def test_build_container_returns_wired_container():
     assert isinstance(container.web_parser, WebParser)
     assert isinstance(container.audio_transcriber, AudioTranscriber)
     assert isinstance(container.yt_transcriber, YouTubeTranscriber)
+    assert isinstance(container.summarizer, Summarizer)
 
     assert container.messenger._bot is config.bot
     assert container.quota_manager._rate_limiter is config.rate_limiter
@@ -34,3 +36,12 @@ def test_build_container_returns_wired_container():
     assert container.audio_transcriber._client is config.replicate_client
     assert isinstance(container.yt_transcriber._primary, ApiBackend)
     assert isinstance(container.yt_transcriber._fallback, YtDlpBackend)
+
+    # The summarizer's collaborators must be the container's own instances,
+    # not freshly constructed duplicates, so the object graph is genuinely one.
+    assert container.summarizer._quota_manager is container.quota_manager
+    assert container.summarizer._gemini_helper is container.gemini_helper
+    assert container.summarizer._llm_client is container.llm_client
+    assert container.summarizer._downloader is container.downloader
+    assert container.summarizer._audio_transcriber is container.audio_transcriber
+    assert container.summarizer._yt_transcriber is container.yt_transcriber

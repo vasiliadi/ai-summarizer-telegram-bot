@@ -192,6 +192,15 @@ def test_upload_and_wait_for_file_missing_uri(mocker):
         GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
 
 
+def test_delete_file_forwards_name_to_client(mocker):
+    """Test delete_file passes the file name through to the client's files.delete."""
+    mock_client = mocker.MagicMock()
+
+    GeminiHelper(mock_client).delete_file("files/mock123")
+
+    mock_client.files.delete.assert_called_once_with(name="files/mock123")
+
+
 def test_get_remaining_quota(mocker):
     """get_remaining_quota returns remaining count from window stats."""
     mock_rate_limiter = mocker.MagicMock()

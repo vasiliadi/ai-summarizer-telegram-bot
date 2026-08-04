@@ -11,10 +11,11 @@ from download import Downloader
 from llm import LLMClient
 from parsing import ExaBackend, TavilyBackend, UrlResolver, WebParser
 from services import GeminiHelper, Messenger, QuotaManager, Tracer
+from summary import Summarizer
 from transcription import ApiBackend, AudioTranscriber, YouTubeTranscriber, YtDlpBackend
 
-# Later slices append summarizer and the handlers to this dataclass; main.py
-# adopts the container in a later slice (STG-135).
+# Later slices append the handlers to this dataclass; main.py adopts the
+# container in a later slice (STG-135).
 
 
 @dataclass(frozen=True)
@@ -31,23 +32,38 @@ class Container:
     web_parser: WebParser
     audio_transcriber: AudioTranscriber
     yt_transcriber: YouTubeTranscriber
+    summarizer: Summarizer
 
 
 def build_container() -> Container:
     """Construct the application object graph from config's clients."""
+    quota_manager = QuotaManager(config.rate_limiter, config.per_minute_rate)
+    gemini_helper = GeminiHelper(config.gemini_client)
+    llm_client = LLMClient(config.gemini_client)
+    downloader = Downloader(config.TG_API_TOKEN)
+    audio_transcriber = AudioTranscriber(config.replicate_client)
+    yt_transcriber = YouTubeTranscriber(ApiBackend(), YtDlpBackend())
     return Container(
         messenger=Messenger(config.bot),
-        quota_manager=QuotaManager(config.rate_limiter, config.per_minute_rate),
-        gemini_helper=GeminiHelper(config.gemini_client),
+        quota_manager=quota_manager,
+        gemini_helper=gemini_helper,
         tracer=Tracer(config.langfuse_client),
         user_repo=UserRepository(database.Session),
-        llm_client=LLMClient(config.gemini_client),
-        downloader=Downloader(config.TG_API_TOKEN),
+        llm_client=llm_client,
+        downloader=downloader,
         web_parser=WebParser(
             ExaBackend(config.exa_client),
             TavilyBackend(config.tavily_client),
             UrlResolver(),
         ),
-        audio_transcriber=AudioTranscriber(config.replicate_client),
-        yt_transcriber=YouTubeTranscriber(ApiBackend(), YtDlpBackend()),
+        audio_transcriber=audio_transcriber,
+        yt_transcriber=yt_transcriber,
+        summarizer=Summarizer(
+            quota_manager,
+            gemini_helper,
+            llm_client,
+            downloader,
+            audio_transcriber,
+            yt_transcriber,
+        ),
     )

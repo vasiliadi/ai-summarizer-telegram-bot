@@ -49,7 +49,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 |--------|------|
 | `main.py` | Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. |
 | `handlers.py` | Per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
-| `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls `llm.run_model`. |
+| `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
 | `llm.py` | `LLMClient` — the provider seam. Each instance holds one pydantic-ai `Agent`; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`); `build_settings` currently carries only the provider-agnostic thinking level. |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
@@ -90,13 +90,14 @@ download path. Neither may re-derive the kind on its own — a second, narrower
 classifier here previously let www-prefixed and uppercase-host media URLs reach
 the Gemini file upload with the URL string as their file path.
 
-- **YouTube URL** → try transcript (`get_yt_transcript`); on success summarize
-  the transcript. On failure → `download_yt` audio, then the file path below.
-- **Castro URL** → `download_castro` audio → file path.
-- **Telegram File** → `download_tg(.ogg)` → file path.
+- **YouTube URL** → try transcript (`YouTubeTranscriber.get_transcript`); on
+  success summarize the transcript. On failure → `Downloader.download_yt`
+  audio, then the file path below.
+- **Castro URL** → `Downloader.download_castro` audio → file path.
+- **Telegram File** → `Downloader.download_tg(.ogg)` → file path.
 - **File path** → `summarize_with_file` (upload to Gemini, generate). If that
-  exhausts retries → fallback: `compress_audio` → `transcribe` (Replicate) →
-  `summarize_text`.
+  exhausts retries → fallback: `compress_audio` → `AudioTranscriber.transcribe`
+  (Replicate) → `summarize_text`.
 
 So there are two layered fallbacks for spoken content: transcript-first for
 YouTube, and Gemini-file-first with a Replicate-transcription rescue for any
@@ -138,8 +139,8 @@ to Gemini — return the raw model text with **no** prefix.
   `container.py`. Migrated: `Messenger`, `QuotaManager`, `GeminiHelper`,
   `Tracer` (`services.py`); `UserRepository` (`database.py`); `LLMClient`
   (`llm.py`); `Downloader` (`download.py`); `WebParser` (`parsing.py`);
-  `AudioTranscriber`/`YouTubeTranscriber` (`transcription.py`). Remaining
-  modules keep the class → singleton → alias shim until migrated. Unwinding
+  `AudioTranscriber`/`YouTubeTranscriber` (`transcription.py`); `Summarizer`
+  (`summary.py`). Remaining modules keep the shim until migrated. Unwinding
   to plain functions is **rejected**.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
