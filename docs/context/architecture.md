@@ -158,23 +158,18 @@ to Gemini — return the raw model text with **no** prefix.
   startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest.
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
-- **Tracing (optional), text input only.** Langfuse tracing is enabled only when
-  `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`,
-  else `None`). When on, `Agent.instrument_all()` makes pydantic-ai emit an
-  OpenTelemetry span per model call by default, which the OTel-based Langfuse SDK
-  ingests — no provider-specific instrumentor. `LLMClient` overrides that default to
-  off for any run whose content includes an `UploadedFile` (the Gemini-file path,
-  `summary.py:_summarize_uploaded_file`): pydantic-ai would serialize the file
-  pointer, not the audio bytes behind it, so Langfuse would record a generation with
-  real token usage but no content to inspect — wrong cost signal, and unusable for
-  datasets or evaluators. Only runs whose content is text (`summarize_text`, the
-  YouTube-transcript, webpage, and Replicate-rescue paths) are traced.
-  `Tracer.observe_message` (used in `BotApp.handle_message`) does not open a span
-  itself; it names and attributes whatever span the message's model calls open
-  (`trace_name="handle_message"`, tagged with the content type), via
-  `propagate_attributes`, which reads the current span and no-ops when none is
-  active. So a text request still yields one trace rooted at pydantic-ai's agent
-  span; a file-only request (audio, voice, video, video note, document) yields no
-  trace at all. `langfuse_client.shutdown()` flushes on exit. Independent of Sentry,
-  which handles error capture and logs; the Langfuse tracing is a no-op when
-  disabled.
+- **Tracing (optional), text input only.** Enabled only when `LANGFUSE_PUBLIC_KEY` and
+  `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`, else `None`).
+  `Agent.instrument_all()` then makes pydantic-ai emit an OpenTelemetry span per model
+  call, which the OTel-based Langfuse SDK ingests — no provider-specific instrumentor.
+  `LLMClient` overrides that to off for any run carrying an `UploadedFile`, because
+  pydantic-ai serializes the file pointer rather than the bytes behind it: Langfuse
+  would get real token usage with no content — a wrong cost signal, useless for
+  datasets and evaluators. **Do not re-enable it for file runs.**
+  `Tracer.observe_message` opens no span of its own, it only names and attributes
+  (`trace_name="handle_message"`, tagged with the content type) whatever spans the
+  message's model calls open. Consequences worth knowing: a media message produces no
+  trace at all; a trace spans the model call only, not the download, parse or upload
+  around it; and a retried `summarize_text` produces one trace per attempt, since
+  nothing groups them. `langfuse_client.shutdown()` flushes on exit. Independent of
+  Sentry, which handles error capture and logs.

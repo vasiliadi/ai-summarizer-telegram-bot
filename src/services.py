@@ -205,11 +205,9 @@ class Tracer:
     def observe_message(self, user_id: int, content_type: str) -> Generator[None]:
         """Name and attribute whatever trace one Telegram message produces.
 
-        Does not open a root span itself: `LLMClient` instruments only
-        text-content runs, so a message that only reaches an uploaded-file run
-        opens no span, and `propagate_attributes` — which reads the current span,
-        a no-op `NonRecordingSpan` when none is active — has nothing to name or
-        tag. A no-op when Langfuse is not configured.
+        Opens no span itself, so a message whose model calls all carry an
+        uploaded file — which `LLMClient` leaves uninstrumented — produces no
+        trace at all. A no-op when Langfuse is not configured.
         """
         if self._client is None:
             yield

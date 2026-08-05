@@ -278,6 +278,9 @@ def test_run_uses_traced_agent_for_text_content(llm_client, mocker):
     )
 
     assert result == "A summary."
+    # Unset, so the agent inherits the instrument_all() default. Pinned here
+    # because switching it off would silently stop every trace.
+    assert llm_client._agent.instrument is None
     mock_run_sync.assert_called_once()
     mock_untraced_run_sync.assert_not_called()
 
