@@ -190,7 +190,7 @@ class GeminiHelper:
 
 
 class Tracer:
-    """Groups all model calls for one Telegram message into a single Langfuse trace."""
+    """Names and attributes whatever Langfuse spans one Telegram message produces."""
 
     def __init__(self, client: Langfuse | None) -> None:
         """Store the injected Langfuse client (None when tracing is disabled)."""
@@ -203,17 +203,18 @@ class Tracer:
 
     @contextmanager
     def observe_message(self, user_id: int, content_type: str) -> Generator[None]:
-        """Group all model calls for one Telegram message into a single trace.
+        """Name and attribute whatever trace one Telegram message produces.
 
-        Opens a Langfuse root span attributed to the user and tagged with the
-        message content type, so the generation spans emitted by pydantic-ai nest
-        under one trace. A no-op when Langfuse is not configured.
+        Opens no span itself, so a message whose model calls all carry an
+        uploaded file — which `LLMClient` leaves uninstrumented — produces no
+        trace at all. A no-op when Langfuse is not configured.
         """
         if self._client is None:
             yield
             return
-        with (
-            self._client.start_as_current_observation(name="handle_message"),
-            propagate_attributes(user_id=str(user_id), tags=[content_type]),
+        with propagate_attributes(
+            trace_name="handle_message",
+            user_id=str(user_id),
+            tags=[content_type],
         ):
             yield

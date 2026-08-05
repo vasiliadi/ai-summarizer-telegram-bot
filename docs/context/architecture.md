@@ -53,11 +53,11 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; the `__main__` block just calls `build_app`, `run`, `shutdown`. |
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
-| `llm.py` | `LLMClient` — the provider seam. Each instance holds one pydantic-ai `Agent`; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`); `build_settings` currently carries only the provider-agnostic thinking level. |
+| `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a model cache; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`); `build_settings` currently carries only the provider-agnostic thinking level. |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
-| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (Langfuse root span per message). |
+| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (names/tags the Langfuse trace for a message, if one is opened). |
 | `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator to `config`'s clients. `Container` carries only the five roots `BotApp` holds (`bot`, `quota_manager`, `tracer`, `user_repo`, `handlers`); the rest of the graph is reached through `handlers`. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
@@ -158,12 +158,19 @@ to Gemini — return the raw model text with **no** prefix.
   startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest.
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
-- **Tracing (optional).** Langfuse tracing is enabled only when `LANGFUSE_PUBLIC_KEY`
-  and `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`, else `None`). When on,
-  `Agent.instrument_all()` makes pydantic-ai emit an OpenTelemetry span per model
-  call, which the OTel-based Langfuse SDK ingests — no provider-specific
-  instrumentor. `Tracer.observe_message` (used in `BotApp.handle_message`) wraps
-  each Telegram message in one root span attributed to the user and tagged with the
-  content type, so all model calls for a message nest under a single trace.
-  `langfuse_client.shutdown()` flushes on exit. Independent of Sentry, which handles
-  error capture and logs; the Langfuse tracing is a no-op when disabled.
+- **Tracing (optional), text input only.** Enabled only when `LANGFUSE_PUBLIC_KEY` and
+  `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`, else `None`).
+  `Agent.instrument_all()` then makes pydantic-ai emit an OpenTelemetry span per model
+  call, which the OTel-based Langfuse SDK ingests — no provider-specific instrumentor.
+  `LLMClient` overrides that to off for any run carrying an `UploadedFile`, because
+  pydantic-ai serializes the file pointer rather than the bytes behind it: Langfuse
+  would get real token usage with no content — a wrong cost signal, useless for
+  datasets and evaluators. **Do not re-enable it for file runs.**
+  `Tracer.observe_message` opens no span of its own, it only names and attributes
+  (`trace_name="handle_message"`, tagged with the content type) whatever spans the
+  message's model calls open. Consequences worth knowing: the Gemini-file call is never
+  traced, but a media message still is when it falls through to Replicate
+  transcription, which summarizes a plain string; a trace spans the model call only,
+  not the download, parse or upload around it; and a retried `summarize_text` produces
+  one trace per attempt, since nothing groups them. `langfuse_client.shutdown()` flushes on exit. Independent of
+  Sentry, which handles error capture and logs.

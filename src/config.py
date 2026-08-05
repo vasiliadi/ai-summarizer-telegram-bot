@@ -124,8 +124,10 @@ ALLOWED_THINKING_LEVELS = list(THINKING_LEVEL_LABELS.keys())
 
 # Langfuse config
 # Optional: tracing is enabled only when both keys are present, so local runs
-# and tests work without Langfuse. When enabled, pydantic-ai emits an OpenTelemetry
-# span per model call, which the OTel-based Langfuse SDK ingests.
+# and tests work without Langfuse. When enabled, this is the default: pydantic-ai
+# emits an OpenTelemetry span per model call, which the OTel-based Langfuse SDK
+# ingests. `llm.LLMClient` overrides it to off for runs whose content is an
+# uploaded file, so only text-input model calls get traced.
 LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_PUBLIC_KEY")
 LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY")
 LANGFUSE_BASE_URL = os.environ.get("LANGFUSE_BASE_URL")

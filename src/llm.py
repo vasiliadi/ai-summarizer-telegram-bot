@@ -27,11 +27,23 @@ class LLMClient:
     def __init__(self, client: genai.Client) -> None:
         """Store the injected Gemini client and this client's model cache."""
         self._client = client
-        # A single agent serves every call: pydantic-ai takes the model, the
-        # instructions and the settings per run, so nothing here is model-,
-        # language- or user-specific.
+        # Neither agent is model-, language- or user-specific: pydantic-ai takes
+        # the model, the instructions and the settings per run. They differ only
+        # in whether instrumentation is on.
         self._agent: Agent[None, str] = Agent()
+        # Runs that carry an UploadedFile go through an agent with instrumentation
+        # off: pydantic-ai would record the file pointer as the input, producing a
+        # Langfuse generation with token usage but no content behind it.
+        self._untraced_agent: Agent[None, str] = Agent()
+        self._untraced_agent.instrument = False
         self._models: dict[str, Model] = {}
+
+    @staticmethod
+    def _is_text_only(content: str | Sequence[UserContent]) -> bool:
+        """Broader than `isinstance(content, str)`: a multi-part text prompt counts."""
+        if isinstance(content, str):
+            return True
+        return all(isinstance(part, str) for part in content)
 
     def build_model(self, model_id: str) -> Model:
         """Return the pydantic-ai model for a registered id, shared across calls."""
@@ -111,7 +123,8 @@ class LLMClient:
         instructions = dedent(
             SYSTEM_INSTRUCTION.format(language=target_language),
         ).strip()
-        result = self._agent.run_sync(
+        agent = self._agent if self._is_text_only(content) else self._untraced_agent
+        result = agent.run_sync(
             content,
             model=self.build_model(model_id),
             instructions=instructions,
