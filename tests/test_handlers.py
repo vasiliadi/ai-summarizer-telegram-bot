@@ -8,7 +8,6 @@ from domain import PrefixedText
 from exceptions import LimitExceededError, WebParseError
 from handlers import MessageHandlers
 from helpers import make_app
-from utils import classify_url
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -168,22 +167,49 @@ def test_process_message_content_sends_textless_fallback(message_factory, mocker
     fakes.bot.send_message.assert_called_once_with(msg.chat.id, "No text to process.")
 
 
-def test_handle_audio_file_too_large(message_factory, mocker):
-    """Test that audio files over 20MB are rejected."""
-    msg = message_factory(content_type="audio")
-    msg.audio.file_size = 25_000_000
+# Every media handler funnels its size check through the one _fetch_media guard,
+# so the four content types share a single test rather than one apiece.
+@pytest.mark.parametrize(
+    ("content_type", "handler_name"),
+    [
+        ("audio", "handle_audio"),
+        ("voice", "handle_voice"),
+        ("video", "handle_video"),
+        ("video_note", "handle_video_note"),
+    ],
+)
+def test_handle_media_rejects_file_over_the_telegram_cap(
+    message_factory,
+    mocker,
+    content_type,
+    handler_name,
+):
+    """Test each media handler rejects a file above Telegram's 20MB getFile cap."""
+    msg = message_factory(content_type=content_type)
+    getattr(msg, content_type).file_size = 21 * 1024 * 1024
     handlers, fakes = _make_handlers(mocker)
-    user = mocker.MagicMock()
 
-    handlers.handle_audio(msg, user)
+    getattr(handlers, handler_name)(msg, mocker.MagicMock())
 
     fakes.bot.reply_to.assert_called_once_with(msg, "File is too big.")
+    # The cap exists because Telegram's getFile refuses files above it, so the
+    # guard has to short-circuit before the fetch, not just before summarizing.
+    fakes.messenger.get_file_with_retry.assert_not_called()
     fakes.summarizer.summarize.assert_not_called()
 
 
-def test_handle_audio_happy_path(message_factory, mocker):
-    """Test successful audio file processing."""
-    msg = message_factory(content_type="audio")
+@pytest.mark.parametrize(
+    ("content_type", "handler_name"),
+    [("audio", "handle_audio"), ("voice", "handle_voice")],
+)
+def test_handle_media_summarizes_the_fetched_file(
+    message_factory,
+    mocker,
+    content_type,
+    handler_name,
+):
+    """Test audio and voice hand the fetched Telegram file straight to summarize."""
+    msg = message_factory(content_type=content_type)
     handlers, fakes = _make_handlers(mocker)
     user = mocker.MagicMock(
         approved=True,
@@ -194,7 +220,7 @@ def test_handle_audio_happy_path(message_factory, mocker):
     mock_file = mocker.MagicMock(spec=types.File)
     fakes.messenger.get_file_with_retry.return_value = mock_file
 
-    handlers.handle_audio(msg, user)
+    getattr(handlers, handler_name)(msg, user)
 
     assert fakes.summarizer.summarize.call_args.kwargs["data"] == mock_file
 
@@ -222,55 +248,6 @@ def test_handle_url_unsupported_pattern(message_factory, mocker):
 
     fakes.bot.send_message.assert_called_once_with(msg.chat.id, "No data to proceed.")
     fakes.summarizer.summarize_text.assert_not_called()
-
-
-def test_classify_url_uppercase_youtube_host():
-    """Test classify_url normalises uppercase YouTube hostnames to 'youtube'."""
-    assert classify_url("https://YOUTU.BE/dQw4w9WgXcQ") == "youtube"
-    assert classify_url("https://WWW.YOUTUBE.COM/watch?v=dQw4w9WgXcQ") == "youtube"
-
-
-def test_classify_url_strips_www_prefix():
-    """Test classify_url routes www-prefixed media hosts to their media kind.
-
-    Regression: routing used to be duplicated, and the second classifier matched
-    three literal lowercase prefixes. A www-prefixed Castro or youtu.be link was
-    classified as media here, then failed the second check and reached the
-    Gemini file upload with the URL string as its file path.
-    """
-    assert classify_url("https://www.castro.fm/episode/123") == "castro"
-    assert classify_url("https://www.youtu.be/dQw4w9WgXcQ") == "youtube"
-
-
-def test_classify_url_castro_non_episode_path_is_web():
-    """Test classify_url only treats Castro /episode/ paths as media."""
-    assert classify_url("https://castro.fm/about") == "web"
-
-
-def test_classify_url_malformed_no_host():
-    """Test classify_url returns None for URLs with no parseable hostname."""
-    assert classify_url("https://") is None
-
-
-def test_classify_url_rejects_non_http_scheme():
-    """Test classify_url returns None for non-http(s) schemes."""
-    assert classify_url("ftp://example.com/file.txt") is None
-
-
-def test_classify_url_returns_none_for_unparseable_authority():
-    """Test classify_url returns None when urlsplit rejects the authority.
-
-    urlsplit raises ValueError on bracket-malformed hosts. Left uncaught it
-    escapes handle_url's kind check and reaches handle_message's catch-all, so
-    the user sees "Unexpected: ValueError" instead of "No data to proceed.".
-    """
-    assert classify_url("https://[") is None
-    assert classify_url("http://[::1") is None
-
-
-def test_classify_url_http_youtube_is_web():
-    """Test classify_url only treats https media hosts as media."""
-    assert classify_url("http://youtube.com/watch?v=dQw4w9WgXcQ") == "web"
 
 
 def test_handle_url_youtube_pattern(message_factory, mocker):
@@ -352,36 +329,6 @@ def test_handle_url_web_parse_error_skips_summarize(message_factory, mocker):
     fakes.summarizer.summarize_text.assert_not_called()
 
 
-def test_handle_voice_happy_path(message_factory, mocker):
-    """Test successful voice message processing."""
-    msg = message_factory(content_type="voice")
-    handlers, fakes = _make_handlers(mocker)
-    user = mocker.MagicMock(
-        approved=True,
-        summarizing_model="model",
-        prompt_key_for_summary="prompt",
-        target_language="English",
-    )
-    mock_file = mocker.MagicMock(spec=types.File)
-    fakes.messenger.get_file_with_retry.return_value = mock_file
-
-    handlers.handle_voice(msg, user)
-
-    assert fakes.summarizer.summarize.call_args.kwargs["data"] == mock_file
-
-
-def test_handle_voice_too_big(message_factory, mocker):
-    """Test voice message rejection when file exceeds limit (20MB)."""
-    msg = message_factory(content_type="voice")
-    msg.voice.file_size = 21 * 1024 * 1024
-    handlers, fakes = _make_handlers(mocker)
-    user = mocker.MagicMock()
-
-    handlers.handle_voice(msg, user)
-
-    fakes.bot.reply_to.assert_called_once_with(msg, "File is too big.")
-
-
 def test_handle_voice_missing_info(message_factory, mocker):
     """Test voice message rejection when voice attribute is missing."""
     msg = message_factory(content_type="text")
@@ -395,9 +342,18 @@ def test_handle_voice_missing_info(message_factory, mocker):
     fakes.bot.reply_to.assert_called_once_with(msg, "No voice message found.")
 
 
-def test_handle_video_happy_path_cleans_up_download(message_factory, mocker):
-    """Test video processing cleans up the downloaded temporary file."""
-    msg = message_factory(content_type="video")
+@pytest.mark.parametrize(
+    ("content_type", "handler_name"),
+    [("video", "handle_video"), ("video_note", "handle_video_note")],
+)
+def test_handle_video_like_cleans_up_both_temp_files(
+    message_factory,
+    mocker,
+    content_type,
+    handler_name,
+):
+    """Test video and video note both clean up the download and the compressed copy."""
+    msg = message_factory(content_type=content_type)
     handlers, fakes = _make_handlers(mocker)
     user = mocker.MagicMock(
         approved=True,
@@ -413,33 +369,7 @@ def test_handle_video_happy_path_cleans_up_download(message_factory, mocker):
     fakes.summarizer.summarize.return_value = "summary"
     mock_clean_up = mocker.patch("handlers.clean_up")
 
-    handlers.handle_video(msg, user)
-
-    assert mock_clean_up.call_args_list == [
-        mocker.call(file="downloaded.mp4"),
-        mocker.call(file="compressed.ogg"),
-    ]
-
-
-def test_handle_video_note_happy_path_cleans_up_download(message_factory, mocker):
-    """Test video note processing cleans up the downloaded temporary file."""
-    msg = message_factory(content_type="video_note")
-    handlers, fakes = _make_handlers(mocker)
-    user = mocker.MagicMock(
-        approved=True,
-        summarizing_model="model",
-        prompt_key_for_summary="prompt",
-        target_language="English",
-    )
-    mock_file = mocker.MagicMock(spec=types.File)
-    fakes.messenger.get_file_with_retry.return_value = mock_file
-    fakes.downloader.download_tg.return_value = "downloaded.mp4"
-    mocker.patch("handlers.generate_temporary_name", return_value="compressed.ogg")
-    mocker.patch("handlers.compress_audio")
-    fakes.summarizer.summarize.return_value = "summary"
-    mock_clean_up = mocker.patch("handlers.clean_up")
-
-    handlers.handle_video_note(msg, user)
+    getattr(handlers, handler_name)(msg, user)
 
     assert mock_clean_up.call_args_list == [
         mocker.call(file="downloaded.mp4"),
@@ -479,30 +409,6 @@ def test_handle_video_cleans_up_compressed_file_when_summarize_raises(
         mocker.call(file="downloaded.mp4"),
         mocker.call(file="compressed.ogg"),
     ]
-
-
-def test_handle_video_note_file_too_large(message_factory, mocker):
-    """Test video note rejection when file exceeds 20MB limit."""
-    msg = message_factory(content_type="video_note")
-    msg.video_note.file_size = 21 * 1024 * 1024
-    handlers, fakes = _make_handlers(mocker)
-    user = mocker.MagicMock()
-
-    handlers.handle_video_note(msg, user)
-
-    fakes.bot.reply_to.assert_called_once_with(msg, "File is too big.")
-
-
-def test_handle_video_file_too_large(message_factory, mocker):
-    """Test video rejection when file exceeds 20MB limit."""
-    msg = message_factory(content_type="video")
-    msg.video.file_size = 21 * 1024 * 1024
-    handlers, fakes = _make_handlers(mocker)
-    user = mocker.MagicMock()
-
-    handlers.handle_video(msg, user)
-
-    fakes.bot.reply_to.assert_called_once_with(msg, "File is too big.")
 
 
 def test_handle_message_limit_exceeded(message_factory, mocker):

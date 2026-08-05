@@ -56,6 +56,57 @@ class Summarizer:
         self._audio_transcriber = audio_transcriber
         self._yt_transcriber = yt_transcriber
 
+    def _summarize_uploaded_file(
+        self,
+        file: str,
+        mime_type: str,
+        model: str,
+        prompt_key: str,
+        target_language: str,
+        user_id: int,
+        daily_limit: int,
+        thinking_level: str,
+    ) -> str:
+        """Upload a local file to the provider, summarize it, then delete the upload.
+
+        Shared by the audio and document paths; the caller owns `file` on disk,
+        has already run the non-consuming quota pre-check, and carries the
+        `@retry` this runs under — so this method must stay undecorated.
+        """
+        prompt = dedent(PROMPTS[prompt_key]).strip()
+        uploaded = self._gemini_helper.upload_and_wait_for_file(
+            file=file,
+            mime_type=mime_type,
+        )
+        uploaded_name = cast("str", uploaded.name)
+        try:
+            self._quota_manager.check_quota(
+                user_id=user_id,
+                daily_limit=daily_limit,
+                quantity=1,
+            )
+            return self._llm_client.run(
+                content=[
+                    prompt,
+                    self._llm_client.build_uploaded_file(
+                        model_id=model,
+                        file=uploaded,
+                    ),
+                ],
+                model_id=model,
+                target_language=target_language,
+                thinking_level=thinking_level,
+            )
+        finally:
+            try:
+                self._gemini_helper.delete_file(uploaded_name)
+            except Exception as e:
+                logger.warning(
+                    "Failed to delete Gemini file %s: %s",
+                    uploaded_name,
+                    e,
+                )
+
     @retry(
         stop=stop_after_attempt(2),
         wait=wait_fixed(30),
@@ -74,15 +125,15 @@ class Summarizer:
         user_id: int,
         daily_limit: int,
         thinking_level: str,
-        sleep_time: int = 10,
     ) -> str:
         """Summarize audio content by uploading it to the provider's file API.
 
         Raises:
-            AttributeError: If the model returns an empty response, or the upload
-                helper reports incomplete file metadata.
             ValueError: If the provider reports a failed processing state.
-            RetryError: If transient model or network errors persist after retries.
+            RetryError: If transient model or network errors persist, or the
+                model keeps returning an empty response, or the upload helper
+                keeps reporting incomplete file metadata. Those three surface as
+                `AttributeError`, which the decorator retries and then wraps.
 
         """
         self._quota_manager.check_quota(
@@ -90,41 +141,16 @@ class Summarizer:
             daily_limit=daily_limit,
             quantity=0,
         )
-        prompt = dedent(PROMPTS[prompt_key]).strip()
-        mime_type = self._gemini_helper.resolve_mime_type(file)
-        audio_file = self._gemini_helper.upload_and_wait_for_file(
+        return self._summarize_uploaded_file(
             file=file,
-            mime_type=mime_type,
-            sleep_time=sleep_time,
+            mime_type=self._gemini_helper.resolve_mime_type(file),
+            model=model,
+            prompt_key=prompt_key,
+            target_language=target_language,
+            user_id=user_id,
+            daily_limit=daily_limit,
+            thinking_level=thinking_level,
         )
-        audio_file_name = cast("str", audio_file.name)
-        try:
-            self._quota_manager.check_quota(
-                user_id=user_id,
-                daily_limit=daily_limit,
-                quantity=1,
-            )
-            return self._llm_client.run(
-                content=[
-                    prompt,
-                    self._llm_client.build_uploaded_file(
-                        model_id=model,
-                        file=audio_file,
-                    ),
-                ],
-                model_id=model,
-                target_language=target_language,
-                thinking_level=thinking_level,
-            )
-        finally:
-            try:
-                self._gemini_helper.delete_file(audio_file_name)
-            except Exception as e:
-                logger.warning(
-                    "Failed to delete Gemini file %s: %s",
-                    audio_file_name,
-                    e,
-                )
 
     @retry(
         stop=stop_after_attempt(2),
@@ -148,8 +174,9 @@ class Summarizer:
         """Summarize already-extracted text (a transcript or webpage content).
 
         Raises:
-            AttributeError: If the model returns an empty response.
-            RetryError: If transient model or network errors persist after retries.
+            RetryError: If transient model errors persist, or the model keeps
+                returning an empty response — the `AttributeError` that stands
+                for it is retried and then wrapped, never re-raised.
 
         """
         prompt = (f"{dedent(PROMPTS[prompt_key])} {text}").strip()
@@ -191,7 +218,6 @@ class Summarizer:
         user_id: int,
         daily_limit: int,
         thinking_level: str,
-        sleep_time: int = 10,
     ) -> str:
         """Summarize document content by uploading it to the provider's file API.
 
@@ -199,20 +225,18 @@ class Summarizer:
         transcription path instead, and so carry the 📝 prefix.
 
         Raises:
-            AttributeError: If the provider returns incomplete file metadata, or
-                the model returns an empty response.
             ValueError: If the document processing fails on the provider's side.
-            RetryError: If the operation fails after all retry attempts.
+            RetryError: If the operation fails after all retry attempts —
+                including incomplete file metadata and an empty model response,
+                which arrive as a retried, then wrapped, `AttributeError`.
 
         """
-        data: str | None = None
-        document_file_name: str | None = None
+        self._quota_manager.check_quota(
+            user_id=user_id,
+            daily_limit=daily_limit,
+            quantity=0,
+        )
         if mime_type.startswith("audio/") and not MODEL_SPECS[model].supports_audio:
-            self._quota_manager.check_quota(
-                user_id=user_id,
-                daily_limit=daily_limit,
-                quantity=0,
-            )
             data = self._downloader.download_tg(file, ext=".ogg")
             try:
                 return self._summarize_via_transcription(
@@ -226,50 +250,20 @@ class Summarizer:
                 )
             finally:
                 clean_up(file=data)
+        data = self._downloader.download_tg(file)
         try:
-            self._quota_manager.check_quota(
-                user_id=user_id,
-                daily_limit=daily_limit,
-                quantity=0,
-            )
-            data = self._downloader.download_tg(file)
-            prompt = dedent(PROMPTS[prompt_key]).strip()
-            document_file = self._gemini_helper.upload_and_wait_for_file(
+            return self._summarize_uploaded_file(
                 file=data,
                 mime_type=mime_type,
-                sleep_time=sleep_time,
-            )
-            document_file_name = document_file.name
-            self._quota_manager.check_quota(
+                model=model,
+                prompt_key=prompt_key,
+                target_language=target_language,
                 user_id=user_id,
                 daily_limit=daily_limit,
-                quantity=1,
-            )
-            summary = self._llm_client.run(
-                content=[
-                    prompt,
-                    self._llm_client.build_uploaded_file(
-                        model_id=model,
-                        file=document_file,
-                    ),
-                ],
-                model_id=model,
-                target_language=target_language,
                 thinking_level=thinking_level,
             )
         finally:
-            if document_file_name is not None:
-                try:
-                    self._gemini_helper.delete_file(document_file_name)
-                except Exception as e:
-                    logger.warning(
-                        "Failed to delete Gemini file %s: %s",
-                        document_file_name,
-                        e,
-                    )
-            if data is not None:
-                clean_up(file=data)
-        return summary
+            clean_up(file=data)
 
     def summarize(
         self,

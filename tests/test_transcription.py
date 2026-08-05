@@ -26,6 +26,47 @@ from transcription import (
 )
 
 
+def _install_mock_ydl(mocker, tmp_path, info, vtt_name, vtt_text):
+    """Patch YoutubeDL with a stub that probes `info` and writes one vtt file.
+
+    Pins the temp basename so the fixture file can be named before the call —
+    fetch_via_ytdlp never returns it — and points Path.cwd at tmp_path so the
+    production glob and the real clean_up both operate there.
+
+    Returns:
+        The list each download() call appends its requested `subtitleslangs` to.
+
+    """
+    download_calls: list[list[str]] = []
+    vtt_path = tmp_path / vtt_name
+
+    class MockYDL:
+        def __init__(self, opts: dict) -> None:
+            self.opts = opts
+
+        def __enter__(self) -> MockYDL:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def extract_info(self, url: str, download: bool = True) -> dict:
+            return info
+
+        def download(self, url_list: list[str]) -> int:
+            download_calls.append(self.opts.get("subtitleslangs", []))
+            vtt_path.write_text(
+                f"WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n{vtt_text}\n",
+                encoding="utf-8",
+            )
+            return 0
+
+    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
+    mocker.patch("transcription.YoutubeDL", MockYDL)
+    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+    return download_calls, vtt_path
+
+
 def _make_transcriber():
     """Return (transcriber, primary, fallback) wired to freshly constructed backends.
 
@@ -542,332 +583,104 @@ def test_fetch_via_api_retries_on_retryable_exception(mocker, exc):
     assert mock_ytt.return_value.fetch.call_count == 2
 
 
-def test_fetch_via_ytdlp_non_english_fallback(mocker, tmp_path):
-    """Test fetch_via_ytdlp requests the available language when no English is offered."""
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-
-    vtt_content = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nBonjour\n"
-    vtt_path = tmp_path / "fake-uuid.fr.vtt"
-    download_calls: list[list[str]] = []
-
-    class MockYDL:
-        def __init__(self, opts: object) -> None:
-            self.opts = opts
-
-        def __enter__(self) -> MockYDL:
-            return self
-
-        def __exit__(self, *args: object) -> None:
-            pass
-
-        def extract_info(self, url: str, download: bool = True) -> dict:
-            return {"subtitles": {"fr": [{}]}, "automatic_captions": {}}
-
-        def download(self, url_list: list[str]) -> int:
-            langs = self.opts.get("subtitleslangs", [])
-            download_calls.append(langs)
-            vtt_path.write_text(vtt_content, encoding="utf-8")
-            return 0
-
-    mocker.patch("transcription.YoutubeDL", MockYDL)
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-
-    result = YtDlpBackend().fetch_via_ytdlp(
-        "https://www.youtube.com/watch?v=test",
-    )
-
-    assert result == "Bonjour"
-    assert download_calls == [["fr"]]
-    assert not vtt_path.exists()
-
-
-def test_fetch_via_ytdlp_prefers_english_when_available(mocker, tmp_path):
-    """Test fetch_via_ytdlp picks English even when other languages are present."""
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-
-    vtt_content = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nHello\n"
-    vtt_path = tmp_path / "fake-uuid.en.vtt"
-    download_calls: list[list[str]] = []
-
-    class MockYDL:
-        def __init__(self, opts: object) -> None:
-            self.opts = opts
-
-        def __enter__(self) -> MockYDL:
-            return self
-
-        def __exit__(self, *args: object) -> None:
-            pass
-
-        def extract_info(self, url: str, download: bool = True) -> dict:
-            return {"subtitles": {"fr": [{}], "en": [{}]}, "automatic_captions": {}}
-
-        def download(self, url_list: list[str]) -> int:
-            langs = self.opts.get("subtitleslangs", [])
-            download_calls.append(langs)
-            vtt_path.write_text(vtt_content, encoding="utf-8")
-            return 0
-
-    mocker.patch("transcription.YoutubeDL", MockYDL)
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-
-    result = YtDlpBackend().fetch_via_ytdlp(
-        "https://www.youtube.com/watch?v=test",
-    )
-
-    assert result == "Hello"
-    assert download_calls == [["en"]]
-    assert not vtt_path.exists()
-
-
-def test_fetch_via_ytdlp_manual_prefers_original_language_over_first_key(
-    mocker,
-    tmp_path,
-):
-    """Test manual-subtitle branch prefers info['language'] when no English track exists.
-
-    When a video has multiple manual subtitle languages but none is English, the
-    selection should prefer the video's original language (info['language']) rather
-    than the first dict key (which is insertion-order dependent).
-    """
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-
-    vtt_content = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nGuten Tag\n"
-    vtt_path = tmp_path / "fake-uuid.de.vtt"
-    download_calls: list[list[str]] = []
-
-    class MockYDL:
-        def __init__(self, opts: object) -> None:
-            self.opts = opts
-
-        def __enter__(self) -> MockYDL:
-            return self
-
-        def __exit__(self, *args: object) -> None:
-            pass
-
-        def extract_info(self, url: str, download: bool = True) -> dict:
-            # "fr" comes first in the dict, but the video's original language is "de"
-            return {
+# Track selection, in the order fetch_via_ytdlp applies it: genuine manual
+# subtitles win (English first, else the video's original language, else the
+# first key), and only if there are none do automatic captions apply the same
+# preference — with a "*-orig" key standing in for a missing info["language"],
+# since auto-captions list machine translations for ~every language. yt-dlp
+# also lists a "live_chat" pseudo-track that is not convertible to vtt.
+@pytest.mark.parametrize(
+    ("info", "vtt_name", "expected_langs", "expected_text"),
+    [
+        pytest.param(
+            {"subtitles": {"fr": [{}]}, "automatic_captions": {}},
+            "fake-uuid.fr.vtt",
+            ["fr"],
+            "Bonjour",
+            id="manual-sole-language",
+        ),
+        pytest.param(
+            {"subtitles": {"fr": [{}], "en": [{}]}, "automatic_captions": {}},
+            "fake-uuid.en.vtt",
+            ["en"],
+            "Hello",
+            id="manual-prefers-english",
+        ),
+        pytest.param(
+            {
                 "subtitles": {"fr": [{}], "de": [{}]},
                 "automatic_captions": {},
                 "language": "de",
-            }
-
-        def download(self, url_list: list[str]) -> int:
-            langs = self.opts.get("subtitleslangs", [])
-            download_calls.append(langs)
-            vtt_path.write_text(vtt_content, encoding="utf-8")
-            return 0
-
-    mocker.patch("transcription.YoutubeDL", MockYDL)
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-
-    result = YtDlpBackend().fetch_via_ytdlp(
-        "https://www.youtube.com/watch?v=test",
-    )
-
-    assert result == "Guten Tag"
-    assert download_calls == [["de"]]
-    assert not vtt_path.exists()
-
-
-def test_fetch_via_ytdlp_auto_captions_uses_original_language(
-    mocker,
-    tmp_path,
-):
-    """Test fetch_via_ytdlp requests the original language, not translated English.
-
-    automatic_captions list machine translations (incl. "en") for ~every language,
-    so for a non-English video with no manual subs we must request the original
-    language (info["language"]) rather than the translated "en" track.
-    """
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-
-    vtt_content = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nBonjour\n"
-    vtt_path = tmp_path / "fake-uuid.fr.vtt"
-    download_calls: list[list[str]] = []
-
-    class MockYDL:
-        def __init__(self, opts: object) -> None:
-            self.opts = opts
-
-        def __enter__(self) -> MockYDL:
-            return self
-
-        def __exit__(self, *args: object) -> None:
-            pass
-
-        def extract_info(self, url: str, download: bool = True) -> dict:
-            return {
+            },
+            "fake-uuid.de.vtt",
+            ["de"],
+            "Guten Tag",
+            id="manual-prefers-original-over-first-key",
+        ),
+        pytest.param(
+            {
                 "subtitles": {},
                 "automatic_captions": {"en": [{}], "fr": [{}]},
                 "language": "fr",
-            }
-
-        def download(self, url_list: list[str]) -> int:
-            langs = self.opts.get("subtitleslangs", [])
-            download_calls.append(langs)
-            vtt_path.write_text(vtt_content, encoding="utf-8")
-            return 0
-
-    mocker.patch("transcription.YoutubeDL", MockYDL)
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-
-    result = YtDlpBackend().fetch_via_ytdlp(
-        "https://www.youtube.com/watch?v=test",
-    )
-
-    assert result == "Bonjour"
-    assert download_calls == [["fr"]]
-    assert not vtt_path.exists()
-
-
-def test_fetch_via_ytdlp_auto_captions_prefers_orig_key_when_language_missing(
-    mocker,
-    tmp_path,
-):
-    """Test auto-captions branch picks the *-orig key when info['language'] is absent.
-
-    When no info['language'] is available (or it isn't in auto) but a '*-orig' key
-    exists in automatic_captions, that key should be preferred over the first dict key.
-    """
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-
-    vtt_content = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nHallo\n"
-    vtt_path = tmp_path / "fake-uuid.de-orig.vtt"
-    download_calls: list[list[str]] = []
-
-    class MockYDL:
-        def __init__(self, opts: object) -> None:
-            self.opts = opts
-
-        def __enter__(self) -> MockYDL:
-            return self
-
-        def __exit__(self, *args: object) -> None:
-            pass
-
-        def extract_info(self, url: str, download: bool = True) -> dict:
-            # no 'language' key; auto has a '*-orig' key that should be preferred
-            return {
+            },
+            "fake-uuid.fr.vtt",
+            ["fr"],
+            "Bonjour",
+            id="auto-prefers-original-over-translated-english",
+        ),
+        pytest.param(
+            {
                 "subtitles": {},
                 "automatic_captions": {"en": [{}], "de-orig": [{}], "fr": [{}]},
-            }
-
-        def download(self, url_list: list[str]) -> int:
-            langs = self.opts.get("subtitleslangs", [])
-            download_calls.append(langs)
-            vtt_path.write_text(vtt_content, encoding="utf-8")
-            return 0
-
-    mocker.patch("transcription.YoutubeDL", MockYDL)
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-
-    result = YtDlpBackend().fetch_via_ytdlp(
-        "https://www.youtube.com/watch?v=test",
-    )
-
-    assert result == "Hallo"
-    assert download_calls == [["de-orig"]]
-    assert not vtt_path.exists()
-
-
-def test_fetch_via_ytdlp_auto_captions_falls_back_to_first_key(
-    mocker,
-    tmp_path,
-):
-    """Test auto-captions branch falls back to first key when no language or *-orig key.
-
-    When info['language'] is absent and no '*-orig' key exists in automatic_captions,
-    the first key in the dict is used as a last resort.
-    """
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-
-    vtt_content = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nHola\n"
-    vtt_path = tmp_path / "fake-uuid.es.vtt"
-    download_calls: list[list[str]] = []
-
-    class MockYDL:
-        def __init__(self, opts: object) -> None:
-            self.opts = opts
-
-        def __enter__(self) -> MockYDL:
-            return self
-
-        def __exit__(self, *args: object) -> None:
-            pass
-
-        def extract_info(self, url: str, download: bool = True) -> dict:
-            # no 'language' key, no '*-orig' key → must fall back to first key ("es")
-            return {
-                "subtitles": {},
-                "automatic_captions": {"es": [{}], "fr": [{}]},
-            }
-
-        def download(self, url_list: list[str]) -> int:
-            langs = self.opts.get("subtitleslangs", [])
-            download_calls.append(langs)
-            vtt_path.write_text(vtt_content, encoding="utf-8")
-            return 0
-
-    mocker.patch("transcription.YoutubeDL", MockYDL)
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-
-    result = YtDlpBackend().fetch_via_ytdlp(
-        "https://www.youtube.com/watch?v=test",
-    )
-
-    assert result == "Hola"
-    assert download_calls == [["es"]]
-    assert not vtt_path.exists()
-
-
-def test_fetch_via_ytdlp_ignores_live_chat_pseudo_track(mocker, tmp_path):
-    """Test fetch_via_ytdlp skips the "live_chat" subtitles entry.
-
-    yt-dlp lists a "live_chat" key under subtitles for live-stream replays; it is
-    not a real subtitle track. It must be ignored so selection falls through to the
-    video's original-language automatic captions rather than requesting "live_chat".
-    """
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-
-    vtt_content = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nBonjour\n"
-    vtt_path = tmp_path / "fake-uuid.fr.vtt"
-    download_calls: list[list[str]] = []
-
-    class MockYDL:
-        def __init__(self, opts: object) -> None:
-            self.opts = opts
-
-        def __enter__(self) -> MockYDL:
-            return self
-
-        def __exit__(self, *args: object) -> None:
-            pass
-
-        def extract_info(self, url: str, download: bool = True) -> dict:
-            return {
+            },
+            "fake-uuid.de-orig.vtt",
+            ["de-orig"],
+            "Hallo",
+            id="auto-prefers-orig-key-when-language-missing",
+        ),
+        pytest.param(
+            {"subtitles": {}, "automatic_captions": {"es": [{}], "fr": [{}]}},
+            "fake-uuid.es.vtt",
+            ["es"],
+            "Hola",
+            id="auto-falls-back-to-first-key",
+        ),
+        pytest.param(
+            {
                 "subtitles": {"live_chat": [{}]},
                 "automatic_captions": {"fr": [{}]},
                 "language": "fr",
-            }
-
-        def download(self, url_list: list[str]) -> int:
-            langs = self.opts.get("subtitleslangs", [])
-            download_calls.append(langs)
-            vtt_path.write_text(vtt_content, encoding="utf-8")
-            return 0
-
-    mocker.patch("transcription.YoutubeDL", MockYDL)
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-
-    result = YtDlpBackend().fetch_via_ytdlp(
-        "https://www.youtube.com/watch?v=test",
+            },
+            "fake-uuid.fr.vtt",
+            ["fr"],
+            "Bonjour",
+            id="ignores-live-chat-pseudo-track",
+        ),
+    ],
+)
+def test_fetch_via_ytdlp_selects_subtitle_track(
+    mocker,
+    tmp_path,
+    info,
+    vtt_name,
+    expected_langs,
+    expected_text,
+):
+    """Test fetch_via_ytdlp requests the right subtitle track for each track mix."""
+    download_calls, vtt_path = _install_mock_ydl(
+        mocker,
+        tmp_path,
+        info,
+        vtt_name,
+        expected_text,
     )
 
-    assert result == "Bonjour"
-    assert download_calls == [["fr"]]
+    result = YtDlpBackend().fetch_via_ytdlp("https://www.youtube.com/watch?v=test")
+
+    assert result == expected_text
+    assert download_calls == [expected_langs]
+    # Real clean_up runs (Path.cwd is patched to tmp_path): the vtt fixture
+    # should be gone rather than merely asserting clean_up was called.
     assert not vtt_path.exists()
 
 

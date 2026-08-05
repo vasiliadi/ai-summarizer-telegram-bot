@@ -35,6 +35,9 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   registry (`config.MODEL_SPECS`) is what decides which provider serves a model id.
   Only Gemini models are registered today; the seam exists so adding one from another
   provider is a registry row plus a dependency extra, not a rewrite of `summary.py`.
+  More providers are planned, so the non-Google branches in `llm.py` stay even though
+  `ModelSpec.provider` is `Literal["google"]` and nothing can reach them yet — they are
+  covered by tests that fabricate a spec, and are **not** dead code to clean up.
   The Gemini Files API is still called directly (`services.GeminiHelper`), because
   base64-inlining a 20 MB Telegram file inflates it past the inline-request limit.
 - **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
@@ -55,7 +58,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
 | `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (Langfuse root span per message). |
-| `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator, including the `bot` client, to `config`'s clients. |
+| `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator to `config`'s clients. `Container` carries only the five roots `BotApp` holds (`bot`, `quota_manager`, `tracer`, `user_repo`, `handlers`); the rest of the graph is reached through `handlers`. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
 | `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`. |

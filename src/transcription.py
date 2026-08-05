@@ -5,7 +5,7 @@ import re
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 from urllib.parse import parse_qs, urlsplit
 
 from defusedxml.ElementTree import ParseError
@@ -52,6 +52,9 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 class AudioTranscriber:
     """Transcribes audio files via the Replicate WhisperX model."""
 
+    # How long to wait between polls of the prediction's status.
+    _POLL_SECONDS: ClassVar[int] = 10
+
     def __init__(self, client: replicate_lib.Client) -> None:
         """Store the injected Replicate client."""
         self._client = client
@@ -63,7 +66,7 @@ class AudioTranscriber:
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
-    def transcribe(self, file: str, sleep_time: int = 10) -> str:
+    def transcribe(self, file: str) -> str:
         """Transcribe an audio file with the WhisperX model on Replicate.
 
         Raises:
@@ -82,7 +85,7 @@ class AudioTranscriber:
             if prediction.status in ("failed", "canceled"):
                 raise ModelError(prediction)
             prediction.reload()
-            time.sleep(sleep_time)
+            time.sleep(self._POLL_SECONDS)
         if prediction.output is None:
             raise ModelError(prediction)
         segments = prediction.output.get("segments")

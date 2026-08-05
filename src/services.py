@@ -75,16 +75,17 @@ class Messenger:
     def send_answer(self, message: Message, answer: str) -> None:
         """Send a response message, splitting at Telegram's 4 096-code-unit limit."""
         text, entities = convert(answer)
-        chunks_iter = iter(split_entities(text, entities, max_utf16_len=4096))
-        current = next(chunks_iter, None)
-        while current is not None:
-            chunk_text, chunk_entities = current
-            serialized_entities = [entity.to_dict() for entity in chunk_entities]
-            self._reply_with_retry(message, chunk_text, entities=serialized_entities)
-            next_chunk = next(chunks_iter, None)
-            if next_chunk is not None:
+        for index, (chunk_text, chunk_entities) in enumerate(
+            split_entities(text, entities, max_utf16_len=4096),
+        ):
+            # Pace the follow-up chunks; Telegram throttles back-to-back sends.
+            if index:
                 time.sleep(1)
-            current = next_chunk
+            self._reply_with_retry(
+                message,
+                chunk_text,
+                entities=[entity.to_dict() for entity in chunk_entities],
+            )
 
 
 class QuotaManager:
@@ -99,8 +100,13 @@ class QuotaManager:
         self._rate_limiter = rate_limiter
         self._per_minute_rate = per_minute_rate
 
-    def check_quota(self, user_id: int, daily_limit: int, quantity: int = 1) -> bool:
-        """Enforce rate limits; raise if daily exceeded; sleep on per-minute."""
+    def check_quota(self, user_id: int, daily_limit: int, quantity: int = 1) -> None:
+        """Enforce rate limits; raise if daily exceeded; sleep on per-minute.
+
+        Raises:
+            LimitExceededError: If the user's daily budget is already spent.
+
+        """
         if daily_limit <= 0:
             msg = "The daily limit for requests has been exceeded"
             raise LimitExceededError(msg)
@@ -126,7 +132,6 @@ class QuotaManager:
                 MINUTE_LIMIT_KEY,
             )
             time.sleep(max(0.0, stats.reset_time - time.time()))
-        return True
 
     def get_remaining_quota(self, user_id: int, daily_limit: int) -> int:
         """Return remaining daily requests for a user without consuming quota."""
@@ -155,9 +160,12 @@ class GeminiHelper:
         self,
         file: str,
         mime_type: str,
-        sleep_time: int,
+        sleep_time: int = 10,
     ) -> types.File:
-        """Upload a file to Gemini and wait for processing to finish."""
+        """Upload a file to Gemini and wait for processing to finish.
+
+        `sleep_time` is the interval between polls of the processing state.
+        """
         uploaded = self._client.files.upload(
             file=file,
             config={"mime_type": mime_type},
