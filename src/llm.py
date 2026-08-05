@@ -38,9 +38,9 @@ class LLMClient:
     def __init__(self, client: genai.Client) -> None:
         """Store the injected Gemini client and this client's model cache."""
         self._client = client
-        # A single agent serves every call: pydantic-ai takes the model, the
-        # instructions and the settings per run, so nothing here is model-,
-        # language- or user-specific.
+        # Neither agent is model-, language- or user-specific: pydantic-ai takes
+        # the model, the instructions and the settings per run. They differ only
+        # in whether instrumentation is on.
         self._agent: Agent[None, str] = Agent()
         # Runs that carry an UploadedFile go through an agent with instrumentation
         # off: pydantic-ai would record the file pointer as the input, producing a
