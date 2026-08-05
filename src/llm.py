@@ -21,6 +21,17 @@ if TYPE_CHECKING:
     from pydantic_ai.settings import ThinkingLevel
 
 
+def _is_text_only(content: str | Sequence[UserContent]) -> bool:
+    """Return whether content is text with no file parts, e.g. an UploadedFile.
+
+    Broader than `isinstance(content, str)` so a future multi-part text prompt
+    stays traced.
+    """
+    if isinstance(content, str):
+        return True
+    return all(isinstance(part, str) for part in content)
+
+
 class LLMClient:
     """Provider-agnostic entry point for every summarization model call."""
 
@@ -31,6 +42,11 @@ class LLMClient:
         # instructions and the settings per run, so nothing here is model-,
         # language- or user-specific.
         self._agent: Agent[None, str] = Agent()
+        # Runs that carry an UploadedFile go through an agent with instrumentation
+        # off: pydantic-ai would record the file pointer as the input, producing a
+        # Langfuse generation with token usage but no content behind it.
+        self._untraced_agent: Agent[None, str] = Agent()
+        self._untraced_agent.instrument = False
         self._models: dict[str, Model] = {}
 
     def build_model(self, model_id: str) -> Model:
@@ -111,7 +127,8 @@ class LLMClient:
         instructions = dedent(
             SYSTEM_INSTRUCTION.format(language=target_language),
         ).strip()
-        result = self._agent.run_sync(
+        agent = self._agent if _is_text_only(content) else self._untraced_agent
+        result = agent.run_sync(
             content,
             model=self.build_model(model_id),
             instructions=instructions,

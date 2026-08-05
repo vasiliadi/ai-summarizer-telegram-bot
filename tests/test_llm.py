@@ -256,3 +256,65 @@ def test_run_raises_on_empty_output(llm_client, mocker, output):
             target_language="English",
             thinking_level="HIGH",
         )
+
+
+def test_run_uses_traced_agent_for_text_content(llm_client, mocker):
+    """Test a plain-text run goes through the traced agent, not the untraced one."""
+    mock_run_sync = mocker.patch.object(
+        llm_client._agent,
+        "run_sync",
+        return_value=SimpleNamespace(output="A summary."),
+    )
+    mock_untraced_run_sync = mocker.patch.object(
+        llm_client._untraced_agent,
+        "run_sync",
+    )
+
+    result = llm_client.run(
+        content="Summarize this.",
+        model_id="gemini-3.5-flash",
+        target_language="English",
+        thinking_level="HIGH",
+    )
+
+    assert result == "A summary."
+    mock_run_sync.assert_called_once()
+    mock_untraced_run_sync.assert_not_called()
+
+
+def test_run_uses_untraced_agent_for_uploaded_file_content(llm_client, mocker):
+    """Test a run carrying an UploadedFile skips Langfuse via the untraced agent.
+
+    pydantic-ai would otherwise serialize the file pointer, not the bytes behind
+    it, giving Langfuse a generation with token usage but no real content.
+    """
+    file = SimpleNamespace(
+        name="files/mock123",
+        uri="https://generativelanguage.googleapis.com/v1beta/files/mock123",
+        mime_type="audio/ogg",
+    )
+    uploaded_file = llm_client.build_uploaded_file(
+        model_id="gemini-3.5-flash",
+        file=file,
+    )
+    mock_run_sync = mocker.patch.object(
+        llm_client._agent,
+        "run_sync",
+    )
+    mock_untraced_run_sync = mocker.patch.object(
+        llm_client._untraced_agent,
+        "run_sync",
+        return_value=SimpleNamespace(output="A summary."),
+    )
+
+    result = llm_client.run(
+        content=["Summarize this.", uploaded_file],
+        model_id="gemini-3.5-flash",
+        target_language="English",
+        thinking_level="HIGH",
+    )
+
+    assert result == "A summary."
+    assert llm_client._untraced_agent.instrument is False
+    mock_untraced_run_sync.assert_called_once()
+    mock_run_sync.assert_not_called()
