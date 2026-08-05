@@ -285,6 +285,30 @@ def test_run_uses_traced_agent_for_text_content(llm_client, mocker):
     mock_untraced_run_sync.assert_not_called()
 
 
+def test_run_uses_traced_agent_for_multipart_text_content(llm_client, mocker):
+    """Test an all-text multi-part prompt is traced, not just a bare string."""
+    mock_run_sync = mocker.patch.object(
+        llm_client._agent,
+        "run_sync",
+        return_value=SimpleNamespace(output="A summary."),
+    )
+    mock_untraced_run_sync = mocker.patch.object(
+        llm_client._untraced_agent,
+        "run_sync",
+    )
+
+    result = llm_client.run(
+        content=["Summarize this.", "Use short bullets."],
+        model_id="gemini-3.5-flash",
+        target_language="English",
+        thinking_level="HIGH",
+    )
+
+    assert result == "A summary."
+    mock_run_sync.assert_called_once()
+    mock_untraced_run_sync.assert_not_called()
+
+
 def test_run_uses_untraced_agent_for_uploaded_file_content(llm_client, mocker):
     """Test a run carrying an UploadedFile skips Langfuse via the untraced agent.
 

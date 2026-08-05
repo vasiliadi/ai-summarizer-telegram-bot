@@ -168,8 +168,9 @@ to Gemini — return the raw model text with **no** prefix.
   datasets and evaluators. **Do not re-enable it for file runs.**
   `Tracer.observe_message` opens no span of its own, it only names and attributes
   (`trace_name="handle_message"`, tagged with the content type) whatever spans the
-  message's model calls open. Consequences worth knowing: a media message produces no
-  trace at all; a trace spans the model call only, not the download, parse or upload
-  around it; and a retried `summarize_text` produces one trace per attempt, since
-  nothing groups them. `langfuse_client.shutdown()` flushes on exit. Independent of
+  message's model calls open. Consequences worth knowing: the Gemini-file call is never
+  traced, but a media message still is when it falls through to Replicate
+  transcription, which summarizes a plain string; a trace spans the model call only,
+  not the download, parse or upload around it; and a retried `summarize_text` produces
+  one trace per attempt, since nothing groups them. `langfuse_client.shutdown()` flushes on exit. Independent of
   Sentry, which handles error capture and logs.
