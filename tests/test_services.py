@@ -5,6 +5,7 @@ from limits.strategies import FixedWindowRateLimiter
 from limits.util import WindowStats
 
 from exceptions import LimitExceededError
+from prompts import prompt_version
 from services import GeminiHelper, Messenger, QuotaManager, Tracer
 
 
@@ -368,6 +369,9 @@ def test_observe_message_names_and_tags_trace_when_langfuse_enabled(mocker):
         tags=["voice"],
         metadata={
             "prompt_key": "basic_prompt_for_transcript",
+            # Derived, not hardcoded: a hardcoded digest would turn every
+            # prompt edit into a failing assertion with nothing to teach.
+            "prompt_version": prompt_version("basic_prompt_for_transcript"),
             "target_language": "English",
             "thinking_level": "HIGH",
         },

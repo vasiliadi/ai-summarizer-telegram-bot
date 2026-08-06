@@ -1,5 +1,7 @@
 # ruff: noqa: E501
 
+from hashlib import sha256
+
 PROMPTS = {
     "basic_prompt_for_transcript": """
         Produce a detailed summary of the content below.
@@ -27,3 +29,15 @@ SYSTEM_INSTRUCTION = """
     - Stay faithful to the source. Do not invent facts, speakers, timestamps, or structure that is not in the content.
     - If the content is a transcript or audio, ignore non-verbal cues such as [music] or [laughter] and treat any recognition errors or missing punctuation as artifacts — do not mention them in the output.
 """
+
+
+def prompt_version(prompt_key: str) -> str:
+    """Return a short hash pinning the wording `prompt_key` sends right now.
+
+    `SYSTEM_INSTRUCTION` is hashed in too, so editing either template moves the
+    version. On a trace the pair divides the work: `prompt_key` names the
+    strategy and survives rewordings, this pins the revision a run used — which
+    a key alone cannot, and which an evaluation comparing runs over time needs.
+    """
+    payload = f"{SYSTEM_INSTRUCTION}\0{PROMPTS[prompt_key]}"
+    return sha256(payload.encode()).hexdigest()[:12]

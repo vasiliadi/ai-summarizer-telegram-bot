@@ -21,6 +21,7 @@ from tenacity import (
 
 from config import DAILY_LIMIT_KEY, MINUTE_LIMIT_KEY
 from exceptions import LimitExceededError
+from prompts import prompt_version
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -212,13 +213,13 @@ class Tracer:
     ) -> Generator[None]:
         """Name and attribute whatever trace one Telegram message produces.
 
-        The three settings go in as metadata because nothing else records them:
+        The settings go in as metadata because nothing else records them:
         pydantic-ai exports only the six numeric OTel model settings, so the
         thinking level — provider-specific and a string — never reaches a span,
-        and the other two would otherwise have to be parsed back out of the
-        prompt wording. Recording them keeps a trace filterable and replayable
-        as an evaluation dataset item. The model id needs no entry; it is
-        already on the generation span.
+        and the rest would otherwise have to be parsed back out of the prompt
+        wording. Recording them keeps a trace filterable and replayable as an
+        evaluation dataset item. The model id needs no entry; it is already on
+        the generation span.
 
         Opens no span itself, so a message whose model calls all carry an
         uploaded file — which `LLMClient` leaves uninstrumented — produces no
@@ -233,6 +234,7 @@ class Tracer:
             tags=[content_type],
             metadata={
                 "prompt_key": prompt_key,
+                "prompt_version": prompt_version(prompt_key),
                 "target_language": target_language,
                 "thinking_level": thinking_level,
             },
