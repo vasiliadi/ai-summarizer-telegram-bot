@@ -154,6 +154,32 @@ def test_summarize_text_from_webpage(mocker):
     assert call_kwargs["model_id"] == "gemini-3.5-flash-lite"
 
 
+@pytest.mark.parametrize("blank", ["", "   \n  "])
+def test_summarize_text_drops_the_content_part_when_text_is_blank(mocker, blank):
+    """Test summarize_text sends the prompt alone rather than an empty part.
+
+    The Replicate rescue path yields "" for audio WhisperX finds no segments
+    in — silence or music — and an empty text part is not worth sending.
+    """
+    summarizer, fakes = _make_summarizer(mocker)
+    fakes.quota_manager.check_quota.return_value = True
+    fakes.llm_client.run.return_value = "Empty summary."
+
+    summarizer.summarize_text(
+        text=blank,
+        model="gemini-3.5-flash-lite",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        user_id=123,
+        daily_limit=10,
+        thinking_level="MINIMAL",
+    )
+
+    assert fakes.llm_client.run.call_args.kwargs["content"] == [
+        dedent(PROMPTS["basic_prompt_for_transcript"]).strip(),
+    ]
+
+
 def test_summarize_with_file_upload_failure(mocker):
     """Test summarize_with_file raises when file upload fails."""
     summarizer, fakes = _make_summarizer(mocker)
