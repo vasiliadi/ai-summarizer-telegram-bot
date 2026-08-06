@@ -177,9 +177,13 @@ to Gemini — return the raw model text with **no** prefix.
   entry, being already on the generation span. `prompt_version`
   (`prompts.prompt_version`) is a short hash over `SYSTEM_INSTRUCTION` **and** the
   strategy's own template, so the key names the strategy while the version pins the
-  wording a run actually used — editing either template moves it. For the same reason `summarize_text`
-  passes the prompt and the content as two parts instead of one concatenated string
-  — a multi-part text prompt is still text-only, so it stays instrumented.
+  wording a run actually used — editing either template moves it. For the same reason
+  `summarize_text` passes the prompt and the content as two parts instead of one
+  concatenated string — a multi-part text prompt is still text-only, so it stays
+  instrumented. Blank or whitespace-only text is the exception: it sends the prompt
+  part alone, so a trace consumer must not assume a content part is present. That case
+  is reachable — `AudioTranscriber.transcribe` returns `""` for audio WhisperX finds no
+  segments in, such as silence or music — and an empty text part is not worth sending.
   Consequences worth knowing: the Gemini-file call is never
   traced, but a media message still is when it falls through to Replicate
   transcription, which summarizes a plain string; a trace spans the model call only,
