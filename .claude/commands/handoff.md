@@ -3,7 +3,7 @@ Write a session handoff file for the current session.
 Steps:
 
 1. Fill in every section of the template below based on what was accomplished in this session, including the forward-looking tail (Unfinished Work / Files to Load Next Session / What NOT to Re-Read). Be specific — include exact file paths for every output, exact numbers discovered, and conditional logic established.
-2. Archive first, before writing anything: move every `docs/summaries/handoff-*.md` that already exists to `docs/archive/handoffs/`, without overwriting a file of the same name already there. Clearing the directory up front is what makes the selection unambiguous — once the new handoff is on disk, it matches that glob too.
+2. Archive first, before writing anything: move every `docs/summaries/handoff-*.md` that already exists to `docs/archive/`, without overwriting a file of the same name already there. Clearing the directory up front is what makes the selection unambiguous — once the new handoff is on disk, it matches that glob too.
 3. Write the handoff to `docs/summaries/handoff-[YYYY-MM-DD]-[topic].md`. Never overwrite: if that exact path still exists after step 2, pick a `[topic]` that is unique for the date rather than replacing the file.
 4. Tell me the file path of the new handoff and summarize what it contains.
 

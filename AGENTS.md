@@ -2,7 +2,7 @@
 
 ## Session Start
 
-Handoffs in `docs/summaries/` and `docs/archive/handoffs/` are a work log, not session context — never load one on your own. When the user points at previous work, read every handoff they name, then follow each one's Files to Load Next Session and skip whatever its What NOT to Re-Read lists.
+Handoffs in `docs/summaries/` and `docs/archive/` are a work log, not session context — never load one on your own. When the user points at previous work, read every handoff they name, then follow each one's Files to Load Next Session and skip whatever its What NOT to Re-Read lists.
 
 Read `docs/context/architecture.md` before touching code, and `docs/context/style-guide.md` before writing code, for the conventions Ruff does not enforce. Docs-only work needs neither.
 
@@ -27,5 +27,5 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
   - `style-guide.md` — coding conventions Ruff does not enforce
   - `git-guide.md` — commit format, pre-commit hooks, coverage
   - `uv-guide.md` — running the project and managing dependencies
-- `docs/archive/` — processed raw files. Do not read unless explicitly told. **(gitignored)**
+- `docs/archive/` — superseded handoffs, flat, no subdirectories. Do not read unless explicitly told. **(gitignored)**
 - `.claude/commands/handoff.md` — the `/handoff` routine and its template; agents without slash commands follow its steps directly.
