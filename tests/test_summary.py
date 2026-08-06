@@ -1,3 +1,4 @@
+from textwrap import dedent
 from types import SimpleNamespace
 
 import pytest
@@ -9,6 +10,7 @@ import summary as summary_module
 from config import ModelSpec
 from domain import PrefixedText
 from exceptions import FetchTranscriptError, LimitExceededError
+from prompts import PROMPTS
 from summary import Summarizer
 
 # ---------------------------------------------------------------------------
@@ -123,7 +125,7 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
 
 
 def test_summarize_text_from_webpage(mocker):
-    """Test summarize_text sends pre-parsed webpage content as a plain prompt.
+    """Test summarize_text sends the prompt and the content as separate parts.
 
     The transcript paths reach the model through this same method, so this
     covers them too — only the caller differs.
@@ -144,9 +146,11 @@ def test_summarize_text_from_webpage(mocker):
 
     assert result == "Webpage summary."
     call_kwargs = fakes.llm_client.run.call_args.kwargs
-    # A bare string, not a content list: the text path stays provider-agnostic.
-    assert isinstance(call_kwargs["content"], str)
-    assert "Parsed page content." in call_kwargs["content"]
+    # Two parts, not one concatenated string: a trace has to record the prompt
+    # and the summarized content as separate fields.
+    prompt, content = call_kwargs["content"]
+    assert content == "Parsed page content."
+    assert prompt == dedent(PROMPTS["basic_prompt_for_transcript"]).strip()
     assert call_kwargs["model_id"] == "gemini-3.5-flash-lite"
 
 

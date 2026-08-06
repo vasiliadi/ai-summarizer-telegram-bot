@@ -335,7 +335,13 @@ def test_observe_message_noop_when_langfuse_disabled(mocker):
     """observe_message is a no-op context manager when Langfuse is not configured."""
     mock_propagate = mocker.patch("services.propagate_attributes")
 
-    with Tracer(None).observe_message(user_id=42, content_type="voice"):
+    with Tracer(None).observe_message(
+        user_id=42,
+        content_type="voice",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        thinking_level="HIGH",
+    ):
         pass
 
     mock_propagate.assert_not_called()
@@ -346,7 +352,13 @@ def test_observe_message_names_and_tags_trace_when_langfuse_enabled(mocker):
     mock_client = mocker.MagicMock()
     mock_propagate = mocker.patch("services.propagate_attributes")
 
-    with Tracer(mock_client).observe_message(user_id=42, content_type="voice"):
+    with Tracer(mock_client).observe_message(
+        user_id=42,
+        content_type="voice",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        thinking_level="HIGH",
+    ):
         pass
 
     mock_client.start_as_current_observation.assert_not_called()
@@ -354,4 +366,9 @@ def test_observe_message_names_and_tags_trace_when_langfuse_enabled(mocker):
         trace_name="handle_message",
         user_id="42",
         tags=["voice"],
+        metadata={
+            "prompt_key": "basic_prompt_for_transcript",
+            "target_language": "English",
+            "thinking_level": "HIGH",
+        },
     )

@@ -57,7 +57,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
-| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (names/tags the Langfuse trace for a message, if one is opened). |
+| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (names, tags and adds settings metadata to the Langfuse trace for a message, if one is opened). |
 | `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator to `config`'s clients. `Container` carries only the five roots `BotApp` holds (`bot`, `quota_manager`, `tracer`, `user_repo`, `handlers`); the rest of the graph is reached through `handlers`. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
@@ -167,8 +167,17 @@ to Gemini — return the raw model text with **no** prefix.
   would get real token usage with no content — a wrong cost signal, useless for
   datasets and evaluators. **Do not re-enable it for file runs.**
   `Tracer.observe_message` opens no span of its own, it only names and attributes
-  (`trace_name="handle_message"`, tagged with the content type) whatever spans the
-  message's model calls open. Consequences worth knowing: the Gemini-file call is never
+  (`trace_name="handle_message"`, tagged with the content type, plus `prompt_key`,
+  `target_language` and `thinking_level` as metadata) whatever spans the
+  message's model calls open. Those three are metadata because nothing else carries
+  them: pydantic-ai exports only the six numeric OTel model settings, so the
+  provider-specific, string-valued thinking level never reaches a span, and the other
+  two would have to be parsed back out of the prompt wording. They exist to make a
+  trace filterable and replayable as an evaluation dataset item; the model id needs no
+  entry, being already on the generation span. For the same reason `summarize_text`
+  passes the prompt and the content as two parts instead of one concatenated string
+  — a multi-part text prompt is still text-only, so it stays instrumented.
+  Consequences worth knowing: the Gemini-file call is never
   traced, but a media message still is when it falls through to Replicate
   transcription, which summarizes a plain string; a trace spans the model call only,
   not the download, parse or upload around it; and a retried `summarize_text` produces

@@ -202,8 +202,23 @@ class Tracer:
             self._client.shutdown()
 
     @contextmanager
-    def observe_message(self, user_id: int, content_type: str) -> Generator[None]:
+    def observe_message(
+        self,
+        user_id: int,
+        content_type: str,
+        prompt_key: str,
+        target_language: str,
+        thinking_level: str,
+    ) -> Generator[None]:
         """Name and attribute whatever trace one Telegram message produces.
+
+        The three settings go in as metadata because nothing else records them:
+        pydantic-ai exports only the six numeric OTel model settings, so the
+        thinking level — provider-specific and a string — never reaches a span,
+        and the other two would otherwise have to be parsed back out of the
+        prompt wording. Recording them keeps a trace filterable and replayable
+        as an evaluation dataset item. The model id needs no entry; it is
+        already on the generation span.
 
         Opens no span itself, so a message whose model calls all carry an
         uploaded file — which `LLMClient` leaves uninstrumented — produces no
@@ -216,5 +231,10 @@ class Tracer:
             trace_name="handle_message",
             user_id=str(user_id),
             tags=[content_type],
+            metadata={
+                "prompt_key": prompt_key,
+                "target_language": target_language,
+                "thinking_level": thinking_level,
+            },
         ):
             yield
