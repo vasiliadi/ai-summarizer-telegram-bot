@@ -3,9 +3,11 @@ from __future__ import annotations
 from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
+from opentelemetry.trace import get_current_span
 from pydantic_ai import Agent, UploadedFile
 from pydantic_ai.models.google import GoogleModel
-from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.models.openrouter import OpenRouterModel, OpenRouterModelSettings
+from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.settings import ModelSettings
 
@@ -17,10 +19,55 @@ if TYPE_CHECKING:
 
     from google import genai
     from google.genai import types
-    from pydantic_ai.messages import UploadedFileProviderName, UserContent
-    from pydantic_ai.models import Model
+    from pydantic_ai.messages import (
+        ModelMessage,
+        ModelResponse,
+        UploadedFileProviderName,
+        UserContent,
+    )
+    from pydantic_ai.models import Model, ModelRequestParameters
     from pydantic_ai.providers.openrouter import OpenRouterProvider
     from pydantic_ai.settings import ThinkingLevel
+
+
+class OpenRouterCostReporter(WrapperModel):
+    """Publishes the cost OpenRouter charged onto the generation span.
+
+    Langfuse reads a generation's cost from `gen_ai.usage.cost`, or else infers
+    it by matching the model id against a model definition. Only the Gemini ids
+    match one, so without this every OpenRouter generation reaches Langfuse with
+    token counts and no cost, which is exactly the number the traces exist to
+    compare. pydantic-ai's own estimate is no substitute: it lands on
+    `operation.cost`, which Langfuse does not read, and its price table
+    (`genai-prices`) has no entry for half the registered OpenRouter ids.
+
+    The cost is OpenRouter's own, reported per request in `provider_details`
+    because `build_model` asks for usage accounting, so it needs no price table
+    here and follows whatever OpenRouter actually billed.
+
+    This has to be a wrapper, and it has to sit inside the instrumented model:
+    pydantic-ai opens the generation span around `wrapped.request` and closes it
+    before `Agent.run_sync` returns, so nothing after the run can still reach it.
+    On an untraced run `get_current_span` returns a non-recording span and the
+    write is a no-op.
+    """
+
+    async def request(
+        self,
+        messages: list[ModelMessage],
+        model_settings: ModelSettings | None,
+        model_request_parameters: ModelRequestParameters,
+    ) -> ModelResponse:
+        """Run the wrapped request, then record its cost on the current span."""
+        response = await super().request(
+            messages,
+            model_settings,
+            model_request_parameters,
+        )
+        cost = (response.provider_details or {}).get("cost")
+        if cost is not None:
+            get_current_span().set_attribute("gen_ai.usage.cost", float(cost))
+        return response
 
 
 class LLMClient:
@@ -62,9 +109,18 @@ class LLMClient:
                     provider=GoogleProvider(client=self._client),
                 )
             elif spec.provider == "openrouter":
-                model = OpenRouterModel(
-                    model_id,
-                    provider=self._openrouter_provider,
+                # Usage accounting is what makes OpenRouter report the cost
+                # `OpenRouterCostReporter` forwards to the trace. It belongs on
+                # the model rather than in `build_settings`, which owns no
+                # provider branch; pydantic-ai merges the two.
+                model = OpenRouterCostReporter(
+                    OpenRouterModel(
+                        model_id,
+                        provider=self._openrouter_provider,
+                        settings=OpenRouterModelSettings(
+                            openrouter_usage={"include": True},
+                        ),
+                    ),
                 )
             else:
                 msg = f"No model builder for provider: {spec.provider}"

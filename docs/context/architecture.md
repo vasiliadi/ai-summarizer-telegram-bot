@@ -70,7 +70,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; the `__main__` block just calls `build_app`, `run`, `shutdown`. |
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
-| `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a model cache keyed by id across providers; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`, Google and OpenRouter today); `build_settings` has no provider branch at all — every provider takes the agnostic `thinking` effort. |
+| `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a model cache keyed by id across providers; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`, Google and OpenRouter today); `build_settings` has no provider branch at all — every provider takes the agnostic `thinking` effort, so the one provider-specific setting there is (OpenRouter usage accounting) rides on the model instead. `OpenRouterCostReporter`, the wrapper `build_model` puts around every OpenRouter model, reports cost to the trace (see Tracing below). |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
@@ -192,6 +192,18 @@ to Gemini — return the raw model text with **no** prefix.
   pydantic-ai serializes the file pointer rather than the bytes behind it: Langfuse
   would get real token usage with no content — a wrong cost signal, useless for
   datasets and evaluators. **Do not re-enable it for file runs.**
+  Cost is not part of what pydantic-ai hands over: it publishes its `genai-prices`
+  estimate as `operation.cost`, an attribute Langfuse does not read, and that table has
+  no entry for half the registered OpenRouter ids anyway. Langfuse instead prices a
+  generation by matching its model id against a model definition, which the Gemini ids
+  match and no `provider/model` OpenRouter id does. So `LLMClient.build_model` asks
+  OpenRouter for usage accounting and wraps the model in `OpenRouterCostReporter`, which
+  copies the cost OpenRouter reports it charged onto the span as `gen_ai.usage.cost` —
+  the attribute Langfuse ingests as the generation's cost. It must be a wrapper *inside*
+  the instrumented model: pydantic-ai closes the generation span before `run_sync`
+  returns, so nothing afterwards can reach it. Drop the wrapper and every OpenRouter
+  trace silently goes back to tokens with no cost, which is the number the traces exist
+  to compare models on.
   `Tracer.observe_message` opens no span of its own, it only names and attributes
   (`trace_name="handle_message"`, tagged with the content type, plus `prompt_key`,
   `prompt_version`, `target_language` and `thinking_level` as metadata) whatever spans

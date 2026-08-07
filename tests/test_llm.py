@@ -14,7 +14,7 @@ from pydantic_ai.settings import ThinkingEffort
 
 import llm as llm_module
 from config import ALLOWED_THINKING_LEVELS, ModelSpec
-from llm import LLMClient
+from llm import LLMClient, OpenRouterCostReporter
 
 
 @pytest.fixture
@@ -38,9 +38,80 @@ def test_build_model_returns_openrouter_model(mocker):
 
     model = client.build_model("deepseek/deepseek-v4-pro")
 
-    assert isinstance(model, OpenRouterModel)
+    assert isinstance(model, OpenRouterCostReporter)
+    assert isinstance(model.wrapped, OpenRouterModel)
     assert model.model_name == "deepseek/deepseek-v4-pro"
     assert model.system == "openrouter"
+
+
+def test_build_model_asks_openrouter_for_usage_accounting(mocker):
+    """Test the OpenRouter model requests the usage that carries the cost."""
+    client = LLMClient(mocker.MagicMock(), OpenRouterProvider(api_key="mock_key"))
+
+    model = client.build_model("z-ai/glm-5.2")
+
+    assert model.settings == {"openrouter_usage": {"include": True}}
+
+
+def test_build_model_leaves_gemini_unwrapped(llm_client):
+    """Test Langfuse prices Gemini itself, so it needs no cost reporter."""
+    model = llm_client.build_model("gemini-3.6-flash")
+
+    assert not isinstance(model, OpenRouterCostReporter)
+    assert model.settings is None
+
+
+def _report_cost_for(response, mocker):
+    """Drive one request through the reporter, returning the span it wrote to."""
+    span = mocker.MagicMock()
+    mocker.patch.object(llm_module, "get_current_span", return_value=span)
+    model = OpenRouterCostReporter(FunctionModel(lambda messages, info: response))
+
+    asyncio.run(
+        model.request(
+            [ModelRequest(parts=[UserPromptPart(content="hello")])],
+            None,
+            ModelRequestParameters(),
+        ),
+    )
+    return span
+
+
+def test_cost_reporter_publishes_the_cost_openrouter_charged(mocker):
+    """Test the reported cost reaches the span under the name Langfuse reads.
+
+    The literal attribute is the contract with Langfuse: pydantic-ai's own
+    estimate is already on the span as operation.cost and goes uningested.
+    """
+    span = _report_cost_for(
+        ModelResponse(
+            parts=[TextPart(content="A summary.")],
+            provider_details={"cost": 0.0123},
+        ),
+        mocker,
+    )
+
+    span.set_attribute.assert_called_once_with("gen_ai.usage.cost", 0.0123)
+
+
+@pytest.mark.parametrize(
+    "provider_details",
+    [None, {"downstream_provider": "novita"}],
+)
+def test_cost_reporter_publishes_nothing_without_a_reported_cost(
+    mocker,
+    provider_details,
+):
+    """Test a response without a cost leaves the span alone rather than zeroing it."""
+    span = _report_cost_for(
+        ModelResponse(
+            parts=[TextPart(content="A summary.")],
+            provider_details=provider_details,
+        ),
+        mocker,
+    )
+
+    span.set_attribute.assert_not_called()
 
 
 def test_build_model_caches_across_providers(mocker):
