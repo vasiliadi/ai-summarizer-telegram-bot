@@ -151,8 +151,14 @@ def test_cost_reporter_writes_to_the_live_generation_span():
     agent.run_sync("Summarize this.", model=model)
 
     generation = next(
-        span for span in exporter.get_finished_spans() if span.name.startswith("chat ")
+        (
+            span
+            for span in exporter.get_finished_spans()
+            if span.name.startswith("chat ")
+        ),
+        None,
     )
+    assert generation is not None, "the run exported no generation span"
     assert generation.attributes["gen_ai.usage.cost"] == 0.0123
     assert "gen_ai.usage.output_tokens" in generation.attributes
 
