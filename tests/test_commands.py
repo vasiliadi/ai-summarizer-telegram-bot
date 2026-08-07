@@ -69,10 +69,10 @@ def test_handle_myinfo(message_factory, mocker):
         user_id=123,
         approved=True,
         target_language="English",
-        summarizing_model="gemini-3.5-flash",
+        summarizing_model="gemini-3.6-flash",
         prompt_key_for_summary="basic_prompt_for_transcript",
         daily_limit=10,
-        thinking_level="MINIMAL",
+        thinking_level="minimal",
     )
     fakes.user_repo.select_user.return_value = mock_user
     fakes.quota_manager.get_remaining_quota.return_value = 7
@@ -84,7 +84,7 @@ def test_handle_myinfo(message_factory, mocker):
     assert "Target language: English" in content
     assert "Daily limit: 10" in content
     assert "Remaining quota: 7" in content
-    assert "Summarizing model: Gemini 3.5 Flash" in content
+    assert "Summarizing model: Gemini 3.6 Flash" in content
     assert "Thinking level: Minimal" in content
     assert "Prompt strategy: Detailed Summary" in content
     assert "YouTube transcript" not in content
@@ -163,7 +163,7 @@ def test_proceed_set_target_language_success(message_factory, mocker):
 
 def test_proceed_set_summarizing_model_success(message_factory, mocker):
     """Test successful model selection."""
-    msg = message_factory(content_type="text", text="Gemini 3.5 Flash")
+    msg = message_factory(content_type="text", text="Gemini 3.6 Flash")
     app, fakes = make_app(mocker)
     fakes.user_repo.set_summarizing_model.return_value = True
 
@@ -171,10 +171,10 @@ def test_proceed_set_summarizing_model_success(message_factory, mocker):
 
     fakes.user_repo.set_summarizing_model.assert_called_once_with(
         msg.from_user.id,
-        "gemini-3.5-flash",
+        "gemini-3.6-flash",
     )
     assert (
-        "The summarizing model is set to Gemini 3.5 Flash"
+        "The summarizing model is set to Gemini 3.6 Flash"
         in fakes.bot.send_message.call_args[0][1]
     )
 
@@ -205,7 +205,7 @@ def test_proceed_set_thinking_level_success(message_factory, mocker):
 
     app.proceed_set_thinking_level(msg)
 
-    fakes.user_repo.set_thinking_level.assert_called_once_with(msg.from_user.id, "HIGH")
+    fakes.user_repo.set_thinking_level.assert_called_once_with(msg.from_user.id, "high")
     assert "The thinking level is set to High" in fakes.bot.send_message.call_args[0][1]
 
 
@@ -315,7 +315,7 @@ def test_proceed_set_target_language_invalid_choice(message_factory, mocker):
         (
             "proceed_set_summarizing_model",
             "set_summarizing_model",
-            "Gemini 3.5 Flash",
+            "Gemini 3.6 Flash",
             "Failed to update summarizing model.",
         ),
         (

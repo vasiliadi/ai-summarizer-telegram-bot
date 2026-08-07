@@ -120,7 +120,7 @@ class UserRepository:
 
     def set_thinking_level(self, user_id: int, thinking_level: str) -> bool:
         """Set the user's thinking level; False if unsupported or user unknown."""
-        normalized = thinking_level.upper()
+        normalized = thinking_level.lower()
         if normalized not in ALLOWED_THINKING_LEVELS:
             return False
         return self._update_field(user_id, "thinking_level", normalized)
