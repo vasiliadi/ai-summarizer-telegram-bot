@@ -22,7 +22,8 @@ ENV ENV=PROD \
     PYTHONUNBUFFERED=1 \
     DENO_V8_FLAGS="--max-old-space-size=256" \
     PATH="/app/.venv/bin:$PATH"
-ENV SENTRY_ENVIRONMENT=${ENV}
+ENV SENTRY_ENVIRONMENT=${ENV} \
+    LANGFUSE_TRACING_ENVIRONMENT=prod
 WORKDIR /app
 RUN apk add --no-cache ffmpeg deno
 COPY --from=ghcr.io/astral-sh/uv:latest@sha256:606e70c71c852d03f611b1e56a195d08648507018a7057fab82c4974c4eae105 /uv /bin/
