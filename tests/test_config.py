@@ -1,5 +1,8 @@
 import importlib
 import logging
+from typing import get_args
+
+from pydantic_ai.settings import ThinkingEffort
 
 import config
 import utils
@@ -140,3 +143,24 @@ def test_no_model_takes_audio_without_taking_files():
         if spec.supports_audio and not spec.supports_files
     ]
     assert not broken
+
+
+def test_thinking_levels_are_pydantic_ais_vocabulary():
+    """Test the allow-list is exactly pydantic-ai's ThinkingEffort.
+
+    Nothing in this codebase translates a thinking level — each provider's model
+    does. That only holds while the offered levels are the ones pydantic-ai
+    knows: a level it does not recognize raises KeyError as the request is
+    built. Set equality, so a pydantic-ai bump that adds or drops an effort
+    fails here rather than silently leaving the keyboard out of date.
+    """
+    assert set(config.ALLOWED_THINKING_LEVELS) == set(get_args(ThinkingEffort))
+
+
+def test_default_thinking_level_is_selectable():
+    """Test the default survives the allow-list every writer validates against.
+
+    register_user seeds it directly, bypassing set_thinking_level, so a default
+    outside the allow-list would give every new user an unusable level.
+    """
+    assert config.DEFAULT_THINKING_LEVEL in config.ALLOWED_THINKING_LEVELS

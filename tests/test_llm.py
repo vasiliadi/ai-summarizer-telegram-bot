@@ -8,6 +8,7 @@ from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.profiles import ModelProfile
 from pydantic_ai.providers.openrouter import OpenRouterProvider
 from pydantic_ai.settings import ThinkingEffort
 
@@ -46,21 +47,21 @@ def test_build_model_caches_across_providers(mocker):
     """Test the cache is keyed by id alone, so both providers share one dict."""
     client = LLMClient(mocker.MagicMock(), OpenRouterProvider(api_key="mock_key"))
 
-    google = client.build_model("gemini-3.5-flash")
+    google = client.build_model("gemini-3.6-flash")
     openrouter = client.build_model("z-ai/glm-5.2")
 
-    assert client.build_model("gemini-3.5-flash") is google
+    assert client.build_model("gemini-3.6-flash") is google
     assert client.build_model("z-ai/glm-5.2") is openrouter
     assert google is not openrouter
 
 
 def test_build_model_is_cached_per_id(llm_client):
     """Test build_model reuses one model object per id, so clients are shared."""
-    assert llm_client.build_model("gemini-3.5-flash") is llm_client.build_model(
-        "gemini-3.5-flash",
-    )
-    assert llm_client.build_model("gemini-3.5-flash") is not llm_client.build_model(
+    assert llm_client.build_model("gemini-3.6-flash") is llm_client.build_model(
         "gemini-3.6-flash",
+    )
+    assert llm_client.build_model("gemini-3.6-flash") is not llm_client.build_model(
+        "gemini-3.5-flash-lite",
     )
 
 
@@ -88,66 +89,52 @@ def test_build_model_rejects_provider_without_builder(llm_client, mocker):
         llm_client.build_model("mystery-1")
 
 
-@pytest.mark.parametrize("thinking_level", ["MINIMAL", "LOW", "MEDIUM", "HIGH"])
-def test_build_settings_passes_google_thinking_level_through(
-    llm_client,
-    thinking_level,
-):
-    """Test Google gets the level verbatim, not the agnostic effort mapping."""
-    settings = llm_client.build_settings(
-        "gemini-3.5-flash",
-        thinking_level=thinking_level,
-    )
-    assert settings == {"google_thinking_config": {"thinking_level": thinking_level}}
-
-
-def test_build_settings_uses_agnostic_effort_for_other_providers(llm_client, mocker):
-    """Test a non-Google provider gets the portable `thinking` effort instead."""
-    mocker.patch.dict(
-        llm_module.MODEL_SPECS,
-        {
-            "mystery-1": ModelSpec(
-                label="Mystery 1",
-                provider="mystery",
-                supports_audio=True,
-                supports_files=True,
-            ),
-        },
-    )
-
-    assert llm_client.build_settings("mystery-1", thinking_level="LOW") == {
-        "thinking": "low",
-    }
-
-
 @pytest.mark.parametrize("thinking_level", ALLOWED_THINKING_LEVELS)
-def test_build_settings_maps_every_allowed_level_for_openrouter(
+def test_build_settings_passes_every_allowed_level_as_agnostic_effort(
     llm_client,
     thinking_level,
 ):
-    """Test each allowed level reaches OpenRouter as a valid agnostic effort.
+    """Test every allowed level becomes a valid pydantic-ai ThinkingEffort.
 
-    pydantic-ai looks the effort up in a dict on the way out, so a level it does
-    not know raises rather than being passed through as Google's does.
+    There is no per-provider branch to test: build_settings owns no mapping, so
+    the only thing it can get wrong is emitting a level pydantic-ai does not
+    know, which each provider's model looks up in a dict on the way out.
     """
-    settings = llm_client.build_settings(
-        "tencent/hy3",
-        thinking_level=thinking_level,
-    )
-    assert settings == {"thinking": thinking_level.lower()}
+    settings = llm_client.build_settings(thinking_level=thinking_level)
+
+    assert settings == {"thinking": thinking_level}
     assert settings["thinking"] in get_args(ThinkingEffort)
 
 
 def test_build_settings_does_not_reject_unknown_thinking_level(llm_client):
-    """Lock the lenient handling of a thinking level outside the allow-list.
+    """Test a level outside the allow-list survives build_settings itself.
 
-    A stale `users.thinking_level` must not blow up before the request is even
-    built — the provider decides what to do with an unrecognized level, exactly
-    as it did when the level went through `types.ThinkingLevel`. The agnostic
-    `thinking` effort would raise KeyError here.
+    It no longer survives the request: see the KeyError test below. This pins
+    where the failure is *not*, so the two together locate it exactly.
     """
-    settings = llm_client.build_settings("gemini-3.5-flash", thinking_level="INVALID")
-    assert settings["google_thinking_config"] == {"thinking_level": "INVALID"}
+    assert llm_client.build_settings(thinking_level="INVALID") == {
+        "thinking": "INVALID",
+    }
+
+
+def test_unknown_thinking_level_raises_when_the_request_is_built(llm_client):
+    """Lock where a stale `users.thinking_level` now fails, and how loudly.
+
+    Passing the level through `google_thinking_config` used to leave the ruling
+    to the provider. The agnostic effort is looked up in a dict instead, so an
+    unrecognized level raises KeyError while the request is assembled — inside
+    agent.run_sync, but *not* caught by summary.py's typed @retry decorators, so
+    it surfaces to Sentry on the first attempt rather than being retried.
+    """
+    model = llm_client.build_model("gemini-3.6-flash")
+    settings = llm_client.build_settings(thinking_level="INVALID")
+    messages = [ModelRequest(parts=[UserPromptPart(content="hello")])]
+    settings, params = model.prepare_request(settings, ModelRequestParameters())
+
+    with pytest.raises(KeyError, match="INVALID"):
+        asyncio.run(
+            model._build_content_and_config(messages, settings or {}, params),
+        )
 
 
 def test_build_uploaded_file_uses_uri_as_file_id(llm_client):
@@ -158,7 +145,7 @@ def test_build_uploaded_file_uses_uri_as_file_id(llm_client):
         mime_type="audio/ogg",
     )
 
-    part = llm_client.build_uploaded_file(model_id="gemini-3.5-flash", file=file)
+    part = llm_client.build_uploaded_file(model_id="gemini-3.6-flash", file=file)
 
     assert part.file_id == file.uri
     assert part.media_type == "audio/ogg"
@@ -214,49 +201,69 @@ def test_run_drives_a_real_agent_run(llm_client, mocker):
     def capture(messages, info):
         seen["instructions"] = messages[0].instructions
         seen["prompt"] = messages[0].parts[-1].content
-        seen["settings"] = info.model_settings
+        # Not info.model_settings: prepare_request lifts `thinking` out of the
+        # settings into the request parameters, leaving the settings empty.
+        seen["thinking"] = info.model_request_parameters.thinking
         return ModelResponse(parts=[TextPart(content="A summary.")])
 
     mocker.patch.object(
         llm_client,
         "build_model",
-        return_value=FunctionModel(capture),
+        # supports_thinking, or pydantic-ai drops the level before the model
+        # sees it — FunctionModel's default profile does not claim it.
+        return_value=FunctionModel(
+            capture,
+            profile=ModelProfile(supports_thinking=True),
+        ),
     )
 
     result = llm_client.run(
         content="Summarize this.",
         model_id="gemini-3.6-flash",
         target_language="Ukrainian",
-        thinking_level="MEDIUM",
+        thinking_level="medium",
     )
 
     assert result == "A summary."
     assert seen["prompt"] == "Summarize this."
     assert "Ukrainian" in seen["instructions"]
-    assert seen["settings"]["google_thinking_config"] == {"thinking_level": "MEDIUM"}
+    assert seen["thinking"] == "medium"
 
 
-def test_run_builds_the_expected_gemini_request_config(llm_client):
-    """Test the settings reach GenerateContentConfig in the pre-seam shape.
+@pytest.mark.parametrize(
+    ("thinking_level", "expected_level"),
+    [("high", "HIGH"), ("minimal", "MINIMAL"), ("xhigh", "HIGH")],
+)
+def test_run_builds_the_expected_gemini_request_config(
+    llm_client,
+    thinking_level,
+    expected_level,
+):
+    """Test pydantic-ai, not this codebase, translates the level for Gemini.
 
-    include_thoughts must stay unset: pydantic-ai's agnostic thinking effort
-    turns it on, which makes Gemini emit thought summaries that run() discards.
+    Gemini has no XHIGH, so xhigh collapses onto HIGH here — the reason the
+    fifth level is offered for a future provider rather than for today.
+
+    include_thoughts arrives True and cannot be turned off on this path: it is
+    hard-coded beside the level in pydantic-ai's Google translation. Gemini
+    therefore generates thought summaries that run() drops, which is the price
+    of owning no mapping. If a bump ever separates the two, this test says so.
     """
     model = llm_client.build_model("gemini-3.5-flash-lite")
-    settings = llm_client.build_settings("gemini-3.5-flash-lite", thinking_level="HIGH")
+    settings = llm_client.build_settings(thinking_level=thinking_level)
     messages = [ModelRequest(parts=[UserPromptPart(content="hello")])]
+    settings, params = model.prepare_request(settings, ModelRequestParameters())
 
     # Reaches into a GoogleModel private: it is the only way to see the real
     # GenerateContentConfig without a live call. Re-verify on a pydantic-ai bump.
     _, config = asyncio.run(
-        model._build_content_and_config(
-            messages,
-            settings,
-            ModelRequestParameters(),
-        ),
+        model._build_content_and_config(messages, settings or {}, params),
     )
 
-    assert config["thinking_config"] == {"thinking_level": "HIGH"}
+    assert config["thinking_config"] == {
+        "include_thoughts": True,
+        "thinking_level": expected_level,
+    }
     assert config["tools"] is None
     assert config["response_json_schema"] is None
 
@@ -273,7 +280,7 @@ def test_run_passes_model_and_instructions(llm_client, mocker):
         content="Summarize this.",
         model_id="gemini-3.6-flash",
         target_language="Ukrainian",
-        thinking_level="MEDIUM",
+        thinking_level="medium",
     )
 
     assert result == "A summary."
@@ -293,9 +300,9 @@ def test_run_instructions_are_dedented(llm_client, mocker):
 
     llm_client.run(
         content="Summarize this.",
-        model_id="gemini-3.5-flash",
+        model_id="gemini-3.6-flash",
         target_language="English",
-        thinking_level="HIGH",
+        thinking_level="high",
     )
 
     instructions = mock_run_sync.call_args.kwargs["instructions"]
@@ -315,9 +322,9 @@ def test_run_raises_on_empty_output(llm_client, mocker, output):
     with pytest.raises(AttributeError):
         llm_client.run(
             content="Summarize this.",
-            model_id="gemini-3.5-flash",
+            model_id="gemini-3.6-flash",
             target_language="English",
-            thinking_level="HIGH",
+            thinking_level="high",
         )
 
 
@@ -335,9 +342,9 @@ def test_run_uses_traced_agent_for_text_content(llm_client, mocker):
 
     result = llm_client.run(
         content="Summarize this.",
-        model_id="gemini-3.5-flash",
+        model_id="gemini-3.6-flash",
         target_language="English",
-        thinking_level="HIGH",
+        thinking_level="high",
     )
 
     assert result == "A summary."
@@ -362,9 +369,9 @@ def test_run_uses_traced_agent_for_multipart_text_content(llm_client, mocker):
 
     result = llm_client.run(
         content=["Summarize this.", "Use short bullets."],
-        model_id="gemini-3.5-flash",
+        model_id="gemini-3.6-flash",
         target_language="English",
-        thinking_level="HIGH",
+        thinking_level="high",
     )
 
     assert result == "A summary."
@@ -384,7 +391,7 @@ def test_run_uses_untraced_agent_for_uploaded_file_content(llm_client, mocker):
         mime_type="audio/ogg",
     )
     uploaded_file = llm_client.build_uploaded_file(
-        model_id="gemini-3.5-flash",
+        model_id="gemini-3.6-flash",
         file=file,
     )
     mock_run_sync = mocker.patch.object(
@@ -399,9 +406,9 @@ def test_run_uses_untraced_agent_for_uploaded_file_content(llm_client, mocker):
 
     result = llm_client.run(
         content=["Summarize this.", uploaded_file],
-        model_id="gemini-3.5-flash",
+        model_id="gemini-3.6-flash",
         target_language="English",
-        thinking_level="HIGH",
+        thinking_level="high",
     )
 
     assert result == "A summary."

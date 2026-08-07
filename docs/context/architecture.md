@@ -47,9 +47,16 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   wav/mp3 audio inline, while this pipeline produces Opus `.ogg`. Upstream,
   `xiaomi/mimo-v2.5` does read audio and both GPT-5.6 models do read files; matching the
   flags to the catalog without first building an inline path breaks the routing.
-- **Thinking level is coarser on OpenRouter** — its `reasoning.effort` has only
-  low/medium/high, so MINIMAL and LOW arrive as one effort where Gemini distinguishes
-  all four. A limit of that API; no normalization layer recovers it.
+- **Thinking levels are pydantic-ai's, translated by pydantic-ai** — the allow-list is
+  its `ThinkingEffort` (`minimal|low|medium|high|xhigh`), passed to the unified `thinking`
+  setting, and each provider's model maps it. This codebase owns no mapping, which is what
+  a test pinning `ALLOWED_THINKING_LEVELS` to `get_args(ThinkingEffort)` protects. Two
+  consequences: Gemini receives `include_thoughts=True`, hard-coded beside the level in
+  pydantic-ai's Google translation, so it generates thought summaries `run` discards —
+  the accepted price of owning no mapping, **do not** reintroduce `google_thinking_config`
+  to dodge it. And `xhigh` is indistinguishable from `high` on both registered providers
+  (Gemini has no XHIGH; OpenRouter's `reasoning.effort` stops at high), so it is offered
+  for a future provider, not for a difference users can feel today.
 - **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
   the two have different durability needs.
 - **Modal for serverless cron** — clears the bot's own per-user daily counters in
@@ -63,7 +70,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; the `__main__` block just calls `build_app`, `run`, `shutdown`. |
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
-| `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a model cache keyed by id across providers; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`, Google and OpenRouter today); `build_settings` splits Google's `google_thinking_config` from the provider-agnostic thinking effort everything else takes. |
+| `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a model cache keyed by id across providers; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`, Google and OpenRouter today); `build_settings` has no provider branch at all — every provider takes the agnostic `thinking` effort. |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
@@ -190,7 +197,7 @@ to Gemini — return the raw model text with **no** prefix.
   `prompt_version`, `target_language` and `thinking_level` as metadata) whatever spans
   the message's model calls open. Those are metadata because nothing else carries
   them: pydantic-ai exports only the six numeric OTel model settings, so the
-  provider-specific, string-valued thinking level never reaches a span, and the rest
+  string-valued thinking level never reaches a span, and the rest
   would have to be parsed back out of the prompt wording. They exist to make a
   trace filterable and replayable as an evaluation dataset item; the model id needs no
   entry, being already on the generation span. `prompt_version`

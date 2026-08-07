@@ -4,7 +4,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
 from pydantic_ai import Agent, UploadedFile
-from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
+from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.providers.google import GoogleProvider
 from pydantic_ai.settings import ModelSettings
@@ -72,28 +72,28 @@ class LLMClient:
             self._models[model_id] = model
         return self._models[model_id]
 
-    def build_settings(self, model_id: str, thinking_level: str) -> ModelSettings:
-        """Build the per-run settings, adding provider-specific options.
+    def build_settings(self, thinking_level: str) -> ModelSettings:
+        """Build the per-run settings from the agnostic thinking effort.
 
-        Google goes through `google_thinking_config` rather than the agnostic
-        `thinking` effort: the effort mapping also sets `include_thoughts`, so
-        Gemini would generate thought summaries that `run` discards. Passing the
-        level straight through keeps the request shape and stays lenient about
-        an unrecognized level, which the provider decides on rather than us.
+        Deliberately owns no mapping: `thinking_level` is a pydantic-ai
+        `ThinkingEffort`, and each provider's model translates it. Two
+        consequences worth knowing rather than rediscovering:
 
-        Every other provider takes the agnostic effort instead. OpenRouter's own
-        `reasoning.effort` has only low/medium/high, so MINIMAL and LOW reach it
-        as one effort — a limit of that API, not of this mapping.
+        Gemini receives `include_thoughts=True` — it is hard-coded alongside the
+        level in pydantic-ai's Google translation, so Gemini generates thought
+        summaries that `run` then discards. Reaching that translation any other
+        way is not possible; owning the mapping here to avoid it is what this
+        deliberately does not do.
+
+        `xhigh` is indistinguishable from `high` on both registered providers
+        (Gemini has no XHIGH; OpenRouter's `reasoning.effort` stops at high). It
+        is offered for a provider that distinguishes it, not for today.
+
+        An unrecognized level survives this call but raises `KeyError` when the
+        request is built. Only a stale `users.thinking_level` can reach that,
+        since `database.set_thinking_level`'s allow-list is the only writer.
         """
-        if MODEL_SPECS[model_id].provider == "google":
-            return GoogleModelSettings(
-                google_thinking_config={
-                    # Cast, not types.ThinkingLevel(...): an unrecognized level
-                    # stays a plain string for the provider to rule on.
-                    "thinking_level": cast("types.ThinkingLevel", thinking_level),
-                },
-            )
-        return ModelSettings(thinking=cast("ThinkingLevel", thinking_level.lower()))
+        return ModelSettings(thinking=cast("ThinkingLevel", thinking_level))
 
     def build_uploaded_file(self, model_id: str, file: types.File) -> UploadedFile:
         """Reference a file already uploaded to the provider's file API.
@@ -146,10 +146,7 @@ class LLMClient:
             content,
             model=self.build_model(model_id),
             instructions=instructions,
-            model_settings=self.build_settings(
-                model_id,
-                thinking_level=thinking_level,
-            ),
+            model_settings=self.build_settings(thinking_level=thinking_level),
         )
         if not result.output:
             raise AttributeError

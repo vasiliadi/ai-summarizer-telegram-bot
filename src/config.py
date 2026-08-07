@@ -101,12 +101,6 @@ class ModelSpec:
 
 
 MODEL_SPECS: dict[str, ModelSpec] = {
-    "gemini-3.5-flash": ModelSpec(
-        label="Gemini 3.5 Flash",
-        provider="google",
-        supports_audio=True,
-        supports_files=True,
-    ),
     "gemini-3.6-flash": ModelSpec(
         label="Gemini 3.6 Flash",
         provider="google",
@@ -174,13 +168,18 @@ ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_SPECS.keys())
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
 # It also serves documents whose selected model has supports_files=False, so it
 # must stay a spec with supports_files=True.
-DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.5-flash-lite"
-DEFAULT_THINKING_LEVEL = "HIGH"
+DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.6-flash"
+DEFAULT_THINKING_LEVEL = "medium"
+# The keys are pydantic-ai's `ThinkingEffort`, which every provider's model maps
+# to its own vocabulary; nothing here translates them. The values exist only to
+# give the reply keyboard readable buttons — "xhigh" has no decent title-case.
+# Ordered low to high, which is the order the keyboard shows.
 THINKING_LEVEL_LABELS: dict[str, str] = {
-    "MINIMAL": "Minimal",
-    "LOW": "Low",
-    "MEDIUM": "Medium",
-    "HIGH": "High",
+    "minimal": "Minimal",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "xhigh": "Extra High",
 }
 THINKING_LEVEL_LABELS_REVERSE: dict[str, str] = {
     v: k for k, v in THINKING_LEVEL_LABELS.items()
