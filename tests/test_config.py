@@ -122,3 +122,21 @@ def test_default_summarizing_model_accepts_files():
     """
     default = config.MODEL_SPECS[config.DEFAULT_MODEL_ID_FOR_SUMMARY]
     assert default.supports_files
+
+
+def test_no_model_takes_audio_without_taking_files():
+    """Test supports_audio implies supports_files across the whole registry.
+
+    Native audio is delivered by the same Gemini upload as documents, but only
+    summarize_with_document falls back when a model cannot take a file —
+    summarize() checks supports_audio alone. A spec with audio but not files
+    would upload, then raise from build_uploaded_file: unretried, unmapped, and
+    already paid for. The ModelSpec docstring warns against flipping the flags
+    to match a provider catalog; this is what makes that warning fail loudly.
+    """
+    broken = [
+        model_id
+        for model_id, spec in config.MODEL_SPECS.items()
+        if spec.supports_audio and not spec.supports_files
+    ]
+    assert not broken
