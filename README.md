@@ -19,7 +19,7 @@ A bot designed to summarize YouTube videos (via audio or transcripts), Castro.fm
 
 ### General settings
 
-1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/), [Exa](https://dashboard.exa.ai/)
+1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [OpenRouter](https://openrouter.ai/),[Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/), [Exa](https://dashboard.exa.ai/)
 2. Setup DB and Redis. For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
 4. Set up the [Modal Secrets](https://modal.com/secrets) with name `resetlimit-secrets`. Only `REDIS_URL` from `.env` needed.
@@ -200,10 +200,7 @@ Modal Image Builder Version required to be `2025.06`. Set in Settings -> Image B
 
 ## Summarizing models
 
-`/set_summarizing_model` offers models from two providers: Gemini directly, and eight
-text-only models through [OpenRouter](https://openrouter.ai/) (DeepSeek, GPT-5.6, GLM,
-MiniMax, MiMo, Hy3). Both `GEMINI_API_KEY` and `OPENROUTER_API_KEY` are required — the bot
-will not start without either.
+`/set_summarizing_model` offers models from two providers: Gemini directly, and text-only models through [OpenRouter](https://openrouter.ai/) (DeepSeek, GPT-5.6, GLM, MiniMax, MiMo, Hy3). Both `GEMINI_API_KEY` and `OPENROUTER_API_KEY` are required — the bot will not start without either.
 
 The OpenRouter models are registered as text-only on purpose: OpenRouter has no file API,
 so a file would have to be base64-inlined, which a 20MB Telegram file does not fit inside.
@@ -256,8 +253,6 @@ transcript path is faster and cheaper, and for most content the difference is sm
 [Renovate bot](https://docs.renovatebot.com/), [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) \
 [crontab guru](https://crontab.guru/) \
 [Gemini API Cookbook](https://github.com/google-gemini/cookbook/) \
-Uptime stats: [Gemini Models](https://openrouter.ai/google) \
-[OpenRouter Docs](https://openrouter.ai/docs), [OpenRouter Status](https://status.openrouter.ai/) \
 [AI Agent Framework](https://github.com/Arkya-AI/claude-context-os), [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices)
 
 ### Cloud DBs
