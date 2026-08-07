@@ -89,8 +89,8 @@ class ModelSpec:
     `supports_files` False sends documents to `DEFAULT_MODEL_ID_FOR_SUMMARY`
     instead. Every OpenRouter model is registered with both False on purpose:
     OpenRouter has no file API, so files would have to be inlined as base64,
-    and `xiaomi/mimo-v2.5` (audio) and the two GPT-5.6 models (files) do read
-    those modalities upstream. Correcting the flags to match the catalog
+    and several registered models — `meta/muse-spark-1.2` advertises both — do
+    read those modalities upstream. Correcting the flags to match the catalog
     without first building an inline path breaks the routing.
     """
 
@@ -125,6 +125,12 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         supports_audio=False,
         supports_files=False,
     ),
+    "meta/muse-spark-1.2": ModelSpec(
+        label="Meta Muse Spark 1.2",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
     "minimax/minimax-m3": ModelSpec(
         label="MiniMax M3",
         provider="openrouter",
@@ -143,8 +149,20 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         supports_audio=False,
         supports_files=False,
     ),
+    "qwen/qwen3.7-flash": ModelSpec(
+        label="Qwen3.7 Flash",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
     "tencent/hy3": ModelSpec(
         label="Tencent Hy3",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
+    "thinkingmachines/inkling": ModelSpec(
+        label="Thinking Machines Inkling",
         provider="openrouter",
         supports_audio=False,
         supports_files=False,
