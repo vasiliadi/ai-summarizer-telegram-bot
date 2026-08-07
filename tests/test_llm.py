@@ -3,10 +3,15 @@ from types import SimpleNamespace
 from typing import get_args
 
 import pytest
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from pydantic_ai import Agent
 from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.instrumented import InstrumentationSettings
 from pydantic_ai.models.openrouter import OpenRouterModel
 from pydantic_ai.profiles import ModelProfile
 from pydantic_ai.providers.openrouter import OpenRouterProvider
@@ -112,6 +117,44 @@ def test_cost_reporter_publishes_nothing_without_a_reported_cost(
     )
 
     span.set_attribute.assert_not_called()
+
+
+def test_cost_reporter_writes_to_the_live_generation_span():
+    """Test the cost survives a real run, on the span the exporter ships.
+
+    The tests above stub the span away, so they would keep passing if the
+    wrapper landed outside the instrumented model (leaving `get_current_span`
+    to return the non-recording invalid span), if a pydantic-ai bump had
+    `finish` overwrite the attribute alongside the token counts it already
+    writes there, or if `run_sync` started streaming — the wrapper overrides
+    only `request`. Each of those silently returns OpenRouter generations to
+    tokens with no cost, which is what this whole path exists to prevent.
+
+    The provider is passed to `instrument`, not installed globally: importing
+    `config` lets Sentry claim the global one first, and OTel refuses to
+    override it.
+    """
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    agent = Agent()
+    agent.instrument = InstrumentationSettings(tracer_provider=provider)
+    model = OpenRouterCostReporter(
+        FunctionModel(
+            lambda messages, info: ModelResponse(
+                parts=[TextPart(content="A summary.")],
+                provider_details={"cost": 0.0123},
+            ),
+        ),
+    )
+
+    agent.run_sync("Summarize this.", model=model)
+
+    generation = next(
+        span for span in exporter.get_finished_spans() if span.name.startswith("chat ")
+    )
+    assert generation.attributes["gen_ai.usage.cost"] == 0.0123
+    assert "gen_ai.usage.output_tokens" in generation.attributes
 
 
 def test_build_model_caches_across_providers(mocker):
