@@ -69,6 +69,12 @@ would record as token usage with no readable content. `LANGFUSE_BASE_URL`
 defaults to Langfuse Cloud (EU); use
 `https://us.cloud.langfuse.com` for the US region or your self-hosted URL.
 
+Tracing is off unless both keys are set. When it is on, each traced message sends the prompt, the
+extracted webpage text or transcript, the generated summary, and the Telegram user ID to your
+Langfuse project, where they are stored under that project's retention settings. If you run this bot
+for anyone other than yourself, treat that as processing their content on a third-party service — or
+point `LANGFUSE_BASE_URL` at a self-hosted instance.
+
 Pass in an empty string to `PROXY` for direct connection. \
 Or use `schema`://`username`:`password`@`proxy_address`:`port` \
 For example `https://user:password@proxy.com:1234`
