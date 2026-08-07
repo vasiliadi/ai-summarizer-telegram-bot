@@ -44,7 +44,15 @@ def downgrade() -> None:
     # The summarizing_model rewrite is not reversed: gemini-3.5-flash is gone
     # from MODEL_SPECS, so restoring it would leave users on an unselectable id.
     # Same choice as 6bb4ed473ffd, which dropped the previous legacy models.
-    op.execute("UPDATE users SET thinking_level = upper(thinking_level)")
+    # xhigh has no counterpart in the vocabulary being restored, so a plain
+    # upper() would leave those users on XHIGH — absent from the old allow-list
+    # and rejected by Gemini, with nothing to heal it but re-picking a level.
+    # Collapse it onto HIGH, which is what pydantic-ai does going forward.
+    op.execute(
+        "UPDATE users SET thinking_level = CASE "
+        "WHEN lower(thinking_level) = 'xhigh' THEN 'HIGH' "
+        "ELSE upper(thinking_level) END",
+    )
     op.alter_column(
         "users",
         "summarizing_model",

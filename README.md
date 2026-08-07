@@ -118,6 +118,13 @@ uv run python scripts/db.py
 uv run alembic upgrade head
 ```
 
+**Migrate before you deploy, on every release — not just the first.** Nothing runs
+Alembic for you: neither `Dockerfile` nor `compose.yaml` does, so the order is yours to
+get right. A migration that rewrites a stored setting leaves the new code reading values
+it does not accept, and settings are read on every message — so starting the new
+container first can fail every request for every user until the migration lands. The
+reverse order is safe.
+
 For developers, how to generate a migration.
 
 ```bash
