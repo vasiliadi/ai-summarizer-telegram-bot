@@ -45,6 +45,7 @@ Example of `.env` file:
 ```env
 TG_API_TOKEN="your_api_key"
 GEMINI_API_KEY="your_api_key"
+OPENROUTER_API_KEY="your_api_key"
 REPLICATE_API_TOKEN="your_api_key"
 TAVILY_API_KEY="your_api_key"
 EXA_API_KEY="your_api_key"
@@ -197,6 +198,27 @@ To avoid multiple docker images, I use a [Modal](https://modal.com/) for cron jo
 
 Modal Image Builder Version required to be `2025.06`. Set in Settings -> Image Builder Version.
 
+## Summarizing models
+
+`/set_summarizing_model` offers models from two providers: Gemini directly, and eight
+text-only models through [OpenRouter](https://openrouter.ai/) (DeepSeek, GPT-5.6, GLM,
+MiniMax, MiMo, Hy3). Both `GEMINI_API_KEY` and `OPENROUTER_API_KEY` are required — the bot
+will not start without either.
+
+The OpenRouter models are registered as text-only on purpose: OpenRouter has no file API,
+so a file would have to be base64-inlined, which a 20MB Telegram file does not fit inside.
+That shapes what happens to non-text content when one of them is selected:
+
+- **Audio, voice, video, video notes, and podcast/YouTube audio** are transcribed by
+  Replicate first, then summarized by the model you chose (the 📝 prefix marks this).
+- **Documents that are not audio** — PDF, RTF, CSV, plain text — are summarized by Gemini
+  for that one message, since the file upload only ever goes to Gemini. Your saved model
+  is not changed, and `/myinfo` keeps reporting it.
+- **Webpages and YouTube transcripts** are text already, so they always go to the model
+  you chose.
+
+Picking a Gemini model sends everything to Gemini, with no detour.
+
 ## Audio vs text summaries
 
 Audio carries what a transcript drops — intonation, emphasis, pauses, speaker turns, and non-verbal
@@ -235,6 +257,7 @@ transcript path is faster and cheaper, and for most content the difference is sm
 [crontab guru](https://crontab.guru/) \
 [Gemini API Cookbook](https://github.com/google-gemini/cookbook/) \
 Uptime stats: [Gemini Models](https://openrouter.ai/google) \
+[OpenRouter Docs](https://openrouter.ai/docs), [OpenRouter Status](https://status.openrouter.ai/) \
 [AI Agent Framework](https://github.com/Arkya-AI/claude-context-os), [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices)
 
 ### Cloud DBs
