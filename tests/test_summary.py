@@ -1,3 +1,4 @@
+import logging
 from textwrap import dedent
 from types import SimpleNamespace
 
@@ -6,8 +7,7 @@ from pydantic_ai.exceptions import ModelHTTPError
 from telebot.types import File
 from tenacity import RetryError
 
-import summary as summary_module
-from config import ModelSpec
+from config import DEFAULT_MODEL_ID_FOR_SUMMARY
 from domain import PrefixedText
 from exceptions import FetchTranscriptError, LimitExceededError
 from prompts import PROMPTS
@@ -447,21 +447,11 @@ def test_summarize_fallback_to_transcription(mocker):
 def test_summarize_routes_audio_around_a_model_that_cannot_read_it(mocker):
     """Test a text-only model transcribes audio instead of uploading it.
 
-    No model in MODEL_SPECS is text-only today, so the registry is patched with a
-    synthetic spec — this is the branch a non-audio provider would light up.
+    Every OpenRouter model is registered text-only, so this is the live path for
+    audio whenever one of them is selected.
     """
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
-    mocker.patch.dict(
-        summary_module.MODEL_SPECS,
-        {
-            "text-only-1": ModelSpec(
-                label="Text Only 1",
-                provider="google",
-                supports_audio=False,
-            ),
-        },
-    )
     mock_with_file = mocker.patch.object(summarizer, "summarize_with_file")
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
     mock_compress = mocker.patch("summary.compress_audio")
@@ -475,7 +465,7 @@ def test_summarize_routes_audio_around_a_model_that_cannot_read_it(mocker):
 
     result = summarizer.summarize(
         data="local_audio.ogg",
-        model="text-only-1",
+        model="z-ai/glm-5.2",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
         user_id=123,
@@ -495,20 +485,12 @@ def test_summarize_with_document_routes_audio_document_to_transcription(mocker):
     """Test an audio document reaches the transcription path on a text-only model.
 
     SUPPORTED_DOCUMENT_MIME_TYPES accepts audio/ogg, so the document path needs
-    the same modality check as summarize().
+    the same modality check as summarize(). The chosen model also has
+    supports_files=False, so this pins the precedence: transcription wins over
+    the Gemini document fallback, keeping the user's own model on the summary.
     """
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
-    mocker.patch.dict(
-        summary_module.MODEL_SPECS,
-        {
-            "text-only-1": ModelSpec(
-                label="Text Only 1",
-                provider="google",
-                supports_audio=False,
-            ),
-        },
-    )
     fakes.downloader.download_tg.return_value = "voice.ogg"
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
     mocker.patch("summary.compress_audio")
@@ -523,7 +505,7 @@ def test_summarize_with_document_routes_audio_document_to_transcription(mocker):
 
     result = summarizer.summarize_with_document(
         file=mock_tg_file,
-        model="text-only-1",
+        model="z-ai/glm-5.2",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
         mime_type="audio/ogg",
@@ -541,6 +523,75 @@ def test_summarize_with_document_routes_audio_document_to_transcription(mocker):
             mocker.call(file="voice.ogg"),
         ],
     )
+
+
+def test_summarize_with_document_falls_back_when_model_takes_no_file(mocker, caplog):
+    """Test a PDF on an OpenRouter model is summarized by the default Gemini one.
+
+    The upload only ever goes to Gemini and there is no text-extraction path for
+    a PDF, so the model is substituted for this request alone.
+    """
+    summarizer, fakes = _make_summarizer(mocker)
+    fakes.quota_manager.check_quota.return_value = True
+    fakes.downloader.download_tg.return_value = "temp_doc.pdf"
+    mock_file_active = SimpleNamespace(
+        state="ACTIVE",
+        name="files/doc123",
+        uri="https://mock.uri",
+        mime_type="application/pdf",
+    )
+    fakes.gemini_helper.upload_and_wait_for_file.return_value = mock_file_active
+    fakes.llm_client.run.return_value = "Document summary"
+    mocker.patch("summary.clean_up")
+
+    with caplog.at_level(logging.WARNING, logger="summary"):
+        result = summarizer.summarize_with_document(
+            file=mocker.MagicMock(),
+            model="openai/gpt-5.6-luna",
+            prompt_key="basic_prompt_for_transcript",
+            target_language="English",
+            mime_type="application/pdf",
+            user_id=123,
+            daily_limit=10,
+            thinking_level="MINIMAL",
+        )
+
+    assert result == "Document summary"
+    assert fakes.llm_client.run.call_args.kwargs["model_id"] == (
+        DEFAULT_MODEL_ID_FOR_SUMMARY
+    )
+    assert fakes.llm_client.build_uploaded_file.call_args.kwargs["model_id"] == (
+        DEFAULT_MODEL_ID_FOR_SUMMARY
+    )
+    assert "openai/gpt-5.6-luna" in caplog.text
+
+
+def test_summarize_with_document_keeps_a_model_that_takes_files(mocker):
+    """Test the fallback leaves a file-capable model alone."""
+    summarizer, fakes = _make_summarizer(mocker)
+    fakes.quota_manager.check_quota.return_value = True
+    fakes.downloader.download_tg.return_value = "temp_doc.pdf"
+    fakes.gemini_helper.upload_and_wait_for_file.return_value = SimpleNamespace(
+        state="ACTIVE",
+        name="files/doc123",
+        uri="https://mock.uri",
+        mime_type="application/pdf",
+    )
+    fakes.llm_client.run.return_value = "Document summary"
+    mocker.patch("summary.clean_up")
+
+    summarizer.summarize_with_document(
+        file=mocker.MagicMock(),
+        model="gemini-3.6-flash",
+        prompt_key="basic_prompt_for_transcript",
+        target_language="English",
+        mime_type="application/pdf",
+        user_id=123,
+        daily_limit=10,
+        thinking_level="MINIMAL",
+    )
+
+    assert fakes.llm_client.run.call_args.kwargs["model_id"] == "gemini-3.6-flash"
 
 
 def test_summarize_fallback_cleans_up_temp_file_when_compress_fails(mocker):
