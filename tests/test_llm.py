@@ -1,21 +1,25 @@
 import asyncio
 from types import SimpleNamespace
+from typing import get_args
 
 import pytest
 from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.openrouter import OpenRouterModel
+from pydantic_ai.providers.openrouter import OpenRouterProvider
+from pydantic_ai.settings import ThinkingEffort
 
 import llm as llm_module
-from config import ModelSpec
+from config import ALLOWED_THINKING_LEVELS, ModelSpec
 from llm import LLMClient
 
 
 @pytest.fixture
 def llm_client(mocker):
-    """LLMClient wired to a mock Gemini client; unused by most of these tests."""
-    return LLMClient(mocker.MagicMock())
+    """LLMClient wired to mock providers; unused by most of these tests."""
+    return LLMClient(mocker.MagicMock(), mocker.MagicMock())
 
 
 def test_build_model_returns_google_model(llm_client):
@@ -24,6 +28,30 @@ def test_build_model_returns_google_model(llm_client):
     assert isinstance(model, GoogleModel)
     assert model.model_name == "gemini-3.5-flash-lite"
     assert model.system == "google"
+
+
+def test_build_model_returns_openrouter_model(mocker):
+    """Test build_model wires a registered OpenRouter id to an OpenRouterModel."""
+    provider = OpenRouterProvider(api_key="mock_openrouter_key")
+    client = LLMClient(mocker.MagicMock(), provider)
+
+    model = client.build_model("deepseek/deepseek-v4-pro")
+
+    assert isinstance(model, OpenRouterModel)
+    assert model.model_name == "deepseek/deepseek-v4-pro"
+    assert model.system == "openrouter"
+
+
+def test_build_model_caches_across_providers(mocker):
+    """Test the cache is keyed by id alone, so both providers share one dict."""
+    client = LLMClient(mocker.MagicMock(), OpenRouterProvider(api_key="mock_key"))
+
+    google = client.build_model("gemini-3.5-flash")
+    openrouter = client.build_model("z-ai/glm-5.2")
+
+    assert client.build_model("gemini-3.5-flash") is google
+    assert client.build_model("z-ai/glm-5.2") is openrouter
+    assert google is not openrouter
 
 
 def test_build_model_is_cached_per_id(llm_client):
@@ -51,6 +79,7 @@ def test_build_model_rejects_provider_without_builder(llm_client, mocker):
                 label="Mystery 1",
                 provider="mystery",
                 supports_audio=True,
+                supports_files=True,
             ),
         },
     )
@@ -81,6 +110,7 @@ def test_build_settings_uses_agnostic_effort_for_other_providers(llm_client, moc
                 label="Mystery 1",
                 provider="mystery",
                 supports_audio=True,
+                supports_files=True,
             ),
         },
     )
@@ -88,6 +118,24 @@ def test_build_settings_uses_agnostic_effort_for_other_providers(llm_client, moc
     assert llm_client.build_settings("mystery-1", thinking_level="LOW") == {
         "thinking": "low",
     }
+
+
+@pytest.mark.parametrize("thinking_level", ALLOWED_THINKING_LEVELS)
+def test_build_settings_maps_every_allowed_level_for_openrouter(
+    llm_client,
+    thinking_level,
+):
+    """Test each allowed level reaches OpenRouter as a valid agnostic effort.
+
+    pydantic-ai looks the effort up in a dict on the way out, so a level it does
+    not know raises rather than being passed through as Google's does.
+    """
+    settings = llm_client.build_settings(
+        "tencent/hy3",
+        thinking_level=thinking_level,
+    )
+    assert settings == {"thinking": thinking_level.lower()}
+    assert settings["thinking"] in get_args(ThinkingEffort)
 
 
 def test_build_settings_does_not_reject_unknown_thinking_level(llm_client):
@@ -130,6 +178,7 @@ def test_build_uploaded_file_rejects_non_google_model(llm_client, mocker):
                 label="Mystery 1",
                 provider="mystery",
                 supports_audio=True,
+                supports_files=True,
             ),
         },
     )
@@ -137,6 +186,20 @@ def test_build_uploaded_file_rejects_non_google_model(llm_client, mocker):
 
     with pytest.raises(ValueError, match="Cannot reference a Gemini file"):
         llm_client.build_uploaded_file(model_id="mystery-1", file=file)
+
+
+def test_build_uploaded_file_rejects_registered_openrouter_model(mocker):
+    """Test the guard holds for a real registry row, not just a fabricated spec.
+
+    OpenRouter has no file API, so `summarize_with_document` is expected to
+    substitute a Gemini model before reaching here; this is the backstop if it
+    ever stops doing so.
+    """
+    client = LLMClient(mocker.MagicMock(), OpenRouterProvider(api_key="mock_key"))
+    file = SimpleNamespace(name="files/x", uri="https://x", mime_type="application/pdf")
+
+    with pytest.raises(ValueError, match="Cannot reference a Gemini file"):
+        client.build_uploaded_file(model_id="openai/gpt-5.6-luna", file=file)
 
 
 def test_run_drives_a_real_agent_run(llm_client, mocker):

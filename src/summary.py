@@ -18,7 +18,7 @@ from tenacity import (
     wait_fixed,
 )
 
-from config import MODEL_SPECS
+from config import DEFAULT_MODEL_ID_FOR_SUMMARY, MODEL_SPECS
 from domain import format_prefixed_summary
 from exceptions import FetchTranscriptError
 from prompts import PROMPTS
@@ -233,7 +233,10 @@ class Summarizer:
         """Summarize document content by uploading it to the provider's file API.
 
         Audio documents sent to a model that cannot read audio take the Replicate
-        transcription path instead, and so carry the 📝 prefix.
+        transcription path instead, and so carry the 📝 prefix. Any other document
+        sent to a model this bot cannot hand a file to is summarized by
+        `DEFAULT_MODEL_ID_FOR_SUMMARY`, because the upload only ever goes to
+        Gemini and no text-extraction path exists for a PDF.
 
         Raises:
             ValueError: If the document processing fails on the provider's side.
@@ -261,6 +264,13 @@ class Summarizer:
                 )
             finally:
                 clean_up(file=data)
+        if not MODEL_SPECS[model].supports_files:
+            logger.warning(
+                "%s takes no uploaded file, summarizing this document with %s",
+                model,
+                DEFAULT_MODEL_ID_FOR_SUMMARY,
+            )
+            model = DEFAULT_MODEL_ID_FOR_SUMMARY
         data = self._downloader.download_tg(file)
         try:
             return self._summarize_uploaded_file(

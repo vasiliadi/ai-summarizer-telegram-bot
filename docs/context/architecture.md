@@ -28,18 +28,28 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 - **Valkey over Redis** — Aiven offers a free managed Valkey instance (linked in
   `README.md`); that is the whole reason. **Not** a settled constraint: the client
   speaks the Redis protocol, so either server works and swapping is fair game.
-- **Gemini primary, Replicate fallback** — Replicate (WhisperX) is the transcription
-  rescue path taken when Gemini file processing exhausts its retries, not a swappable
-  summarization model.
+- **Gemini primary, Replicate fallback** — Replicate (WhisperX) is a transcription path,
+  never a swappable summarization model. It is taken when Gemini file processing exhausts
+  its retries, and as the standing route for audio whenever the selected model is
+  text-only (every OpenRouter model is).
 - **pydantic-ai as the provider seam** — every model call goes through `llm.py`, so the
   registry (`config.MODEL_SPECS`) is what decides which provider serves a model id.
-  Only Gemini models are registered today; the seam exists so adding one from another
-  provider is a registry row plus a dependency extra, not a rewrite of `summary.py`.
-  More providers are planned, so the non-Google branches in `llm.py` stay even though
-  `ModelSpec.provider` is `Literal["google"]` and nothing can reach them yet — they are
-  covered by tests that fabricate a spec, and are **not** dead code to clean up.
+  Adding a model from a registered provider is a registry row; adding a provider is a
+  branch in `build_model` plus a dependency extra, not a rewrite of `summary.py`. Google
+  and OpenRouter are registered. The `else` in `build_model` still raises for a provider
+  with no builder, and is covered by a test that fabricates a spec.
   The Gemini Files API is still called directly (`services.GeminiHelper`), because
   base64-inlining a 20 MB Telegram file inflates it past the inline-request limit.
+- **OpenRouter models are text-delivery only** — registered with `supports_audio` and
+  `supports_files` both False, which is about what this bot can *deliver*, not what the
+  models read. OpenRouter has no file API, so a file would have to be base64-inlined —
+  the same limit that keeps Gemini on its Files API — and pydantic-ai only accepts
+  wav/mp3 audio inline, while this pipeline produces Opus `.ogg`. Upstream,
+  `xiaomi/mimo-v2.5` does read audio and both GPT-5.6 models do read files; matching the
+  flags to the catalog without first building an inline path breaks the routing.
+- **Thinking level is coarser on OpenRouter** — its `reasoning.effort` has only
+  low/medium/high, so MINIMAL and LOW arrive as one effort where Gemini distinguishes
+  all four. A limit of that API; no normalization layer recovers it.
 - **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
   the two have different durability needs.
 - **Modal for serverless cron** — clears the bot's own per-user daily counters in
@@ -53,7 +63,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; the `__main__` block just calls `build_app`, `run`, `shutdown`. |
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
-| `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a model cache; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`); `build_settings` currently carries only the provider-agnostic thinking level. |
+| `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a model cache keyed by id across providers; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`, Google and OpenRouter today); `build_settings` splits Google's `google_thinking_config` from the provider-agnostic thinking effort everything else takes. |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
@@ -112,12 +122,21 @@ so a `RetryError` raised by the transcription path does not re-enter it.
 
 ### Modality routing
 
-`ModelSpec.supports_audio` gates the native file-upload path: a model that
-cannot read audio takes the Replicate transcription route instead, in
-`summarize` and — because `SUPPORTED_DOCUMENT_MIME_TYPES` accepts `audio/ogg` —
-in `summarize_with_document`. Every registered model is currently audio-capable,
-so the branch is dormant in production and covered by tests with a synthetic
-spec. It exists so a text-only model is a registry row, not a code change.
+Two `ModelSpec` flags decide what a selected model is actually handed.
+
+`supports_audio` gates the native file-upload path: a model that cannot be sent
+audio takes the Replicate transcription route instead, in `summarize` and —
+because `SUPPORTED_DOCUMENT_MIME_TYPES` accepts `audio/ogg` — in
+`summarize_with_document`. The transcript is then summarized by the model the
+user chose, so their setting still decides the wording. This is the live path
+for every OpenRouter model.
+
+`supports_files` gates the Gemini upload in `summarize_with_document`: a
+document that is not audio has no text-extraction path, and the upload only ever
+goes to Gemini, so the request is summarized by `DEFAULT_MODEL_ID_FOR_SUMMARY`
+instead — logged at WARNING, with no user-facing message and no change to the
+stored setting. The audio branch keeps precedence over it. `summarize` needs no
+such check: everything reaching its file branch is audio.
 
 ## Source-provenance prefixes
 

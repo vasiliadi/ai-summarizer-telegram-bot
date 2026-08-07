@@ -18,7 +18,7 @@ dependencies = [
     { name = "langfuse" },
     { name = "limits", extra = ["redis"] },
     { name = "psycopg2-binary" },
-    { name = "pydantic-ai-slim", extra = ["google"] },
+    { name = "pydantic-ai-slim", extra = ["google", "openrouter"] },
     { name = "pytelegrambotapi" },
     { name = "replicate" },
     { name = "sentry-sdk" },
@@ -64,7 +64,7 @@ requires-dist = [
     { name = "langfuse", specifier = "==4.14.2" },
     { name = "limits", extras = ["redis"], specifier = "==5.8.0" },
     { name = "psycopg2-binary", specifier = "==2.9.12" },
-    { name = "pydantic-ai-slim", extras = ["google"], specifier = "==2.21.0" },
+    { name = "pydantic-ai-slim", extras = ["google", "openrouter"], specifier = "==2.21.0" },
     { name = "pytelegrambotapi", specifier = "==4.36.0" },
     { name = "replicate", specifier = "==1.0.7" },
     { name = "sentry-sdk", specifier = "==2.66.1" },
@@ -1460,6 +1460,9 @@ wheels = [
 [package.optional-dependencies]
 google = [
     { name = "google-genai" },
+]
+openrouter = [
+    { name = "openai" },
 ]
 
 [[package]]

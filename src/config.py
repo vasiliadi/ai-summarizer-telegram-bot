@@ -15,6 +15,7 @@ from limits import parse as parse_rate_limit
 from limits.storage import RedisStorage
 from limits.strategies import FixedWindowRateLimiter
 from pydantic_ai import Agent
+from pydantic_ai.providers.openrouter import OpenRouterProvider
 from tavily import TavilyClient
 
 if os.environ.get("ENV") != "PROD":
@@ -66,6 +67,11 @@ GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 
+# OpenRouter config
+OPENROUTER_API_KEY = os.environ["OPENROUTER_API_KEY"]
+openrouter_provider = OpenRouterProvider(api_key=OPENROUTER_API_KEY)
+
+
 # Summarizing model registry
 @dataclass(frozen=True)
 class ModelSpec:
@@ -75,16 +81,23 @@ class ModelSpec:
     dispatches in three places, all of which a new provider has to answer for:
     `llm.LLMClient.build_model` (which raises for a provider it cannot build),
     `llm.LLMClient.build_settings`, and `llm.LLMClient.build_uploaded_file`
-    (which serves the Gemini Files API only). Only `"google"` is registered
-    today, so each non-Google branch is unreachable until the `Literal` widens
-    — they are the seam for the next provider, not dead code to remove.
-    `supports_audio` is False for text-only models, which routes spoken content
-    through Replicate transcription instead of a native file upload.
+    (which serves the Gemini Files API only).
+
+    Both flags say what **this bot can deliver** to the model, not what the
+    model's catalog advertises. `supports_audio` False routes spoken content
+    through Replicate transcription instead of a native file upload;
+    `supports_files` False sends documents to `DEFAULT_MODEL_ID_FOR_SUMMARY`
+    instead. Every OpenRouter model is registered with both False on purpose:
+    OpenRouter has no file API, so files would have to be inlined as base64,
+    and `xiaomi/mimo-v2.5` (audio) and the two GPT-5.6 models (files) do read
+    those modalities upstream. Correcting the flags to match the catalog
+    without first building an inline path breaks the routing.
     """
 
     label: str
-    provider: Literal["google"]
+    provider: Literal["google", "openrouter"]
     supports_audio: bool
+    supports_files: bool
 
 
 MODEL_SPECS: dict[str, ModelSpec] = {
@@ -92,22 +105,75 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         label="Gemini 3.5 Flash",
         provider="google",
         supports_audio=True,
+        supports_files=True,
     ),
     "gemini-3.6-flash": ModelSpec(
         label="Gemini 3.6 Flash",
         provider="google",
         supports_audio=True,
+        supports_files=True,
     ),
     "gemini-3.5-flash-lite": ModelSpec(
         label="Gemini 3.5 Flash Lite",
         provider="google",
         supports_audio=True,
+        supports_files=True,
+    ),
+    "deepseek/deepseek-v4-flash-0731": ModelSpec(
+        label="DeepSeek V4 Flash 0731",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
+    "deepseek/deepseek-v4-pro": ModelSpec(
+        label="DeepSeek V4 Pro",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
+    "minimax/minimax-m3": ModelSpec(
+        label="MiniMax M3",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
+    "openai/gpt-5.6-luna": ModelSpec(
+        label="GPT-5.6 Luna",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
+    "openai/gpt-5.6-terra": ModelSpec(
+        label="GPT-5.6 Terra",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
+    "tencent/hy3": ModelSpec(
+        label="Tencent Hy3",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
+    "xiaomi/mimo-v2.5": ModelSpec(
+        label="Xiaomi MiMo-V2.5",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
+    "z-ai/glm-5.2": ModelSpec(
+        label="GLM 5.2",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
     ),
 }
 MODEL_LABELS: dict[str, str] = {k: v.label for k, v in MODEL_SPECS.items()}
 MODEL_LABELS_REVERSE: dict[str, str] = {v: k for k, v in MODEL_LABELS.items()}
 ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_SPECS.keys())
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
+# It also serves documents whose selected model has supports_files=False, so it
+# must stay a spec with supports_files=True.
 DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.5-flash-lite"
 DEFAULT_THINKING_LEVEL = "HIGH"
 THINKING_LEVEL_LABELS: dict[str, str] = {

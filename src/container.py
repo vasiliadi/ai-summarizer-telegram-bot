@@ -41,7 +41,7 @@ def build_container() -> Container:
     messenger = Messenger(bot)
     quota_manager = QuotaManager(config.rate_limiter, config.per_minute_rate)
     gemini_helper = GeminiHelper(config.gemini_client)
-    llm_client = LLMClient(config.gemini_client)
+    llm_client = LLMClient(config.gemini_client, config.openrouter_provider)
     downloader = Downloader(config.TG_API_TOKEN)
     web_parser = WebParser(
         ExaBackend(config.exa_client),

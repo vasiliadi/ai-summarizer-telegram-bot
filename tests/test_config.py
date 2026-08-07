@@ -100,3 +100,43 @@ def test_langfuse_disabled_when_keys_blank(monkeypatch):
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", secret)
         importlib.reload(config)
         assert config.langfuse_client is None, (public, secret)
+
+
+def test_model_registry_labels_are_unique():
+    """Test no two models share a label.
+
+    The /set_summarizing_model keyboard sends labels, and
+    MODEL_LABELS_REVERSE maps the reply back to an id — a duplicate would make
+    one of the two models unreachable.
+    """
+    assert len(config.MODEL_LABELS_REVERSE) == len(config.MODEL_SPECS)
+    assert set(config.ALLOWED_MODELS_FOR_SUMMARY) == set(config.MODEL_SPECS)
+
+
+def test_default_summarizing_model_accepts_files():
+    """Test the default model can serve the document fallback.
+
+    summarize_with_document substitutes DEFAULT_MODEL_ID_FOR_SUMMARY for any
+    model with supports_files=False, so pointing the default at one of those
+    would send the upload nowhere.
+    """
+    default = config.MODEL_SPECS[config.DEFAULT_MODEL_ID_FOR_SUMMARY]
+    assert default.supports_files
+
+
+def test_no_model_takes_audio_without_taking_files():
+    """Test supports_audio implies supports_files across the whole registry.
+
+    Native audio is delivered by the same Gemini upload as documents, but only
+    summarize_with_document falls back when a model cannot take a file —
+    summarize() checks supports_audio alone. A spec with audio but not files
+    would upload, then raise from build_uploaded_file: unretried, unmapped, and
+    already paid for. The ModelSpec docstring warns against flipping the flags
+    to match a provider catalog; this is what makes that warning fail loudly.
+    """
+    broken = [
+        model_id
+        for model_id, spec in config.MODEL_SPECS.items()
+        if spec.supports_audio and not spec.supports_files
+    ]
+    assert not broken

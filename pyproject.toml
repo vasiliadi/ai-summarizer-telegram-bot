@@ -14,7 +14,7 @@ dependencies = [
     "langfuse==4.14.2",
     "limits[redis]==5.8.0",
     "psycopg2-binary==2.9.12",
-    "pydantic-ai-slim[google]==2.21.0",
+    "pydantic-ai-slim[google,openrouter]==2.21.0",
     "pytelegrambotapi==4.36.0",
     "replicate==1.0.7",
     "sentry-sdk==2.66.1",
