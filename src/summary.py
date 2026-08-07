@@ -173,20 +173,31 @@ class Summarizer:
     ) -> str:
         """Summarize already-extracted text (a transcript or webpage content).
 
+        The prompt and the content go in as two parts rather than one
+        concatenated string, so a trace records them as separate fields — an
+        evaluator can then swap either one without parsing them apart. A
+        multi-part text prompt is still text-only, so this stays on
+        `LLMClient`'s instrumented agent. Blank `text` drops its part instead
+        of sending an empty one.
+
         Raises:
             RetryError: If transient model errors persist, or the model keeps
                 returning an empty response — the `AttributeError` that stands
                 for it is retried and then wrapped, never re-raised.
 
         """
-        prompt = (f"{dedent(PROMPTS[prompt_key])} {text}").strip()
+        prompt = dedent(PROMPTS[prompt_key]).strip()
+        # Silent or music-only audio gives WhisperX no segments, so the rescue
+        # path can hand us "". Sending that as its own part would put an empty
+        # text part in the request; the concatenated form used to swallow it.
+        content = [prompt, text] if text.strip() else [prompt]
         self._quota_manager.check_quota(
             user_id=user_id,
             daily_limit=daily_limit,
             quantity=1,
         )
         return self._llm_client.run(
-            content=prompt,
+            content=content,
             model_id=model,
             target_language=target_language,
             thinking_level=thinking_level,

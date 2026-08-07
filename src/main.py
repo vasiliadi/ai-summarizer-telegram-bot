@@ -287,7 +287,13 @@ class BotApp:
                 self._bot.send_message(message.chat.id, "You are not approved.")
                 return
 
-            with self._tracer.observe_message(user.user_id, message.content_type):
+            with self._tracer.observe_message(
+                user_id=user.user_id,
+                content_type=message.content_type,
+                prompt_key=user.prompt_key_for_summary,
+                target_language=user.target_language,
+                thinking_level=user.thinking_level,
+            ):
                 self.process_message_content(message, user)
 
         except LimitExceededError as e:

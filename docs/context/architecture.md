@@ -57,13 +57,13 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
-| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (names/tags the Langfuse trace for a message, if one is opened). |
+| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (names, tags and adds settings metadata to the Langfuse trace for a message, if one is opened). |
 | `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator to `config`'s clients. `Container` carries only the five roots `BotApp` holds (`bot`, `quota_manager`, `tracer`, `user_repo`, `handlers`); the rest of the graph is reached through `handlers`. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
 | `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`. |
 | `config.py` | All third-party clients (by design — see Cross-cutting patterns) + the `MODEL_SPECS` registry, labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
-| `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION`. |
+| `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION` + `prompt_version` (short hash over both, for trace metadata). |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. |
 | `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
 | `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight PT, so daily budgets reset in step with Gemini's free-tier quota. |
@@ -167,8 +167,24 @@ to Gemini — return the raw model text with **no** prefix.
   would get real token usage with no content — a wrong cost signal, useless for
   datasets and evaluators. **Do not re-enable it for file runs.**
   `Tracer.observe_message` opens no span of its own, it only names and attributes
-  (`trace_name="handle_message"`, tagged with the content type) whatever spans the
-  message's model calls open. Consequences worth knowing: the Gemini-file call is never
+  (`trace_name="handle_message"`, tagged with the content type, plus `prompt_key`,
+  `prompt_version`, `target_language` and `thinking_level` as metadata) whatever spans
+  the message's model calls open. Those are metadata because nothing else carries
+  them: pydantic-ai exports only the six numeric OTel model settings, so the
+  provider-specific, string-valued thinking level never reaches a span, and the rest
+  would have to be parsed back out of the prompt wording. They exist to make a
+  trace filterable and replayable as an evaluation dataset item; the model id needs no
+  entry, being already on the generation span. `prompt_version`
+  (`prompts.prompt_version`) is a short hash over `SYSTEM_INSTRUCTION` **and** the
+  strategy's own template, so the key names the strategy while the version pins the
+  wording a run actually used — editing either template moves it. For the same reason
+  `summarize_text` passes the prompt and the content as two parts instead of one
+  concatenated string — a multi-part text prompt is still text-only, so it stays
+  instrumented. Blank or whitespace-only text is the exception: it sends the prompt
+  part alone, so a trace consumer must not assume a content part is present. That case
+  is reachable — `AudioTranscriber.transcribe` returns `""` for audio WhisperX finds no
+  segments in, such as silence or music — and an empty text part is not worth sending.
+  Consequences worth knowing: the Gemini-file call is never
   traced, but a media message still is when it falls through to Replicate
   transcription, which summarizes a plain string; a trace spans the model call only,
   not the download, parse or upload around it; and a retried `summarize_text` produces
