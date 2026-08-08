@@ -5,6 +5,14 @@ sorting, and line-length rules are enforced by Ruff (configured in `pyproject.to
 `[tool.ruff]`, `[tool.ruff.format]`, and `[tool.ruff.lint]`) — that file is the source of truth,
 not this one. See `docs/context/git-guide.md` for how it runs at commit time.
 
+## Minimal Fixes
+
+Keep a correct fix minimal. Do not add defensive validation, extra flag variables,
+expanded docstrings, or error-context enrichment to cover a theoretical concern the
+simpler version already handles — suggestions of that shape have been rejected and
+reverted more than once. When a review raises something technically valid but low-impact,
+propose it rather than implementing it.
+
 ## Inline Suppressions
 
 If a line must bypass a lint rule for a legitimate reason, use an inline suppression with the
@@ -71,6 +79,15 @@ is the entire public surface.
   `test_process_message_with_empty_string`).
 - Unit tests for isolated business logic, utilities, and validation; integration tests for database
   operations, API clients, and end-to-end flows. Aim for high coverage on core logic and edge cases.
+
+## Prompt Strings
+
+`src/prompts.py` keeps its indented triple-quoted strings raw. `src/summary.py` already
+calls `dedent(...).strip()` at every call site, so cleaning them at definition time is
+redundant — and worse than redundant: `prompt_version` hashes the raw string, so
+pre-cleaning shifts every digest at once. No test pins a literal digest, so the suite
+stays green while traces recorded either side of the change appear to use different
+prompt versions.
 
 ## Documentation Paths
 

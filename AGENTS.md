@@ -22,7 +22,7 @@ Before your first edit to a tracked file, branch off `main` (`git checkout -b <s
 ## Where Things Live
 
 - `docs/summaries/` — session outputs: handoffs (`handoff-*.md`, work log). **(gitignored)**
-- `docs/context/` — reusable domain knowledge, loaded only when relevant. **(tracked)**
+- `docs/context/` — reusable domain knowledge, available to every agent; load only the documents the task needs. Agent-local memory is not portable and is not a substitute, so anything a later session must not get wrong belongs here. **(tracked)**
   - `architecture.md` — component map and data flow; update only on architectural change
   - `style-guide.md` — coding conventions Ruff does not enforce
   - `git-guide.md` — commit format, pre-commit hooks, coverage

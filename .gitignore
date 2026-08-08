@@ -193,13 +193,8 @@ skills-lock.json
 .agents/skills/
 
 # AI
-docs/discovery
-docs/research
-docs/requirements
-docs/strategy
-docs/archive
-docs/summaries
-output/
+docs/archive/
+docs/summaries/
 CLAUDE.local.md
 AGENTS.override.md
 
