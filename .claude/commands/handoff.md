@@ -39,7 +39,7 @@ Under Goal, **Asked** is the request that opened the session, in the user's fram
 1. [ordered, specific action with paths] or None
 
 ## Files to Load Next Session
-- `[path]` — [what it holds and when it matters; add `~L[start]-[end]` if only one region does; mark it **untracked** if gitignored, since another agent or a fresh clone will not have it]
+- `[path]` — [what it holds and when it matters; add `~L[start]-[end]` if only one region does; mark it **untracked** if it is not committed, since another agent or a fresh clone will not have it]
 
 ## What NOT to Re-Read
 - `[path]` — superseded by / already summarized in / unrelated to `[path]`

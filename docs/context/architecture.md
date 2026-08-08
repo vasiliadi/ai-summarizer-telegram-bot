@@ -6,9 +6,10 @@ rewrite) or a durable external-service gotcha (→ Cross-cutting patterns), not 
 handoff. Not a source mirror: read the source for function
 signatures, dependencies, and env vars.
 
-Every entry must be checkable from this repository alone — state the fact, not a
-pointer to it. An issue id, PR number, or dashboard link resolves to nothing for an
-agent without access to that system.
+State facts inline, never as a reference to go and fetch — an issue id, PR number, or
+dashboard link resolves to nothing for an agent without access to that system. Provider
+behaviour this repo cannot demonstrate still belongs here (that is what a gotcha is);
+name it as the provider's, so a reader does not go looking for it in the source.
 
 - Stack → `pyproject.toml` + `README.md`
 
@@ -186,17 +187,18 @@ to Gemini — return the raw model text with **no** prefix.
   `WebParseError`. All exceptions are sent to Sentry via `capture_exception`.
 - **Uploaded files are not cleaned up on failure.** After a successful `files.upload`,
   `GeminiHelper.upload_and_wait_for_file` raises on three paths — missing name, `FAILED`
-  state, the uri/mime guard — and deletes nothing. Deliberate, not a leak: Gemini expires
-  uploads on its own, callers retry at most twice, and the missing-name path has no handle
-  to delete with.
+  state, the uri/mime guard — and deletes nothing. Deliberate, not a leak: both callers
+  retry at most twice (`stop_after_attempt(2)` on `summarize_with_file` and
+  `summarize_with_document`), the missing-name path has no handle to delete with, and
+  Gemini expires uploads on its own — provider behaviour, not visible in this repo.
 - **Temp-file hygiene.** Downloads/compression write UUID-named temp files in the
   CWD; `clean_up` removes them, guarded by a `PROTECTED_FILES` snapshot taken at
   startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest.
 - **Fragmented downloads.** `download_yt` leaves yt-dlp's `skip_unavailable_fragments` at
-  its default `True`, so a download missing a few fragments still yields usable audio.
-  Setting it to `False` was proposed and declined: it would turn many tolerable downloads
-  into hard failures, while the rare truncated file that crashes the ffmpeg fixup is
-  retryable and leaves no partials behind.
+  its default, so a download missing a few fragments still yields usable audio. Setting it
+  to `False` is **rejected**: it would turn many tolerable downloads into hard failures,
+  while the rare truncated file that crashes the ffmpeg fixup is retryable — `download_yt`
+  retries twice on `DownloadError`.
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
 - **Tracing (optional), text input only.** Enabled only when `LANGFUSE_PUBLIC_KEY` and
