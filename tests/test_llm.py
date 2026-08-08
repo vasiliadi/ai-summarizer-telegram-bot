@@ -41,11 +41,11 @@ def test_build_model_returns_openrouter_model(mocker):
     provider = OpenRouterProvider(api_key="mock_openrouter_key")
     client = LLMClient(mocker.MagicMock(), provider)
 
-    model = client.build_model("deepseek/deepseek-v4-pro")
+    model = client.build_model("deepseek/deepseek-v4-flash-0731")
 
     assert isinstance(model, OpenRouterCostReporter)
     assert isinstance(model.wrapped, OpenRouterModel)
-    assert model.model_name == "deepseek/deepseek-v4-pro"
+    assert model.model_name == "deepseek/deepseek-v4-flash-0731"
     assert model.system == "openrouter"
 
 

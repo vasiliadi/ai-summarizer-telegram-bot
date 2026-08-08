@@ -119,12 +119,6 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         supports_audio=False,
         supports_files=False,
     ),
-    "deepseek/deepseek-v4-pro": ModelSpec(
-        label="DeepSeek V4 Pro",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
-    ),
     "meta/muse-spark-1.2": ModelSpec(
         label="Meta Muse Spark 1.2",
         provider="openrouter",
@@ -143,32 +137,14 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         supports_audio=False,
         supports_files=False,
     ),
-    "openai/gpt-5.6-terra": ModelSpec(
-        label="GPT-5.6 Terra",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
-    ),
-    "qwen/qwen3.7-flash": ModelSpec(
-        label="Qwen3.7 Flash",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
-    ),
-    "tencent/hy3": ModelSpec(
-        label="Tencent Hy3",
+    "qwen/qwen3.8-max": ModelSpec(
+        label="Qwen3.8 Max",
         provider="openrouter",
         supports_audio=False,
         supports_files=False,
     ),
     "thinkingmachines/inkling": ModelSpec(
         label="Thinking Machines Inkling",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
-    ),
-    "xiaomi/mimo-v2.5": ModelSpec(
-        label="Xiaomi MiMo-V2.5",
         provider="openrouter",
         supports_audio=False,
         supports_files=False,
