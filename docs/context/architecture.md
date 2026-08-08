@@ -32,14 +32,6 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   never a swappable summarization model. It is taken when Gemini file processing exhausts
   its retries, and as the standing route for audio whenever the selected model is
   text-only (every OpenRouter model is).
-- **`pyproject.toml` and `uv.lock` ship in the final image** — the `Dockerfile`'s final
-  stage copies them and deliberately does not `rm -f` them afterward, as an earlier
-  version did (`4dff64b`, PR #575). A same-stage `rm -f` only writes a whiteout: the
-  bytes stay in the layer and are recoverable from the raw image, so it never protected
-  against that threat model. A running container already discloses the same dependency
-  versions through `.venv/lib/python*/site-packages/*/dist-info/METADATA`, which must
-  exist for the venv to work. Do not re-flag this as a security gap; genuinely excluding
-  a file needs a multi-stage build that never copies it into the final stage.
 - **pydantic-ai as the provider seam** — every model call goes through `llm.py`, so the
   registry (`config.MODEL_SPECS`) is what decides which provider serves a model id.
   Adding a model from a registered provider is a registry row; adding a provider is a
@@ -188,28 +180,19 @@ to Gemini — return the raw model text with **no** prefix.
   surfaces as `RetryError`, which `handle_message` maps to a user-facing
   "try again later" message. Other mapped errors: `LimitExceededError`,
   `WebParseError`. All exceptions are sent to Sentry via `capture_exception`.
-- **Gemini Files API constraints.** `safety_settings` is **rejected** on the Interactions
-  surface — the live API answers `400 Unknown parameter 'safety_settings'` to the
-  top-level kwarg, `generation_config`, and the `extra_body` escape hatch alike (Sentry
-  issue 7500680560). The bot relies on default model safety behavior; an SDK release
-  exposing the kwarg is not by itself evidence the API accepts it, so re-adding it needs
-  a live smoke test first. *Confirmed on `google-genai==2.3.0`; `pyproject.toml` now pins
-  `==2.16.0`, so that check is owed before the constraint is either trusted or dropped.*
-  Uploads orphaned by a post-upload failure (polling error, FAILED state, uri/mime guard)
-  get **no** `files.delete` cleanup: Gemini expires them on its own, both callers retry at
-  most twice, and the `name is None` path has no handle to delete with. Reviewers re-raise
-  this as a resource leak — the tell is the claim that the files are orphaned
-  *indefinitely*, which is what inflates the severity. Rejected on PR #925, re-affirmed
-  on #1022.
+- **Uploaded files are not cleaned up on failure.** After a successful `files.upload`,
+  `GeminiHelper.upload_and_wait_for_file` raises on three paths — missing name, `FAILED`
+  state, the uri/mime guard — and deletes nothing. Deliberate, not a leak: Gemini expires
+  uploads on its own, callers retry at most twice, and the missing-name path has no handle
+  to delete with.
 - **Temp-file hygiene.** Downloads/compression write UUID-named temp files in the
   CWD; `clean_up` removes them, guarded by a `PROTECTED_FILES` snapshot taken at
   startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest.
-- **Fragmented downloads.** `download_yt` (`src/download.py`) keeps yt-dlp's default
-  `skip_unavailable_fragments=True`. Making a missing fragment fatal would turn many
-  usable downloads into hard failures; the occasional truncated file that crashes the
-  ffmpeg fixup (`Invalid argument`, STG-128) is an accepted edge case, since PR #889
-  (`672ebc0`) already clears the leftover partials and a proxy connection dropping
-  mid-download is genuinely retryable. Setting it to `False` was proposed and declined.
+- **Fragmented downloads.** `download_yt` leaves yt-dlp's `skip_unavailable_fragments` at
+  its default `True`, so a download missing a few fragments still yields usable audio.
+  Setting it to `False` was proposed and declined: it would turn many tolerable downloads
+  into hard failures, while the rare truncated file that crashes the ffmpeg fixup is
+  retryable and leaves no partials behind.
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
 - **Tracing (optional), text input only.** Enabled only when `LANGFUSE_PUBLIC_KEY` and
