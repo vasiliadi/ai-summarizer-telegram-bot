@@ -107,12 +107,6 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         supports_audio=True,
         supports_files=True,
     ),
-    "deepseek/deepseek-v4-flash-0731": ModelSpec(
-        label="DeepSeek V4 Flash 0731",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
-    ),
     "meta/muse-spark-1.2": ModelSpec(
         label="Meta Muse Spark 1.2",
         provider="openrouter",
@@ -139,18 +133,6 @@ MODEL_SPECS: dict[str, ModelSpec] = {
     ),
     "thinkingmachines/inkling": ModelSpec(
         label="Thinking Machines Inkling",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
-    ),
-    "thinkingmachines/inkling-small": ModelSpec(
-        label="Thinking Machines Inkling Small",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
-    ),
-    "z-ai/glm-5.2": ModelSpec(
-        label="GLM 5.2",
         provider="openrouter",
         supports_audio=False,
         supports_files=False,
