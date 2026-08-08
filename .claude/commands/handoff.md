@@ -9,9 +9,16 @@ Steps:
 
 Under What NOT to Re-Read list the handoffs, plans, and analyses this session actually opened that a later reader should skip, naming what replaces each — a reason to *read* something belongs in Files to Load instead.
 
+Under Goal, **Asked** is the request that opened the session, in the user's framing — recover it from their first message; do not back-fill it from what got built. **Delivered** is one of DELIVERED / PARTIAL / BLOCKED (stopped by something outside the session) / DROPPED (called off), followed by what is true now and the evidence that proves it — a merged sha, a passing suite, a verified output. A session whose deliverable is an answer is DELIVERED when the answer is in the file. It must agree with Unfinished Work: DELIVERED only when nothing left undone blocks the goal; PARTIAL and BLOCKED each point at the numbered Unfinished Work item covering the gap. **Scope changes** records work added or abandoned after the ask, with the reason — a session that grew shows it here, not silently inside What Was Accomplished.
+
 ```markdown
 # Handoff: [Topic]
-**Date:** [YYYY-MM-DD]  **Branch:** [branch]  **Focus:** [one sentence]
+**Date:** [YYYY-MM-DD]  **Branch:** [branch — plus state: active / merged as `sha` / abandoned]  **PR/Issue:** [#1031, STG-133] or None
+
+## Goal
+- **Asked:** [the request that opened the session, in the user's framing]
+- **Delivered:** [DELIVERED/PARTIAL/BLOCKED/DROPPED] — [what is true now; for anything but DELIVERED, the gap and the Unfinished Work item that covers it] — evidence: [the check that proves it]
+- **Scope changes:** [work added or abandoned after the ask, and why] or None
 
 ## What Was Accomplished
 - [task] → `[file:line]`
@@ -31,7 +38,7 @@ Under What NOT to Re-Read list the handoffs, plans, and analyses this session ac
 - [OPEN/ASSUMED item] or None
 
 ## Unfinished Work
-- [ordered, specific action with paths] or None
+1. [ordered, specific action with paths] or None
 
 ## Files to Load Next Session
 - `[path]` — [what it holds and when it matters; add `~L[start]-[end]` if only one region does]
