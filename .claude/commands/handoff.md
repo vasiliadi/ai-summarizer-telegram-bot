@@ -13,7 +13,9 @@ Under Goal, **Asked** is the request that opened the session, in the user's fram
 
 ```markdown
 # Handoff: [Topic]
-**Date:** [YYYY-MM-DD]  **Branch:** [branch — plus state: active / merged as `sha` / abandoned]  **PR/Issue:** [PR number and/or Linear issue] or None
+**Date:** [YYYY-MM-DD]
+**Branch:** [branch — plus state: active / merged as `sha` / abandoned]
+**PR/Issue:** [PR number and/or Linear issue] or None
 
 ## Goal
 - **Asked:** [the request that opened the session, in the user's framing]
