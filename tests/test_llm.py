@@ -30,9 +30,9 @@ def llm_client(mocker):
 
 def test_build_model_returns_google_model(llm_client):
     """Test build_model wires a registered Gemini id to a GoogleModel."""
-    model = llm_client.build_model("gemini-3.5-flash-lite")
+    model = llm_client.build_model("gemini-3.6-flash")
     assert isinstance(model, GoogleModel)
-    assert model.model_name == "gemini-3.5-flash-lite"
+    assert model.model_name == "gemini-3.6-flash"
     assert model.system == "google"
 
 
@@ -164,7 +164,12 @@ def test_cost_reporter_writes_to_the_live_generation_span():
 
 
 def test_build_model_caches_across_providers(mocker):
-    """Test the cache is keyed by id alone, so both providers share one dict."""
+    """Test the cache is keyed by id alone, so both providers share one dict.
+
+    Also the whole of the caching contract: one object per id, and distinct
+    ids never collide. There is a single Gemini id left in the registry, so a
+    same-provider version of the second half has nothing to compare against.
+    """
     client = LLMClient(mocker.MagicMock(), OpenRouterProvider(api_key="mock_key"))
 
     google = client.build_model("gemini-3.6-flash")
@@ -173,16 +178,6 @@ def test_build_model_caches_across_providers(mocker):
     assert client.build_model("gemini-3.6-flash") is google
     assert client.build_model("z-ai/glm-5.2") is openrouter
     assert google is not openrouter
-
-
-def test_build_model_is_cached_per_id(llm_client):
-    """Test build_model reuses one model object per id, so clients are shared."""
-    assert llm_client.build_model("gemini-3.6-flash") is llm_client.build_model(
-        "gemini-3.6-flash",
-    )
-    assert llm_client.build_model("gemini-3.6-flash") is not llm_client.build_model(
-        "gemini-3.5-flash-lite",
-    )
 
 
 def test_build_model_rejects_unregistered_model(llm_client):
@@ -369,7 +364,7 @@ def test_run_builds_the_expected_gemini_request_config(
     therefore generates thought summaries that run() drops, which is the price
     of owning no mapping. If a bump ever separates the two, this test says so.
     """
-    model = llm_client.build_model("gemini-3.5-flash-lite")
+    model = llm_client.build_model("gemini-3.6-flash")
     settings = llm_client.build_settings(thinking_level=thinking_level)
     messages = [ModelRequest(parts=[UserPromptPart(content="hello")])]
     settings, params = model.prepare_request(settings, ModelRequestParameters())

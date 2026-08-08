@@ -107,12 +107,6 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         supports_audio=True,
         supports_files=True,
     ),
-    "gemini-3.5-flash-lite": ModelSpec(
-        label="Gemini 3.5 Flash Lite",
-        provider="google",
-        supports_audio=True,
-        supports_files=True,
-    ),
     "deepseek/deepseek-v4-flash-0731": ModelSpec(
         label="DeepSeek V4 Flash 0731",
         provider="openrouter",
@@ -145,6 +139,12 @@ MODEL_SPECS: dict[str, ModelSpec] = {
     ),
     "thinkingmachines/inkling": ModelSpec(
         label="Thinking Machines Inkling",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
+    "thinkingmachines/inkling-small": ModelSpec(
+        label="Thinking Machines Inkling Small",
         provider="openrouter",
         supports_audio=False,
         supports_files=False,
