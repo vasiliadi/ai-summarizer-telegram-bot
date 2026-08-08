@@ -84,7 +84,10 @@ is the entire public surface.
 
 `src/prompts.py` keeps its indented triple-quoted strings raw. `src/summary.py` already
 calls `dedent(...).strip()` at every call site, so cleaning them at definition time is
-redundant and adds an import for nothing.
+redundant — and worse than redundant: `prompt_version` hashes the raw string, so
+pre-cleaning shifts every digest at once. No test pins a literal digest, so the suite
+stays green while traces recorded either side of the change appear to use different
+prompt versions.
 
 ## Documentation Paths
 
