@@ -6,6 +6,10 @@ rewrite) or a durable external-service gotcha (→ Cross-cutting patterns), not 
 handoff. Not a source mirror: read the source for function
 signatures, dependencies, and env vars.
 
+Every entry must be checkable from this repository alone — state the fact, not a
+pointer to it. An issue id, PR number, or dashboard link resolves to nothing for an
+agent without access to that system.
+
 - Stack → `pyproject.toml` + `README.md`
 
 ---
