@@ -465,7 +465,7 @@ def test_summarize_routes_audio_around_a_model_that_cannot_read_it(mocker):
 
     result = summarizer.summarize(
         data="local_audio.ogg",
-        model="z-ai/glm-5.2",
+        model="minimax/minimax-m3",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
         user_id=123,
@@ -505,7 +505,7 @@ def test_summarize_with_document_routes_audio_document_to_transcription(mocker):
 
     result = summarizer.summarize_with_document(
         file=mock_tg_file,
-        model="z-ai/glm-5.2",
+        model="minimax/minimax-m3",
         prompt_key="basic_prompt_for_transcript",
         target_language="English",
         mime_type="audio/ogg",

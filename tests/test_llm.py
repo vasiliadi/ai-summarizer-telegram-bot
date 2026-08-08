@@ -41,11 +41,11 @@ def test_build_model_returns_openrouter_model(mocker):
     provider = OpenRouterProvider(api_key="mock_openrouter_key")
     client = LLMClient(mocker.MagicMock(), provider)
 
-    model = client.build_model("deepseek/deepseek-v4-flash-0731")
+    model = client.build_model("openai/gpt-5.6-luna")
 
     assert isinstance(model, OpenRouterCostReporter)
     assert isinstance(model.wrapped, OpenRouterModel)
-    assert model.model_name == "deepseek/deepseek-v4-flash-0731"
+    assert model.model_name == "openai/gpt-5.6-luna"
     assert model.system == "openrouter"
 
 
@@ -53,7 +53,7 @@ def test_build_model_asks_openrouter_for_usage_accounting(mocker):
     """Test the OpenRouter model requests the usage that carries the cost."""
     client = LLMClient(mocker.MagicMock(), OpenRouterProvider(api_key="mock_key"))
 
-    model = client.build_model("z-ai/glm-5.2")
+    model = client.build_model("minimax/minimax-m3")
 
     assert model.settings == {"openrouter_usage": {"include": True}}
 
@@ -173,10 +173,10 @@ def test_build_model_caches_across_providers(mocker):
     client = LLMClient(mocker.MagicMock(), OpenRouterProvider(api_key="mock_key"))
 
     google = client.build_model("gemini-3.6-flash")
-    openrouter = client.build_model("z-ai/glm-5.2")
+    openrouter = client.build_model("minimax/minimax-m3")
 
     assert client.build_model("gemini-3.6-flash") is google
-    assert client.build_model("z-ai/glm-5.2") is openrouter
+    assert client.build_model("minimax/minimax-m3") is openrouter
     assert google is not openrouter
 
 

@@ -200,7 +200,7 @@ Modal Image Builder Version required to be `2025.06`. Set in Settings -> Image B
 
 ## Summarizing models
 
-`/set_summarizing_model` offers models from two providers: Gemini directly, and text-only models through [OpenRouter](https://openrouter.ai/) (DeepSeek, GPT-5.6, GLM, MiniMax, Qwen, Muse Spark, Inkling). Both `GEMINI_API_KEY` and `OPENROUTER_API_KEY` are required — the bot will not start without either.
+`/set_summarizing_model` offers models from two providers: Gemini directly, and text-only models through [OpenRouter](https://openrouter.ai/) (GPT-5.6, MiniMax, Qwen, Muse Spark, Inkling). Both `GEMINI_API_KEY` and `OPENROUTER_API_KEY` are required — the bot will not start without either.
 
 The OpenRouter models are registered as text-only on purpose: OpenRouter has no file API,
 so a file would have to be base64-inlined, which a 20MB Telegram file does not fit inside.
