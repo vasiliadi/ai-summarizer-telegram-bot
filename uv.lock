@@ -70,7 +70,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = "==2.9.12" },
     { name = "pydantic-ai-slim", extras = ["google", "openrouter"], specifier = "==2.25.0" },
     { name = "pytelegrambotapi", specifier = "==4.36.0" },
-    { name = "redis", specifier = ">=8.1.0" },
+    { name = "redis", specifier = "==8.1.0" },
     { name = "replicate", specifier = "==1.0.7" },
     { name = "sentry-sdk", specifier = "==2.66.1" },
     { name = "sqlalchemy", specifier = "==2.0.51" },
