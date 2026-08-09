@@ -113,6 +113,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hbf9d68e_6.conda
       - pypi: ./
       - pypi: https://files.pythonhosted.org/packages/00/d4/87747d12eaf2d852676fd6535df76df945ef62681f1eb5391b63d1fc05e2/logfire_api-4.39.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/04/46/e168f03ec04a933b6b0ff3e02c7e608c24da8efb03d0e1f4d0b486bfef09/pydantic_ai_slim-2.25.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/05/5d/c5374c76471ab41dff4420a276569a56352e83166374fba6f40fd0bde7ad/cbor2-6.1.4-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/06/74/ad9b99520f70c0bc3318e582e359d360cfc0f7afd7bf368a7f24013cece7/synchronicity-0.12.5-py3-none-any.whl
@@ -143,7 +144,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4a/2e/2677f3f93dae0497e7e33b6637302e7f3744efc553f34231183e32584885/redis-7.4.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/54/a3/0d6eadc5caeb536198f998fd21bd5ade05459edd58057ff4c0322a8ef773/pydantic_graph-2.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5a/cc/06253936f4a7fa2e0f48dfe6d851d9c56df896a9ab09ac019d70b760619c/pytest_mock-3.15.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5c/01/a3c3ed5cd186f39e7880f8303cc51385a198a81469d53d0fdecf1f64d929/protobuf-6.33.6-cp39-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/5c/90/b0cbbd9efcc82816c58f31a34963071aa19fb792a212a5d9caf8e0fc3097/grpclib-0.4.9-py3-none-any.whl
@@ -201,6 +201,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cd/5d/834ba7387383077538f28a1d17d2df95d596e225a44a1ea1207ad90977f3/modal-1.5.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cd/d0/fdeb1a98d8d3a6205f5f297c51b4a9bfe65126ab60339669bbe3dd54c2e2/opentelemetry_exporter_otlp_proto_http-1.44.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/d1/45/e3f93b1a33fea3e3989de9491a57a69bd93aae0c5b9137f05113e752a8ef/pydantic_graph-2.25.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d1/7c/8be563d68e93bbefa5c8affb82ddcff91b3ad858ce49957ba7b16fd3e0ab/opentelemetry_proto-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d6/39/ddbea9d4b4de6aca9431b6ed253f530f8a02d3b8f9bcfd0dbfe2b3de6fe4/psycopg2_binary-2.9.12-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
@@ -216,7 +217,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/e7/23/ff077e61886ee020a17ce9c8b6fa11c601c8d8345b09ea24f605445df62a/opentelemetry_sdk-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/c8/e2645aa8ed02fd4c7a2f59d68783b65b1f3cbdfe39a6308e156509d1fee8/googleapis_common_protos-1.75.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/f1/1a/6d9643f06c960eb9e943e081c4790ed2842dcb4ccf47e5a07788e097f6c7/pydantic_ai_slim-2.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f1/4f/733c48f270565d78b4544f2baddc2fb2a245e5a8640254b12c36ac7ac68e/multidict-6.7.1-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl
@@ -333,6 +333,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hbf9d68e_6.conda
       - pypi: ./
       - pypi: https://files.pythonhosted.org/packages/00/d4/87747d12eaf2d852676fd6535df76df945ef62681f1eb5391b63d1fc05e2/logfire_api-4.39.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/04/46/e168f03ec04a933b6b0ff3e02c7e608c24da8efb03d0e1f4d0b486bfef09/pydantic_ai_slim-2.25.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/05/5d/c5374c76471ab41dff4420a276569a56352e83166374fba6f40fd0bde7ad/cbor2-6.1.4-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/06/74/ad9b99520f70c0bc3318e582e359d360cfc0f7afd7bf368a7f24013cece7/synchronicity-0.12.5-py3-none-any.whl
@@ -359,7 +360,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/48/30/47d0bf6072f7252e6521f3447ccfa40b421b6824517f82854703d0f5a98b/hyperframe-6.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4a/2e/2677f3f93dae0497e7e33b6637302e7f3744efc553f34231183e32584885/redis-7.4.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/54/a3/0d6eadc5caeb536198f998fd21bd5ade05459edd58057ff4c0322a8ef773/pydantic_graph-2.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5c/01/a3c3ed5cd186f39e7880f8303cc51385a198a81469d53d0fdecf1f64d929/protobuf-6.33.6-cp39-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/5c/90/b0cbbd9efcc82816c58f31a34963071aa19fb792a212a5d9caf8e0fc3097/grpclib-0.4.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5e/71/65fd9d54c10b860f87c045ccee1264cab7011268895d3528818a29c1172a/opentelemetry_exporter_otlp_proto_common-1.44.0-py3-none-any.whl
@@ -413,6 +413,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/ca/6f/a04e900f465ff3221ccc395522503e2d10e79fa21f2723c8e177aae1e0d1/opentelemetry_api-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cd/5d/834ba7387383077538f28a1d17d2df95d596e225a44a1ea1207ad90977f3/modal-1.5.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cd/d0/fdeb1a98d8d3a6205f5f297c51b4a9bfe65126ab60339669bbe3dd54c2e2/opentelemetry_exporter_otlp_proto_http-1.44.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/d1/45/e3f93b1a33fea3e3989de9491a57a69bd93aae0c5b9137f05113e752a8ef/pydantic_graph-2.25.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d1/7c/8be563d68e93bbefa5c8affb82ddcff91b3ad858ce49957ba7b16fd3e0ab/opentelemetry_proto-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d6/39/ddbea9d4b4de6aca9431b6ed253f530f8a02d3b8f9bcfd0dbfe2b3de6fe4/psycopg2_binary-2.9.12-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
@@ -428,7 +429,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/e7/23/ff077e61886ee020a17ce9c8b6fa11c601c8d8345b09ea24f605445df62a/opentelemetry_sdk-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/c8/e2645aa8ed02fd4c7a2f59d68783b65b1f3cbdfe39a6308e156509d1fee8/googleapis_common_protos-1.75.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/f1/1a/6d9643f06c960eb9e943e081c4790ed2842dcb4ccf47e5a07788e097f6c7/pydantic_ai_slim-2.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f1/4f/733c48f270565d78b4544f2baddc2fb2a245e5a8640254b12c36ac7ac68e/multidict-6.7.1-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl
@@ -545,6 +545,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hbf9d68e_6.conda
       - pypi: ./
       - pypi: https://files.pythonhosted.org/packages/00/d4/87747d12eaf2d852676fd6535df76df945ef62681f1eb5391b63d1fc05e2/logfire_api-4.39.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/04/46/e168f03ec04a933b6b0ff3e02c7e608c24da8efb03d0e1f4d0b486bfef09/pydantic_ai_slim-2.25.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl
@@ -565,7 +566,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/47/d8/a29e4e3991765e7ce4ed1f7e4074fe1ba9da03e0048639734de60f9cadb9/mutagen-1.48.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4a/2e/2677f3f93dae0497e7e33b6637302e7f3744efc553f34231183e32584885/redis-7.4.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/54/a3/0d6eadc5caeb536198f998fd21bd5ade05459edd58057ff4c0322a8ef773/pydantic_graph-2.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5c/01/a3c3ed5cd186f39e7880f8303cc51385a198a81469d53d0fdecf1f64d929/protobuf-6.33.6-cp39-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/5e/71/65fd9d54c10b860f87c045ccee1264cab7011268895d3528818a29c1172a/opentelemetry_exporter_otlp_proto_common-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/63/b1/4260d67d6bd85e58a66b72d54ce15d5de789b6f3870cc6bedf8ff9667401/propcache-0.5.2-cp314-cp314-macosx_11_0_arm64.whl
@@ -604,6 +604,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/c5/5c/59086b4aac5e879d38ddbcf74e4be7ade89cebc3eb199a55da998c3bb46a/cryptography-50.0.0-cp311-abi3-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/ca/6f/a04e900f465ff3221ccc395522503e2d10e79fa21f2723c8e177aae1e0d1/opentelemetry_api-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cd/d0/fdeb1a98d8d3a6205f5f297c51b4a9bfe65126ab60339669bbe3dd54c2e2/opentelemetry_exporter_otlp_proto_http-1.44.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/d1/45/e3f93b1a33fea3e3989de9491a57a69bd93aae0c5b9137f05113e752a8ef/pydantic_graph-2.25.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d1/7c/8be563d68e93bbefa5c8affb82ddcff91b3ad858ce49957ba7b16fd3e0ab/opentelemetry_proto-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d6/39/ddbea9d4b4de6aca9431b6ed253f530f8a02d3b8f9bcfd0dbfe2b3de6fe4/psycopg2_binary-2.9.12-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
@@ -619,7 +620,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/e7/23/ff077e61886ee020a17ce9c8b6fa11c601c8d8345b09ea24f605445df62a/opentelemetry_sdk-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/c8/e2645aa8ed02fd4c7a2f59d68783b65b1f3cbdfe39a6308e156509d1fee8/googleapis_common_protos-1.75.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/f1/1a/6d9643f06c960eb9e943e081c4790ed2842dcb4ccf47e5a07788e097f6c7/pydantic_ai_slim-2.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f1/4f/733c48f270565d78b4544f2baddc2fb2a245e5a8640254b12c36ac7ac68e/multidict-6.7.1-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/f9/1c/01bfd571a64e7f270e6bab5e33777debe0edc56759233ce84f27dec92d14/tqdm-4.70.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f9/8a/cd4c9b02c10c563adfe78118310129641900e1cd6de888cfae2452072696/yt_dlp-2026.7.4-py3-none-any.whl
@@ -733,6 +733,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hbf9d68e_6.conda
       - pypi: ./
       - pypi: https://files.pythonhosted.org/packages/00/d4/87747d12eaf2d852676fd6535df76df945ef62681f1eb5391b63d1fc05e2/logfire_api-4.39.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/04/46/e168f03ec04a933b6b0ff3e02c7e608c24da8efb03d0e1f4d0b486bfef09/pydantic_ai_slim-2.25.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/05/5d/c5374c76471ab41dff4420a276569a56352e83166374fba6f40fd0bde7ad/cbor2-6.1.4-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/06/74/ad9b99520f70c0bc3318e582e359d360cfc0f7afd7bf368a7f24013cece7/synchronicity-0.12.5-py3-none-any.whl
@@ -763,7 +764,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4a/2e/2677f3f93dae0497e7e33b6637302e7f3744efc553f34231183e32584885/redis-7.4.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/54/a3/0d6eadc5caeb536198f998fd21bd5ade05459edd58057ff4c0322a8ef773/pydantic_graph-2.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5a/cc/06253936f4a7fa2e0f48dfe6d851d9c56df896a9ab09ac019d70b760619c/pytest_mock-3.15.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/5c/01/a3c3ed5cd186f39e7880f8303cc51385a198a81469d53d0fdecf1f64d929/protobuf-6.33.6-cp39-abi3-macosx_10_9_universal2.whl
       - pypi: https://files.pythonhosted.org/packages/5c/90/b0cbbd9efcc82816c58f31a34963071aa19fb792a212a5d9caf8e0fc3097/grpclib-0.4.9-py3-none-any.whl
@@ -821,6 +821,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cd/5d/834ba7387383077538f28a1d17d2df95d596e225a44a1ea1207ad90977f3/modal-1.5.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cd/d0/fdeb1a98d8d3a6205f5f297c51b4a9bfe65126ab60339669bbe3dd54c2e2/opentelemetry_exporter_otlp_proto_http-1.44.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/d1/45/e3f93b1a33fea3e3989de9491a57a69bd93aae0c5b9137f05113e752a8ef/pydantic_graph-2.25.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d1/7c/8be563d68e93bbefa5c8affb82ddcff91b3ad858ce49957ba7b16fd3e0ab/opentelemetry_proto-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d6/39/ddbea9d4b4de6aca9431b6ed253f530f8a02d3b8f9bcfd0dbfe2b3de6fe4/psycopg2_binary-2.9.12-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
@@ -836,7 +837,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/e7/23/ff077e61886ee020a17ce9c8b6fa11c601c8d8345b09ea24f605445df62a/opentelemetry_sdk-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e7/c8/e2645aa8ed02fd4c7a2f59d68783b65b1f3cbdfe39a6308e156509d1fee8/googleapis_common_protos-1.75.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/f1/1a/6d9643f06c960eb9e943e081c4790ed2842dcb4ccf47e5a07788e097f6c7/pydantic_ai_slim-2.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f1/4f/733c48f270565d78b4544f2baddc2fb2a245e5a8640254b12c36ac7ac68e/multidict-6.7.1-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/f1/d9/7fb5aa316bc299258e68c73ba3bddbc499654a07f151cba08f6153988714/pathspec-1.1.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl
@@ -2344,7 +2344,7 @@ packages:
   - limits[redis]==5.8.0
   - opentelemetry-api==1.44.0
   - psycopg2-binary==2.9.12
-  - pydantic-ai-slim[google,openrouter]==2.24.0
+  - pydantic-ai-slim[google,openrouter]==2.25.0
   - pytelegrambotapi==4.36.0
   - replicate==1.0.7
   - sentry-sdk==2.66.1
@@ -2359,6 +2359,62 @@ packages:
   name: logfire-api
   version: 4.39.0
   sha256: 20057bbd2898dec2eed02e2559bd73f4e10bc4b108987821df55e9c762da3ba8
+  requires_python: '>=3.10'
+- pypi: https://files.pythonhosted.org/packages/04/46/e168f03ec04a933b6b0ff3e02c7e608c24da8efb03d0e1f4d0b486bfef09/pydantic_ai_slim-2.25.0-py3-none-any.whl
+  name: pydantic-ai-slim
+  version: 2.25.0
+  sha256: 9b69d1af463a63a88ea3c3567b38a09e8208efe73a36c8f5d5d5515939a88acd
+  requires_dist:
+  - anyio>=4.7.0
+  - exceptiongroup>=1.2.2 ; python_full_version < '3.11'
+  - genai-prices>=0.1.0
+  - griffelib>=2.0
+  - httpx>=0.27
+  - opentelemetry-api>=1.28.0
+  - pydantic-graph==2.25.0
+  - pydantic>=2.12
+  - typing-inspection>=0.4.0
+  - ag-ui-protocol>=0.1.10 ; extra == 'ag-ui'
+  - starlette>=0.46.2 ; extra == 'ag-ui'
+  - anthropic>=0.108.0 ; extra == 'anthropic'
+  - boto3>=1.42.63 ; extra == 'bedrock'
+  - botocore>=1.42.63 ; extra == 'bedrock-mantle'
+  - openai>=2.45.0 ; extra == 'bedrock-mantle'
+  - argcomplete>=3.5.0 ; extra == 'cli'
+  - prompt-toolkit>=3 ; extra == 'cli'
+  - pyperclip>=1.9.0 ; extra == 'cli'
+  - pyyaml>=6.0.2 ; extra == 'cli'
+  - rich>=13 ; extra == 'cli'
+  - cohere>=5.20.6 ; sys_platform != 'emscripten' and extra == 'cohere'
+  - dbos>=2.10.0 ; extra == 'dbos'
+  - ddgs>=9.0.0 ; extra == 'duckduckgo'
+  - pydantic-evals==2.25.0 ; extra == 'evals'
+  - exa-py>=2.0.0 ; extra == 'exa'
+  - google-genai>=1.70.0 ; extra == 'google'
+  - groq>=0.25.0 ; extra == 'groq'
+  - hf-xet<1.5.0 ; (platform_machine == 'AMD64' and extra == 'huggingface') or (platform_machine == 'aarch64' and extra == 'huggingface') or (platform_machine == 'amd64' and extra == 'huggingface') or (platform_machine == 'arm64' and extra == 'huggingface') or (platform_machine == 'x86_64' and extra == 'huggingface')
+  - huggingface-hub>=1.3.4,<2.0.0 ; extra == 'huggingface'
+  - logfire[httpx]>=4.16.0 ; extra == 'logfire'
+  - fastmcp-slim[client]>=3.3.0,<4 ; extra == 'mcp'
+  - mistralai>=2.4.2,!=2.4.6 ; extra == 'mistral'
+  - openai>=2.45.0 ; extra == 'openai'
+  - tiktoken>=0.12.0 ; extra == 'openai'
+  - openai>=2.45.0 ; extra == 'openrouter'
+  - prefect>=3.7.5 ; extra == 'prefect'
+  - tenacity>=8.2.3 ; extra == 'retries'
+  - sentence-transformers>=5.2.0 ; python_full_version < '3.14' and extra == 'sentence-transformers'
+  - pydantic-handlebars>=0.1.0 ; extra == 'spec'
+  - pyyaml>=6.0.2 ; extra == 'spec'
+  - tavily-python>=0.5.0 ; extra == 'tavily'
+  - temporalio>=1.24.0 ; extra == 'temporal'
+  - starlette>=0.46.2 ; extra == 'ui'
+  - voyageai>=0.3.7 ; python_full_version < '3.14' and extra == 'voyageai'
+  - httpx>=0.27.0 ; extra == 'web'
+  - starlette>=0.46.2 ; extra == 'web'
+  - uvicorn>=0.38.0 ; extra == 'web'
+  - markdownify>=1.2 ; extra == 'web-fetch'
+  - xai-sdk>=1.14.0 ; extra == 'xai'
+  - openai>=2.45.0 ; extra == 'zai'
   requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl
   name: h11
@@ -2663,17 +2719,6 @@ packages:
   - pytest-benchmark ; extra == 'testing'
   - coverage ; extra == 'testing'
   requires_python: '>=3.9'
-- pypi: https://files.pythonhosted.org/packages/54/a3/0d6eadc5caeb536198f998fd21bd5ade05459edd58057ff4c0322a8ef773/pydantic_graph-2.24.0-py3-none-any.whl
-  name: pydantic-graph
-  version: 2.24.0
-  sha256: be32705d3e92fad0c3149f9b4b8708fd2583e1aa02c36c26556538f8ecc1c8de
-  requires_dist:
-  - anyio>=4.7.0
-  - httpx>=0.27
-  - logfire-api>=3.14.1
-  - pydantic>=2.12
-  - typing-inspection>=0.4.0
-  requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/5a/cc/06253936f4a7fa2e0f48dfe6d851d9c56df896a9ab09ac019d70b760619c/pytest_mock-3.15.1-py3-none-any.whl
   name: pytest-mock
   version: 3.15.1
@@ -3358,6 +3403,17 @@ packages:
   - typing-extensions>=4.5.0
   - opentelemetry-exporter-credential-provider-gcp>=0.59b0 ; extra == 'gcp-auth'
   requires_python: '>=3.10'
+- pypi: https://files.pythonhosted.org/packages/d1/45/e3f93b1a33fea3e3989de9491a57a69bd93aae0c5b9137f05113e752a8ef/pydantic_graph-2.25.0-py3-none-any.whl
+  name: pydantic-graph
+  version: 2.25.0
+  sha256: 87017851610746f76463b0b1fd257286425f3b4feac1fd17e50b0370ae76c2cf
+  requires_dist:
+  - anyio>=4.7.0
+  - httpx>=0.27
+  - logfire-api>=3.14.1
+  - pydantic>=2.12
+  - typing-inspection>=0.4.0
+  requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/d1/7c/8be563d68e93bbefa5c8affb82ddcff91b3ad858ce49957ba7b16fd3e0ab/opentelemetry_proto-1.44.0-py3-none-any.whl
   name: opentelemetry-proto
   version: 1.44.0
@@ -3464,62 +3520,6 @@ packages:
   version: 1.3.1
   sha256: 2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2
   requires_python: '>=3.7'
-- pypi: https://files.pythonhosted.org/packages/f1/1a/6d9643f06c960eb9e943e081c4790ed2842dcb4ccf47e5a07788e097f6c7/pydantic_ai_slim-2.24.0-py3-none-any.whl
-  name: pydantic-ai-slim
-  version: 2.24.0
-  sha256: 934552227426c89edc51742c4827dd416ddfccb6d76536ddd8e5be7d9d403aa5
-  requires_dist:
-  - anyio>=4.7.0
-  - exceptiongroup>=1.2.2 ; python_full_version < '3.11'
-  - genai-prices>=0.1.0
-  - griffelib>=2.0
-  - httpx>=0.27
-  - opentelemetry-api>=1.28.0
-  - pydantic-graph==2.24.0
-  - pydantic>=2.12
-  - typing-inspection>=0.4.0
-  - ag-ui-protocol>=0.1.10 ; extra == 'ag-ui'
-  - starlette>=0.46.2 ; extra == 'ag-ui'
-  - anthropic>=0.108.0 ; extra == 'anthropic'
-  - boto3>=1.42.63 ; extra == 'bedrock'
-  - botocore>=1.42.63 ; extra == 'bedrock-mantle'
-  - openai>=2.45.0 ; extra == 'bedrock-mantle'
-  - argcomplete>=3.5.0 ; extra == 'cli'
-  - prompt-toolkit>=3 ; extra == 'cli'
-  - pyperclip>=1.9.0 ; extra == 'cli'
-  - pyyaml>=6.0.2 ; extra == 'cli'
-  - rich>=13 ; extra == 'cli'
-  - cohere>=5.20.6 ; sys_platform != 'emscripten' and extra == 'cohere'
-  - dbos>=2.10.0 ; extra == 'dbos'
-  - ddgs>=9.0.0 ; extra == 'duckduckgo'
-  - pydantic-evals==2.24.0 ; extra == 'evals'
-  - exa-py>=2.0.0 ; extra == 'exa'
-  - google-genai>=1.70.0 ; extra == 'google'
-  - groq>=0.25.0 ; extra == 'groq'
-  - hf-xet<1.5.0 ; (platform_machine == 'AMD64' and extra == 'huggingface') or (platform_machine == 'aarch64' and extra == 'huggingface') or (platform_machine == 'amd64' and extra == 'huggingface') or (platform_machine == 'arm64' and extra == 'huggingface') or (platform_machine == 'x86_64' and extra == 'huggingface')
-  - huggingface-hub>=1.3.4,<2.0.0 ; extra == 'huggingface'
-  - logfire[httpx]>=4.16.0 ; extra == 'logfire'
-  - fastmcp-slim[client]>=3.3.0,<4 ; extra == 'mcp'
-  - mistralai>=2.4.2,!=2.4.6 ; extra == 'mistral'
-  - openai>=2.45.0 ; extra == 'openai'
-  - tiktoken>=0.12.0 ; extra == 'openai'
-  - openai>=2.45.0 ; extra == 'openrouter'
-  - prefect>=3.7.5 ; extra == 'prefect'
-  - tenacity>=8.2.3 ; extra == 'retries'
-  - sentence-transformers>=5.2.0 ; python_full_version < '3.14' and extra == 'sentence-transformers'
-  - pydantic-handlebars>=0.1.0 ; extra == 'spec'
-  - pyyaml>=6.0.2 ; extra == 'spec'
-  - tavily-python>=0.5.0 ; extra == 'tavily'
-  - temporalio>=1.24.0 ; extra == 'temporal'
-  - starlette>=0.46.2 ; extra == 'ui'
-  - voyageai>=0.3.7 ; python_full_version < '3.14' and extra == 'voyageai'
-  - httpx>=0.27.0 ; extra == 'web'
-  - starlette>=0.46.2 ; extra == 'web'
-  - uvicorn>=0.38.0 ; extra == 'web'
-  - markdownify>=1.2 ; extra == 'web-fetch'
-  - xai-sdk>=1.14.0 ; extra == 'xai'
-  - openai>=2.45.0 ; extra == 'zai'
-  requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/f1/4f/733c48f270565d78b4544f2baddc2fb2a245e5a8640254b12c36ac7ac68e/multidict-6.7.1-cp314-cp314-macosx_11_0_arm64.whl
   name: multidict
   version: 6.7.1
