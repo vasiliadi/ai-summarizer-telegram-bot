@@ -30,6 +30,10 @@ Use `uv add` rather than hand-editing `pyproject.toml`. Keep production dependen
 
 `default-groups = ["dev", "test"]` in `[tool.uv]` means `uv sync` always installs `dev` and `test`. Do not add `build` or `modal` to local installs.
 
+`redis` is declared twice on purpose — once in `[project.dependencies]` for the bot and once in
+the `modal` group for the cron image. Bump both together, and do not fold either back into a
+`limits[redis]` extra; see *Why this stack* in `architecture.md` for the version cap that forbids it.
+
 ## Pixi
 
 `pyproject.toml` contains a `[tool.pixi.*]` workspace config and `pixi.lock` exists. Pixi manages

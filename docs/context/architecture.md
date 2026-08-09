@@ -33,6 +33,14 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 - **Valkey over Redis** — Aiven offers a free managed Valkey instance (linked in
   `README.md`); that is the whole reason. **Not** a settled constraint: the client
   speaks the Redis protocol, so either server works and swapping is fair game.
+- **`redis` is declared directly, never as the `limits[redis]` extra** — that extra caps the
+  client below 8.0.0, so it held the whole project a major version behind. Declaring `redis`
+  as a plain entry in `[project.dependencies]` is what freed it, and the extra carries nothing
+  else — `limits`' Redis storage backend ships in the core package. Re-adding `limits[redis]`
+  silently rolls the client back under the cap; check the extra's own requirement before
+  assuming a newer `limits` has lifted it. `scripts/cron.py` builds its Modal image with
+  `--only-group modal`, so the `modal` group declares `redis` a second time; the two must
+  move together.
 - **Gemini primary, Replicate fallback** — Replicate (WhisperX) is a transcription path,
   never a swappable summarization model. It is taken when Gemini file processing exhausts
   its retries, and as the standing route for audio whenever the selected model is
