@@ -1,5 +1,3 @@
-from typing import cast
-
 import modal
 
 image = modal.Image.debian_slim(python_version="3.14").uv_sync(
@@ -30,8 +28,8 @@ def clear_limit() -> int:
     for key in client.scan_iter(match=f"{daily_limit_key}:*", count=500):
         batch.append(key)
         if len(batch) >= 500:  # noqa: PLR2004
-            deleted += cast("int", client.unlink(*batch))
+            deleted += client.unlink(*batch)
             batch.clear()
     if batch:
-        deleted += cast("int", client.unlink(*batch))
+        deleted += client.unlink(*batch)
     return deleted
