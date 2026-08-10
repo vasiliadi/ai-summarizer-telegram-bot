@@ -107,6 +107,12 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         supports_audio=True,
         supports_files=True,
     ),
+    "inclusionai/ling-3.0-flash:free": ModelSpec(
+        label="InclusionAI Ling 3.0 Flash",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
     "meta/muse-spark-1.2": ModelSpec(
         label="Meta Muse Spark 1.2",
         provider="openrouter",
@@ -119,14 +125,32 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         supports_audio=False,
         supports_files=False,
     ),
+    "nvidia/nemotron-3-ultra-550b-a55b:free": ModelSpec(
+        label="NVIDIA Nemotron 3 Ultra 550B",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
     "openai/gpt-5.6-luna": ModelSpec(
         label="GPT-5.6 Luna",
         provider="openrouter",
         supports_audio=False,
         supports_files=False,
     ),
+    "poolside/laguna-s-2.1:free": ModelSpec(
+        label="Poolside Laguna S 2.1",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
     "qwen/qwen3.8-max": ModelSpec(
         label="Qwen3.8 Max",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
+    "stepfun/step-3.7-flash": ModelSpec(
+        label="StepFun Step 3.7 Flash",
         provider="openrouter",
         supports_audio=False,
         supports_files=False,
