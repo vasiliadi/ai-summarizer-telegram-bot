@@ -216,6 +216,16 @@ That shapes what happens to non-text content when one of them is selected:
 
 Picking a Gemini model sends everything to Gemini, with no detour.
 
+### Prompt data and training
+
+Retention and training are each provider's policy, not this project's. Gemini's
+[terms](https://ai.google.dev/gemini-api/terms) split by tier — unpaid content is used to improve
+Google's products and may be read by human reviewers, paid content is not — while OpenRouter's
+[privacy setting](https://openrouter.ai/docs/features/privacy-and-logging) only filters out upstream
+providers that train, so check the endpoint behind any model you register in `MODEL_SPECS`. The rest
+of the pipeline sees content too: Replicate receives the audio it transcribes, Exa and Tavily only
+the URL. If you run this bot for anyone other than yourself, that content is theirs.
+
 ## Audio vs text summaries
 
 Audio carries what a transcript drops — intonation, emphasis, pauses, speaker turns, and non-verbal
