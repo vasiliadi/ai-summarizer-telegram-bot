@@ -228,9 +228,9 @@ to Gemini — return the raw model text with **no** prefix.
   the instrumented model: pydantic-ai closes the generation span before `run_sync`
   returns, so nothing afterwards can reach it. Drop the wrapper and every OpenRouter
   trace silently goes back to tokens with no cost, which is the number the traces exist
-  to compare models on. Several registered ids carry OpenRouter's `:free` suffix; those are
-  billed at zero, so their spans do get a `gen_ai.usage.cost`, of `0.0` — OpenRouter's own
-  number, not a wrapper that stopped working.
+  to compare models on. An id carrying OpenRouter's `:free` suffix is billed at zero, so its
+  span does get a `gen_ai.usage.cost`, of `0.0` — OpenRouter's own number, not a wrapper that
+  stopped working. No `:free` id is registered today.
   `Tracer.observe_message` opens no span of its own, it only names and attributes
   (`trace_name="handle_message"`, tagged with the content type, plus `prompt_key`,
   `prompt_version`, `target_language` and `thinking_level` as metadata) whatever spans
