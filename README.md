@@ -218,33 +218,13 @@ Picking a Gemini model sends everything to Gemini, with no detour.
 
 ### Prompt data and training
 
-Retention and training are each provider's policy, not this project's. What every service receives
-is fixed by the pipeline above, so the open question per service is what it then does with it.
-
-- **OpenRouter** receives text only — webpage text and transcripts, plus the summaries generated
-  from them. Its [privacy setting](https://openrouter.ai/docs/features/privacy-and-logging) opts you
-  out of routing to upstream providers whose own policies permit training on prompts, with separate
-  toggles for paid and free models. It is a routing filter: OpenRouter states it has no bearing on
-  what OpenRouter itself does with your prompts, and the provider actually serving a model keeps its
-  own retention and training policy, listed per provider on that page.
-- **Gemini** receives everything when a Gemini model is selected — text plus audio, voice, video,
-  video notes and documents through the Files API — and, whatever model is selected, every non-audio
-  document, since the file upload only ever goes to Gemini. The
-  [Gemini API Additional Terms](https://ai.google.dev/gemini-api/terms) split by tier, and billing on
-  the key decides which set applies: on the unpaid tier Google uses submitted content and generated
-  responses to improve its products, human reviewers may read and annotate them, and the terms say
-  not to submit confidential or personal information; on the paid tier prompts and responses are not
-  used to improve Google's products and are retained only briefly, for abuse detection.
-- **Replicate** receives the audio itself, uploaded to WhisperX, for every spoken-content message
-  routed around a text-only model — and for any audio Gemini fails to process. Retention there is
-  governed by Replicate's own terms.
-- **Exa and Tavily** receive the URL, not your text: each fetches the page itself. Their logs
-  therefore record which pages this bot was asked to read, and nothing else from the message.
-
-Before registering a model in `MODEL_SPECS`, check the policy of the endpoint behind it — on
-OpenRouter that means the upstream provider, not only OpenRouter. If you run this bot for anyone
-other than yourself, the content is theirs, and the tier and privacy settings above are the only
-controls you have over what leaves your deployment.
+Retention and training are each provider's policy, not this project's. Gemini's
+[terms](https://ai.google.dev/gemini-api/terms) split by tier — unpaid content is used to improve
+Google's products and may be read by human reviewers, paid content is not — while OpenRouter's
+[privacy setting](https://openrouter.ai/docs/features/privacy-and-logging) only filters out upstream
+providers that train, so check the endpoint behind any model you register in `MODEL_SPECS`. The rest
+of the pipeline sees content too: Replicate receives the audio it transcribes, Exa and Tavily only
+the URL. If you run this bot for anyone other than yourself, that content is theirs.
 
 ## Audio vs text summaries
 
