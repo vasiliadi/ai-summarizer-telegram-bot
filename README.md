@@ -19,7 +19,7 @@ A bot designed to summarize YouTube videos (via audio or transcripts), Castro.fm
 
 ### General settings
 
-1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [OpenRouter](https://openrouter.ai/),[Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/), [Exa](https://dashboard.exa.ai/)
+1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [OpenRouter](https://openrouter.ai/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/), [Exa](https://dashboard.exa.ai/)
 2. Setup DB and Redis. For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
 4. Set up the [Modal Secrets](https://modal.com/secrets) with name `resetlimit-secrets`. Only `REDIS_URL` from `.env` needed.
