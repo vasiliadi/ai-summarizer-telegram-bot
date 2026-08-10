@@ -216,6 +216,21 @@ That shapes what happens to non-text content when one of them is selected:
 
 Picking a Gemini model sends everything to Gemini, with no detour.
 
+### Prompt data and training
+
+What a model endpoint does with the text this bot sends it is the provider's policy, not this
+project's. Some endpoints retain prompts and completions, and some use them to train. On
+[OpenRouter](https://openrouter.ai/docs/features/privacy-and-logging) this varies per model and per
+upstream provider, and free endpoints in particular may require prompt logging as a condition of
+use; the account-level privacy settings decide which of those endpoints you can reach. Gemini's
+terms differ between the free and paid tiers — see the
+[Gemini API Additional Terms of Service](https://ai.google.dev/gemini-api/terms).
+
+Check the policy of every model you register in `MODEL_SPECS` and assume anything sent to it —
+webpage text, transcripts, documents, audio — may be retained and used for training. The same goes
+for the transcription and parsing services in the pipeline (Replicate, Exa, Tavily). If you run this
+bot for anyone other than yourself, that content is theirs, not yours.
+
 ## Audio vs text summaries
 
 Audio carries what a transcript drops — intonation, emphasis, pauses, speaker turns, and non-verbal
