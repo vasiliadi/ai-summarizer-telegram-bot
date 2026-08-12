@@ -38,9 +38,9 @@ scope. Half the filters live in `.pre-commit-config.yaml`, half in the upstream
 | Hook | Matches |
 |------|---------|
 | `gitleaks` | every commit — `pass_filenames: false`, it scans the staged diff itself |
-| `check-added-large-files` | every staged file |
+| `check-added-large-files` | files staged for **addition** only — no `--enforce-all`, so edits to existing files are never size-checked |
 | `end-of-file-fixer`, `check-merge-conflict`, `detect-private-key` | every staged text file |
-| `trailing-whitespace` | every staged text file **except** `*.py` — ruff owns Python formatting |
+| `trailing-whitespace` | every staged text file **except** `*.py` — `ruff-format` owns those. `.pyi` and `.ipynb` are *not* excluded, so they get both |
 | `check-yaml` / `check-toml` | staged `.yaml`/`.yml` / `.toml` files |
 | `uv-lock` | `uv.lock`, `pyproject.toml`, `uv.toml` |
 | `ruff-check`, `ruff-format` | staged `.py`, `.pyi`, `.ipynb` |
@@ -49,8 +49,9 @@ scope. Half the filters live in `.pre-commit-config.yaml`, half in the upstream
 
 Two consequences worth holding onto. A test-only change is never type-checked at commit time, so run
 `uvx ty@latest check .` yourself when it could affect types — `@latest` per *Always `@latest`*
-below, which the hook honours too. And `end-of-file-fixer`, `trailing-whitespace`, and
-`ruff-check --fix` *rewrite* files instead of merely rejecting them, so a "failed" commit has often
+below, which the hook honours too. And five hooks *rewrite* files instead of merely rejecting them —
+`end-of-file-fixer`, `trailing-whitespace`, `ruff-check --fix`, `ruff-format` (it formats in place;
+there is no `--check`), and `uv-lock` (it regenerates `uv.lock`) — so a "failed" commit has often
 already fixed itself and only needs re-staging.
 
 Do not pre-run the hook suite as a gate before committing — that is the hook's job, and it is
