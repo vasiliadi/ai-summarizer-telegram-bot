@@ -17,10 +17,15 @@ uv add --group dev package-name      # add a dev dependency
 uv lock --upgrade                    # update dependencies
 ```
 
-`uv run pytest --cov` is the whole test command — `[tool.coverage.run]` already pins `source` and
-`[tool.coverage.report]` already sets `show_missing`, so `--cov=src` and `--cov-report=term-missing`
-add nothing. It is also what the pre-commit hook runs (plus `-q`); see
+`uv run pytest --cov` needs no extra flags for the usual case — `[tool.coverage.run]` already pins
+`source` and `[tool.coverage.report]` already sets `show_missing`, so `--cov=src` and
+`--cov-report=term-missing` add nothing. It is also what the pre-commit hook runs (plus `-q`); see
 `docs/context/git-guide.md` for how that gate works.
+
+The one flag that is *not* redundant is `--cov-branch`. `[tool.coverage.run]` sets no `branch`, so
+the command above measures lines only, while CI runs `uv run pytest --cov --cov-branch
+--cov-report=xml` and uploads branch coverage to Codecov. To reproduce anything Codecov flags, add
+`--cov-branch` locally or the numbers will not match.
 
 Use `uv add` rather than hand-editing `pyproject.toml`. Keep production dependencies in
 `[project.dependencies]`; everything else goes in the appropriate group under `[dependency-groups]`.

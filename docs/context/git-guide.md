@@ -31,19 +31,27 @@ ci: update codecov action
 Hooks run automatically at commit time, each scoped to the files it matches. Never bypass them with
 `--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again.
 
-The hygiene hooks — `gitleaks`, `end-of-file-fixer`, `trailing-whitespace`, the `check-*` hooks,
-`detect-private-key`, `uv-lock` — run on **every** commit, docs-only ones included, and
-`end-of-file-fixer` rewrites files rather than just rejecting them. The Python hooks are narrower,
-and their scopes are not identical:
+Only `gitleaks` runs unconditionally; every other hook is file-scoped, and barely any two share a
+scope. Half the filters live in `.pre-commit-config.yaml`, half in the upstream
+`.pre-commit-hooks.yaml` of each pinned repo — check both before claiming a hook covered something:
 
 | Hook | Matches |
 |------|---------|
-| `ruff-check`, `ruff-format` | any staged Python file |
+| `gitleaks` | every commit — `pass_filenames: false`, it scans the staged diff itself |
+| `check-added-large-files` | every staged file |
+| `end-of-file-fixer`, `check-merge-conflict`, `detect-private-key` | every staged text file |
+| `trailing-whitespace` | every staged text file **except** `*.py` — ruff owns Python formatting |
+| `check-yaml` / `check-toml` | staged `.yaml`/`.yml` / `.toml` files |
+| `uv-lock` | `uv.lock`, `pyproject.toml`, `uv.toml` |
+| `ruff-check`, `ruff-format` | staged `.py`, `.pyi`, `.ipynb` |
 | `pytest` | `src/`, `tests/`, `pyproject.toml`, `uv.lock` |
 | `ty` | `src/`, `pyproject.toml`, `uv.lock` — **not** `tests/` |
 
-So a test-only change is never type-checked at commit time; run `uvx ty@latest check .` yourself if
-the change could affect types — `@latest` per *Always `@latest`* below, which the hook honours too.
+Two consequences worth holding onto. A test-only change is never type-checked at commit time, so run
+`uvx ty@latest check .` yourself when it could affect types — `@latest` per *Always `@latest`*
+below, which the hook honours too. And `end-of-file-fixer`, `trailing-whitespace`, and
+`ruff-check --fix` *rewrite* files instead of merely rejecting them, so a "failed" commit has often
+already fixed itself and only needs re-staging.
 
 Do not pre-run the hook suite as a gate before committing — that is the hook's job, and it is
 already what runs. Running `uv run pytest --cov` while iterating on code is a different thing and is
