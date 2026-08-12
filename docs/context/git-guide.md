@@ -28,7 +28,35 @@ ci: update codecov action
 
 ## Pre-Commit Checks
 
-Hooks run automatically at commit time, each scoped to the files it matches — the ruff hooks to any staged Python file, `ty` and `pytest` to `src/`, `tests/`, `pyproject.toml`, and `uv.lock` — so a docs-only commit skips all four. Do not run them manually first, and never bypass them with `--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again.
+Hooks run automatically at commit time, each scoped to the files it matches. Never bypass them with
+`--no-verify`. If a hook fails or modifies files, fix, re-stage, and commit again.
+
+Only `gitleaks` runs unconditionally; every other hook is file-scoped, and barely any two share a
+scope. Half the filters live in `.pre-commit-config.yaml`, half in the upstream
+`.pre-commit-hooks.yaml` of each pinned repo — check both before claiming a hook covered something:
+
+| Hook | Matches |
+|------|---------|
+| `gitleaks` | every commit — `pass_filenames: false`, it scans the staged diff itself |
+| `check-added-large-files` | files staged for **addition** only — no `--enforce-all`, so edits to existing files are never size-checked |
+| `end-of-file-fixer`, `check-merge-conflict`, `detect-private-key` | every staged text file |
+| `trailing-whitespace` | every staged text file **except** `*.py` — `ruff-format` owns those. `.pyi` and `.ipynb` are *not* excluded, so they get both |
+| `check-yaml` / `check-toml` | staged `.yaml`/`.yml` / `.toml` files |
+| `uv-lock` | `uv.lock`, `pyproject.toml`, `uv.toml` |
+| `ruff-check`, `ruff-format` | staged `.py`, `.pyi`, `.ipynb` |
+| `pytest` | `src/`, `tests/`, `pyproject.toml`, `uv.lock` |
+| `ty` | `src/`, `pyproject.toml`, `uv.lock` — **not** `tests/` |
+
+Two consequences worth holding onto. A test-only change is never type-checked at commit time, so run
+`uvx ty@latest check .` yourself when it could affect types — `@latest` per *Always `@latest`*
+below, which the hook honours too. And five hooks *rewrite* files instead of merely rejecting them —
+`end-of-file-fixer`, `trailing-whitespace`, `ruff-check --fix`, `ruff-format` (it formats in place;
+there is no `--check`), and `uv-lock` (it regenerates `uv.lock`) — so a "failed" commit has often
+already fixed itself and only needs re-staging.
+
+Do not pre-run the hook suite as a gate before committing — that is the hook's job, and it is
+already what runs. Running `uv run pytest --cov` while iterating on code is a different thing and is
+expected; see `docs/context/uv-guide.md`.
 
 **Coverage:** The project is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report printed by the pytest hook and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
 
