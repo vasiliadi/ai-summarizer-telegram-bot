@@ -5,6 +5,7 @@ command through `uv run`; never bare `python`, `pip`, `poetry`, or `conda`.
 
 ```bash
 uv sync                              # install deps (dev + test by default)
+uv run pytest --cov                  # run the tests with the coverage report
 uv run python src/main.py            # run the bot
 uv run python scripts/db.py          # bootstrap the users table
 uv run alembic upgrade head          # apply migrations
@@ -15,6 +16,11 @@ uv add package-name                  # add a production dependency
 uv add --group dev package-name      # add a dev dependency
 uv lock --upgrade                    # update dependencies
 ```
+
+`uv run pytest --cov` is the whole test command — `[tool.coverage.run]` already pins `source` and
+`[tool.coverage.report]` already sets `show_missing`, so `--cov=src` and `--cov-report=term-missing`
+add nothing. It is also what the pre-commit hook runs (plus `-q`); see
+`docs/context/git-guide.md` for how that gate works.
 
 Use `uv add` rather than hand-editing `pyproject.toml`. Keep production dependencies in
 `[project.dependencies]`; everything else goes in the appropriate group under `[dependency-groups]`.
