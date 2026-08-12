@@ -42,8 +42,8 @@ and their scopes are not identical:
 | `pytest` | `src/`, `tests/`, `pyproject.toml`, `uv.lock` |
 | `ty` | `src/`, `pyproject.toml`, `uv.lock` — **not** `tests/` |
 
-So a test-only change is never type-checked at commit time; run `uvx ty check .` yourself if the
-change could affect types.
+So a test-only change is never type-checked at commit time; run `uvx ty@latest check .` yourself if
+the change could affect types — `@latest` per *Always `@latest`* below, which the hook honours too.
 
 Do not pre-run the hook suite as a gate before committing — that is the hook's job, and it is
 already what runs. Running `uv run pytest --cov` while iterating on code is a different thing and is
