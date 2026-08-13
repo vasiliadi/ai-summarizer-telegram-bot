@@ -56,8 +56,8 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 - **Dropping or renaming a model id needs an Alembic data migration in the same PR** —
   `llm.py` and `summary.py` read `MODEL_SPECS[model_id]` unguarded, so a user whose stored
   `summarizing_model` left the registry gets a `KeyError` on every message they send; the
-  migration rewrites those rows onto a surviving id. No schema change is involved, so
-  `uv-guide.md`'s schema-change rule does not cover this. *Adding* an id needs no
+  migration rewrites those rows onto a surviving id. That rewrite alone changes no schema,
+  so `uv-guide.md`'s schema-change rule is not what requires it. *Adding* an id needs no
   migration. Moving `DEFAULT_MODEL_ID_FOR_SUMMARY` also moves `models.UsersOrm`'s
   `server_default` (pinned by `test_orm_server_defaults_match_config`) and the column's own
   default.
