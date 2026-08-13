@@ -82,8 +82,12 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 - **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
   the two have different durability needs.
 - **Modal for serverless cron** — clears the bot's own per-user daily counters in
-  Valkey without running a second container. Also stated in `README.md`; keep the
-  two in step.
+  Valkey without running a second container. The sweep is what makes the budget a
+  daily one: `limits` keys the counter without a window stamp and expires it on a
+  plain 24 h TTL, so left alone each user's budget would roll over 24 h after
+  their own first request of the day rather than at a shared hour. Deleting the
+  keys on a schedule is what pins that hour, so the cron is load-bearing, not a
+  tidy-up. Also stated in `README.md`; keep the two in step.
 
 ## Component map (`src/`)
 
@@ -105,7 +109,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION` + `prompt_version` (short hash over both, for trace metadata). |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. |
 | `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
-| `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight America/Los_Angeles, resetting every user's daily budget. |
+| `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight UTC, resetting every user's daily budget. |
 | `scripts/db.py` | Standalone bootstrap script — creates the `users` table via its own `Base`/engine (separate from `src/models.py`); runs `create_all` at import. |
 
 ## Request flow
