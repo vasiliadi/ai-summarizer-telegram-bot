@@ -105,7 +105,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION` + `prompt_version` (short hash over both, for trace metadata). |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. |
 | `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
-| `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight PT, so daily budgets reset in step with Gemini's free-tier quota. |
+| `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight PT, so daily budgets reset in step with Gemini's quota window. |
 | `scripts/db.py` | Standalone bootstrap script — creates the `users` table via its own `Base`/engine (separate from `src/models.py`); runs `create_all` at import. |
 
 ## Request flow
@@ -196,7 +196,9 @@ to Gemini — return the raw model text with **no** prefix.
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
   unit. A global per-minute limit throttles by sleeping. Counters live in Valkey;
   user data lives in Postgres. Gemini bills failed calls, so quota is counted
-  per attempt by design — not a double-charge bug.
+  per attempt by design — not a double-charge bug. The per-user daily cap is a
+  cost control in its own right and stays whether or not the selected model has
+  a free tier; do not relax it on the grounds that a model is free.
 - **Retries.** Network/model calls use `tenacity` `@retry`; persistent failure
   surfaces as `RetryError`, which `handle_message` maps to a user-facing
   "try again later" message. Other mapped errors: `LimitExceededError`,
