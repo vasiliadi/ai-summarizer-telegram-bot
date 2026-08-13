@@ -53,6 +53,14 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   with no builder, and is covered by a test that fabricates a spec.
   The Gemini Files API is still called directly (`services.GeminiHelper`), because
   base64-inlining a 20 MB Telegram file inflates it past the inline-request limit.
+- **Dropping or renaming a model id needs an Alembic data migration in the same PR** —
+  `llm.py` and `summary.py` read `MODEL_SPECS[model_id]` unguarded, so a user whose stored
+  `summarizing_model` left the registry gets a `KeyError` on every message they send; the
+  migration rewrites those rows onto a surviving id. That rewrite alone changes no schema,
+  so `uv-guide.md`'s schema-change rule is not what requires it. *Adding* an id needs no
+  migration. Moving `DEFAULT_MODEL_ID_FOR_SUMMARY` also moves `models.UsersOrm`'s
+  `server_default` (pinned by `test_orm_server_defaults_match_config`) and the column's own
+  default.
 - **OpenRouter models are text-delivery only** — registered with `supports_audio` and
   `supports_files` both False, which is about what this bot can *deliver*, not what the
   models read. OpenRouter has no file API, so a file would have to be base64-inlined —
@@ -74,8 +82,12 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 - **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
   the two have different durability needs.
 - **Modal for serverless cron** — clears the bot's own per-user daily counters in
-  Valkey, in step with Gemini's quota window, without running a second container.
-  Also stated in `README.md`; keep the two in step.
+  Valkey without running a second container. The sweep is what makes the budget a
+  daily one: `limits` keys the counter without a window stamp and expires it on a
+  plain 24 h TTL, so left alone each user's budget would roll over 24 h after
+  their own first request of the day rather than at a shared hour. Deleting the
+  keys on a schedule is what pins that hour, so the cron is load-bearing, not a
+  tidy-up. Also stated in `README.md`; keep the two in step.
 
 ## Component map (`src/`)
 
@@ -97,7 +109,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION` + `prompt_version` (short hash over both, for trace metadata). |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. |
 | `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
-| `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight PT, so daily budgets reset in step with Gemini's free-tier quota. |
+| `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight UTC, resetting every user's daily budget. |
 | `scripts/db.py` | Standalone bootstrap script — creates the `users` table via its own `Base`/engine (separate from `src/models.py`); runs `create_all` at import. |
 
 ## Request flow
@@ -187,7 +199,10 @@ to Gemini — return the raw model text with **no** prefix.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
   unit. A global per-minute limit throttles by sleeping. Counters live in Valkey;
-  user data lives in Postgres. Gemini bills failed calls, so quota is counted
+  user data lives in Postgres. The cap is the bot's own cost control, not a
+  mirror of any provider's allowance: `check_quota` takes no provider, so a
+  request costs one unit whichever model was chosen, and the cap stands whether
+  or not that model is free. Providers bill failed calls, so quota is counted
   per attempt by design — not a double-charge bug.
 - **Retries.** Network/model calls use `tenacity` `@retry`; persistent failure
   surfaces as `RetryError`, which `handle_message` maps to a user-facing

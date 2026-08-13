@@ -110,9 +110,9 @@ def test_check_auth_unknown_user(user_repo):
         ("set_target_language", "English", "target_language", "English"),
         (
             "set_summarizing_model",
-            "gemini-3.6-flash",
+            "gemini-3.7-flash",
             "summarizing_model",
-            "gemini-3.6-flash",
+            "gemini-3.7-flash",
         ),
         (
             "set_prompt_strategy",
@@ -164,9 +164,9 @@ def test_set_setting_rejects_unsupported(user_repo, setter, bad_value):
         ("set_target_language", "english", "target_language", "English"),
         (
             "set_summarizing_model",
-            "GEMINI-3.6-FLASH",
+            "GEMINI-3.7-FLASH",
             "summarizing_model",
-            "gemini-3.6-flash",
+            "gemini-3.7-flash",
         ),
         (
             "set_prompt_strategy",
@@ -220,7 +220,7 @@ def test_set_thinking_level_rejects_unknown_value(user_repo, sqlite_session_fact
     ("setter", "value"),
     [
         ("set_target_language", "English"),
-        ("set_summarizing_model", "gemini-3.6-flash"),
+        ("set_summarizing_model", "gemini-3.7-flash"),
         ("set_prompt_strategy", "key_points_for_transcript"),
         ("set_thinking_level", "high"),
     ],

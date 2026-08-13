@@ -14,7 +14,7 @@ with image.imports():
 
 
 @app.function(
-    schedule=modal.Cron("0 0 * * *", timezone="America/Los_Angeles"),  # PST8PDT
+    schedule=modal.Cron("0 0 * * *"),  # UTC, modal.Cron's default
     retries=modal.Retries(max_retries=3),
 )
 def clear_limit() -> int:
