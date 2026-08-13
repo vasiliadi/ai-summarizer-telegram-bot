@@ -82,9 +82,8 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 - **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
   the two have different durability needs.
 - **Modal for serverless cron** — clears the bot's own per-user daily counters in
-  Valkey at the hour Gemini's quota window rolls over, without running a second
-  container. Gemini sets the hour, not the scope: the counters cap every provider
-  (see Quota model). Also stated in `README.md`; keep the two in step.
+  Valkey without running a second container. Also stated in `README.md`; keep the
+  two in step.
 
 ## Component map (`src/`)
 
@@ -106,7 +105,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION` + `prompt_version` (short hash over both, for trace metadata). |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. |
 | `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
-| `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight PT, the hour Gemini's quota window rolls over. |
+| `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight America/Los_Angeles, resetting every user's daily budget. |
 | `scripts/db.py` | Standalone bootstrap script — creates the `users` table via its own `Base`/engine (separate from `src/models.py`); runs `create_all` at import. |
 
 ## Request flow
@@ -196,12 +195,11 @@ to Gemini — return the raw model text with **no** prefix.
 - **Quota model.** `check_quota(..., quantity=0)` is a pre-check that raises when
   the daily budget is exhausted but consumes nothing; `quantity=1` consumes one
   unit. A global per-minute limit throttles by sleeping. Counters live in Valkey;
-  user data lives in Postgres. Gemini bills failed calls, so quota is counted
-  per attempt by design — not a double-charge bug. The daily cap is a cost
-  control and is provider-agnostic: `check_quota` takes no provider, so a request
-  costs one unit whichever provider serves the chosen model, and the cap stands
-  whether or not that model has a free tier. Do not relax it on the grounds that
-  a model is free, and do not re-scope it to Gemini.
+  user data lives in Postgres. The cap is the bot's own cost control, not a
+  mirror of any provider's allowance: `check_quota` takes no provider, so a
+  request costs one unit whichever model was chosen, and the cap stands whether
+  or not that model is free. Providers bill failed calls, so quota is counted
+  per attempt by design — not a double-charge bug.
 - **Retries.** Network/model calls use `tenacity` `@retry`; persistent failure
   surfaces as `RetryError`, which `handle_message` maps to a user-facing
   "try again later" message. Other mapped errors: `LimitExceededError`,
