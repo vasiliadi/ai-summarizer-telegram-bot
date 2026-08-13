@@ -53,6 +53,17 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   with no builder, and is covered by a test that fabricates a spec.
   The Gemini Files API is still called directly (`services.GeminiHelper`), because
   base64-inlining a 20 MB Telegram file inflates it past the inline-request limit.
+- **Removing a model id needs an Alembic data migration in the same PR** — `build_model`
+  and `build_uploaded_file` both read `MODEL_SPECS[model_id]` unguarded, and so does
+  `summary.py`, so a user whose stored `summarizing_model` left the registry gets a
+  `KeyError` on every message they send. The migration rewrites those rows onto a
+  surviving id; its `downgrade` deliberately does **not** restore the old id, which would
+  only park users on something the keyboard cannot select again. There is no schema change
+  involved, so `uv-guide.md`'s "every schema change needs a migration" does not cover this
+  case. *Adding* an id invalidates nothing and needs no migration. Moving
+  `DEFAULT_MODEL_ID_FOR_SUMMARY` additionally moves `models.UsersOrm`'s `server_default`
+  (pinned to config by `test_orm_server_defaults_match_config`) and the column's own
+  default, via `op.alter_column` in that same migration.
 - **OpenRouter models are text-delivery only** — registered with `supports_audio` and
   `supports_files` both False, which is about what this bot can *deliver*, not what the
   models read. OpenRouter has no file API, so a file would have to be base64-inlined —

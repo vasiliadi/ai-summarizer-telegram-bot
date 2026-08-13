@@ -101,8 +101,8 @@ class ModelSpec:
 
 
 MODEL_SPECS: dict[str, ModelSpec] = {
-    "gemini-3.6-flash": ModelSpec(
-        label="Gemini 3.6 Flash",
+    "gemini-3.7-flash": ModelSpec(
+        label="Gemini 3.7 Flash",
         provider="google",
         supports_audio=True,
         supports_files=True,
@@ -144,7 +144,7 @@ ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_SPECS.keys())
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
 # It also serves documents whose selected model has supports_files=False, so it
 # must stay a spec with supports_files=True.
-DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.6-flash"
+DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.7-flash"
 DEFAULT_THINKING_LEVEL = "medium"
 # The keys are pydantic-ai's `ThinkingEffort`, which every provider's model maps
 # to its own vocabulary; nothing here translates them. The values exist only to

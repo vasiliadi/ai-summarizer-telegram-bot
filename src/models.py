@@ -26,7 +26,7 @@ class UsersOrm(Base):
     approved: Mapped[bool] = mapped_column(server_default="False")
     target_language: Mapped[str] = mapped_column(server_default="English")
     summarizing_model: Mapped[str] = mapped_column(
-        server_default="gemini-3.6-flash",
+        server_default="gemini-3.7-flash",
     )
     prompt_key_for_summary: Mapped[str] = mapped_column(
         server_default="basic_prompt_for_transcript",
