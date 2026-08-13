@@ -60,8 +60,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   `uv-guide.md`'s schema-change rule does not cover this. *Adding* an id needs no
   migration. Moving `DEFAULT_MODEL_ID_FOR_SUMMARY` also moves `models.UsersOrm`'s
   `server_default` (pinned by `test_orm_server_defaults_match_config`) and the column's own
-  default. `downgrade` is one-way by convention, which for a rename strands rows on the new
-  id — a known, accepted gap in `e5c3a91b8d47`, not one to silently re-fix.
+  default.
 - **OpenRouter models are text-delivery only** — registered with `supports_audio` and
   `supports_files` both False, which is about what this bot can *deliver*, not what the
   models read. OpenRouter has no file API, so a file would have to be base64-inlined —
