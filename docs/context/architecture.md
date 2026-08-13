@@ -53,35 +53,15 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   with no builder, and is covered by a test that fabricates a spec.
   The Gemini Files API is still called directly (`services.GeminiHelper`), because
   base64-inlining a 20 MB Telegram file inflates it past the inline-request limit.
-- **Removing a model id needs an Alembic data migration in the same PR** — `build_model`
-  and `build_uploaded_file` both read `MODEL_SPECS[model_id]` unguarded, and so does
-  `summary.py`, so a user whose stored `summarizing_model` left the registry gets a
-  `KeyError` on every message they send. The migration rewrites those rows onto a
-  surviving id. There is no schema change involved, so `uv-guide.md`'s "every schema change
-  needs a migration" does not cover this case. *Adding* an id invalidates nothing and needs
-  no migration. Moving `DEFAULT_MODEL_ID_FOR_SUMMARY` additionally moves
-  `models.UsersOrm`'s `server_default` (pinned to config by
-  `test_orm_server_defaults_match_config`) and the column's own default, via
-  `op.alter_column` in that same migration.
-
-  What `downgrade` owes depends on **which** kind of change it is, and the two are easy to
-  confuse because both read as "a model went away":
-
-  - A **drop** — some model leaves, others remain — moves rows onto an id that is in the
-    registry on *both* sides of the revision. Leaving `downgrade` a no-op is correct:
-    reinstating the dropped id would park users on something the keyboard can no longer
-    select. This is what `6bb4ed473ffd`, `12d7c48a6e14`, `b3f9c1d47a20`, `c7a2e5b0913f`,
-    `d4e81f60c2ab` and `f0a9b6c31d75` all do.
-  - A **replacement** — an id is renamed, or the last model of a provider is swapped for
-    its successor — inverts that. After a rollback the *old* id is the selectable one and
-    the *new* id is the one absent from the registry, so a `downgrade` that only restores
-    the `server_default` leaves every migrated row unusable, which is the same `KeyError`
-    on every message. A replacement's `downgrade` has to move the rows back too.
-
-  `e5c3a91b8d47` (gemini-3.6-flash → gemini-3.7-flash) is a replacement whose `downgrade`
-  restores only the `server_default`, so rolling back past it strands existing users on
-  `gemini-3.7-flash` until their rows are rewritten by hand. Known and accepted, not an
-  oversight to re-fix silently; it is the one migration here not to copy.
+- **Dropping or renaming a model id needs an Alembic data migration in the same PR** —
+  `llm.py` and `summary.py` read `MODEL_SPECS[model_id]` unguarded, so a user whose stored
+  `summarizing_model` left the registry gets a `KeyError` on every message they send; the
+  migration rewrites those rows onto a surviving id. No schema change is involved, so
+  `uv-guide.md`'s schema-change rule does not cover this. *Adding* an id needs no
+  migration. Moving `DEFAULT_MODEL_ID_FOR_SUMMARY` also moves `models.UsersOrm`'s
+  `server_default` (pinned by `test_orm_server_defaults_match_config`) and the column's own
+  default. `downgrade` is one-way by convention, which for a rename strands rows on the new
+  id — a known, accepted gap in `e5c3a91b8d47`, not one to silently re-fix.
 - **OpenRouter models are text-delivery only** — registered with `supports_audio` and
   `supports_files` both False, which is about what this bot can *deliver*, not what the
   models read. OpenRouter has no file API, so a file would have to be base64-inlined —
