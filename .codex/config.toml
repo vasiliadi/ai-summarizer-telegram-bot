@@ -1,5 +1,12 @@
 web_search = "live"
 
+# Mirrors the PreToolUse hook in .claude/settings.json: block edits to tracked repo
+# files while the checkout is on main. Gitignored files stay exempt.
+#
+# Codex records trust against the hook's current hash and skips new or changed hooks
+# until they are trusted, so run /hooks once per checkout — and again after editing
+# the command below — or this guard silently does nothing. It is a guardrail, not an
+# enforcement boundary: some tool paths opt out of the hook path entirely.
 [[hooks.PreToolUse]]
 matcher = "^apply_patch$"
 
