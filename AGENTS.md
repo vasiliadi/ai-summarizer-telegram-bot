@@ -2,7 +2,7 @@
 
 ## Start Each Session
 
-Load handoffs from `docs/summaries/` or `docs/archive/` only when the user points to previous work. Read every handoff they name, load its Files to Load Next Session, and skip its What NOT to Re-Read list. Otherwise, treat handoffs as work logs, not session context.
+Load handoffs from `docs/summaries/` or `docs/archive/` only when the user points to previous work. Read every handoff they name, load its Files to Load Next Session, and skip everything listed under What NOT to Re-Read. Otherwise, treat handoffs as work logs, not session context.
 
 Before touching code, read `docs/context/architecture.md`. Before writing code, also read `docs/context/style-guide.md` for conventions Ruff does not enforce. Skip both for docs-only work.
 
