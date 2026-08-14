@@ -1,15 +1,13 @@
 # Architecture
 
-High-level component map and data flow for orientation at session start. **Stable** —
-update only on a real architectural change (new component, new flow, routing/fallback
-rewrite) or a durable external-service gotcha (→ Cross-cutting patterns), not every
-handoff. Not a source mirror: read the source for function
-signatures, dependencies, and env vars.
+Use this stable document for high-level orientation. Update it only for an architectural
+change (a new component, flow, or routing/fallback rewrite) or a durable external-service
+gotcha (see *Cross-cutting patterns*), not for every handoff. Read the source for function
+signatures, dependencies, and environment variables; do not mirror them here.
 
-State facts inline, never as a reference to go and fetch — an issue id, PR number, or
-dashboard link resolves to nothing for an agent without access to that system. Provider
-behaviour this repo cannot demonstrate still belongs here (that is what a gotcha is);
-name it as the provider's, so a reader does not go looking for it in the source.
+State facts inline instead of pointing to an issue, PR, or dashboard a reader may not be
+able to access. Record provider behaviour the repo cannot demonstrate as the provider's
+gotcha, so readers do not search for it in the source.
 
 - Stack → `pyproject.toml` + `README.md`
 

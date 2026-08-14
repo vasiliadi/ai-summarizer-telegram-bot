@@ -82,12 +82,11 @@ is the entire public surface.
 
 ## Prompt Strings
 
-`src/prompts.py` keeps its indented triple-quoted strings raw. `src/summary.py` already
-calls `dedent(...).strip()` at every call site, so cleaning them at definition time is
-redundant — and worse than redundant: `prompt_version` hashes the raw string, so
-pre-cleaning shifts every digest at once. No test pins a literal digest, so the suite
-stays green while traces recorded either side of the change appear to use different
-prompt versions.
+Keep the indented triple-quoted strings in `src/prompts.py` raw; do not clean them at
+definition time. `src/summary.py` already calls `dedent(...).strip()` at every call site,
+and `prompt_version` hashes the raw string. Pre-cleaning therefore shifts every digest
+at once while the suite stays green because no test pins a literal digest, making traces
+recorded before and after the change appear to use different prompt versions.
 
 ## Documentation Paths
 
