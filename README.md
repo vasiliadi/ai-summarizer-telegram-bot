@@ -150,14 +150,18 @@ brew install pixi
 pixi run start  # ffmpeg available
 ```
 
-`ruff` and `ty` run in the pre-commit hooks, so you do not need to install or invoke them. To check
-the whole repo the way CI does:
+`ruff` and `ty` run in the pre-commit hooks, so you do not need to install or invoke them. The hooks
+only ever see staged files, so to sweep the whole repo:
 
 ```bash
 uvx ruff@latest check .
 uvx ruff@latest format --check .
 uvx ty@latest check .
 ```
+
+The two `ruff` commands are exactly what CI runs. The `ty` one is deliberately wider: CI checks
+`src/` only, while `.` also covers `scripts/` and `migrations/`. Neither reaches `tests/` —
+`[tool.ty.src]` excludes it everywhere, so a type error in a test is caught by no tool in this repo.
 
 The `@latest` is required: bare `uvx ruff` reuses a `uv tool install`ed copy, which silently lags
 behind the Ruff that the pre-commit hooks and CI run.
