@@ -1,12 +1,8 @@
 web_search = "live"
 
-# Mirrors the PreToolUse hook in .claude/settings.json: block edits to tracked repo
-# files while the checkout is on main. Gitignored files stay exempt.
 [[hooks.PreToolUse]]
 matcher = "^apply_patch$"
 
 [[hooks.PreToolUse.hooks]]
 type = "command"
-command = 'python3 "$(git rev-parse --show-toplevel)/.codex/hooks/branch_guard.py"'
-timeout = 10
-statusMessage = "Checking protected branch"
+command = '''files=$(python3 -c "import json,sys;print('\n'.join(l.split(': ',1)[1].strip() for l in json.load(sys.stdin).get('tool_input',{}).get('command','').splitlines() if l.startswith(('*** Add File: ','*** Update File: ','*** Delete File: ','*** Move to: '))))" 2>/dev/null); [ -z "$files" ] && exit 0; [ "$(git branch --show-current 2>/dev/null)" = "main" ] || exit 0; [ "$(printf '%s\n' "$files" | wc -l)" = "$(printf '%s\n' "$files" | git check-ignore --stdin 2>/dev/null | wc -l)" ] && exit 0; echo 'Blocked: editing a repo file on the protected main branch. Create a feature branch first (git checkout -b <scope>-<short-desc>), then retry.' >&2; exit 2'''

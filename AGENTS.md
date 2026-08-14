@@ -8,7 +8,7 @@ Before touching code, read `docs/context/architecture.md`. Before writing code, 
 
 State the session plan and any open questions.
 
-Before the first tracked-file edit, branch from `main` with `git checkout -b <scope>-<short-desc>`; follow the commit scope convention in `docs/context/git-guide.md`. A `PreToolUse` hook enforces this for repo files; gitignored files such as handoffs in `docs/summaries/` are exempt. Both harnesses carry it — Claude Code inline in `.claude/settings.json`, Codex in `.codex/config.toml` calling `.codex/hooks/branch_guard.py`. Keep the two in step: a change to one is a change to both.
+Before the first tracked-file edit, branch from `main` with `git checkout -b <scope>-<short-desc>`; follow the commit scope convention in `docs/context/git-guide.md`. A `PreToolUse` hook enforces this for repo files; gitignored files such as handoffs in `docs/summaries/` are exempt.
 
 ## Rules
 

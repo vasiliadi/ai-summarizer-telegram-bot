@@ -62,18 +62,6 @@ Use `# noqa` sparingly and always specify the exact rule code.
   (`dict[str, Any]`, `list[int]`).
 - For circular-import types, use `from __future__ import annotations` and `if TYPE_CHECKING:` blocks.
 
-## Agent Hook Scripts
-
-`.codex/hooks/*.py` is the exception to everything above that assumes 3.14. The agent harness runs
-these with whatever `python3` sits on `PATH` — macOS still ships 3.9 — outside the project venv, so
-keep them **stdlib-only and 3.9-compatible**, and validate with `/usr/bin/python3`, not `uv run`.
-
-Ruff lints and formats them anyway, at `target-version = "py314"`, which is a live trap: the PEP 758
-rewrite above silently turns a parenthesized `except (A, B):` into `except A, B:`, a syntax error on
-3.9, and `ruff format` obeys no `# noqa`. Catch one type instead of a tuple —
-`except ValueError:` covers both `JSONDecodeError` and `UnicodeDecodeError` — rather than fighting
-the formatter.
-
 ## Classes
 
 Collaborators arrive via `__init__` and are stored on private attributes (e.g. `self._client`);
