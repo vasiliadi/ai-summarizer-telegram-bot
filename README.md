@@ -150,8 +150,8 @@ brew install pixi
 pixi run start  # ffmpeg available
 ```
 
-`ruff` and `ty` run in the pre-commit hooks, so you do not need to install or invoke them. To check
-the whole repo the way CI does:
+`ruff` and `ty` run in the pre-commit hooks, so you do not need to install or invoke them. The hooks
+only fire on what you stage — to sweep the whole repo:
 
 ```bash
 uvx ruff@latest check .

@@ -184,7 +184,6 @@ poetry.toml
 .kiro/
 .zed/
 .vscode/
-.codex/environments/
 .kilo/
 
 # Skills
