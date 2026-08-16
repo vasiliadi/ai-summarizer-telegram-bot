@@ -278,3 +278,30 @@ to Gemini — return the raw model text with **no** prefix.
   not the download, parse or upload around it; and a retried `summarize_text` produces
   one trace per attempt, since nothing groups them. `langfuse_client.shutdown()` flushes on exit. Independent of
   Sentry, which handles error capture and logs.
+- **Langfuse-managed prompts are a hand-maintained mirror, for experiments only.** Two chat
+  prompts named exactly after the `prompt_key`s (`basic_prompt_for_transcript`,
+  `key_points_for_transcript`) hold a copy of what `src/prompts.py` sends, so a Langfuse
+  Prompt Experiment can run a strategy over a dataset against any model. `src/prompts.py`
+  stays the source of truth and the bot never calls `get_prompt` — that keeps prompts in the
+  repo, puts no network fetch on the request path, and leaves `prompts.prompt_version` as the
+  pin a trace carries. Edits are made in the UI when a template changes; they are rare enough
+  that a sync script was **rejected** as machinery for a once-a-quarter edit.
+  Four things about the shape are load-bearing, and none of them announce themselves when
+  broken — the experiment just renders every dataset item identically:
+  - `type` is `chat` and is **immutable after creation**. A prompt created as `text` can never
+    become one; it has to be deleted and recreated, losing its version history.
+  - The system message is `SYSTEM_INSTRUCTION` with `{language}` rewritten to
+    `{{target_language}}`. Langfuse substitutes double braces only, so a single-brace
+    placeholder is copied through as literal text rather than failing loudly.
+  - Two separate `user` messages — the strategy template, then `{{content}}` alone — because
+    `summarize_text` sends the prompt and the content as two parts. Concatenating them into
+    one message measures a call the bot never makes.
+  - Variable names must equal the dataset item's input keys (`content`, `target_language`;
+    `prompt_key` selects the prompt rather than filling a variable). Langfuse resolves a
+    variable only against a key of the same name, so renaming either side breaks every run.
+
+  Do **not** re-add a `Language` prompt referenced by composition, as an earlier hand-built
+  version did. It freezes into the prompt what the dataset needs as a per-item variable, so a
+  run cannot mix target languages, and Langfuse then refuses to delete it while any dependent
+  version survives. Storing `prompt_version(prompt_key)` in the prompt's `config` is what ties
+  a Langfuse version back to the repo revision it was copied from; nothing else records it.
