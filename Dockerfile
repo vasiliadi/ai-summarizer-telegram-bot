@@ -17,7 +17,7 @@ RUN python scripts/db.py \
     && alembic upgrade head \
     && modal deploy scripts/cron.py
 
-FROM python:3.14-alpine@sha256:a1321512d6a287428c50dcdf2ab3857761127e03a23b1f648e9c1c0de59288f8
+FROM python:3.14-alpine@sha256:05b2b8b732ecd268fee8727a369f936f022d1321b59befd13c30ede22769dcdc
 ENV ENV=PROD \
     PYTHONUNBUFFERED=1 \
     DENO_V8_FLAGS="--max-old-space-size=256" \
