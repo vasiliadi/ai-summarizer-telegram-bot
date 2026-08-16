@@ -84,14 +84,14 @@ requires-dist = [
 [package.metadata.requires-dev]
 build = [
     { name = "alembic", specifier = "==1.19.1" },
-    { name = "modal", specifier = "==1.5.3" },
+    { name = "modal", specifier = "==1.5.4" },
     { name = "psycopg2-binary", specifier = "==2.9.12" },
     { name = "sqlalchemy", specifier = "==2.0.52" },
 ]
 dev = [
     { name = "alembic", specifier = "==1.19.1" },
     { name = "black", specifier = "==26.5.1" },
-    { name = "modal", specifier = "==1.5.3" },
+    { name = "modal", specifier = "==1.5.4" },
     { name = "python-dotenv", specifier = "==1.2.2" },
     { name = "yt-dlp", extras = ["deno"], specifier = "==2026.7.4" },
 ]
@@ -1107,7 +1107,7 @@ wheels = [
 
 [[package]]
 name = "modal"
-version = "1.5.3"
+version = "1.5.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -1124,9 +1124,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "watchfiles" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/09/13/c54908743129b75f9761ebcc767f8de5e5b16e2a0303e171f7ae38d90d4d/modal-1.5.3.tar.gz", hash = "sha256:0551c6fa2386ce78619f1a058eb4dd3ca527a54048952ea870e26704557c76c4", size = 844542, upload-time = "2026-07-23T21:06:49.14Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8d/0d/1a6e710ab64f0c7b7bec9472203dbf6c7c75556dd2d7632da98c96a4e0b0/modal-1.5.4.tar.gz", hash = "sha256:d611bb47fc07117f5d194f7f9a9c0aba4537573a136349bbe45c5694e64bca92", size = 863571, upload-time = "2026-08-12T21:54:12.62Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cd/5d/834ba7387383077538f28a1d17d2df95d596e225a44a1ea1207ad90977f3/modal-1.5.3-py3-none-any.whl", hash = "sha256:d3fbe1d95321d1e4bdb08140bf42711084d705e7e3de644f7ae55c9b96b6c51d", size = 961068, upload-time = "2026-07-23T21:06:46.866Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/93/ca23b7b421e2c9738b710eb1d33eb25a88cba32dff864003a692a0e21f8d/modal-1.5.4-py3-none-any.whl", hash = "sha256:3e54e26037c445af42f9a9ef9862b66bdd2e0b1faeced5fcc7adf3e5f59e44ed", size = 979381, upload-time = "2026-08-12T21:54:10.378Z" },
 ]
 
 [[package]]
