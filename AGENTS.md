@@ -20,7 +20,7 @@ Before the first tracked-file edit, branch from `main` with `git checkout -b <sc
 6. **Keep documentation and tests current in the same PR.**
    - Update every `docs/context/` file the work invalidates. A rename or moved responsibility invalidates the component map; a dependency bump can retire a documented workaround.
    - Update tests for every code change.
-   - Record every durable fact the work establishes in its tracked owner: `architecture.md` for the component map, gotchas, and standing choices; `style-guide.md` for conventions Ruff does not enforce; `git-guide.md` for commit and hook process; `uv-guide.md` for dependencies and running the project; `AGENTS.md` for session process.
+   - Record every durable fact the work establishes in its tracked owner: `architecture.md` for the component map, gotchas, and standing choices; `style-guide.md` for conventions Ruff does not enforce; `git-guide.md` for commit, hook, and CI-workflow process; `uv-guide.md` for dependencies and running the project; `AGENTS.md` for session process.
 
    A durable fact is anything a later session must not get wrong, such as an external-service constraint, settled choice, rejected review finding, or convention. Record it during the work; gitignored handoffs and agent-local memory are not substitutes. Treat these updates as mandatory, like the pre-commit hooks.
 
@@ -30,7 +30,7 @@ Before the first tracked-file edit, branch from `main` with `git checkout -b <sc
 - `docs/context/` — reusable domain knowledge. Load only what the task needs; record durable facts here, not in agent-local memory. **(tracked)**
   - `architecture.md` — component map and data flow; update only on architectural change
   - `style-guide.md` — coding conventions Ruff does not enforce
-  - `git-guide.md` — commit format, pre-commit hooks, coverage
+  - `git-guide.md` — commit format, pre-commit hooks, coverage, CI workflows
   - `uv-guide.md` — running the project and managing dependencies
 - `docs/archive/` — superseded handoffs, kept flat. Read only when explicitly told. **(gitignored)**
 - `.claude/commands/handoff.md` — the `/handoff` routine and its template; agents without slash commands follow its steps directly.
