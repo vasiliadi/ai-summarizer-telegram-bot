@@ -351,6 +351,38 @@ to Gemini — return the raw model text with **no** prefix.
   - Bullet count and bullet purity stay separate scores because "produced 3 bullets" and
     "produced 5 bullets plus a closing paragraph" are different failures with different fixes.
 
+- **Tier 2 and Tier 3 judges run outside Langfuse, and have to.** Three independent
+  constraints rule out Langfuse's managed LLM-as-a-judge for this project, so the judge is a
+  local runner that posts scores back through the API into the same score table as the
+  `t1_*` scores and any human annotations — which is what keeps the calibration comparison a
+  query rather than a spreadsheet.
+  - **OpenRouter silently drops `response_format: json_schema` on Anthropic models.** The
+    model answers in prose and nothing errors; `provider: {require_parameters: true}` does not
+    change it, and OpenRouter's own catalog advertises `structured_outputs: true` for these
+    ids, so the metadata is wrong rather than merely absent. A **forced tool call**
+    (`tools` + `tool_choice` naming the function) is honoured on the same route and returns
+    clean structured JSON. Langfuse's managed judge sends `response_format` with no way to
+    override it, so it fails preflight with "No object generated: could not parse the
+    response" against any Anthropic model. The same schema works through the same connection
+    on Gemini, so this is the Anthropic route specifically.
+  - **OpenRouter's half-price `:batch` model ids reject chat/completions** with "This model is
+    only available through the Batch API", pointing at `/api/beta/batches`. Langfuse's judge
+    is synchronous, so it can never reach them; a local runner can, at half price, with up to
+    24 h turnaround. Iterate the judge prompt synchronously and switch to `:batch` only once
+    the wording is frozen.
+  - **An evaluator sees one item.** Its context is that item's `input`, `output`,
+    `expected_output` and metadata; there is no mapping source for a second run's output. So
+    pairwise comparison cannot be an evaluator of either kind, whatever the judge model.
+
+  Three details of the judge itself are load-bearing. The judge **counts** (claims, entailed
+  facts) and the runner computes the ratio, because a model asked directly for `0.71` makes
+  arithmetic slips no prompt wording fixes. Each schema declares its **verdict field before
+  `reasoning`**, since models emit in declared order and it is the long reasoning string that
+  runs into `max_tokens` — a truncated call then still carries the answer. And OpenRouter does
+  not enforce `required` on this route, so a missing field has to be caught explicitly rather
+  than trusted. Pairwise runs **both orders and discards disagreements**; the discard rate is
+  itself a judge-quality signal.
+
   Installing a code evaluator through the unstable API has a shape trap worth keeping: on
   `POST /unstable/evaluators` the `prompt` and `outputDefinition` fields are llm-as-judge-only
   and are rejected outright for `type=code`, while on `POST /unstable/evaluation-rules` the
