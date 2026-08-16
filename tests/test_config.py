@@ -88,6 +88,28 @@ def test_log_level_falls_back_on_non_level_attribute(monkeypatch):
     importlib.reload(config)
 
 
+def test_sentry_opts_into_log_collection(mocker):
+    """Test Sentry is initialized with log auto-collection switched on.
+
+    sentry-sdk 2.68.0 made `enable_logs` a no-op and left LoggingIntegration's
+    `capture_sentry_logs` off by default, so the opt-in is the only thing
+    sending this project's log records to Sentry. Dropping it breaks nothing
+    loudly — the logs just stop arriving — which is what this pins.
+
+    Asserts on the constructor call, not on the instance: the flag is stored on
+    the class, so reading it back off an instance reports whichever
+    LoggingIntegration was built last anywhere in the process — including the
+    default one a real sentry_sdk.init() builds with the flag off.
+    """
+    mock_init = mocker.patch("sentry_sdk.init")
+    mock_integration = mocker.patch(
+        "sentry_sdk.integrations.logging.LoggingIntegration",
+    )
+    importlib.reload(config)
+    assert mock_init.call_args.kwargs["integrations"] == [mock_integration.return_value]
+    assert mock_integration.call_args.kwargs == {"capture_sentry_logs": True}
+
+
 def test_langfuse_disabled_when_keys_blank(monkeypatch):
     """Test langfuse_client stays None when either Langfuse key is blank.
 

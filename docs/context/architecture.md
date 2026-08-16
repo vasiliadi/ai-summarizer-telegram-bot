@@ -206,6 +206,16 @@ to Gemini — return the raw model text with **no** prefix.
   surfaces as `RetryError`, which `handle_message` maps to a user-facing
   "try again later" message. Other mapped errors: `LimitExceededError`,
   `WebParseError`. All exceptions are sent to Sentry via `capture_exception`.
+- **Sentry log collection is an explicit opt-in.** `config.py` passes
+  `LoggingIntegration(capture_sentry_logs=True)` to `sentry_sdk.init`; that flag is what
+  forwards stdlib `logging` records to Sentry Logs, and it defaults to **off**. The
+  `enable_logs=True` option that used to do this became a no-op in sentry-sdk 2.68.0 and
+  is slated for removal in the next major — passing it again only logs a warning. Drop
+  the integration and error capture still works while logs silently stop arriving, which
+  is what `test_sentry_opts_into_log_collection` pins. `init` runs *before*
+  `logging.basicConfig(force=True)` and stays unaffected: the integration patches
+  `logging.Logger.callHandlers` instead of attaching a root handler, so wiping the root
+  handlers does not unhook it.
 - **Uploaded files are not cleaned up on failure.** After a successful `files.upload`,
   `GeminiHelper.upload_and_wait_for_file` raises on three paths — missing name, `FAILED`
   state, the uri/mime guard — and deletes nothing. Deliberate, not a leak: both callers
