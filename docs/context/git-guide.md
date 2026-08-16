@@ -73,10 +73,16 @@ time. Leaving `version` unset would fall through to `latest` — the project pin
 `pyproject.toml` and has no `.tool-versions` — which resolves over the API and skips that checksum.
 Do not "upgrade" it to `latest`.
 
-`enable-cache: true` is also explicit in both. Since v10 the default is `auto`, which caches on
+`enable-cache: "auto"` is spelled out in both, which is also the v10 default — written explicitly so
+the choice is visible at the call site and survives a future change of default. `auto` caches on
 GitHub-hosted runners *except* on `release`, tag-push, `pull_request_target`, and `workflow_run`
-events (cache-poisoning guard). Neither workflow uses those triggers, except that `codecov.yml` runs
-on bare `on: push`, so it also fires on tag pushes — where the explicit `true` opts back into
-caching that `auto` would have skipped. Harmless here (no untrusted input reaches those runs), but
-drop the line and take `auto` if that ever changes. No `cache-dependency-glob` is needed: the default
-already covers `uv.lock` and `pyproject.toml`.
+events. That exclusion is a cache-poisoning guard: those events run with the base repo's permissions
+or produce published artifacts, so a cache entry written by a less-trusted run must not flow into
+them. **Do not set `enable-cache: true`** — it opts out of the guard for no gain. The only run it
+would change today is `codecov.yml` on a tag push (its trigger is bare `on: push`), and skipping the
+cache there costs a few seconds of cold install.
+
+The uv cache is a real trust boundary, not just a speed knob: `uv sync` verifies downloads against
+the hashes in `uv.lock`, but a restored cache holds *already-unpacked* wheels that are not re-checked
+against those hashes. No `cache-dependency-glob` is needed — the default already covers `uv.lock` and
+`pyproject.toml`.
