@@ -63,3 +63,20 @@ expected; see `docs/context/uv-guide.md`.
 **Ruff:** the hooks auto-fix and format, so no manual run is needed. They see only your staged files — a green commit is not a green tree, and only CI sweeps the rest.
 
 **Always `@latest`:** every uvx call site pins it — both ruff hooks, the `ty` hook, and `.github/workflows/typechecking.yml`. Bare `uvx <tool>` reuses a `uv tool install`ed copy that may lag behind CI.
+
+## CI Workflows
+
+`astral-sh/setup-uv` is pinned to `version: "latest-known"` in `typechecking.yml` and `codecov.yml`.
+That is deliberate and different from the uvx rule above: `latest-known` installs the newest uv whose
+checksum ships inside the action, so the install is verified and needs no GitHub API lookup at run
+time. Leaving `version` unset would fall through to `latest` — the project pins no uv version in
+`pyproject.toml` and has no `.tool-versions` — which resolves over the API and skips that checksum.
+Do not "upgrade" it to `latest`.
+
+`enable-cache: true` is also explicit in both. Since v10 the default is `auto`, which caches on
+GitHub-hosted runners *except* on `release`, tag-push, `pull_request_target`, and `workflow_run`
+events (cache-poisoning guard). Neither workflow uses those triggers, except that `codecov.yml` runs
+on bare `on: push`, so it also fires on tag pushes — where the explicit `true` opts back into
+caching that `auto` would have skipped. Harmless here (no untrusted input reaches those runs), but
+drop the line and take `auto` if that ever changes. No `cache-dependency-glob` is needed: the default
+already covers `uv.lock` and `pyproject.toml`.
