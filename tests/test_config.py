@@ -3,6 +3,7 @@ import logging
 from typing import get_args
 
 from pydantic_ai.settings import ThinkingEffort
+from sentry_sdk.integrations.logging import LoggingIntegration
 
 import config
 import utils
@@ -86,6 +87,21 @@ def test_log_level_falls_back_on_non_level_attribute(monkeypatch):
         importlib.reload(config)
         assert config.NUMERIC_LOG_LEVEL == logging.ERROR
     importlib.reload(config)
+
+
+def test_sentry_opts_into_log_collection(mocker):
+    """Test Sentry is initialized with log auto-collection switched on.
+
+    sentry-sdk 2.68.0 made `enable_logs` a no-op and left LoggingIntegration's
+    `capture_sentry_logs` off by default, so the opt-in is the only thing
+    sending this project's log records to Sentry. Dropping it breaks nothing
+    loudly — the logs just stop arriving — which is what this pins.
+    """
+    mock_init = mocker.patch("sentry_sdk.init")
+    importlib.reload(config)
+    integrations = mock_init.call_args.kwargs["integrations"]
+    assert [type(i) for i in integrations] == [LoggingIntegration]
+    assert integrations[0].capture_sentry_logs is True
 
 
 def test_langfuse_disabled_when_keys_blank(monkeypatch):

@@ -16,6 +16,7 @@ from limits.storage import RedisStorage
 from limits.strategies import FixedWindowRateLimiter
 from pydantic_ai import Agent
 from pydantic_ai.providers.openrouter import OpenRouterProvider
+from sentry_sdk.integrations.logging import LoggingIntegration
 from tavily import TavilyClient
 
 if os.environ.get("ENV") != "PROD":
@@ -25,9 +26,12 @@ if os.environ.get("ENV") != "PROD":
 
 
 # Sentry.io config
+# capture_sentry_logs, off by default, is what forwards stdlib logging records
+# to Sentry Logs; sentry-sdk 2.68.0 made the enable_logs switch that used to do
+# it a no-op.
 sentry_sdk.init(
     dsn=os.environ["SENTRY_DSN"],
-    enable_logs=True,
+    integrations=[LoggingIntegration(capture_sentry_logs=True)],
 )
 
 # Logging
