@@ -183,8 +183,8 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a1/93/72b1736d68f03fda5fdf0f2180fb6caaae3894f1b854d006ac61ecc727ee/frozenlist-1.8.0-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/a5/54/12ed58d458474aaab5c3d180173e745a4fe131bb330370596876d19ff60f/mako-1.4.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a6/0e/49df70d9b81fb5cbae4bbf2a49d865b09bcbcbc4eb53f5851b1027738d78/opentelemetry_semantic_conventions-0.65b0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/a7/81/723a8f4fcf6d195a2a18572d3e147b7c0af202685977c81449f19659ebfc/pytelegrambotapi-4.36.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/5d/c9ab3534374a4a67450696905d6ef16a04405448b8dc52bd752ae50423d4/watchfiles-1.2.0-cp314-cp314-macosx_11_0_arm64.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/8a/f119aff83a7dd4570f6d6e9fa85bde75388d1574f43b8f656cee0d7ddcaf/pytelegrambotapi-4.36.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ab/ee/bc49efc4a773a36afb70a9db6c9ce0f73bec64e47e7097598c90c161b1bf/telegramify_markdown-1.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/1f/8970b150a4b4365623ae00fc88603491f763c627311ae8031e3111356d6e/pydantic_core-2.46.4-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/b3/31/0916d9cebf848ed3f1a0c1888faee421747df77331e4db2bc527a9a85988/wrapt-2.3.0-cp314-cp314-macosx_11_0_arm64.whl
@@ -396,8 +396,8 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a1/93/72b1736d68f03fda5fdf0f2180fb6caaae3894f1b854d006ac61ecc727ee/frozenlist-1.8.0-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/a5/54/12ed58d458474aaab5c3d180173e745a4fe131bb330370596876d19ff60f/mako-1.4.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a6/0e/49df70d9b81fb5cbae4bbf2a49d865b09bcbcbc4eb53f5851b1027738d78/opentelemetry_semantic_conventions-0.65b0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/a7/81/723a8f4fcf6d195a2a18572d3e147b7c0af202685977c81449f19659ebfc/pytelegrambotapi-4.36.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/5d/c9ab3534374a4a67450696905d6ef16a04405448b8dc52bd752ae50423d4/watchfiles-1.2.0-cp314-cp314-macosx_11_0_arm64.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/8a/f119aff83a7dd4570f6d6e9fa85bde75388d1574f43b8f656cee0d7ddcaf/pytelegrambotapi-4.36.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ab/ee/bc49efc4a773a36afb70a9db6c9ce0f73bec64e47e7097598c90c161b1bf/telegramify_markdown-1.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/1f/8970b150a4b4365623ae00fc88603491f763c627311ae8031e3111356d6e/pydantic_core-2.46.4-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/b3/31/0916d9cebf848ed3f1a0c1888faee421747df77331e4db2bc527a9a85988/wrapt-2.3.0-cp314-cp314-macosx_11_0_arm64.whl
@@ -592,7 +592,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a1/42/fda259cd11f88eb0ce7e54ee6a29011c0dd6a0af474403a2bb32d5dddb79/pydantic_ai_slim-2.29.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a1/93/72b1736d68f03fda5fdf0f2180fb6caaae3894f1b854d006ac61ecc727ee/frozenlist-1.8.0-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/a6/0e/49df70d9b81fb5cbae4bbf2a49d865b09bcbcbc4eb53f5851b1027738d78/opentelemetry_semantic_conventions-0.65b0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/a7/81/723a8f4fcf6d195a2a18572d3e147b7c0af202685977c81449f19659ebfc/pytelegrambotapi-4.36.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/8a/f119aff83a7dd4570f6d6e9fa85bde75388d1574f43b8f656cee0d7ddcaf/pytelegrambotapi-4.36.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ab/ee/bc49efc4a773a36afb70a9db6c9ce0f73bec64e47e7097598c90c161b1bf/telegramify_markdown-1.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/1f/8970b150a4b4365623ae00fc88603491f763c627311ae8031e3111356d6e/pydantic_core-2.46.4-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/b3/31/0916d9cebf848ed3f1a0c1888faee421747df77331e4db2bc527a9a85988/wrapt-2.3.0-cp314-cp314-macosx_11_0_arm64.whl
@@ -803,8 +803,8 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/a1/93/72b1736d68f03fda5fdf0f2180fb6caaae3894f1b854d006ac61ecc727ee/frozenlist-1.8.0-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/a5/54/12ed58d458474aaab5c3d180173e745a4fe131bb330370596876d19ff60f/mako-1.4.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a6/0e/49df70d9b81fb5cbae4bbf2a49d865b09bcbcbc4eb53f5851b1027738d78/opentelemetry_semantic_conventions-0.65b0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/a7/81/723a8f4fcf6d195a2a18572d3e147b7c0af202685977c81449f19659ebfc/pytelegrambotapi-4.36.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/aa/5d/c9ab3534374a4a67450696905d6ef16a04405448b8dc52bd752ae50423d4/watchfiles-1.2.0-cp314-cp314-macosx_11_0_arm64.whl
+      - pypi: https://files.pythonhosted.org/packages/aa/8a/f119aff83a7dd4570f6d6e9fa85bde75388d1574f43b8f656cee0d7ddcaf/pytelegrambotapi-4.36.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ab/ee/bc49efc4a773a36afb70a9db6c9ce0f73bec64e47e7097598c90c161b1bf/telegramify_markdown-1.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ad/1f/8970b150a4b4365623ae00fc88603491f763c627311ae8031e3111356d6e/pydantic_core-2.46.4-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/b3/31/0916d9cebf848ed3f1a0c1888faee421747df77331e4db2bc527a9a85988/wrapt-2.3.0-cp314-cp314-macosx_11_0_arm64.whl
@@ -2345,7 +2345,7 @@ packages:
   - opentelemetry-api==1.44.0
   - psycopg2-binary==2.9.12
   - pydantic-ai-slim[google,openrouter]==2.29.0
-  - pytelegrambotapi==4.36.0
+  - pytelegrambotapi==4.36.1
   - redis==8.1.0
   - replicate==1.0.7
   - sentry-sdk==2.68.0
@@ -3165,10 +3165,17 @@ packages:
   - opentelemetry-api==1.44.0
   - typing-extensions>=4.5.0
   requires_python: '>=3.10'
-- pypi: https://files.pythonhosted.org/packages/a7/81/723a8f4fcf6d195a2a18572d3e147b7c0af202685977c81449f19659ebfc/pytelegrambotapi-4.36.0-py3-none-any.whl
+- pypi: https://files.pythonhosted.org/packages/aa/5d/c9ab3534374a4a67450696905d6ef16a04405448b8dc52bd752ae50423d4/watchfiles-1.2.0-cp314-cp314-macosx_11_0_arm64.whl
+  name: watchfiles
+  version: 1.2.0
+  sha256: 9f04b092229ad2c50126dd3c922c8822e51e605993764a33058d4a791ab42281
+  requires_dist:
+  - anyio>=3.0.0
+  requires_python: '>=3.10'
+- pypi: https://files.pythonhosted.org/packages/aa/8a/f119aff83a7dd4570f6d6e9fa85bde75388d1574f43b8f656cee0d7ddcaf/pytelegrambotapi-4.36.1-py3-none-any.whl
   name: pytelegrambotapi
-  version: 4.36.0
-  sha256: 641f1f598468732f5b4f4d75fb75654d80c67eaf390a3678706567eb60574c1c
+  version: 4.36.1
+  sha256: 2a3524c553ea7363d1b6d9ab4557f9cd9adb037642287687cdf05e158d670767
   requires_dist:
   - aiohttp
   - requests
@@ -3180,13 +3187,6 @@ packages:
   - redis>=3.4.1 ; extra == 'redis'
   - uvicorn ; extra == 'uvicorn'
   - watchdog ; extra == 'watchdog'
-  requires_python: '>=3.10'
-- pypi: https://files.pythonhosted.org/packages/aa/5d/c9ab3534374a4a67450696905d6ef16a04405448b8dc52bd752ae50423d4/watchfiles-1.2.0-cp314-cp314-macosx_11_0_arm64.whl
-  name: watchfiles
-  version: 1.2.0
-  sha256: 9f04b092229ad2c50126dd3c922c8822e51e605993764a33058d4a791ab42281
-  requires_dist:
-  - anyio>=3.0.0
   requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/ab/ee/bc49efc4a773a36afb70a9db6c9ce0f73bec64e47e7097598c90c161b1bf/telegramify_markdown-1.2.0-py3-none-any.whl
   name: telegramify-markdown

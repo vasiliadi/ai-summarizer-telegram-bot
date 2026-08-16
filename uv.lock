@@ -69,7 +69,7 @@ requires-dist = [
     { name = "opentelemetry-api", specifier = "==1.44.0" },
     { name = "psycopg2-binary", specifier = "==2.9.12" },
     { name = "pydantic-ai-slim", extras = ["google", "openrouter"], specifier = "==2.29.0" },
-    { name = "pytelegrambotapi", specifier = "==4.36.0" },
+    { name = "pytelegrambotapi", specifier = "==4.36.1" },
     { name = "redis", specifier = "==8.1.0" },
     { name = "replicate", specifier = "==1.0.7" },
     { name = "sentry-sdk", specifier = "==2.68.0" },
@@ -1625,15 +1625,15 @@ wheels = [
 
 [[package]]
 name = "pytelegrambotapi"
-version = "4.36.0"
+version = "4.36.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a3/59/064f6a0d7e558d82fd7f7f1166d59f0a79da0322ea3c1209dbb01b97911d/pytelegrambotapi-4.36.0.tar.gz", hash = "sha256:61f95af4d94ee066fca3c793d9bf908164555d76d7dd4f0feaabdc32d9f0d374", size = 1406737, upload-time = "2026-07-18T09:03:42.685Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b6/61/a342a1e13206e99b4cf9fd7ecf109c589bd2ad4b4d0ea7b8859750a7c3c6/pytelegrambotapi-4.36.1.tar.gz", hash = "sha256:1baa4154452cf93e654e74f3cb2800d5a2e8b11018c2fff45b247b7e6a7fb027", size = 1407140, upload-time = "2026-08-13T17:27:57.99Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a7/81/723a8f4fcf6d195a2a18572d3e147b7c0af202685977c81449f19659ebfc/pytelegrambotapi-4.36.0-py3-none-any.whl", hash = "sha256:641f1f598468732f5b4f4d75fb75654d80c67eaf390a3678706567eb60574c1c", size = 334354, upload-time = "2026-07-18T09:03:41.027Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/8a/f119aff83a7dd4570f6d6e9fa85bde75388d1574f43b8f656cee0d7ddcaf/pytelegrambotapi-4.36.1-py3-none-any.whl", hash = "sha256:2a3524c553ea7363d1b6d9ab4557f9cd9adb037642287687cdf05e158d670767", size = 334956, upload-time = "2026-08-13T17:27:56.302Z" },
 ]
 
 [[package]]
