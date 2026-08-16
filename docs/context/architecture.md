@@ -330,3 +330,32 @@ to Gemini — return the raw model text with **no** prefix.
   character's share: the observed failures repeat a multi-character sequence, so one of the two
   sat at 27% on its most common character and slipped a 30% threshold, while both compress to
   ~0.03 of their size against ~0.14 for the densest real item.
+- **Tier 1 scoring is binary sub-checks, never weighted points.** Every rule in `prompts.py` is
+  stated as an absolute — "Respond in {language}" has no 60%-credit reading — so a weighted
+  composite would invent numbers and hide *which* rule broke, which is the only thing the
+  screening stage needs to know. The Langfuse code evaluator `tier1-deterministic` emits
+  `t1_language_match`, `t1_no_preamble`, `t1_no_artifacts`, `t1_bullet_count`,
+  `t1_bullet_purity` (all BOOLEAN), `t1_compression` (NUMERIC) and the derived `t1_pass`, which
+  ANDs the applicable binary checks. Screening drops a model scoring `t1_pass` on under 70% of
+  items. Four judgements inside it are deliberate:
+  - The language check passes at **70%** Cyrillic among letter characters, not 95%. A correct
+    Russian summary carries Latin proper nouns (`ChatGPT`, `macOS`, `Codex`), and a stricter
+    floor fails good output while adding nothing against a model that answered in English.
+  - `t1_compression` is a **diagnostic with no threshold**. Judges reward length, so the length
+    column belongs beside every quality score; gating on it would let a model win by truncating.
+  - The two bullet checks are emitted **only** for `key_points_for_transcript`, which is the
+    only strategy that asks for bullets. Scoring `basic_prompt_for_transcript` zero there would
+    penalise it for obeying its own prompt. The consequence is that `t1_pass` ANDs three checks
+    for one strategy and five for the other, so it ranks models **within** a strategy and must
+    never be used to compare the two strategies — that is Tier 3's job.
+  - Bullet count and bullet purity stay separate scores because "produced 3 bullets" and
+    "produced 5 bullets plus a closing paragraph" are different failures with different fixes.
+
+  Installing a code evaluator through the unstable API has a shape trap worth keeping: on
+  `POST /unstable/evaluators` the `prompt` and `outputDefinition` fields are llm-as-judge-only
+  and are rejected outright for `type=code`, while on `POST /unstable/evaluation-rules` the
+  evaluator reference needs `type: "code"` and `mapping` must be **omitted entirely** — an
+  empty array is rejected just as a populated one is, and leaving `type` off makes the request
+  validate as llm-as-judge and demand a mapping. The rule's own preflight is what first
+  executes the source, so a rule that comes back `status: "active"` is the confirmation the
+  code runs.
