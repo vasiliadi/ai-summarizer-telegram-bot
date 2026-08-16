@@ -314,11 +314,19 @@ to Gemini — return the raw model text with **no** prefix.
   `metadata`, not `input`: an experiment picks one prompt and runs it over every item, so the
   originating trace's strategy fills no variable and would sit in `input` as a dead key.
   The trap when harvesting: a trace's tag is the **Telegram** `content_type`, which is `text`
-  for a URL as much as for a pasted paragraph. A YouTube link, a web article and a
-  Replicate-rescued transcript are therefore all tagged `text`, and no field distinguishes
-  them — the stratum has to be inferred from the content, where a transcript's hard-wrapped
-  ~34-character lines separate it from an article's single blob. Two screening filters earn
-  their keep on real traffic: content under ~1500 characters, and single-character-repetition
-  runs, which is what `AudioTranscriber.transcribe` produces when WhisperX mis-decodes audio —
-  a distinct failure from the documented empty-transcript case, and one that reaches the model
-  as content rather than being dropped.
+  for a URL as much as for a pasted paragraph. A YouTube transcript, a web article and a
+  Replicate-rescued audio transcript are therefore all tagged `text`, and no field
+  distinguishes them — the stratum has to be inferred from the content, by **two** tests, not
+  one. A YouTube transcript arrives in subtitle format, hard-wrapped to ~34-character lines.
+  The other two are both single blobs, so line width cannot separate them; what does is that
+  `parsing.py` returns markup (Exa HTML, Tavily markdown) while WhisperX returns its segments
+  joined into plain prose with a leading space. Testing only for wrapping silently files every
+  audio transcript under `web_article`, which is a stratum label that looks plausible in the
+  UI and is wrong.
+  Two screening filters earn their keep on real traffic: content under ~1500 characters, and
+  degenerate output from `AudioTranscriber.transcribe` when WhisperX mis-decodes audio — a
+  distinct failure from the documented empty-transcript case, and one that reaches the model
+  as content rather than being dropped. Detect it by **compression ratio**, not by any single
+  character's share: the observed failures repeat a multi-character sequence, so one of the two
+  sat at 27% on its most common character and slipped a 30% threshold, while both compress to
+  ~0.03 of their size against ~0.14 for the densest real item.
