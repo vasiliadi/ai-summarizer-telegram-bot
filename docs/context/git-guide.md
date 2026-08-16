@@ -66,12 +66,22 @@ expected; see `docs/context/uv-guide.md`.
 
 ## CI Workflows
 
-`astral-sh/setup-uv` is pinned to `version: "latest-known"` in `typechecking.yml` and `codecov.yml`.
-That is deliberate and different from the uvx rule above: `latest-known` installs the newest uv whose
-checksum ships inside the action, so the install is verified and needs no GitHub API lookup at run
-time. Leaving `version` unset would fall through to `latest` — the project pins no uv version in
-`pyproject.toml` and has no `.tool-versions` — which resolves over the API and skips that checksum.
-Do not "upgrade" it to `latest`.
+`astral-sh/setup-uv` is pinned to `version: "latest-known"` in `typechecking.yml` and `codecov.yml`,
+deliberately and unlike the uvx rule above. Left unset, `version` searches for a pinned uv in
+`uv.toml` then `pyproject.toml` and falls through to `latest`; this project pins none — no
+`required-version` under `[tool.uv]`, no `.tool-versions` — so `latest` is what both workflows would
+otherwise get.
+
+What separates the two is **checksum verification, not where the version number comes from**. Both
+read the same `astral-sh/versions` manifest, and `latest-known` still fetches it for the download
+URL, so neither saves a network round-trip. The action verifies a download against `KNOWN_CHECKSUMS`,
+a table baked into the action at the commit you pinned — and when the version is absent from that
+table it **silently skips verification**: `validateChecksum` logs at debug level and returns
+(`src/download/checksum/checksum.ts`, v10.0.0). It will not fall back to the manifest's own `sha256`
+either; `download-version.ts` forwards that value only when a custom `manifest-url` is set, which we
+do not set. `latest-known` resolves to the newest version *inside* the table, so a checksum always
+exists. `latest` resolves to the newest published uv — exactly the case the table cannot cover once
+uv releases past the pinned action, which is most of the time. Do not "upgrade" it to `latest`.
 
 `enable-cache: "auto"` is spelled out in both, which is also the v10 default — written explicitly so
 the choice is visible at the call site and survives a future change of default. `auto` caches on
