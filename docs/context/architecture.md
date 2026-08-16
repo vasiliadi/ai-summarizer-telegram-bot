@@ -305,3 +305,20 @@ to Gemini — return the raw model text with **no** prefix.
   run cannot mix target languages, and Langfuse then refuses to delete it while any dependent
   version survives. Storing `prompt_version(prompt_key)` in the prompt's `config` is what ties
   a Langfuse version back to the repo revision it was copied from; nothing else records it.
+- **Evaluation datasets are built from traces, and the content type is not one of the fields.**
+  Two Langfuse datasets hold screened trace content: `summarization-screen-v1` (25 items) is a
+  strict subset of `summarization-compare-v1` (50), so the per-item key-facts checklist that
+  serves as `expected_output` is written once rather than twice. Item `input` is
+  `{content, target_language}` and nothing else — those are the two prompt variables, and an
+  `inputSchema` on both datasets rejects an item missing either. `prompt_key` rides in
+  `metadata`, not `input`: an experiment picks one prompt and runs it over every item, so the
+  originating trace's strategy fills no variable and would sit in `input` as a dead key.
+  The trap when harvesting: a trace's tag is the **Telegram** `content_type`, which is `text`
+  for a URL as much as for a pasted paragraph. A YouTube link, a web article and a
+  Replicate-rescued transcript are therefore all tagged `text`, and no field distinguishes
+  them — the stratum has to be inferred from the content, where a transcript's hard-wrapped
+  ~34-character lines separate it from an article's single blob. Two screening filters earn
+  their keep on real traffic: content under ~1500 characters, and single-character-repetition
+  runs, which is what `AudioTranscriber.transcribe` produces when WhisperX mis-decodes audio —
+  a distinct failure from the documented empty-transcript case, and one that reaches the model
+  as content rather than being dropped.
