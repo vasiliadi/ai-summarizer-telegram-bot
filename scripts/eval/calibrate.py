@@ -5,9 +5,9 @@ ranking means anything until this passes, so it runs *before* the compare stage
 rather than after.
 
     python scripts/eval/calibrate.py sample      # free: show the fixed sample
-    python scripts/eval/calibrate.py setup       # free: score configs + queue
-    python scripts/eval/calibrate.py pairs       # free: side-by-side to label
-    python scripts/eval/calibrate.py labels <md> # free: ingest pairwise labels
+    python scripts/eval/calibrate.py setup       # free: create the score configs
+    python scripts/eval/calibrate.py files       # free: write both label files
+    python scripts/eval/calibrate.py labels      # free: ingest both label files
     python scripts/eval/calibrate.py judge       # COSTS MONEY
     python scripts/eval/calibrate.py agreement   # free: accuracy + kappa
 
@@ -15,16 +15,22 @@ The judge prompts and schemas are imported from `judge.py` and never restated.
 Calibration has to measure the prompt production actually uses; a copy here
 would drift and the agreement number would describe nothing.
 
-**Two label channels, because a queue item is one object.** Faithfulness is a
-per-summary judgement, so it goes through a Langfuse annotation queue and the
-labels land in the same score table as everything else. Pairwise needs two
-summaries side by side, which no single queue item can show — the same
-constraint that stopped Tier 3 being an evaluator — so it is labelled in a
-generated markdown file and ingested with `labels`.
+**Both dimensions are labelled in generated files, not in a Langfuse annotation
+queue**, and that is a correctness requirement rather than a preference. A queue
+item points at one stored object, and the object holding a summary is the
+generation observation — whose output is the model's reply *as parts*, with a
+reasoning model putting a `thinking` part in front of the `text` one. Annotating
+that shows a different artefact than the judge scores, and exposes the model's
+private reasoning, which the judge never sees. Agreement between two readers
+looking at different things measures nothing. The files carry exactly the text
+the judge is handed.
 
-Queue items point at the **generation observation**, not the trace. Trace-level
-input/output is deprecated and nothing in this project sets it, so a TRACE item
-would open empty in the annotation UI.
+Pairwise could not have used a queue in any case: it needs two summaries side by
+side, the same constraint that stopped Tier 3 being an evaluator.
+
+Labels still land in the same Langfuse score table as the `t1_*` scores, posted
+through the scores API, so the comparison stays a query rather than a
+spreadsheet.
 
 The sample is derived, not stored: items are sorted by id and dealt round-robin
 across the screening runs, so re-running `sample` reproduces it exactly. That
@@ -50,7 +56,6 @@ import judge
 import stage1
 
 SCREEN = stage1.SCREEN
-QUEUE_NAME = "calibration-faithfulness-v1"
 
 # The pairwise duel worth calibrating on: Tier 1 cannot tell these two apart,
 # while one costs several times the other, so this is the comparison a ranking
@@ -64,7 +69,12 @@ H_FAITHFUL, C_FAITHFUL = "h_faithful", "cal_faithful"
 H_PAIRWISE, C_PAIRWISE = "h_pairwise", "cal_pairwise"
 
 PAIRWISE_CATEGORIES = ("A", "B", "TIE")
-LABELS_FILE = REPO / "docs" / "summaries" / "calibration-pairwise.md"
+TRUE_WORDS = {"TRUE", "YES", "T", "Y"}
+FALSE_WORDS = {"FALSE", "NO", "F", "N"}
+
+LABELS_DIR = REPO / "docs" / "summaries"
+LABELS_PAIRWISE = LABELS_DIR / "calibration-pairwise.md"
+LABELS_FAITHFUL = LABELS_DIR / "calibration-faithful.md"
 
 
 def _runs():
@@ -154,29 +164,6 @@ def cmd_sample():
     print(f"\npairwise: {len(pairwise)} pairs — A={PAIR_A}  B={PAIR_B}")
 
 
-def _observation_ids(trace_ids):
-    """Trace id -> its generation observation id.
-
-    A queue item must point at the observation: trace-level input/output is
-    deprecated and unset here, so a TRACE item shows the annotator nothing.
-    """
-    wanted = set(trace_ids)
-    found = {}
-    rows = API.paginate(
-        "v2/observations",
-        {
-            "type": "GENERATION",
-            "fields": "core",
-            "fromStartTime": "2026-08-17T00:00:00Z",
-            "limit": 100,
-        },
-    )
-    for row in rows:
-        if row["traceId"] in wanted:
-            found.setdefault(row["traceId"], row["id"])
-    return found
-
-
 def _post(path, body):
     response = requests.post(
         f"{API.base}/api/public/{path}",
@@ -191,7 +178,13 @@ def _post(path, body):
 
 
 def setup():
-    """Create the score configs and the faithfulness annotation queue."""
+    """Create the four score configs.
+
+    Scores post fine without a config, but a config is what gives each channel
+    its type and a description in the UI, so a label read months later still
+    says what question it answered. No annotation queue is created — see the
+    module docstring for why the labelling happens in files.
+    """
     existing = {c["name"]: c for c in API.paginate("score-configs", {"limit": 100})}
 
     def config(name, data_type, description, categories=None):
@@ -207,7 +200,7 @@ def setup():
         print(f"  created score config: {name}")
         return created["id"]
 
-    human_id = config(
+    config(
         H_FAITHFUL,
         "BOOLEAN",
         "Human: does every claim in the summary hold up against the source? "
@@ -233,45 +226,85 @@ def setup():
         PAIRWISE_CATEGORIES,
     )
 
-    queues = {q["name"]: q for q in API.paginate("annotation-queues", {"limit": 100})}
-    if QUEUE_NAME in queues:
-        queue_id = queues[QUEUE_NAME]["id"]
-        print(f"  queue exists: {QUEUE_NAME}")
-    else:
-        queue_id = _post(
-            "annotation-queues",
-            {
-                "name": QUEUE_NAME,
-                "description": (
-                    "Hand labels for judge calibration. One generation per item: "
-                    "read the source and the summary, then set h_faithful."
-                ),
-                "scoreConfigIds": [human_id],
-            },
-        )["id"]
-        print(f"  created queue: {QUEUE_NAME}")
+    print("\nscore configs ready; write the label files with `calibrate.py files`")
 
-    faithful, _, _ = sample()
-    obs = _observation_ids([r["trace"] for r in faithful])
-    added = 0
+
+def _source_block(source):
+    return [
+        f"<details><summary>source ({len(source):,} chars)</summary>",
+        "",
+        "```",
+        source[:8000],
+        "```",
+        "",
+        "</details>",
+        "",
+    ]
+
+
+def _faithful_file(faithful, sources):
+    """Write the faithfulness labelling document.
+
+    **The summary here is the text the judge is given, and that is the point.**
+    A generation observation stores the model's reply as parts, and a reasoning
+    model puts a `thinking` part in front of the `text` one — so annotating the
+    observation directly shows a different artefact than the judge scores, and
+    shows the model's private reasoning besides, which the judge never sees.
+    Agreement between two people reading different things measures nothing.
+    """
+    lines = [
+        "# Faithfulness calibration labels",
+        "",
+        "For each item: **does the summary assert anything the source does not",
+        "support?** Write `false` on the verdict line if it does, `true` if every",
+        "claim holds up.",
+        "",
+        "Three things are **not** unfaithfulness, and are the easy ones to get",
+        "wrong:",
+        "",
+        "- **Omission.** A summary may leave out half the source and still be",
+        "  `true`. Completeness is a different metric.",
+        "- **Translation.** The summary is Russian, the source often is not. A",
+        "  faithful translation of a supported claim is supported.",
+        "- **Rewording, condensing, reordering.** Not violations.",
+        "",
+        "Unfaithful means: an invented name, number, date or quotation; a causal",
+        "link the source never draws; words attributed to the wrong speaker; a",
+        "specific detail where the source was vague.",
+        "",
+        "The summaries below are exactly what the judge is given — no reasoning,",
+        "no metadata.",
+        "",
+        (
+            "Then: `uv run python scripts/eval/calibrate.py labels`  "
+            "(reads both label files)"
+        ),
+        "",
+        "---",
+        "",
+    ]
     for row in faithful:
-        observation = obs.get(row["trace"])
-        if not observation:
-            print(f"  no generation found for item {row['item']} — skipped")
-            continue
-        _post(
-            f"annotation-queues/{queue_id}/items",
-            {"objectId": observation, "objectType": "OBSERVATION"},
-        )
-        added += 1
-    print(f"\n{added} items queued in {QUEUE_NAME}")
-    print(f"Label them at {API.base} -> Annotation Queues -> {QUEUE_NAME}")
+        lines += [
+            f"## {row['item']}",
+            "",
+            *_source_block(sources.get(row["item"], "")),
+            "### summary",
+            "",
+            row["summary"],
+            "",
+            "verdict: ",
+            "",
+            "---",
+            "",
+        ]
+    LABELS_FAITHFUL.write_text("\n".join(lines), encoding="utf-8")
+    return len(faithful)
 
 
-def pairs():
-    """Write the side-by-side markdown for hand-labelling the pairwise duel."""
-    _, pairwise, sources = sample()
-    LABELS_FILE.parent.mkdir(parents=True, exist_ok=True)
+def files():
+    """Write both hand-labelling documents."""
+    faithful, pairwise, sources = sample()
+    LABELS_DIR.mkdir(parents=True, exist_ok=True)
     lines = [
         "# Pairwise calibration labels",
         "",
@@ -286,26 +319,18 @@ def pairs():
         "neither is meaningfully better, not to avoid a hard call.",
         "",
         (
-            "Then: `uv run python scripts/eval/calibrate.py labels "
-            f"{LABELS_FILE.relative_to(REPO)}`"
+            "Then: `uv run python scripts/eval/calibrate.py labels`  "
+            "(reads both label files)"
         ),
         "",
         "---",
         "",
     ]
     for row in pairwise:
-        source = sources.get(row["item"], "")
         lines += [
             f"## {row['item']}",
             "",
-            f"<details><summary>source ({len(source):,} chars)</summary>",
-            "",
-            "```",
-            source[:8000],
-            "```",
-            "",
-            "</details>",
-            "",
+            *_source_block(sources.get(row["item"], "")),
             "### A",
             "",
             row["b"] if row["flipped"] else row["a"],
@@ -319,48 +344,78 @@ def pairs():
             "---",
             "",
         ]
-    LABELS_FILE.write_text("\n".join(lines), encoding="utf-8")
-    print(f"{len(pairwise)} pairs written to {LABELS_FILE}")
-    print("Fill in every `verdict:` line, then run `calibrate.py labels`.")
+    LABELS_PAIRWISE.write_text("\n".join(lines), encoding="utf-8")
+    n_faithful = _faithful_file(faithful, sources)
+    print(f"{n_faithful} summaries written to {LABELS_FAITHFUL}")
+    print(f"{len(pairwise)} pairs written to {LABELS_PAIRWISE}")
+    print("Fill in every `verdict:` line in both, then run `calibrate.py labels`.")
 
 
-def labels(path):
-    """Ingest hand-written pairwise verdicts and post them as scores."""
-    _, pairwise, _ = sample()
-    traces = {r["item"]: r["trace"] for r in pairwise}
-    flipped = {r["item"]: r["flipped"] for r in pairwise}
+def _read_verdicts(path, known, accept):
+    """Item id -> verdict, for the items named in `known`.
 
-    text = Path(path).read_text(encoding="utf-8")
+    Only a heading naming a known item starts a block. The summaries being
+    labelled are themselves markdown and do contain `## ` headings, so matching
+    the prefix alone would silently reattribute a verdict to a heading the model
+    wrote — and a dropped label reads as an unlabelled item, not as an error.
+    """
+    if not Path(path).exists():
+        print(f"  {path} not found — skipped")
+        return {}
     verdicts, item = {}, None
-    for line in text.splitlines():
-        # Only a heading naming a known item starts a new block. The summaries
-        # being labelled are themselves markdown and do contain `## ` headings,
-        # so matching the prefix alone would silently reattribute a verdict to a
-        # heading the model wrote — and a dropped label looks like an unlabelled
-        # item rather than an error.
-        if line.startswith("## ") and line[3:].strip() in traces:
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if line.startswith("## ") and line[3:].strip() in known:
             item = line[3:].strip()
         elif line.startswith("verdict:") and item:
-            value = line[len("verdict:") :].strip().upper()
-            if value in PAIRWISE_CATEGORIES:
+            raw = line[len("verdict:") :].strip().upper()
+            value = accept(raw)
+            if value is not None:
                 verdicts[item] = value
-            elif value:
-                print(f"  {item}: unrecognised verdict {value!r} — skipped")
+            elif raw:
+                print(f"  {item}: unrecognised verdict {raw!r} — skipped")
             item = None
-    missing = [r["item"] for r in pairwise if r["item"] not in verdicts]
-    if missing:
-        print(f"{len(missing)} pair(s) still unlabelled: {', '.join(missing[:5])}")
-        if len(missing) == len(pairwise):
-            sys.exit("nothing to post")
+    return verdicts
+
+
+def labels():
+    """Ingest both hand-labelling files and post the verdicts as scores."""
+    faithful, pairwise, _ = sample()
+    client = Langfuse()
+
+    # --- faithfulness ---
+    f_traces = {r["item"]: r["trace"] for r in faithful}
+    f_verdicts = _read_verdicts(
+        LABELS_FAITHFUL,
+        f_traces,
+        lambda raw: (
+            True if raw in TRUE_WORDS else (False if raw in FALSE_WORDS else None)
+        ),
+    )
+    for item_id, value in f_verdicts.items():
+        client.create_score(
+            name=H_FAITHFUL,
+            value=value,
+            data_type="BOOLEAN",
+            trace_id=f_traces[item_id],
+            metadata={"dataset_item_id": item_id},
+        )
+    unlabelled = len(faithful) - len(f_verdicts)
+    print(f"faithfulness: {len(f_verdicts)} posted, {unlabelled} still unlabelled")
+
+    # --- pairwise ---
+    traces = {r["item"]: r["trace"] for r in pairwise}
+    flipped = {r["item"]: r["flipped"] for r in pairwise}
+    verdicts = _read_verdicts(
+        LABELS_PAIRWISE,
+        traces,
+        lambda raw: raw if raw in PAIRWISE_CATEGORIES else None,
+    )
 
     # The file is blind: its A is whichever model `_flipped` put on the left.
     # Verdicts are stored canonically, A meaning PAIR_A always, so a human label
     # and a judge label are the same kind of statement and can be compared.
     unflip = {"A": "B", "B": "A", "TIE": "TIE"}
-    client = Langfuse()
     for item_id, shown in verdicts.items():
-        if item_id not in traces:
-            continue
         value = unflip[shown] if flipped[item_id] else shown
         client.create_score(
             name=H_PAIRWISE,
@@ -376,7 +431,8 @@ def labels(path):
             },
         )
     client.flush()
-    print(f"posted {len(verdicts)} human pairwise label(s)")
+    unlabelled = len(pairwise) - len(verdicts)
+    print(f"pairwise:     {len(verdicts)} posted, {unlabelled} still unlabelled")
 
 
 def run_judge():
@@ -489,23 +545,10 @@ def _scores_by_name(names):
 def agreement():
     """Report judge-vs-human agreement and every disagreement."""
     faithful, pairwise, _ = sample()
-    obs = _observation_ids([r["trace"] for r in faithful])
-    by_observation = {obs.get(r["trace"]): r["item"] for r in faithful}
     scores = _scores_by_name([H_FAITHFUL, C_FAITHFUL, H_PAIRWISE, C_PAIRWISE])
 
-    # Queue annotations attach to the observation, so they carry no
-    # dataset_item_id metadata — map them back through the observation id.
-    human_faithful = {}
-    for row in API.paginate(
-        "v3/scores",
-        {"limit": 100, "fields": "core,details", "name": H_FAITHFUL},
-    ):
-        item = by_observation.get(row.get("observationId"))
-        if item:
-            human_faithful[item] = row.get("value")
-
     for title, human, judged, rows in (
-        ("faithfulness", human_faithful, scores[C_FAITHFUL], faithful),
+        ("faithfulness", scores[H_FAITHFUL], scores[C_FAITHFUL], faithful),
         ("pairwise", scores[H_PAIRWISE], scores[C_PAIRWISE], pairwise),
     ):
         shared = [
@@ -548,10 +591,10 @@ if __name__ == "__main__":
         cmd_sample()
     elif command == "setup":
         setup()
-    elif command == "pairs":
-        pairs()
+    elif command == "files":
+        files()
     elif command == "labels":
-        labels(args[1] if len(args) > 1 else LABELS_FILE)
+        labels()
     elif command == "judge":
         run_judge()
     elif command == "agreement":

@@ -475,13 +475,16 @@ Four things about it are load-bearing:
 - **The judge prompts and schemas are imported from `judge.py`, never restated.** Calibration
   has to measure the prompt production actually uses; a copy would drift and the agreement
   number would then describe nothing.
-- **Two label channels, because an annotation-queue item is one object.** Faithfulness is a
-  per-summary judgement and goes through a Langfuse queue. Pairwise needs two summaries side by
-  side, which no single queue item can show — the same constraint that stopped Tier 3 being an
-  evaluator — so it is labelled in a generated markdown file and ingested by `labels`.
-- **Queue items must point at the generation OBSERVATION, not the TRACE.** Trace-level
-  input/output is deprecated and nothing here sets it, so a TRACE item opens empty in the
-  annotation UI and the labeller sees nothing to label.
+- **Both dimensions are labelled in generated files, not in a Langfuse annotation queue**, and
+  that is correctness rather than preference. A queue item points at one stored object, and the
+  object holding a summary is the generation observation — whose output is the model's reply
+  *as parts*, a reasoning model putting a `thinking` part in front of the `text` one. The
+  experiment item carries the clean text; the observation does not. Annotating the observation
+  therefore shows a **different artefact than the judge scores**, and exposes the model's
+  private reasoning, which the judge never sees. Agreement between two readers looking at
+  different things measures nothing. Pairwise could not have used a queue regardless — it needs
+  two summaries side by side, the constraint that stopped Tier 3 being an evaluator. Labels
+  still reach the same score table, posted through the scores API.
 - **The sample is derived, not stored** — items sorted by id and dealt round-robin across the
   screening runs. Agreement is only comparable across prompt revisions when the items stay
   fixed, and a stored manifest would drift from the runs it names.
