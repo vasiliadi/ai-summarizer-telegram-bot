@@ -355,28 +355,55 @@ to Gemini — return the raw model text with **no** prefix.
 - **Tier 1 scoring is binary sub-checks, never weighted points.** Every rule in `prompts.py` is
   stated as an absolute — "Respond in {language}" has no 60%-credit reading — so a weighted
   composite would invent numbers and hide *which* rule broke, which is the only thing the
-  screening stage needs to know. The Langfuse code evaluator `tier1-deterministic` emits
-  `t1_language_match`, `t1_no_preamble`, `t1_no_artifacts`, `t1_bullet_count`,
-  `t1_bullet_purity` (all BOOLEAN), `t1_compression` (NUMERIC) and the derived `t1_pass`, which
-  ANDs the applicable binary checks. Screening drops a model scoring `t1_pass` on under 70% of
-  items. Four judgements inside it are deliberate:
+  screening stage needs to know. The Langfuse code evaluator `tier1-deterministic` (v4) emits
+  `t1_language_match` and `t1_bullet_count` (BOOLEAN), `t1_compression` (NUMERIC) and the
+  derived `t1_pass`, which ANDs the applicable binary checks. Screening drops a model scoring
+  `t1_pass` on under 70% of items. Three judgements inside it are deliberate:
   - The language check passes at **70%** Cyrillic among letter characters, not 95%. A correct
     Russian summary carries Latin proper nouns (`ChatGPT`, `macOS`, `Codex`), and a stricter
     floor fails good output while adding nothing against a model that answered in English.
   - `t1_compression` is a **diagnostic with no threshold**. Judges reward length, so the length
     column belongs beside every quality score; gating on it would let a model win by truncating.
-  - The two bullet checks are emitted **only** for `key_points_for_transcript`, which is the
-    only strategy that asks for bullets. Scoring `basic_prompt_for_transcript` zero there would
-    penalise it for obeying its own prompt. The consequence is that `t1_pass` ANDs three checks
-    for one strategy and five for the other, so it ranks models **within** a strategy and must
-    never be used to compare the two strategies — that is Tier 3's job.
-  - Bullet count and bullet purity stay separate scores because "produced 3 bullets" and
-    "produced 5 bullets plus a closing paragraph" are different failures with different fixes.
+  - `t1_bullet_count` is emitted **only** for `key_points_for_transcript`, the one strategy that
+    asks for bullets. Scoring `basic_prompt_for_transcript` zero there would penalise it for
+    obeying its own prompt. So `t1_pass` ANDs one check for that strategy and two for the
+    other, which means it ranks models **within** a strategy and must never be used to compare
+    the two strategies — that is Tier 3's job.
+
+  **`t1_no_preamble`, `t1_no_artifacts` and `t1_bullet_purity` were removed** in evaluator v4,
+  and should not be reinstated without new evidence. Across 150 scored items they produced
+  three hits, none of which changed a decision: a `### Краткое содержание` heading, the phrase
+  `в транскрипте` explaining a recognition error, and `расшифровка встреч` — where the last is
+  an outright false positive, since `расшифровк` is an ordinary Russian stem that appears in
+  content about transcription and has nothing to do with a leaked cue. The one genuine defect
+  they caught was `minimax/minimax-m3` emitting its `<mm:think>` reasoning block into the
+  summary, and the settled judgement is that **Tier 2 is the right place to catch that**: a
+  judge reading a Russian summary containing an English reasoning block will mark it
+  unfaithful, while a coarse screen gains nothing from one item in 25. Tier 1 now screens for
+  outright breakage only — wrong language, no list where a list was asked for. Style and
+  prompt-obedience belong to the judges.
+  Scores written before v4 still carry the removed names, so a report must tolerate their
+  presence in old runs and their absence in new ones; the score configs are kept for exactly
+  that reason.
+
+- **Write portable Python in `tier1_evaluator.py`.** It is executed on Langfuse's
+  infrastructure, whose interpreter version this project neither controls nor observes, so
+  syntax gated on a recent Python breaks the whole evaluator into a `SyntaxError` — no scores,
+  and indistinguishable from a rule that never fired. This is not hypothetical: `ruff format`
+  rewrote `except (TypeError, ValueError):` into PEP 758's `except TypeError, ValueError:`
+  because the repo sets `target-version = "py314"`, which parses on 3.14 and on nothing older.
+  The evaluator therefore catches bare `Exception` in `_number`, deliberately. Check any new
+  syntax there against an older interpreter, and treat `install_tier1.py`'s preflight as the
+  gate — it is the only thing that reports the failure.
 
   **Stage 1 is run and eliminated nobody.** All six registered models over the 25 screening
-  items on `key_points_for_transcript` score `t1_pass` far above the 70% floor:
-  `gemini-3.7-flash` and `openai/gpt-5.6-luna` 100%, `meta/muse-spark-1.2` and
-  `thinkingmachines/inkling` 96%, `minimax/minimax-m3` and `stepfun/step-3.7-flash` 84%.
+  items on `key_points_for_transcript` score `t1_pass` far above the 70% floor. Recomputed
+  under the v4 evaluator (`t1_language_match` AND `t1_bullet_count`), with the rate the
+  five-check v3 evaluator recorded in brackets: `gemini-3.7-flash` 100% (100%),
+  `openai/gpt-5.6-luna` 100% (100%), `meta/muse-spark-1.2` 100% (96%),
+  `thinkingmachines/inkling` 96% (96%), `minimax/minimax-m3` 88% (84%),
+  `stepfun/step-3.7-flash` 88% (84%). Dropping checks can only remove failures, so the v4
+  column is the one to compare future runs against; the ranking is unchanged either way.
   Read that as *the deterministic checks do not separate this pool*, not as six equally good
   models — Tier 1 only asks whether a model obeyed the prompt's absolutes. The discrimination
   has to come from Tier 2/3, so do not spend another sweep tuning Tier 1 thresholds.

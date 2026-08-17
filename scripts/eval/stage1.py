@@ -47,12 +47,12 @@ THINKING_LEVEL = config.DEFAULT_THINKING_LEVEL
 RUN_PREFIX = "stage1 / "
 PASS_THRESHOLD = 0.70
 
+# The binary checks `t1_pass` ANDs. `t1_no_preamble`, `t1_no_artifacts` and
+# `t1_bullet_purity` were removed from the evaluator; runs scored before that
+# still carry them, so the report simply stops showing columns nothing emits.
 CHECKS = (
     "t1_language_match",
-    "t1_no_preamble",
-    "t1_no_artifacts",
     "t1_bullet_count",
-    "t1_bullet_purity",
 )
 
 _llm = LLMClient(
@@ -171,7 +171,7 @@ def report():
     print(header)
     print("-" * len(header))
 
-    verdicts, incomplete = {}, []
+    verdicts, incomplete, stale = {}, [], []
     for model, experiment in sorted(runs.items()):
         per_item = _item_scores(experiment)
         scored = [s for s in per_item.values() if s]
@@ -181,6 +181,13 @@ def report():
             print(f"{model:28s}   0   (no scores)")
             continue
         rate = sum(1 for s in scored if s.get("t1_pass")) / len(scored)
+        # `t1_pass` is the evaluator's own verdict at the time it ran, so a run
+        # scored by an earlier version ANDs checks this report no longer shows.
+        # Surface that rather than let the columns look self-contradictory.
+        if any(
+            s.get("t1_pass") != all(s.get(c) for c in CHECKS if c in s) for s in scored
+        ):
+            stale.append(model)
         cells = []
         for check in CHECKS:
             vals = [s[check] for s in scored if check in s]
@@ -204,6 +211,17 @@ def report():
         print("INCOMPLETE COVERAGE - rows above are not final:")
         for line in incomplete:
             print(f"  {line}")
+        print()
+    if stale:
+        print(
+            "NOTE: t1_pass was recorded by an earlier evaluator version for "
+            f"{', '.join(stale)}",
+        )
+        print(
+            "      It ANDs checks this report no longer shows, so it can be "
+            "lower than the columns imply. Re-run to score under the current "
+            "evaluator.",
+        )
         print()
     survivors = [m for m, r in verdicts.items() if r >= PASS_THRESHOLD]
     dropped = [m for m, r in verdicts.items() if r < PASS_THRESHOLD]
@@ -231,14 +249,11 @@ def failures(check_names=()):
     """Show every item that failed a given Tier 1 check, with its trace link.
 
     The pass rates say how often a model broke a rule; this says which item,
-    what the evaluator saw, and where to open it. Defaults to the three checks
-    that catch prompt-obedience failures rather than outright breakage.
+    what the evaluator saw, and where to open it. Defaults to the binary checks
+    Tier 1 still emits; pass names to inspect others, including checks that only
+    older runs carry.
     """
-    wanted = tuple(check_names) or (
-        "t1_bullet_purity",
-        "t1_no_preamble",
-        "t1_no_artifacts",
-    )
+    wanted = tuple(check_names) or CHECKS
     runs = _discover_runs()
     if not runs:
         sys.exit(f"no runs found with prefix {RUN_PREFIX!r}; run the sweep first")

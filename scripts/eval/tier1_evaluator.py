@@ -4,56 +4,24 @@ Every check restates a rule that src/prompts.py states as an absolute, so each i
 binary. Compression is the exception: it is a diagnostic that sits beside quality
 scores, never a gate, because judges reward length and gating would let a model
 win by truncating.
+
+Tier 1 screens for outright breakage — wrong language, no list where a list was
+asked for. Style and obedience failures are Tier 2/3's job; three checks that
+tried to cover them were removed after 150 scored items produced three hits and
+no decision (see architecture.md).
+
+**Write portable Python here.** This source is uploaded to Langfuse and executed
+on Langfuse's infrastructure, whose interpreter version this project neither
+controls nor observes. Syntax gated on a recent Python — PEP 758's
+`except A, B:` without parentheses, for one — turns the whole evaluator into a
+SyntaxError there, which yields no scores and looks exactly like it never ran.
+The repo targets py314, so a formatter will happily introduce that if a tuple
+`except` is written.
 """
 
 CYRILLIC_FLOOR = 0.70
 MIN_BULLETS = 5
 BULLET_MARKERS = ("-", "*", "•", "–", "—")
-
-PREAMBLES = (
-    "вот ",
-    "вот,",
-    "конечно",
-    "ниже ",
-    "ниже,",
-    "итак",
-    "разумеется",
-    "в этой статье",
-    "в данной статье",
-    "в этом видео",
-    "в данном видео",
-    "данный текст",
-    "этот текст",
-    "данная статья",
-    "эта статья",
-    "краткое содержание",
-    "резюме:",
-    "суть:",
-    "содержание:",
-    "here is",
-    "here's",
-    "sure",
-    "certainly",
-    "this article",
-    "this video",
-    "this transcript",
-    "in this ",
-    "below is",
-    "summary:",
-)
-
-ARTIFACTS = (
-    "[музыка]",
-    "[music]",
-    "[смех]",
-    "[laughter]",
-    "[аплодисменты]",
-    "[applause]",
-    "[музика]",
-    "транскрипт",
-    "расшифровк",
-    "the transcript",
-)
 
 
 def _text(value):
@@ -83,14 +51,6 @@ def _is_bullet(line):
     return head.isdigit() and len(head) <= 2
 
 
-def _strip_marker(line):
-    for marker in BULLET_MARKERS:
-        if line.startswith(marker):
-            line = line[len(marker) :]
-            break
-    return line.strip().lstrip("*_#> ").strip()
-
-
 def _number(value):
     """Coerce a metadata value to a float.
 
@@ -98,10 +58,15 @@ def _number(value):
     stringified, so `char_length` arrives as "19845" even though the dataset
     item stores the JSON number 19845. Dividing by it raises TypeError, which
     discards every score built so far — the failure is silent from outside.
+
+    Catches `Exception` rather than `(TypeError, ValueError)` deliberately: a
+    tuple `except` is what a py314-targeted formatter rewrites into PEP 758
+    syntax, which does not parse on an older interpreter. See the module
+    docstring.
     """
     try:
         return float(value)
-    except TypeError, ValueError:
+    except Exception:
         return 0.0
 
 
@@ -148,22 +113,6 @@ def evaluate(ctx):
         f"Cyrillic share of letters: {ratio:.2f} (floor {CYRILLIC_FLOOR}).",
     )
 
-    first = _strip_marker(lines[0]).lower() if lines else ""
-    hit = next((p for p in PREAMBLES if first.startswith(p)), None)
-    add(
-        "t1_no_preamble",
-        hit is None,
-        "Starts with the summary." if hit is None else f"Opens with preamble {hit!r}.",
-    )
-
-    lowered = output.lower()
-    found = [a for a in ARTIFACTS if a in lowered]
-    add(
-        "t1_no_artifacts",
-        not found,
-        "No transcript artifacts." if not found else f"Leaked: {', '.join(found)}.",
-    )
-
     # The bullet guidelines belong to one strategy; scoring the other 0 would
     # penalise it for obeying its own prompt.
     if prompt_key == "key_points_for_transcript":
@@ -172,14 +121,6 @@ def evaluate(ctx):
             "t1_bullet_count",
             len(bullets) >= MIN_BULLETS,
             f"{len(bullets)} bullets (minimum {MIN_BULLETS}).",
-        )
-        stray = [line for line in lines if not _is_bullet(line)]
-        add(
-            "t1_bullet_purity",
-            not stray,
-            "Every line is a bullet."
-            if not stray
-            else f"{len(stray)} non-bullet line(s), first: {stray[0][:60]!r}.",
         )
 
     compression = min(len(output) / source_chars, 1.0) if source_chars else 0.0
