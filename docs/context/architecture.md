@@ -64,9 +64,8 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   models read. OpenRouter has no file API, so a file would have to be base64-inlined —
   the same limit that keeps Gemini on its Files API — and pydantic-ai only accepts
   wav/mp3 audio inline, while this pipeline produces Opus `.ogg`. Upstream, several
-  registered models advertise audio or file input — `meta/muse-spark-1.2` advertises
-  both; matching the flags to the catalog without first building an inline path breaks
-  the routing.
+  registered models advertise audio or file input, some of them both; matching the flags
+  to the catalog without first building an inline path breaks the routing.
 - **Thinking levels are pydantic-ai's, translated by pydantic-ai** — the allow-list is
   its `ThinkingEffort` (`minimal|low|medium|high|xhigh`), passed to the unified `thinking`
   setting, and each provider's model maps it. This codebase owns no mapping, which is what
