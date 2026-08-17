@@ -323,6 +323,12 @@ to Gemini — return the raw model text with **no** prefix.
   joined into plain prose with a leading space. Testing only for wrapping silently files every
   audio transcript under `web_article`, which is a stratum label that looks plausible in the
   UI and is wrong.
+  The strata are not balanced and that is **accepted**, not an oversight to fix: nine days of
+  real traffic yielded only 5 `web_article` items in total (2 of the 25 screening items),
+  under the ≥8–10 per cell the plan asks for, and no amount of further harvesting changes it.
+  The consequence to keep stating is narrow — a *web-article-specific* claim is anecdote until
+  the stratum is seeded — while `yt_transcript` and `audio_transcript` carry enough items to
+  rank models. Do not re-raise this as a blocker.
   Two screening filters earn their keep on real traffic: content under ~1500 characters, and
   degenerate output from `AudioTranscriber.transcribe` when WhisperX mis-decodes audio — a
   distinct failure from the documented empty-transcript case, and one that reaches the model
@@ -399,12 +405,22 @@ to Gemini — return the raw model text with **no** prefix.
     on Gemini, so this is the Anthropic route specifically.
   - **OpenRouter's half-price `:batch` model ids reject chat/completions** with "This model is
     only available through the Batch API", pointing at `/api/beta/batches`. Langfuse's judge
-    is synchronous, so it can never reach them; a local runner can, at half price, with up to
-    24 h turnaround. Iterate the judge prompt synchronously and switch to `:batch` only once
-    the wording is frozen.
+    is synchronous, so it can never reach them at all.
+    The batch path is **abandoned** — it was built, submission worked (a batch id and
+    `status: validating` came back, pinning snapshot `claude-sonnet-5-20260630`), but the
+    poll→results cycle never delivered, and half price is not worth a second unproven
+    transport for a job costing tens of dollars. **The judge is synchronous
+    `anthropic/claude-sonnet-5`.** Do not rebuild `:batch` without a reason beyond price.
   - **An evaluator sees one item.** Its context is that item's `input`, `output`,
     `expected_output` and metadata; there is no mapping source for a second run's output. So
     pairwise comparison cannot be an evaluator of either kind, whatever the judge model.
+
+  The judge model is **`anthropic/claude-sonnet-5`**, settled. Anthropic is the only frontier
+  family not in the candidate pool, so it is the one judge whose self-preference bias cannot
+  favour a candidate, and Sonnet 5 still outranks a pool that is mostly flash tier. It is
+  pinned by model id, `reasoning_effort` and judge-prompt hash — **not** by temperature, which
+  Sonnet 5 and Opus 5 reject outright with a 400. §6 calibration against hand labels may still
+  revise the choice; nothing else should.
 
   Three details of the judge itself are load-bearing. The judge **counts** (claims, entailed
   facts) and the runner computes the ratio, because a model asked directly for `0.71` makes
