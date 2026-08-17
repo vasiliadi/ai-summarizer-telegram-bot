@@ -4,24 +4,9 @@ Offline quality evaluation for the summarizer: run the registered models over a
 dataset of real traced content, score the results, and compare. Nothing here is
 imported by the bot — these are operational scripts, run by hand.
 
-The methodology lives in Linear **STG-138**; the settled facts and the traps
-live in `docs/context/architecture.md` under the Langfuse section. Read that
-before changing anything here.
-
-## Where state lives
-
-State is split across three places, and only one of them is this directory.
-
-| What | Where |
-|---|---|
-| Scripts, evaluator source | this directory (tracked) |
-| Prompts, datasets, score configs, evaluator, rules, runs, scores | Langfuse (server) |
-| `obs.json` raw harvest, ad-hoc probes | untracked, local only |
-
-The evaluator is the part that surprises people: `tier1_evaluator.py` **never
-runs on your machine**. Langfuse stores the source and executes it on its own
-infrastructure when an experiment item arrives. The local file is only the
-source you upload with `install_tier1.py`.
+**Read `docs/context/evals.md` before changing anything here.** This file covers
+what to run; that one covers why, and holds the traps that are expensive to
+rediscover. The methodology and its staged plan live in Linear **STG-138**.
 
 ## Files
 
@@ -29,31 +14,31 @@ source you upload with `install_tier1.py`.
 |---|---|
 | `_bootstrap.py` | Loads `.env`, puts `src/` on the import path, returns Langfuse REST credentials |
 | `langfuse_api.py` | The only place that calls the Langfuse REST API. v4 endpoints, rate-limit aware |
-| `tier1_evaluator.py` | Tier 1 deterministic scorers. Uploaded to Langfuse, executed there |
+| `tier1_evaluator.py` | Tier 1 deterministic scorers. Uploaded to Langfuse, **executed there** |
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
-| `stage1.py` | §7 stage 1 — sweep every model, Tier 1 only, no judge calls; and the report |
+| `stage1.py` | §7 stage 1 — sweep every model, Tier 1 only, no judge calls; report; failures |
 | `judge.py` | Tier 2/3 LLM judge (`anthropic/claude-sonnet-5`), runs outside Langfuse |
 | `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
 
 ## Usage
 
 ```bash
-python scripts/eval/install_tier1.py          # after editing tier1_evaluator.py
-python scripts/eval/stage1.py run             # costs money: one call per item per model
-python scripts/eval/stage1.py report          # free, read-only
-python scripts/eval/judge.py smoke 2          # costs money: judge calls
+uv run python scripts/eval/install_tier1.py     # after editing tier1_evaluator.py
+uv run python scripts/eval/stage1.py report     # free, read-only
+uv run python scripts/eval/stage1.py failures   # free — which items failed, and why
+uv run python scripts/eval/stage1.py run        # COSTS MONEY: one call per item per model
+uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
 ```
 
-`stage1.py run` drives `llm.LLMClient`, the same path the bot uses, so each run
-records cost, token usage and thinking level. A hand-rolled HTTP call records
-none of those and leaves the run showing `$0.00`.
+Run `install_tier1.py` after **every** edit to `tier1_evaluator.py`. Its preflight
+executes the source against sample data, which is the only place a crash in the
+evaluator is ever reported — at runtime the same crash is silent.
 
 ## Cost
 
-`stage1.py report`, and anything else that only reads, is free. Everything that
-generates or judges is not:
+Anything that only reads is free. Anything that generates or judges is not:
 
-- a full stage-1 sweep is 25 items x every registered model, roughly $1;
+- a full stage-1 sweep is 25 items × every registered model, roughly **$1**;
 - judge calls are the expensive part — budget those with §7 in front of you.
 
 Re-scoring Tier 1 never costs anything: the summaries already exist as trace
@@ -64,7 +49,7 @@ re-generating.
 
 Every read goes through `langfuse_api.py` and uses a v4 endpoint. Langfuse Cloud
 removes the v3 endpoints on **2026-11-16**, so do not reintroduce
-`GET /datasets/{name}/runs/{runName}`, `GET /traces/{id}`, or `GET /observations`
+`GET /datasets/{name}/runs/{runName}`, `GET /traces/{id}` or `GET /observations`
 — the replacements are `GET /experiments` + `GET /experiment-items` (with
-`fields=io,scores`) and `GET /v2/observations`. See the Langfuse section of
-`docs/context/architecture.md` for the semantics that changed with them.
+`fields=io,scores`) and `GET /v2/observations`. The semantics that changed with
+them are in `docs/context/evals.md`.

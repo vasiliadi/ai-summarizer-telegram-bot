@@ -1,0 +1,404 @@
+# Evaluation
+
+How summarization quality is measured: the Langfuse datasets built from real traces, the
+scoring tiers, the judges, and the harness in `scripts/eval/`.
+
+The methodology and its staged plan live in Linear **STG-138**; this file holds the settled
+facts and the traps, which is what a later session must not get wrong. `architecture.md`
+owns the bot itself, including *how* it emits the traces this is built on — read its
+**Tracing** bullet before changing anything that produces trace data.
+
+Nothing here is imported by the bot. `scripts/eval/README.md` is the operational guide (which
+script to run, what it costs); this file is the *why*.
+
+## Where state lives
+
+State is split across three places, and only one of them is the repository.
+
+| What | Where |
+|---|---|
+| Scripts, Tier 1 evaluator source | `scripts/eval/` (tracked) |
+| Prompts, datasets, score configs, evaluators, rules, runs, scores | Langfuse (server) |
+| Raw trace harvest (`obs.json`), ad-hoc probes | untracked, local only |
+
+The part that surprises people: `tier1_evaluator.py` **never runs on your machine**. Langfuse
+stores the source and executes it on its own infrastructure when an experiment item arrives.
+The local file is only the source uploaded by `install_tier1.py`.
+
+## Langfuse v4
+
+Langfuse Cloud becomes v4-only on **2026-11-16**, when the legacy APIs, features and ingestion
+are removed. What that means here, so none of it is re-derived:
+
+- **Ingestion needs nothing.** v4 requires Python SDK ≥ 4.7.0; `langfuse==4.14.4` is pinned and
+  ingestion already goes through OTel (`Agent.instrument_all()`), not `POST /ingestion`.
+- **Trace-level input/output is deprecated product-wide** — tables, judges and exports all read
+  from an observation instead. Nothing in `src/` sets it, and it must stay that way; see the
+  **Tracing** bullet in `architecture.md` for the constraint that enforces this.
+- **Evaluation targets `experiment`, already a v4 target.** The legacy targets are `trace` and
+  `dataset`, and the project has none — `tier1-on-experiments` is the only rule.
+- **No blob-storage, PostHog or Mixpanel export is configured**, so the enriched-observation
+  export migration does not apply. Only blob storage is visible on the public API; the other
+  two are UI-only under *Project Settings → Integrations*.
+
+### Read experiment results through the v4 experiment endpoints, never the trace join
+
+Evaluator scores attach to the **observation**, so `GET /v3/scores?experimentId=…` returns
+nothing for them and reads exactly like the evaluator never fired. The answer is not to join
+through traces: `fields=scores` on `GET /experiment-items` returns each item's scores inline,
+and `fields=io` returns its input, output and expected output. One call per page replaces a
+dataset-run fetch plus one trace fetch per item plus a separate score sweep.
+`scripts/eval/langfuse_api.py` is the only place that talks to these endpoints.
+
+The v3 shapes this replaced are **deprecated and stop being served on 2026-11-16**:
+
+| Deprecated | Replacement |
+|---|---|
+| `GET /datasets/{name}/runs/{runName}` | `GET /experiments` then `GET /experiment-items` |
+| `GET /traces/{id}` | `fields=io` on the experiment item |
+| `GET /observations` | `GET /v2/observations` |
+
+Experiments are queried by dataset **id**, not name, so resolve it through
+`GET /v2/datasets/{name}` first, and `fromStartTime` is **required** on both experiment
+endpoints. Under v2, `input`/`output` come back as **raw strings** rather than parsed JSON, and
+a field group that was not requested is **absent** rather than null.
+
+Two traps survive the migration. The public API allows **30 requests per window** and answers a
+429 with `details.retryAfterSeconds`, which must be obeyed — blind exponential backoff does not
+converge, because every retry spends another request; an unchecked 429 falls through
+`.json().get("data", [])` as an empty list and is indistinguishable from a model that scored
+nothing, which produced a *different table on each run* until it was fixed. And pagination is
+`meta.cursor` — **not** `meta.nextCursor`, which does not exist and silently truncates a sweep
+at the first page.
+
+For a quick project-wide check that a rule is producing anything at all, `GET /v3/scores` with
+`source=EVAL` and no other filter still works; `metadata.job_configuration_id` names the rule
+that wrote each score.
+
+## Running an experiment: UI vs script
+
+Both produce experiments the Tier 1 rule scores, but they measure different things. The
+difference that generates all the others: **through the UI, Langfuse calls the model; through
+the script, your code does.**
+
+| | UI Prompt Experiment | `scripts/eval/stage1.py` |
+|---|---|---|
+| Who calls the model | Langfuse, via an LLM Connection | your code, locally |
+| Prompt source | the Langfuse mirror | `src/prompts.py` directly |
+| Code path | Langfuse's request builder | `llm.LLMClient` — the bot's path |
+| Thinking level | not applied | `build_settings` applies it |
+| Cost | Langfuse's own pricing | `OpenRouterCostReporter`, what OpenRouter charged |
+| Gemini | over the OpenRouter connection | native `GoogleModel` |
+| `environment` | `langfuse-prompt-experiment` | `sdk-experiment` |
+| Tier 1 | fires | fires |
+| Tier 2/3 | not possible | `run_experiment(evaluators=[…])` |
+| In git | no | yes |
+
+A UI run cannot go through `LLMClient`, so it has no cost wrapper, no thinking level, and
+routes Gemini over OpenRouter — it measures a call the bot never makes. Use it to eyeball
+prompt wording; use the script for anything that feeds a decision. Note also that UI runs are
+named `Prompt … on dataset …`, so `stage1.py`'s `stage1 / ` prefix filter skips them.
+
+## Prompts: a hand-maintained mirror, for experiments only
+
+Two chat prompts named exactly after the `prompt_key`s (`basic_prompt_for_transcript`,
+`key_points_for_transcript`) hold a copy of what `src/prompts.py` sends, so a Langfuse Prompt
+Experiment can run a strategy over a dataset against any model. `src/prompts.py` stays the
+source of truth and the bot never calls `get_prompt` — that keeps prompts in the repo, puts no
+network fetch on the request path, and leaves `prompts.prompt_version` as the pin a trace
+carries. Edits are made in the UI when a template changes; they are rare enough that a sync
+script was **rejected** as machinery for a once-a-quarter edit.
+
+Four things about the shape are load-bearing, and none announce themselves when broken — the
+experiment just renders every dataset item identically:
+
+- `type` is `chat` and is **immutable after creation**. A prompt created as `text` can never
+  become one; it has to be deleted and recreated, losing its version history.
+- The system message is `SYSTEM_INSTRUCTION` with `{language}` rewritten to
+  `{{target_language}}`. Langfuse substitutes double braces only, so a single-brace placeholder
+  is copied through as literal text rather than failing loudly.
+- Two separate `user` messages — the strategy template, then `{{content}}` alone — because
+  `summarize_text` sends the prompt and the content as two parts. Concatenating them into one
+  message measures a call the bot never makes.
+- Variable names must equal the dataset item's input keys (`content`, `target_language`;
+  `prompt_key` selects the prompt rather than filling a variable). Langfuse resolves a variable
+  only against a key of the same name, so renaming either side breaks every run.
+
+Do **not** re-add a `Language` prompt referenced by composition, as an earlier hand-built
+version did. It freezes into the prompt what the dataset needs as a per-item variable, so a run
+cannot mix target languages, and Langfuse then refuses to delete it while any dependent version
+survives. Storing `prompt_version(prompt_key)` in the prompt's `config` is what ties a Langfuse
+version back to the repo revision it was copied from; nothing else records it.
+
+## Datasets are built from traces, and the content type is not one of the fields
+
+Two Langfuse datasets hold screened trace content: `summarization-screen-v1` (25 items) is a
+strict subset of `summarization-compare-v1` (50), so the per-item key-facts checklist that
+serves as `expected_output` is written once rather than twice. Item `input` is
+`{content, target_language}` and nothing else — those are the two prompt variables, and an
+`inputSchema` on both datasets rejects an item missing either. `prompt_key` rides in `metadata`,
+not `input`: an experiment picks one prompt and runs it over every item, so the originating
+trace's strategy fills no variable and would sit in `input` as a dead key.
+
+The trap when harvesting: a trace's tag is the **Telegram** `content_type`, which is `text` for
+a URL as much as for a pasted paragraph. A YouTube transcript, a web article and a
+Replicate-rescued audio transcript are therefore all tagged `text`, and no field distinguishes
+them — the stratum has to be inferred from the content, by **two** tests, not one. A YouTube
+transcript arrives in subtitle format, hard-wrapped to ~34-character lines. The other two are
+both single blobs, so line width cannot separate them; what does is that `parsing.py` returns
+markup (Exa HTML, Tavily markdown) while WhisperX returns its segments joined into plain prose
+with a leading space. Testing only for wrapping silently files every audio transcript under
+`web_article`, which is a stratum label that looks plausible in the UI and is wrong.
+
+The strata are not balanced and that is **accepted**, not an oversight to fix: nine days of real
+traffic yielded only 5 `web_article` items in total (2 of the 25 screening items), under the
+≥8–10 per cell the plan asks for, and no amount of further harvesting changes it. The
+consequence to keep stating is narrow — a *web-article-specific* claim is anecdote until the
+stratum is seeded — while `yt_transcript` and `audio_transcript` carry enough items to rank
+models. Do not re-raise this as a blocker.
+
+Two screening filters earn their keep on real traffic: content under ~1500 characters, and
+degenerate output from `AudioTranscriber.transcribe` when WhisperX mis-decodes audio — a
+distinct failure from the documented empty-transcript case, and one that reaches the model as
+content rather than being dropped. Detect it by **compression ratio**, not by any single
+character's share: the observed failures repeat a multi-character sequence, so one of the two
+sat at 27% on its most common character and slipped a 30% threshold, while both compress to
+~0.03 of their size against ~0.14 for the densest real item.
+
+## Tier 1: binary sub-checks, never weighted points
+
+Every rule in `prompts.py` is stated as an absolute — "Respond in {language}" has no
+60%-credit reading — so a weighted composite would invent numbers and hide *which* rule broke,
+which is the only thing the screening stage needs to know. The Langfuse code evaluator
+`tier1-deterministic` emits `t1_language_match` and `t1_bullet_count` (BOOLEAN),
+`t1_compression` (NUMERIC) and the derived `t1_pass`, which ANDs the applicable binary checks.
+Screening drops a model scoring `t1_pass` on under 70% of items. Three judgements are
+deliberate:
+
+- The language check passes at **70%** Cyrillic among letter characters, not 95%. A correct
+  Russian summary carries Latin proper nouns (`ChatGPT`, `macOS`, `Codex`), and a stricter floor
+  fails good output while adding nothing against a model that answered in English.
+- `t1_compression` is a **diagnostic with no threshold**. Judges reward length, so the length
+  column belongs beside every quality score; gating on it would let a model win by truncating.
+- `t1_bullet_count` is emitted **only** for `key_points_for_transcript`, the one strategy that
+  asks for bullets. Scoring `basic_prompt_for_transcript` zero there would penalise it for
+  obeying its own prompt. So `t1_pass` ANDs one check for that strategy and two for the other,
+  which means it ranks models **within** a strategy and must never be used to compare the two
+  strategies — that is Tier 3's job.
+
+### Three checks were removed, deliberately
+
+**`t1_no_preamble`, `t1_no_artifacts` and `t1_bullet_purity` were removed** in evaluator v4 and
+should not be reinstated without new evidence. Across 150 scored items they produced three
+hits, none of which changed a decision: a `### Краткое содержание` heading, the phrase
+`в транскрипте` explaining a recognition error, and `расшифровка встреч` — where the last is an
+outright false positive, since `расшифровк` is an ordinary Russian stem that appears in content
+about transcription and has nothing to do with a leaked cue.
+
+The one genuine defect they caught was `minimax/minimax-m3` emitting its `<mm:think>` reasoning
+block into the summary, and the settled judgement is that **Tier 2 is the right place to catch
+that**: a judge reading a Russian summary containing an English reasoning block will mark it
+unfaithful, while a coarse screen gains nothing from one item in 25. Tier 1 now screens for
+outright breakage only — wrong language, no list where a list was asked for. Style and
+prompt-obedience belong to the judges.
+
+Scores written before v4 still carry the removed names, so a report must tolerate their presence
+in old runs and their absence in new ones; the score configs are kept for exactly that reason,
+and `stage1.py report` says so when a run's stored `t1_pass` predates the change.
+
+### Write portable Python in `tier1_evaluator.py`
+
+It is executed on Langfuse's infrastructure, whose interpreter version this project neither
+controls nor observes, so syntax gated on a recent Python breaks the whole evaluator into a
+`SyntaxError` — no scores, and indistinguishable from a rule that never fired. This is not
+hypothetical: `ruff format` rewrote `except (TypeError, ValueError):` into PEP 758's
+`except TypeError, ValueError:` because the repo sets `target-version = "py314"`, which parses
+on 3.14 and on nothing older. The evaluator therefore catches bare `Exception` in `_number`,
+deliberately. Check any new syntax against an older interpreter, and treat `install_tier1.py`'s
+preflight as the gate — it is the only thing that reports the failure.
+
+`Score` and `EvaluationResult` are injected by that runtime and must **not** be defined or
+imported, which makes every type checker report them as undefined. `ty` and `pyrefly` exclude
+the directory; Pylance/Pyright is suppressed **per line**, because a file-level
+`reportUndefinedVariable=false` also hides a typo'd local name — verified, a misspelled
+`_cyrillic_ratio` went unreported under it. Keep the suppression narrow: a real error here is
+invisible at runtime, so the editor is one of only two places it ever shows.
+
+### A code evaluator receives every metadata value as a string, and a crash inside it is silent
+
+`ctx.observation.metadata` is a flattened merge of OTel resource attributes, the dataset item's
+metadata and the run's own metadata, and *every* value in it — item metadata included — arrives
+stringified: `char_length` is `"19845"`, not `19845`, even though the dataset item stores a JSON
+number and the dataset-items API returns one. Arithmetic on such a value raises `TypeError`,
+which discards the whole `EvaluationResult` — including the scores already built before the
+failing line. Nothing surfaces this: the rule still reports `status: "active"`, the run
+completes, and the only symptom is that no score appears. This cost a full session to find, so
+**coerce every metadata value before using it as a number**.
+
+The one place the failure is visible is `POST /unstable/evaluators`, whose preflight executes
+the source against sample data and returns `422 evaluator_preflight_failed` with the exception
+and line number — which makes reinstalling the evaluator the cheapest way to test it, and means
+a rule that went active earlier is **not** evidence the code still runs, since preflight only
+sees whatever sample it was given.
+
+Two consequences for scoring runs:
+
+- Branch on `run_prompt_key` from the run metadata, not the item's `prompt_key`. An experiment
+  applies one strategy to every item, while an item's `prompt_key` records the strategy of the
+  trace it was *harvested* from; on a mixed dataset the two disagree and the bullet check
+  silently applies to the wrong items. `summarization-screen-v1` has 24 items from
+  `key_points_for_transcript` and 1 from `basic_prompt_for_transcript`, so this is live, not
+  hypothetical. The evaluator prefers `run_prompt_key` and falls back to the item.
+- Re-POSTing an evaluator under the same name creates a new **version** and every rule bound to
+  that name follows it automatically — the rule's stored evaluator `id` changes to the new
+  version's id. There is no separate update route, and no need to touch the rule.
+
+### One evaluator, not one per score
+
+Splitting `tier1-deterministic` into one evaluator per score was considered and **deferred**,
+not overlooked. The argument for splitting is real (the `char_length` crash destroyed the
+already-computed scores along with the one that failed), but the price is higher than it looks:
+
+- `t1_pass` cannot survive the split. An evaluator's context is its own observation and
+  experiment item; it cannot read scores other evaluators wrote. A standalone `t1_pass` would
+  have to recompute every check internally — restoring the same monolith and the same single
+  point of failure, just for the aggregate — or stop being a stored score and become a
+  report-time calculation.
+- Each evaluator is a self-contained source blob with no imports between them, so `_text`,
+  `_lines`, `_is_bullet`, `_cyrillic_ratio` and `_number` would be copied into each. One fix
+  becomes many edits and many reinstalls, and divergence between the copies is silent.
+- Splitting only helps when one check's *input* breaks, which is the `char_length` case. A
+  change to the `ctx` shape itself breaks every evaluator identically either way.
+
+The cheaper equivalent, if this is revisited: keep one evaluator and wrap each check in
+`try/except`. Whatever is done, `t1_pass` must **not** silently become the conjunction of
+whichever checks survived — a partial failure has to suppress it or label it, or the score
+quietly changes meaning.
+
+What makes deferring safe is that **re-scoring Tier 1 costs no tokens**. The summaries are
+already trace outputs, so a broken scorer is repaired by recomputing over existing traces —
+either through Langfuse's backfill (Traces table → `Actions` → `Evaluate`, requires the v4
+preview toggle; documented for observation-level, **unverified** for a code evaluator on an
+experiment target) or by running the same source locally and posting scores through the API.
+Only Tier 2/3 spend money on a re-score.
+
+## Tier 2 and Tier 3: the judges
+
+Both live in `scripts/eval/judge.py`, a local runner that posts scores back through the API into
+the same score table as the `t1_*` scores and any human annotations — which is what keeps the
+calibration comparison a query rather than a spreadsheet. The reasons differ per tier, and
+conflating them is a mistake worth not repeating:
+
+- **`response_format: json_schema` on Anthropic over OpenRouter used to fail and no longer
+  does.** The original finding was that OpenRouter silently dropped the parameter, the model
+  answered in prose, `provider: {require_parameters: true}` changed nothing, and Langfuse's
+  managed judge — which sends `response_format` with no way to override it — failed preflight
+  with "No object generated: could not parse the response". **Retested 2026-08-17 against
+  `anthropic/claude-sonnet-5`: it returns clean schema-conforming JSON, with and without
+  `require_parameters`.** So this no longer blocks a Langfuse-managed Tier 2 judge. The forced
+  tool call (`tools` + `tool_choice`) that `judge.py` uses still works and is kept because it is
+  what the banked scores were produced with, not because the alternative is broken. Treat
+  provider-behaviour findings as perishable and retest before relying on them.
+- **OpenRouter's half-price `:batch` model ids reject chat/completions** with "This model is only
+  available through the Batch API", pointing at `/api/beta/batches`. Langfuse's judge is
+  synchronous, so it can never reach them at all. The batch path is **abandoned** — it was built,
+  submission worked (a batch id and `status: validating` came back, pinning snapshot
+  `claude-sonnet-5-20260630`), but the poll→results cycle never delivered, and half price is not
+  worth a second unproven transport for a job costing tens of dollars. **The judge is synchronous
+  `anthropic/claude-sonnet-5`.** Do not rebuild `:batch` without a reason beyond price.
+- **An evaluator sees one item.** Its context is that item's `input`, `output`, `expected_output`
+  and metadata; there is no mapping source for a second run's output. So **Tier 3 pairwise cannot
+  be an evaluator of either kind**, whatever the judge model. This constraint is structural and
+  is the one that genuinely forces a local runner.
+- **Tier 2 stays local by choice, not by constraint.** Faithfulness, coverage and no-filler are
+  per-item single-observation judgements, so they would fit a managed evaluator, and on an
+  `experiment` target it can read `expected_output` — the key-facts checklist coverage needs. Two
+  things are given up by moving them, and both are load-bearing rather than stylistic: the
+  **judge counts and the runner divides** (a managed evaluator's output definition is one numeric
+  `score` plus reasoning, so asking the model for `0.71` directly is exactly the arithmetic slip
+  that design removed), and `judge_version` **pins the prompt and schema by hash** so banked
+  comparisons stay valid, whereas a managed evaluator is versioned by Langfuse and that version
+  would have to be copied into run metadata by hand. The Ragas library evaluators are not a
+  shortcut here either: their `Faithfulness` takes `context`/`answer` and is RAG-shaped, while
+  this project's definition counts claims, is translation-aware (Russian summary, possibly
+  English source) and explicitly does not penalise omission. Revisit the trade, do not assume it
+  was forced.
+
+### The judge model
+
+**`anthropic/claude-sonnet-5`**, settled. Anthropic is the only frontier family not in the
+candidate pool, so it is the one judge whose self-preference bias cannot favour a candidate, and
+Sonnet 5 still outranks a pool that is mostly flash tier. It is pinned by model id,
+`reasoning_effort` and judge-prompt hash — **not** by temperature, which Sonnet 5 and Opus 5
+reject outright with a 400. §6 calibration against hand labels may still revise the choice;
+nothing else should.
+
+### Three details of the judge are load-bearing
+
+The judge **counts** (claims, entailed facts) and the runner computes the ratio, because a model
+asked directly for `0.71` makes arithmetic slips no prompt wording fixes. Each schema declares
+its **verdict field before `reasoning`**, since models emit in declared order and it is the long
+reasoning string that runs into `max_tokens` — a truncated call then still carries the answer.
+And OpenRouter does not enforce `required` on this route, so a missing field has to be caught
+explicitly rather than trusted. Pairwise runs **both orders and discards disagreements**; the
+discard rate is itself a judge-quality signal.
+
+## Results so far
+
+**Stage 1 is run and eliminated nobody.** All six registered models over the 25 screening items
+on `key_points_for_transcript` score `t1_pass` far above the 70% floor. Recomputed under the v4
+evaluator (`t1_language_match` AND `t1_bullet_count`), with the rate the five-check v3 evaluator
+recorded in brackets:
+
+| Model | `t1_pass` (v4) | recorded (v3) |
+|---|--:|--:|
+| `gemini-3.7-flash` | 100% | 100% |
+| `openai/gpt-5.6-luna` | 100% | 100% |
+| `meta/muse-spark-1.2` | 100% | 96% |
+| `thinkingmachines/inkling` | 96% | 96% |
+| `minimax/minimax-m3` | 88% | 84% |
+| `stepfun/step-3.7-flash` | 88% | 84% |
+
+Dropping checks can only remove failures, so the v4 column is the one to compare future runs
+against; the ranking is unchanged either way. Read that as *the deterministic checks do not
+separate this pool*, not as six equally good models — Tier 1 only asks whether a model obeyed
+the prompt's absolutes. The discrimination has to come from Tier 2/3, so do not spend another
+sweep tuning Tier 1 thresholds.
+
+Two things the failures actually are: `stepfun/step-3.7-flash` returned an **empty response on 3
+of 25 items** and `thinkingmachines/inkling` on 1, which Tier 1 books as a language failure (an
+empty string has no Cyrillic) — correct, and worth reading as a reliability signal rather than a
+quality one. `minimax/minimax-m3` returned no empties but answered in the **wrong language
+twice**, which is the failure mode Tier 1 exists to catch.
+
+`t1_compression` spans 0.125 (`gemini-3.7-flash`, tersest) to 0.228 (`meta/muse-spark-1.2`), a
+near-2x spread that must stay beside every Tier 2/3 score because judges reward length.
+
+The registry is **6 models**; the 9-model table in the STG-138 description is stale and must not
+be used to size a sweep.
+
+## API shapes that cost real time to rediscover
+
+Installing a code evaluator through the unstable API has a shape trap worth keeping: on
+`POST /unstable/evaluators` the `prompt` and `outputDefinition` fields are llm-as-judge-only and
+are rejected outright for `type=code`, while on `POST /unstable/evaluation-rules` the evaluator
+reference needs `type: "code"` and `mapping` must be **omitted entirely** — an empty array is
+rejected just as a populated one is, and leaving `type` off makes the request validate as
+llm-as-judge and demand a mapping. The evaluator reference also needs `name` and `scope`
+alongside `id` and `type`; sending only the id fails validation. The server fills the omitted
+`mapping` in with defaults, so a rule read back after creation shows six entries — that is
+expected, not drift. A rule returning `status: "active"` means its preflight ran the code
+**once, against sample data**; it does not mean the code survives real data, so treat `422` from
+a later `POST /unstable/evaluators` as the authoritative crash report.
+
+Four more:
+
+- The batch endpoint parses the request body as a **stream**, so `endpoint` and `model` must be
+  serialised before `requests`; a plain dict literal in that order is what guarantees it.
+- Tier 2 evaluators attach through `Langfuse.run_experiment(evaluators=[…])` rather than by
+  posting scores by hand — the run wires each `Evaluation` to the right item.
+- A Langfuse score **requires a target**. Passing `trace_id=None` fails with a bare
+  `Bad request` while the calling code still prints success, so a pairwise score has to be
+  anchored to something — run A's trace for that item is the natural choice.
+- Dataset run names embed the model id, so they contain `/` and spaces and must be URL-encoded
+  into REST paths or the segments split and the request 404s.
