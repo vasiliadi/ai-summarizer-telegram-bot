@@ -274,14 +274,15 @@ deliberate:
 
 **`t1_no_preamble`, `t1_no_artifacts` and `t1_bullet_purity` were removed** in evaluator v4 and
 should not be reinstated without new evidence. Across 150 scored items they produced three
-hits, none of which changed a decision: a `### Краткое содержание` heading, the phrase
-`в транскрипте` explaining a recognition error, and `расшифровка встреч` — where the last is an
-outright false positive, since `расшифровк` is an ordinary Russian stem that appears in content
-about transcription and has nothing to do with a leaked cue.
+hits and none of them changed a decision: a markdown heading before the list, and two
+substring matches on ordinary words. The false positive is the general lesson — a check that
+greps for the word "transcript" fires on any summary whose *subject* is transcription, so a
+Tier 1 check must key on something the content cannot legitimately contain.
 
 The one genuine defect they caught was a model emitting its internal reasoning block into the
-summary, and the settled judgement is that **Tier 2 is the right place to catch that**: a judge reading a Russian summary containing an English reasoning block will mark it
-unfaithful, while a coarse screen gains nothing from one item in 25. Tier 1 now screens for
+summary, and the settled judgement is that **Tier 2 is the right place to catch that**: a
+judge reading a summary that contains a reasoning block will mark it unfaithful, while a
+coarse screen gains nothing from one item in 25. Tier 1 now screens for
 outright breakage only — wrong language, no list where a list was asked for. Style and
 prompt-obedience belong to the judges.
 
@@ -372,15 +373,14 @@ the same score table as the `t1_*` scores and any human annotations — which is
 calibration comparison a query rather than a spreadsheet. The reasons differ per tier, and
 conflating them is a mistake worth not repeating:
 
-- **`response_format: json_schema` on Anthropic over OpenRouter used to fail and no longer
-  does.** The original finding was that OpenRouter silently dropped the parameter, the model
-  answered in prose, `provider: {require_parameters: true}` changed nothing, and Langfuse's
-  managed judge — which sends `response_format` with no way to override it — failed preflight
-  with "No object generated: could not parse the response". **Retested 2026-08-17: it returns clean
-  schema-conforming JSON, with and without `require_parameters`.** So this no longer blocks a Langfuse-managed Tier 2 judge. The forced
-  tool call (`tools` + `tool_choice`) that `judge.py` uses still works and is kept because it is
-  what the banked scores were produced with, not because the alternative is broken. Treat
-  provider-behaviour findings as perishable and retest before relying on them.
+- **Structured output works.** `response_format: json_schema` returns clean schema-conforming
+  JSON on Anthropic over OpenRouter, with and without `provider: {require_parameters: true}`,
+  so nothing on that account stops a Langfuse-managed Tier 2 judge. `judge.py` uses a forced
+  tool call (`tools` + `tool_choice`) instead, because that is what the banked scores were
+  produced with — not because the alternative is broken.
+  When a provider *appears* to silently ignore a documented parameter, check its status page
+  before writing the behaviour down: from the client side an incident and a missing feature
+  look identical, and this bullet once carried a constraint that was really an outage.
 - **An evaluator sees one item.** Its context is that item's `input`, `output`, `expected_output`
   and metadata; there is no mapping source for a second run's output. So **Tier 3 pairwise cannot
   be an evaluator of either kind**, whatever the judge model. This constraint is structural and
