@@ -68,10 +68,18 @@ LABELS_FILE = REPO / "docs" / "summaries" / "calibration-pairwise.md"
 
 
 def _runs():
-    """Newest screening run per model, excluding stale identities."""
+    """Newest screening run per model, keyed by OpenRouter id.
+
+    Every screened model is sampled, registered or not: a screening survivor is
+    exactly what the candidate route sends to Tier 2/3 next, and calibration
+    measures the *judge*, so a wider spread of output styles makes the agreement
+    number more robust rather than less representative.
+
+    The `/` test drops runs recorded under a model's pre-OpenRouter identity,
+    which would otherwise enter the sample a second time under its old name.
+    Empty outputs are dropped in `sample` instead, where the text is in hand.
+    """
     runs = stage1.discover_runs()
-    # A run whose every item was empty is a harness failure, not a candidate;
-    # `stage1.report` refuses it a verdict and calibration must not sample it.
     return {m: r for m, r in sorted(runs.items()) if "/" in m}
 
 
