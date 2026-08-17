@@ -68,6 +68,21 @@ question being answered — quality alone always picks the most expensive config
 compare stage has to produce them on the same terms screening did. Two stages holding their own
 copy of the thinking level would drift, and the drift would look like a property of the model.
 
+**An experiment task must be `async def` and reach the model through
+`eval_client.summarize`.** `run_experiment` awaits the task inside its own running event loop,
+while `LLMClient.run` ends in pydantic-ai's `run_sync`, which drives a loop itself — calling it
+from there raises `RuntimeError: This event loop is already running` on *every* item, before a
+single request leaves the machine. `summarize` hands the call to a worker thread, which has no
+running loop, so `run_sync` builds its own and the bot's synchronous path is reused as the bot
+runs it rather than reimplemented asynchronously beside it. `to_thread` copies the context, so
+the generation span still nests under the experiment item and the cost wrapper still finds it.
+
+The failure is cheap and looks expensive-to-diagnose: 150 items fail in about 15 seconds, each
+recorded as an empty output, which is indistinguishable from a model that answered nothing.
+`stage1.py report` therefore refuses a verdict for any run whose every item scored
+`t1_compression` 0 — that is the runner failing, not a model, and scoring it 0% eliminated all
+six registered models in one pass before the guard existed.
+
 The **judge** stays on its own HTTP call in `judge.py`, deliberately. It needs a forced tool
 call against a JSON schema, which `LLMClient` does not do and the bot never asks for, so routing
 it through the seam would mean adding structured output to `src/llm.py` for a request production

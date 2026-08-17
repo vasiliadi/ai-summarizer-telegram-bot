@@ -15,6 +15,8 @@ of the model under evaluation.
 
 from __future__ import annotations
 
+import asyncio
+
 import _bootstrap
 
 REPO = _bootstrap.load()
@@ -58,3 +60,32 @@ LLM = EvalLLMClient(
     client=config.gemini_client,
     openrouter_provider=config.openrouter_provider,
 )
+
+
+async def summarize(model_id, prompt, text, language):
+    """Summarise one dataset item, off the experiment's event loop.
+
+    **An experiment task that calls `LLM.run` directly fails on every item.**
+    `run_experiment` awaits the task inside its own running loop, while
+    `LLMClient.run` ends in pydantic-ai's `run_sync`, which drives a loop
+    itself — so it raises `RuntimeError: This event loop is already running`
+    before any request is sent. 150 items fail in about 15 seconds, each
+    recorded as an empty output, which is what a model returning nothing looks
+    like too.
+
+    A worker thread has no running loop, so `run_sync` builds its own there and
+    the bot's synchronous path is reused exactly as the bot runs it rather than
+    reimplemented asynchronously beside it. `to_thread` copies the context, so
+    the generation span still nests under the experiment item and
+    `OpenRouterCostReporter` still finds it.
+    """
+    # Mirrors summarize_text: prompt and content as two parts, and a blank text
+    # drops its part rather than sending an empty one.
+    content = [prompt, text] if text.strip() else [prompt]
+    return await asyncio.to_thread(
+        LLM.run,
+        content=content,
+        model_id=model_id,
+        target_language=language,
+        thinking_level=THINKING_LEVEL,
+    )

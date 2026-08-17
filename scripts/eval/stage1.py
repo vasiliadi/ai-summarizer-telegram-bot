@@ -46,7 +46,7 @@ from langfuse_api import LangfuseAPI
 REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
 
-from eval_client import LLM, THINKING_LEVEL
+from eval_client import THINKING_LEVEL, summarize
 
 import config
 from prompts import PROMPTS, prompt_version
@@ -76,19 +76,11 @@ def make_task(model_id):
     """Build the per-item task for one candidate model."""
     prompt = dedent(PROMPTS[PROMPT_KEY]).strip()
 
-    def task(*, item, **kwargs):  # noqa: ARG001
+    async def task(*, item, **kwargs):  # noqa: ARG001
         text = (item.input or {}).get("content", "")
         language = (item.input or {}).get("target_language", "Russian")
-        # Mirrors summarize_text: prompt and content as two parts, and a blank
-        # text drops its part rather than sending an empty one.
-        content = [prompt, text] if text.strip() else [prompt]
         try:
-            return LLM.run(
-                content=content,
-                model_id=model_id,
-                target_language=language,
-                thinking_level=THINKING_LEVEL,
-            )
+            return await summarize(model_id, prompt, text, language)
         except Exception as exc:
             # An empty response raises AttributeError; provider errors land here
             # too. Both are screen failures for that item, not a reason to
@@ -196,7 +188,7 @@ def _item_scores(experiment):
     return per_item
 
 
-def report():
+def report():  # noqa: C901
     """Tabulate Tier 1 pass rates per model and apply the elimination threshold."""
     runs = _discover_runs()
     if not runs:
@@ -212,7 +204,7 @@ def report():
     print(header)
     print("-" * len(header))
 
-    verdicts, incomplete, stale = {}, [], []
+    verdicts, incomplete, stale, broken = {}, [], [], []
     for model, experiment in sorted(runs.items()):
         per_item = _item_scores(experiment)
         scored = [s for s in per_item.values() if s]
@@ -220,6 +212,16 @@ def report():
             incomplete.append(f"{model}: {len(scored)} scored of {len(per_item)} items")
         if not scored:
             print(f"{model:28s}   0   (no scores)")
+            continue
+        comp = [s["t1_compression"] for s in scored if "t1_compression" in s]
+        # Compression is output chars over source chars, so zero on every item
+        # means every output was empty. That is what a run looks like when the
+        # harness never reached the model, and scoring it 0% would eliminate a
+        # model for the runner's failure — the same shape as the rate-limit
+        # response that once fell through as an empty list.
+        if comp and not any(comp):
+            broken.append(model)
+            print(f"{model:28s} {len(scored):3d}   (no output on any item)")
             continue
         rate = sum(1 for s in scored if s.get("t1_pass")) / len(scored)
         # `t1_pass` is the evaluator's own verdict at the time it ran, so a run
@@ -237,7 +239,6 @@ def report():
                 if vals
                 else f"{'-':>10s}",
             )
-        comp = [s["t1_compression"] for s in scored if "t1_compression" in s]
         comp_cell = f"{sum(comp) / len(comp):9.4f}" if comp else f"{'-':>9s}"
         print(
             f"{model:28s} {len(scored):3d} {rate:8.0%} "
@@ -247,6 +248,16 @@ def report():
         verdicts[model] = rate
 
     print()
+    if broken:
+        print(
+            "NO OUTPUT - these runs produced nothing on any item and carry no verdict:",
+        )
+        print(f"  {', '.join(broken)}")
+        print(
+            "      Suspect the runner before the models. Re-run; the newest "
+            "experiment per model is what this reads.",
+        )
+        print()
     if incomplete:
         # Never let a partial read pass as a verdict.
         print("INCOMPLETE COVERAGE - rows above are not final:")

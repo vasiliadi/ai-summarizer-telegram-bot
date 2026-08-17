@@ -46,7 +46,7 @@ from langfuse_api import LangfuseAPI
 REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
 
-from eval_client import LLM, THINKING_LEVEL
+from eval_client import THINKING_LEVEL, summarize
 
 import config
 from prompts import PROMPTS, prompt_version
@@ -385,18 +385,10 @@ def make_task(model_id, prompt_key):
     """
     prompt = dedent(PROMPTS[prompt_key]).strip()
 
-    def task(*, item, **kwargs):  # noqa: ARG001
+    async def task(*, item, **kwargs):  # noqa: ARG001
         text = _source_of(item.input)
         language = (item.input or {}).get("target_language", "Russian")
-        # Mirrors summarize_text: prompt and content as two parts, and a blank
-        # text drops its part rather than sending an empty one.
-        content = [prompt, text] if text.strip() else [prompt]
-        return LLM.run(
-            content=content,
-            model_id=model_id,
-            target_language=language,
-            thinking_level=THINKING_LEVEL,
-        )
+        return await summarize(model_id, prompt, text, language)
 
     return task
 
