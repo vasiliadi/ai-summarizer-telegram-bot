@@ -357,6 +357,24 @@ to Gemini — return the raw model text with **no** prefix.
   - Bullet count and bullet purity stay separate scores because "produced 3 bullets" and
     "produced 5 bullets plus a closing paragraph" are different failures with different fixes.
 
+  **Stage 1 is run and eliminated nobody.** All six registered models over the 25 screening
+  items on `key_points_for_transcript` score `t1_pass` far above the 70% floor:
+  `gemini-3.7-flash` and `openai/gpt-5.6-luna` 100%, `meta/muse-spark-1.2` and
+  `thinkingmachines/inkling` 96%, `minimax/minimax-m3` and `stepfun/step-3.7-flash` 84%.
+  Read that as *the deterministic checks do not separate this pool*, not as six equally good
+  models — Tier 1 only asks whether a model obeyed the prompt's absolutes. The discrimination
+  has to come from Tier 2/3, so do not spend another sweep tuning Tier 1 thresholds.
+  Two things the failures actually are: `stepfun/step-3.7-flash` returned an **empty response
+  on 3 of 25 items** and `thinkingmachines/inkling` on 1, which Tier 1 books as a language
+  failure (an empty string has no Cyrillic) — correct, and worth reading as a reliability
+  signal rather than a quality one. `minimax/minimax-m3` returned no empties but answered in
+  the **wrong language twice**, which is the failure mode Tier 1 exists to catch.
+  `t1_compression` spans 0.125 (`gemini-3.7-flash`, tersest) to 0.228
+  (`meta/muse-spark-1.2`), a near-2x spread that must stay beside every Tier 2/3 score
+  because judges reward length.
+  The registry is **6 models**; the 9-model table in the STG-138 description is stale and
+  must not be used to size a sweep.
+
 - **A code evaluator receives every metadata value as a string, and a crash inside it is
   silent.** `ctx.observation.metadata` is a flattened merge of OTel resource attributes, the
   dataset item's metadata and the run's own metadata, and *every* value in it — item metadata
@@ -385,9 +403,17 @@ to Gemini — return the raw model text with **no** prefix.
   `GET /v3/scores?experimentId=…` returns nothing for scores written by an evaluation rule,
   which reads exactly like the evaluator never fired. Join through the run instead:
   `GET /api/public/datasets/{name}/runs/{runName}` gives `datasetRunItems` with a `traceId`
-  per item, and `GET /v3/scores?traceId=…` returns that item's scores. `source=EVAL` with no
-  other filter is the fastest project-wide check that a rule is producing anything at all;
-  `metadata.job_configuration_id` on each score names the rule that wrote it.
+  per item, and each score's `metadata.target_trace_id` names the trace it scored.
+  `source=EVAL` with no other filter is the fastest project-wide check that a rule is
+  producing anything at all; `metadata.job_configuration_id` names the rule that wrote it.
+  Collect scores in **one paginated sweep**, not one request per item. The public API allows
+  **30 requests per window** and answers a 429 with `details.retryAfterSeconds`, which must be
+  obeyed — blind exponential backoff does not converge, because every retry spends another
+  request. A per-item join over six 25-item runs is ~156 requests and returned a *different
+  table on each run* until this was fixed, because an unchecked 429 falls through
+  `.json().get("data", [])` as an empty list and is indistinguishable from a model that
+  scored nothing. Paginate with `meta.cursor` — **not** `meta.nextCursor`, which does not
+  exist and silently truncates the sweep at the first page.
 
 - **Tier 2 and Tier 3 judges run outside Langfuse, and have to.** Three independent
   constraints rule out Langfuse's managed LLM-as-a-judge for this project, so the judge is a
