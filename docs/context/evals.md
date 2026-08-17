@@ -19,7 +19,15 @@ candidate screening is the primary use.
 
 The harness never consults `config.MODEL_SPECS`. Model ids are passed as arguments, always,
 with no default list — requiring a model to be registered before it can be screened would
-invert the tool. One route for every model also keeps results comparable, and the price of
+invert the tool.
+
+**Do not add a default list back.** The set worth screening is different every time: today's
+candidates are not tomorrow's, and the current batch is large only because this is the first
+pass over a registry that had never been evaluated. In steady state a new model shows up on
+its own — vendors do not ship on the same day — so the normal invocation is one id, and a
+constant would be stale the week after it was written.
+
+One route for every model also keeps results comparable, and the price of
 that is accepted deliberately: `gemini-3.7-flash` is screened as `google/gemini-3.7-flash`
 rather than through its native Google path, so its numbers are very slightly off the bot's
 real behaviour for the one model that does not reach production over OpenRouter. Comparing

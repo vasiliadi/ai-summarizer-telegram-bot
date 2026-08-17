@@ -12,7 +12,9 @@ ranking is Tier 2/3's job.
 **Models are named by their OpenRouter id and passed as arguments.** There is
 no default list and the registry is not consulted: the point of screening is to
 decide whether a model belongs in `config.MODEL_SPECS` at all, so requiring it
-to already be there inverts the tool. Every model — candidate or incumbent —
+to already be there inverts the tool. Nor should a default list come back — the
+set worth screening changes every time, and once the first pass over the
+registry is done the normal invocation is a single new model. Every model — candidate or incumbent —
 runs over the one OpenRouter route so results are comparable; the small
 difference against a provider's own endpoint is accepted deliberately, and it
 means `gemini-3.7-flash` is screened as `google/gemini-3.7-flash` rather than
