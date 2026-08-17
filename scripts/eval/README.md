@@ -28,6 +28,7 @@ source you upload with `install_tier1.py`.
 | File | Purpose |
 |---|---|
 | `_bootstrap.py` | Loads `.env`, puts `src/` on the import path, returns Langfuse REST credentials |
+| `langfuse_api.py` | The only place that calls the Langfuse REST API. v4 endpoints, rate-limit aware |
 | `tier1_evaluator.py` | Tier 1 deterministic scorers. Uploaded to Langfuse, executed there |
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
 | `stage1.py` | §7 stage 1 — sweep every model, Tier 1 only, no judge calls; and the report |
@@ -58,3 +59,12 @@ generates or judges is not:
 Re-scoring Tier 1 never costs anything: the summaries already exist as trace
 outputs, so a broken scorer is fixed by reinstalling it and recomputing, not by
 re-generating.
+
+## Langfuse v4
+
+Every read goes through `langfuse_api.py` and uses a v4 endpoint. Langfuse Cloud
+removes the v3 endpoints on **2026-11-16**, so do not reintroduce
+`GET /datasets/{name}/runs/{runName}`, `GET /traces/{id}`, or `GET /observations`
+— the replacements are `GET /experiments` + `GET /experiment-items` (with
+`fields=io,scores`) and `GET /v2/observations`. See the Langfuse section of
+`docs/context/architecture.md` for the semantics that changed with them.

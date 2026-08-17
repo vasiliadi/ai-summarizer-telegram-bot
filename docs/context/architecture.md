@@ -278,6 +278,22 @@ to Gemini — return the raw model text with **no** prefix.
   not the download, parse or upload around it; and a retried `summarize_text` produces
   one trace per attempt, since nothing groups them. `langfuse_client.shutdown()` flushes on exit. Independent of
   Sentry, which handles error capture and logs.
+- **The project is on the Langfuse v4 data model.** Langfuse Cloud becomes v4-only on
+  **2026-11-16**, when the legacy APIs, features and ingestion below are removed. What that
+  means here, so none of it is re-derived:
+  - **Ingestion needs nothing.** v4 requires Python SDK ≥ 4.7.0; `langfuse==4.14.4` is pinned
+    and ingestion already goes through OTel (`Agent.instrument_all()`), not `POST /ingestion`.
+  - **Trace-level input/output is deprecated product-wide** — tables, judges and exports all
+    read from an observation instead. Nothing here sets it: `Tracer.observe_message` only
+    calls `propagate_attributes`, which is the v4-correct way to copy trace attributes onto
+    observations so they stay filterable, and the model call's own span already carries the
+    input and output. **Never add `set_current_trace_io()` or an equivalent** to keep a legacy
+    evaluator working; migrate the evaluator to the root observation instead.
+  - **Evaluation targets `experiment`, which is already a v4 target.** The legacy targets are
+    `trace` and `dataset`, and the project has none — `tier1-on-experiments` is the only rule.
+  - **No blob-storage, PostHog or Mixpanel export is configured**, so the enriched-observation
+    export migration does not apply. Only blob storage is visible on the public API; the other
+    two are UI-only under *Project Settings → Integrations*.
 - **Langfuse-managed prompts are a hand-maintained mirror, for experiments only.** Two chat
   prompts named exactly after the `prompt_key`s (`basic_prompt_for_transcript`,
   `key_points_for_transcript`) hold a copy of what `src/prompts.py` sends, so a Langfuse
@@ -425,21 +441,30 @@ to Gemini — return the raw model text with **no** prefix.
   - Re-POSTing an evaluator under the same name creates a new **version** and every rule
     bound to that name follows it automatically — the rule's stored evaluator `id` changes to
     the new version's id. There is no separate update route, and no need to touch the rule.
-- **Evaluator scores attach to the observation, so `experimentId` will not find them.**
-  `GET /v3/scores?experimentId=…` returns nothing for scores written by an evaluation rule,
-  which reads exactly like the evaluator never fired. Join through the run instead:
-  `GET /api/public/datasets/{name}/runs/{runName}` gives `datasetRunItems` with a `traceId`
-  per item, and each score's `metadata.target_trace_id` names the trace it scored.
-  `source=EVAL` with no other filter is the fastest project-wide check that a rule is
-  producing anything at all; `metadata.job_configuration_id` names the rule that wrote it.
-  Collect scores in **one paginated sweep**, not one request per item. The public API allows
-  **30 requests per window** and answers a 429 with `details.retryAfterSeconds`, which must be
-  obeyed — blind exponential backoff does not converge, because every retry spends another
-  request. A per-item join over six 25-item runs is ~156 requests and returned a *different
-  table on each run* until this was fixed, because an unchecked 429 falls through
-  `.json().get("data", [])` as an empty list and is indistinguishable from a model that
-  scored nothing. Paginate with `meta.cursor` — **not** `meta.nextCursor`, which does not
-  exist and silently truncates the sweep at the first page.
+- **Read experiment results through the v4 experiment endpoints, never the trace join.**
+  Evaluator scores attach to the **observation**, so `GET /v3/scores?experimentId=…` returns
+  nothing for them and reads exactly like the evaluator never fired. The answer is not to join
+  through traces: `fields=scores` on `GET /experiment-items` returns each item's scores
+  inline, and `fields=io` returns its input, output and expected output. One call per page
+  replaces a dataset-run fetch plus one trace fetch per item plus a separate score sweep.
+  `scripts/eval/langfuse_api.py` is the only place that talks to these endpoints.
+  The v3 shapes this replaced are **deprecated and stop being served on 2026-11-16**:
+  `GET /datasets/{name}/runs/{runName}` → `GET /experiments` then `GET /experiment-items`;
+  `GET /traces/{id}` → `fields=io` on the item; `GET /observations` → `GET /v2/observations`.
+  Experiments are queried by dataset **id**, not name, so resolve it through
+  `GET /v2/datasets/{name}` first, and `fromStartTime` is **required** on both experiment
+  endpoints. Under v2, `input`/`output` come back as **raw strings** rather than parsed JSON,
+  and a field group that was not requested is **absent** rather than null.
+  Two traps survive the migration. The public API allows **30 requests per window** and
+  answers a 429 with `details.retryAfterSeconds`, which must be obeyed — blind exponential
+  backoff does not converge, because every retry spends another request; an unchecked 429
+  falls through `.json().get("data", [])` as an empty list and is indistinguishable from a
+  model that scored nothing, which produced a *different table on each run* until it was
+  fixed. And pagination is `meta.cursor` — **not** `meta.nextCursor`, which does not exist and
+  silently truncates a sweep at the first page.
+  For a quick project-wide check that a rule is producing anything at all, `GET /v3/scores`
+  with `source=EVAL` and no other filter still works; `metadata.job_configuration_id` names
+  the rule that wrote each score.
 
 - **Tier 2 and Tier 3 judges run outside Langfuse, and have to.** Three independent
   constraints rule out Langfuse's managed LLM-as-a-judge for this project, so the judge is a

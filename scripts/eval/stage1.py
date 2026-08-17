@@ -26,17 +26,16 @@ the providers, and calls `Agent.instrument_all()` when the Langfuse keys exist.
 
 from __future__ import annotations
 
-import contextlib
 import sys
 import time
 from textwrap import dedent
 
 import _bootstrap
-import requests
 from langfuse import Langfuse
+from langfuse_api import LangfuseAPI
 
 REPO = _bootstrap.load()
-BASE, AUTH = _bootstrap.langfuse_rest()
+API = LangfuseAPI(*_bootstrap.langfuse_rest())
 
 import config
 from llm import LLMClient
@@ -60,32 +59,6 @@ _llm = LLMClient(
     client=config.gemini_client,
     openrouter_provider=config.openrouter_provider,
 )
-
-
-def _get(url, params=None, attempts=8):
-    """GET honouring Langfuse's rate limit.
-
-    The limit is 30 requests per window and the 429 body carries
-    `details.retryAfterSeconds`; obeying it is what makes this terminate, since
-    blind backoff spends another request per retry. Failing loudly matters:
-    an unchecked 429 falls through as an empty list and is indistinguishable
-    from a model that scored nothing.
-    """
-    for attempt in range(attempts):
-        response = requests.get(url, auth=AUTH, timeout=120, params=params)
-        if response.status_code == 200:
-            return response.json()
-        retryable = response.status_code in {429, 500, 502, 503, 504}
-        if retryable and attempt < attempts - 1:
-            wait = 5.0
-            with contextlib.suppress(ValueError, KeyError, TypeError):
-                wait = float(response.json()["details"]["retryAfterSeconds"])
-            time.sleep(wait + 1)
-            continue
-        msg = f"GET {url} -> HTTP {response.status_code}: {response.text[:200]}"
-        raise RuntimeError(msg)
-    msg = f"GET {url}: giving up after {attempts} attempts"
-    raise RuntimeError(msg)
 
 
 def make_task(model_id):
@@ -157,63 +130,29 @@ def run():
 
 
 def _discover_runs():
-    """Map candidate model -> run name, from Langfuse rather than local state."""
-    body = _get(
-        f"{BASE}/api/public/experiments",
-        params={"fromStartTime": "2020-01-01T00:00:00Z"},
-    )
+    """Map candidate model -> newest experiment for it, from Langfuse itself."""
     runs = {}
-    for row in body.get("data", []):
-        name = row.get("name") or ""
-        if not name.startswith(RUN_PREFIX):
-            continue
-        model = name[len(RUN_PREFIX) :].split(" - ")[0]
-        # Several sweeps may exist; the newest run for a model wins.
-        if model not in runs or row["startTime"] > runs[model][1]:
-            runs[model] = (name, row["startTime"])
-    return {model: name for model, (name, _) in runs.items()}
+    # experiments() returns newest first, so the first hit per model wins.
+    for row in API.experiments(API.dataset_id(SCREEN), name_prefix=RUN_PREFIX):
+        model = (row["name"])[len(RUN_PREFIX) :].split(" - ")[0]
+        runs.setdefault(model, row)
+    return runs
 
 
-def _all_t1_scores():
-    """Every t1_* score in the project, keyed by the trace it scored.
+def _item_scores(experiment):
+    """Dataset item id -> {score name: value} for one experiment.
 
-    One paginated sweep rather than a request per item: a per-item join over
-    six 25-item runs is ~156 requests against a 30-per-window limit, which
-    returned a different table on each run until it was replaced.
+    `fields=scores` returns each item's scores inline, which is what replaced
+    fetching every run item's trace and sweeping /v3/scores separately.
     """
-    by_trace = {}
-    cursor = None
-    while True:
-        params = {"source": "EVAL", "limit": 100, "fields": "core,details"}
-        if cursor:
-            params["cursor"] = cursor
-        body = _get(f"{BASE}/api/public/v3/scores", params=params)
-        rows = body.get("data", [])
-        for row in rows:
-            if not row["name"].startswith("t1_"):
-                continue
-            trace = (row.get("metadata") or {}).get("target_trace_id")
-            if trace:
-                by_trace.setdefault(trace, {})[row["name"]] = row.get("value")
-        # Paginate on meta.cursor — meta.nextCursor does not exist and would
-        # silently truncate the sweep at the first page.
-        cursor = (body.get("meta") or {}).get("cursor")
-        if not cursor or not rows:
-            break
-    return by_trace
-
-
-def _run_traces(run_name):
-    """Dataset item id -> trace id for one run."""
-    from urllib.parse import quote
-
-    run = _get(
-        f"{BASE}/api/public/datasets/"
-        f"{quote(SCREEN, safe='')}/runs/{quote(run_name, safe='')}",
-    )
-    return {
-        row["datasetItemId"]: row["traceId"] for row in run.get("datasetRunItems", [])
-    }
+    per_item = {}
+    for item in API.experiment_items(experiment["id"], fields="core,scores"):
+        per_item[item["experimentItemId"]] = {
+            s["name"]: s.get("value")
+            for s in (item.get("scores") or [])
+            if s["name"].startswith("t1_")
+        }
+    return per_item
 
 
 def report():
@@ -221,7 +160,6 @@ def report():
     runs = _discover_runs()
     if not runs:
         sys.exit(f"no runs found with prefix {RUN_PREFIX!r}; run the sweep first")
-    all_scores = _all_t1_scores()
 
     print(f"\nStage 1 - {SCREEN}, {PROMPT_KEY}, thinking={THINKING_LEVEL}")
     print(f"Elimination threshold: t1_pass < {PASS_THRESHOLD:.0%}\n")
@@ -234,11 +172,8 @@ def report():
     print("-" * len(header))
 
     verdicts, incomplete = {}, []
-    for model, run_name in sorted(runs.items()):
-        per_item = {
-            item_id: all_scores.get(trace, {})
-            for item_id, trace in _run_traces(run_name).items()
-        }
+    for model, experiment in sorted(runs.items()):
+        per_item = _item_scores(experiment)
         scored = [s for s in per_item.values() if s]
         if not scored or len(scored) != len(per_item):
             incomplete.append(f"{model}: {len(scored)} scored of {len(per_item)} items")

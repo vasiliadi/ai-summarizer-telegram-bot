@@ -34,8 +34,10 @@ from hashlib import sha256
 import _bootstrap
 from langfuse import Langfuse
 from langfuse.experiment import Evaluation
+from langfuse_api import LangfuseAPI
 
 REPO = _bootstrap.load()
+API = LangfuseAPI(*_bootstrap.langfuse_rest())
 
 from prompts import PROMPTS, SYSTEM_INSTRUCTION
 
@@ -430,31 +432,25 @@ def cmd_run(model_id, limit, dataset_name, prompt_key):
 
 
 def _run_outputs(dataset_name, run_name):
-    """Map dataset item id -> that run's output text."""
-    from urllib.parse import quote
+    """Map dataset item id -> (that run's output text, its trace id).
 
-    import requests
-
-    auth = (os.environ["LANGFUSE_PUBLIC_KEY"], os.environ["LANGFUSE_SECRET_KEY"])
-    base = os.environ["LANGFUSE_BASE_URL"].rstrip("/")
-    # Run names carry the model id, so they contain slashes and spaces; without
-    # encoding, "minimax/minimax-m3 / ..." becomes extra path segments and 404s.
-    path = f"{quote(dataset_name, safe='')}/runs/{quote(run_name, safe='')}"
-    response = requests.get(f"{base}/api/public/datasets/{path}", auth=auth, timeout=60)
-    if response.status_code != 200:
-        msg = f"run {run_name!r}: HTTP {response.status_code}"
+    Reads the experiment's items directly. The v3 shape this replaced fetched
+    the dataset run and then one trace per item for its output, and both halves
+    are deprecated: `GET /datasets/{name}/runs/{runName}` is superseded by
+    `GET /experiments` plus `GET /experiment-items`, and trace-level
+    input/output is deprecated product-wide. `fields=io` returns the root
+    observation's output, which is the value the judge should compare anyway,
+    and it costs one request per page instead of one per item.
+    """
+    experiment = API.find_experiment(API.dataset_id(dataset_name), run_name)
+    if experiment is None:
+        msg = f"no experiment named {run_name!r} on dataset {dataset_name!r}"
         raise RuntimeError(msg)
-    run = response.json()
     out = {}
-    for row in run.get("datasetRunItems", []):
-        trace = requests.get(
-            f"{base}/api/public/traces/{row['traceId']}",
-            auth=auth,
-            timeout=60,
-        ).json()
+    for item in API.experiment_items(experiment["id"], fields="core,io"):
         # The trace id travels with the output: a pairwise score has to hang off
         # something, and the natural anchor is run A's trace for that item.
-        out[row["datasetItemId"]] = (_text(trace.get("output")), row["traceId"])
+        out[item["experimentItemId"]] = (_text(item.get("output")), item["traceId"])
     return out
 
 
@@ -533,34 +529,9 @@ def cmd_pairwise(dataset_name, run_a, run_b):
 
 def smoke(limit):
     """Judge real traced summaries end to end without posting anything."""
-    import subprocess
-
     for name in TEMPLATES:
         print(f"judge prompt {name}: v{judge_version(name)}")
-    out = subprocess.run(
-        [
-            "npx",
-            "-y",
-            "langfuse-cli",
-            "--env",
-            ".env",
-            "api",
-            "observations",
-            "list",
-            "--type",
-            "GENERATION",
-            "--limit",
-            str(limit),
-            "--fields",
-            "core,io",
-            "--json",
-        ],
-        capture_output=True,
-        text=True,
-        cwd=str(REPO),
-        check=True,
-    ).stdout
-    rows = json.loads(out[out.index('{"status"') :])["body"]["data"]
+    rows = API.observations(limit=limit, obs_type="GENERATION", fields="core,io")
     print()
     for row in rows:
         try:
