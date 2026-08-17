@@ -351,6 +351,38 @@ to Gemini — return the raw model text with **no** prefix.
   - Bullet count and bullet purity stay separate scores because "produced 3 bullets" and
     "produced 5 bullets plus a closing paragraph" are different failures with different fixes.
 
+- **A code evaluator receives every metadata value as a string, and a crash inside it is
+  silent.** `ctx.observation.metadata` is a flattened merge of OTel resource attributes, the
+  dataset item's metadata and the run's own metadata, and *every* value in it — item metadata
+  included — arrives stringified: `char_length` is `"19845"`, not `19845`, even though the
+  dataset item stores a JSON number and the dataset-items API returns one. Arithmetic on such
+  a value raises `TypeError`, which discards the whole `EvaluationResult` — including the
+  scores already built before the failing line. Nothing surfaces this: the rule still reports
+  `status: "active"`, the run completes, and the only symptom is that no score appears. This
+  cost a full session to find, so **coerce every metadata value before using it as a number**.
+  The one place the failure is visible is `POST /unstable/evaluators`, whose preflight executes
+  the source against sample data and returns `422 evaluator_preflight_failed` with the
+  exception and line number — which makes reinstalling the evaluator the cheapest way to test
+  it, and means a rule that went active earlier is **not** evidence the code still runs, since
+  preflight only sees whatever sample it was given.
+  Two consequences for scoring runs:
+  - Branch on `run_prompt_key` from the run metadata, not the item's `prompt_key`. An
+    experiment applies one strategy to every item, while an item's `prompt_key` records the
+    strategy of the trace it was *harvested* from; on a mixed dataset the two disagree and the
+    bullet checks silently apply to the wrong items. `summarization-screen-v1` has 24 items
+    from `key_points_for_transcript` and 1 from `basic_prompt_for_transcript`, so this is live,
+    not hypothetical. The evaluator prefers `run_prompt_key` and falls back to the item.
+  - Re-POSTing an evaluator under the same name creates a new **version** and every rule
+    bound to that name follows it automatically — the rule's stored evaluator `id` changes to
+    the new version's id. There is no separate update route, and no need to touch the rule.
+- **Evaluator scores attach to the observation, so `experimentId` will not find them.**
+  `GET /v3/scores?experimentId=…` returns nothing for scores written by an evaluation rule,
+  which reads exactly like the evaluator never fired. Join through the run instead:
+  `GET /api/public/datasets/{name}/runs/{runName}` gives `datasetRunItems` with a `traceId`
+  per item, and `GET /v3/scores?traceId=…` returns that item's scores. `source=EVAL` with no
+  other filter is the fastest project-wide check that a rule is producing anything at all;
+  `metadata.job_configuration_id` on each score names the rule that wrote it.
+
 - **Tier 2 and Tier 3 judges run outside Langfuse, and have to.** Three independent
   constraints rule out Langfuse's managed LLM-as-a-judge for this project, so the judge is a
   local runner that posts scores back through the API into the same score table as the
@@ -388,6 +420,20 @@ to Gemini — return the raw model text with **no** prefix.
   and are rejected outright for `type=code`, while on `POST /unstable/evaluation-rules` the
   evaluator reference needs `type: "code"` and `mapping` must be **omitted entirely** — an
   empty array is rejected just as a populated one is, and leaving `type` off makes the request
-  validate as llm-as-judge and demand a mapping. The rule's own preflight is what first
-  executes the source, so a rule that comes back `status: "active"` is the confirmation the
-  code runs.
+  validate as llm-as-judge and demand a mapping. The evaluator reference also needs `name` and
+  `scope` alongside `id` and `type`; sending only the id fails validation. The server fills the
+  omitted `mapping` in with defaults, so a rule read back after creation shows six entries —
+  that is expected, not drift. A rule returning `status: "active"` means its preflight ran the
+  code **once, against sample data**; it does not mean the code survives real data, so treat
+  `422` from a later `POST /unstable/evaluators` as the authoritative crash report.
+
+  Four API shapes cost real time to rediscover:
+  - The batch endpoint parses the request body as a **stream**, so `endpoint` and `model` must
+    be serialised before `requests`; a plain dict literal in that order is what guarantees it.
+  - Tier 2 evaluators attach through `Langfuse.run_experiment(evaluators=[…])` rather than by
+    posting scores by hand — the run wires each `Evaluation` to the right item.
+  - A Langfuse score **requires a target**. Passing `trace_id=None` fails with a bare
+    `Bad request` while the calling code still prints success, so a pairwise score has to be
+    anchored to something — run A's trace for that item is the natural choice.
+  - Dataset run names embed the model id, so they contain `/` and spaces and must be
+    URL-encoded into REST paths or the segments split and the request 404s.
