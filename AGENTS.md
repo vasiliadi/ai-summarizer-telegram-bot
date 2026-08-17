@@ -32,5 +32,10 @@ Before the first tracked-file edit, branch from `main` with `git checkout -b <sc
   - `style-guide.md` — coding conventions Ruff does not enforce
   - `git-guide.md` — commit format, pre-commit hooks, coverage, CI workflows
   - `uv-guide.md` — running the project and managing dependencies
+- `scripts/eval/` — the STG-138 evaluation harness: Tier 1 evaluator source, the stage
+  sweeps, and the Tier 2/3 judge. Operational scripts, never imported by the bot. See its
+  `README.md` first — state is split between this directory, Langfuse, and untracked local
+  files, and the Tier 1 evaluator executes **on Langfuse's infrastructure**, not locally.
+  **(tracked)**
 - `docs/archive/` — superseded handoffs, kept flat. Read only when explicitly told. **(gitignored)**
 - `.claude/commands/handoff.md` — the `/handoff` routine and its template; agents without slash commands follow its steps directly.
