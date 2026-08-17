@@ -1,27 +1,23 @@
-"""STG-138 Tier 2 / Tier 3 judge runner.
+"""Tier 2 / Tier 3 LLM judge.
 
-Runs outside Langfuse deliberately. Langfuse's managed LLM-as-a-judge asks for
-structured output via `response_format`, which OpenRouter drops on Anthropic
-models (the model answers in prose and nothing errors); it calls chat/completions,
-where the half-price `:batch` ids 404; and it sees one item at a time, so pairwise
-has nowhere to put the second summary. Forced tool calls work on the same route,
-so the judge lives here.
+Runs outside Langfuse. Tier 3 has to: an evaluator sees one item and has no
+mapping source for a second run's output, so pairwise comparison cannot be an
+evaluator at all. Tier 2 could move but stays here — see `docs/context/evals.md`
+for what moving it would cost.
 
-Tier 2 plugs into `Langfuse.run_experiment` as evaluator functions, so scores are
-attached to the dataset run automatically. Tier 3 compares two runs and posts its
-own scores, because no evaluator can see more than one run.
+Tier 2 plugs into `Langfuse.run_experiment` as evaluator functions, so scores
+attach to the run automatically. Tier 3 compares two runs and posts its own
+scores.
 
-Judges count; the ratio is computed here. Asking a model for `0.71` invites
-arithmetic slips no prompt wording fixes.
+The judge is synchronous `anthropic/claude-sonnet-5` and returns structured
+output through a forced tool call. It **counts** (claims, entailed facts) and
+the ratio is computed here, because a model asked directly for `0.71` makes
+arithmetic slips no prompt wording fixes. Editing a judge prompt or schema moves
+its `judge_version` hash, which unpins it from every score already banked.
 
     python judge.py run minimax/minimax-m3 2
     python judge.py pairwise <run-a> <run-b>
     python judge.py smoke 3
-
-The judge is synchronous `anthropic/claude-sonnet-5`. OpenRouter's half-price
-`:batch` ids were tried and dropped: submission returned a batch id but the
-poll/results cycle never delivered, and half price does not justify a second
-unproven transport. Do not rebuild it on price alone.
 """
 
 import json

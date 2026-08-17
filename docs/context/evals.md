@@ -3,13 +3,50 @@
 How summarization quality is measured: the Langfuse datasets built from real traces, the
 scoring tiers, the judges, and the harness in `scripts/eval/`.
 
-The methodology and its staged plan live in Linear **STG-138**; this file holds the settled
-facts and the traps, which is what a later session must not get wrong. `architecture.md`
-owns the bot itself, including *how* it emits the traces this is built on — read its
-**Tracing** bullet before changing anything that produces trace data.
+Nothing here is imported by the bot — these are operational scripts, run by hand.
+`architecture.md` owns the bot itself, including *how* it emits the traces this is built on;
+read its **Tracing** bullet before changing anything that produces trace data.
 
-Nothing here is imported by the bot. `scripts/eval/README.md` is the operational guide (which
-script to run, what it costs); this file is the *why*.
+## Staged execution
+
+Do not run the full grid. Model × thinking level × prompt strategy is a large space and most
+of it decides nothing, so the work is staged and each stage narrows the next:
+
+1. **Screen** — every registered model over the 25 screening items at one fixed thinking
+   level, Tier 1 only, no judge calls. Drops any model failing outright.
+2. **Compare** — the survivors over the 50-item set with the full scorer suite: Tier 2 per
+   dimension and Tier 3 pairwise with order swap.
+3. **Sweep thinking levels** on the winner only, and expect to decide it on cost and latency
+   rather than quality, because adjacent levels rarely separate.
+
+Track cost and latency beside quality throughout; quality alone always picks the most
+expensive configuration. Below ~30 items report gross failure rates only, never rankings.
+Keep the dataset afterwards as a regression gate for prompt edits, not only for model launches.
+
+## The harness
+
+| File | Purpose |
+|---|---|
+| `_bootstrap.py` | Loads `.env`, puts `src/` on the import path, returns Langfuse REST credentials |
+| `langfuse_api.py` | The only place that calls the Langfuse REST API. v4 endpoints, rate-limit aware |
+| `tier1_evaluator.py` | Tier 1 deterministic scorers. Uploaded to Langfuse, **executed there** |
+| `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
+| `stage1.py` | The screening stage — sweep, report, and per-item failures |
+| `judge.py` | Tier 2/3 LLM judge (`anthropic/claude-sonnet-5`), runs outside Langfuse |
+| `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
+
+```bash
+uv run python scripts/eval/install_tier1.py     # after every edit to tier1_evaluator.py
+uv run python scripts/eval/stage1.py report     # free, read-only
+uv run python scripts/eval/stage1.py failures   # free — which items failed, and why
+uv run python scripts/eval/stage1.py run        # COSTS MONEY: one call per item per model
+uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
+```
+
+Anything that only reads is free. A full screening sweep is 25 items × every registered model,
+roughly **$1**; judge calls are the expensive part. Re-scoring Tier 1 never costs anything —
+the summaries already exist as trace outputs, so a broken scorer is repaired by reinstalling it
+and recomputing, not by re-generating.
 
 ## Where state lives
 
@@ -330,8 +367,9 @@ conflating them is a mistake worth not repeating:
 candidate pool, so it is the one judge whose self-preference bias cannot favour a candidate, and
 Sonnet 5 still outranks a pool that is mostly flash tier. It is pinned by model id,
 `reasoning_effort` and judge-prompt hash — **not** by temperature, which Sonnet 5 and Opus 5
-reject outright with a 400. §6 calibration against hand labels may still revise the choice;
-nothing else should.
+reject outright with a 400. Calibration against hand labels may still revise the choice —
+20–30 labelled outputs, iterate the judge prompt until agreement reaches ~80% or Cohen's
+kappa passes 0.6 — but nothing else should.
 
 ### Three details of the judge are load-bearing
 
@@ -374,8 +412,6 @@ twice**, which is the failure mode Tier 1 exists to catch.
 `t1_compression` spans 0.125 (`gemini-3.7-flash`, tersest) to 0.228 (`meta/muse-spark-1.2`), a
 near-2x spread that must stay beside every Tier 2/3 score because judges reward length.
 
-The registry is **6 models**; the 9-model table in the STG-138 description is stale and must not
-be used to size a sweep.
 
 ## API shapes that cost real time to rediscover
 

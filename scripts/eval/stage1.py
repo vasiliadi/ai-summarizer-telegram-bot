@@ -1,27 +1,18 @@
-"""STG-138 §7 stage 1: screen the model registry on Tier 1 only.
+"""Screening stage: rank the model registry on Tier 1 only.
 
 Runs every registered model over `summarization-screen-v1` at one fixed
 thinking level with no judge calls, then tabulates the Tier 1 scores that
 Langfuse's `tier1-on-experiments` rule attaches to each run.
 
-    python scripts/eval/stage1.py run
+    python scripts/eval/stage1.py run        # costs money
     python scripts/eval/stage1.py report
+    python scripts/eval/stage1.py failures
 
 The task drives `llm.LLMClient`, the same path the bot uses, rather than
-posting to a provider directly. That is what records the three things §7 asks
-to track beside quality, none of which a hand-rolled HTTP call produces:
-
-  * **cost** — `OpenRouterCostReporter` copies the charge OpenRouter reports
-    onto `gen_ai.usage.cost`, the attribute Langfuse ingests. Langfuse cannot
-    price a bare `provider/model` id, so without the wrapper a run shows
-    tokens and no cost — or, with no generation span at all, `$0.00`.
-  * **thinking level** — `build_settings` applies it; a raw HTTP call sends
-    none, so "one fixed thinking level" silently becomes the provider default.
-  * **provider routing** — `build_model` sends Gemini through `GoogleModel`
-    natively instead of over OpenRouter.
-
-Importing `config` is what turns instrumentation on: it loads `.env`, builds
-the providers, and calls `Agent.instrument_all()` when the Langfuse keys exist.
+posting to a provider directly. That is what records cost (via
+`OpenRouterCostReporter`), applies the thinking level, and routes Gemini
+natively. A hand-rolled HTTP call records none of them and leaves the run
+showing `$0.00`. Importing `config` is what turns instrumentation on.
 """
 
 from __future__ import annotations
@@ -108,7 +99,7 @@ def run():
             task=make_task(model_id),
             max_concurrency=4,
             metadata={
-                "stage": "stg-138-stage-1",
+                "stage": "screen",
                 "candidate_model": model_id,
                 "provider": provider,
                 "thinking_level": THINKING_LEVEL,

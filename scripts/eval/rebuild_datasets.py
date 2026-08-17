@@ -1,13 +1,11 @@
-"""Rebuild the STG-138 datasets with the corrected stratum and degeneracy filters.
+"""Rebuild both evaluation datasets from a raw trace harvest.
 
-Fixes two faults in the first build:
-  * stratum collapsed WhisperX transcripts into `web_article` — both are single
-    blobs, so the line-wrap test alone could not separate them;
-  * the degeneracy filter tested a single character's share, which missed a
-    transcript repeating a multi-character sequence.
+Screens the harvested generations, classifies each by stratum, applies the
+per-stratum quotas, and writes `summarization-compare-v1` plus its strict subset
+`summarization-screen-v1`.
 
-Deletes every existing item in both datasets first, so nothing selected under
-the old classifier survives — which is why it refuses to run without `--yes-wipe`.
+**Destructive**: it deletes every existing item in both datasets first, so it
+refuses to run without `--yes-wipe`.
 
     python scripts/eval/rebuild_datasets.py --yes-wipe path/to/obs.json
 

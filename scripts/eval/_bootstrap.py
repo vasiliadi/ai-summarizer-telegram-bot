@@ -1,12 +1,8 @@
-"""Shared setup for the STG-138 evaluation scripts.
+"""Shared setup for the evaluation scripts.
 
 Every script here runs standalone from the repo root and needs the same three
 things: the repo path, `.env` loaded, and `src/` importable so the harness can
 reuse the bot's own prompts and model client rather than restating them.
-
-Deriving the root from `__file__` rather than hardcoding it is what lets these
-scripts survive being moved or checked out elsewhere — the previous versions
-lived in a session-scoped temp directory with an absolute path baked in.
 """
 
 from __future__ import annotations

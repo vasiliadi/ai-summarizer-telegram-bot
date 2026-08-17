@@ -1,29 +1,23 @@
-"""Tier 1 deterministic scorers for STG-138. Runs inside Langfuse as a code evaluator.
+"""Tier 1 deterministic scorers. Runs inside Langfuse as a code evaluator.
 
-Every check restates a rule that src/prompts.py states as an absolute, so each is
-binary. Compression is the exception: it is a diagnostic that sits beside quality
-scores, never a gate, because judges reward length and gating would let a model
-win by truncating.
+Screens for outright breakage only — wrong language, no list where a list was
+asked for. Every check restates a rule `src/prompts.py` states as an absolute,
+so each is binary; compression is a diagnostic that never gates.
 
-Tier 1 screens for outright breakage — wrong language, no list where a list was
-asked for. Style and obedience failures are Tier 2/3's job; three checks that
-tried to cover them were removed after 150 scored items produced three hits and
-no decision (see architecture.md).
+Two constraints on editing this file, both invisible at runtime:
 
-**Write portable Python here.** This source is uploaded to Langfuse and executed
-on Langfuse's infrastructure, whose interpreter version this project neither
-controls nor observes. Syntax gated on a recent Python — PEP 758's
-`except A, B:` without parentheses, for one — turns the whole evaluator into a
-SyntaxError there, which yields no scores and looks exactly like it never ran.
-The repo targets py314, so a formatter will happily introduce that if a tuple
-`except` is written.
+**Write portable Python.** The source is uploaded to Langfuse and executed on
+its infrastructure, whose interpreter version is neither controlled nor
+observed here. Syntax gated on a recent Python — PEP 758's `except A, B:`, for
+one, which a py314-targeted formatter will introduce if a tuple `except` is
+written — becomes a SyntaxError there: no scores, and indistinguishable from a
+rule that never fired. `install_tier1.py`'s preflight is the only thing that
+reports it.
 
-`Score` and `EvaluationResult` are injected by that runtime and must **not** be
-defined or imported here — doing so would ship dead code to the evaluator. The
-two names are therefore suppressed per line rather than file-wide: a
-file-level `reportUndefinedVariable=false` would also hide a typo'd local
-name, and a real error in this module is invisible at runtime, so the editor
-is the only place it shows.
+**`Score` and `EvaluationResult` are injected by that runtime** and must not be
+defined or imported, which is why every type checker calls them undefined. The
+per-line Pyright suppressions are deliberately narrow: a file-level one would
+also hide a typo'd local name.
 """
 
 CYRILLIC_FLOOR = 0.70
