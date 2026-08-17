@@ -475,16 +475,24 @@ Four things about it are load-bearing:
 - **The judge prompts and schemas are imported from `judge.py`, never restated.** Calibration
   has to measure the prompt production actually uses; a copy would drift and the agreement
   number would then describe nothing.
-- **Both dimensions are labelled in generated files, not in a Langfuse annotation queue**, and
-  that is correctness rather than preference. A queue item points at one stored object, and the
-  object holding a summary is the generation observation — whose output is the model's reply
-  *as parts*, a reasoning model putting a `thinking` part in front of the `text` one. The
-  experiment item carries the clean text; the observation does not. Annotating the observation
-  therefore shows a **different artefact than the judge scores**, and exposes the model's
-  private reasoning, which the judge never sees. Agreement between two readers looking at
-  different things measures nothing. Pairwise could not have used a queue regardless — it needs
-  two summaries side by side, the constraint that stopped Tier 3 being an evaluator. Labels
-  still reach the same score table, posted through the scores API.
+- **Both dimensions are hand-labelled in a Langfuse annotation queue, and its items must point
+  at the ROOT span.** A screening trace holds four observations, and only the choice between
+  them decides whether the measurement means anything. The root span's output is the clean
+  summary, byte-identical to what the judge is given. The GENERATION nested inside it holds the
+  model's reply *as parts*, with a reasoning model putting a `thinking` part in front of the
+  `text` one — annotate that and the human reads a different artefact than the judge scores and
+  sees reasoning the judge never sees. Nothing complains either way; the wrong pick simply
+  produces an agreement number about nothing.
+- **Pairwise has no existing object to point at**, because a queue item is one object and the
+  comparison needs two summaries side by side — the constraint that stopped Tier 3 being an
+  evaluator. `calibrate.py setup` writes one purpose-built span per pair, source as input and
+  both summaries as output, and the blinding lives in its metadata as the only record of which
+  model was shown as A. They are free, named `calibration pair`, and never read as bot traffic.
+- **One queue holds both dimensions.** The Hobby plan allows exactly one annotation queue, and
+  no API route updates a queue's score configs after creation — so it has to be created with
+  every config it will ever need. A queue missing one simply never offers that channel in the
+  UI. Mis-setting a channel on the wrong kind of item is harmless: agreement maps observations
+  back to sample items, and a label on an observation outside that mapping is ignored.
 - **The sample is derived, not stored** — items sorted by id and dealt round-robin across the
   screening runs. Agreement is only comparable across prompt revisions when the items stay
   fixed, and a stored manifest would drift from the runs it names.
