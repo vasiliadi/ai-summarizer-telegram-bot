@@ -493,20 +493,21 @@ to Gemini — return the raw model text with **no** prefix.
   with `source=EVAL` and no other filter still works; `metadata.job_configuration_id` names
   the rule that wrote each score.
 
-- **Tier 2 and Tier 3 judges run outside Langfuse, and have to.** Three independent
-  constraints rule out Langfuse's managed LLM-as-a-judge for this project, so the judge is a
-  local runner that posts scores back through the API into the same score table as the
-  `t1_*` scores and any human annotations — which is what keeps the calibration comparison a
-  query rather than a spreadsheet.
-  - **OpenRouter silently drops `response_format: json_schema` on Anthropic models.** The
-    model answers in prose and nothing errors; `provider: {require_parameters: true}` does not
-    change it, and OpenRouter's own catalog advertises `structured_outputs: true` for these
-    ids, so the metadata is wrong rather than merely absent. A **forced tool call**
-    (`tools` + `tool_choice` naming the function) is honoured on the same route and returns
-    clean structured JSON. Langfuse's managed judge sends `response_format` with no way to
-    override it, so it fails preflight with "No object generated: could not parse the
-    response" against any Anthropic model. The same schema works through the same connection
-    on Gemini, so this is the Anthropic route specifically.
+- **Tier 3 cannot run inside Langfuse; Tier 2 now could, and does not.** Both judges live in
+  `scripts/eval/judge.py`, a local runner that posts scores back through the API into the same
+  score table as the `t1_*` scores and any human annotations — which is what keeps the
+  calibration comparison a query rather than a spreadsheet. The reasons differ per tier, and
+  conflating them is a mistake worth not repeating:
+  - **`response_format: json_schema` on Anthropic over OpenRouter used to fail and no longer
+    does.** The original finding was that OpenRouter silently dropped the parameter, the model
+    answered in prose, `provider: {require_parameters: true}` changed nothing, and Langfuse's
+    managed judge — which sends `response_format` with no way to override it — failed preflight
+    with "No object generated: could not parse the response". **Retested 2026-08-17 against
+    `anthropic/claude-sonnet-5`: it returns clean schema-conforming JSON, with and without
+    `require_parameters`.** So this no longer blocks a Langfuse-managed Tier 2 judge. The
+    forced tool call (`tools` + `tool_choice`) that `judge.py` uses still works and is kept
+    because it is what the banked scores were produced with, not because the alternative is
+    broken. Treat provider-behaviour findings as perishable and retest before relying on them.
   - **OpenRouter's half-price `:batch` model ids reject chat/completions** with "This model is
     only available through the Batch API", pointing at `/api/beta/batches`. Langfuse's judge
     is synchronous, so it can never reach them at all.
@@ -517,7 +518,21 @@ to Gemini — return the raw model text with **no** prefix.
     `anthropic/claude-sonnet-5`.** Do not rebuild `:batch` without a reason beyond price.
   - **An evaluator sees one item.** Its context is that item's `input`, `output`,
     `expected_output` and metadata; there is no mapping source for a second run's output. So
-    pairwise comparison cannot be an evaluator of either kind, whatever the judge model.
+    **Tier 3 pairwise cannot be an evaluator of either kind**, whatever the judge model. This
+    constraint is structural and is the one that genuinely forces a local runner.
+  - **Tier 2 stays local by choice, not by constraint.** Faithfulness, coverage and no-filler
+    are per-item single-observation judgements, so they would fit a managed evaluator, and on
+    an `experiment` target it can read `expected_output` — the key-facts checklist coverage
+    needs. Two things are given up by moving them, and both are load-bearing rather than
+    stylistic: the **judge counts and the runner divides** (a managed evaluator's output
+    definition is one numeric `score` plus reasoning, so asking the model for `0.71` directly
+    is exactly the arithmetic slip that design removed), and `judge_version` **pins the prompt
+    and schema by hash** so banked comparisons stay valid, whereas a managed evaluator is
+    versioned by Langfuse and that version would have to be copied into run metadata by hand.
+    The Ragas library evaluators are not a shortcut here either: their `Faithfulness` takes
+    `context`/`answer` and is RAG-shaped, while this project's definition counts claims, is
+    translation-aware (Russian summary, possibly English source) and explicitly does not
+    penalise omission. Revisit the trade, do not assume it was forced.
 
   The judge model is **`anthropic/claude-sonnet-5`**, settled. Anthropic is the only frontier
   family not in the candidate pool, so it is the one judge whose self-preference bias cannot
