@@ -119,6 +119,7 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
 | `stage1.py` | The screening stage — sweep, report, and per-item failures |
 | `judge.py` | The Tier 2/3 LLM judge; runs outside Langfuse |
+| `calibrate.py` | Judge-vs-human agreement. Gates the compare stage |
 | `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
 
 ```bash
@@ -460,6 +461,35 @@ reasoning string that runs into `max_tokens` — a truncated call then still car
 And OpenRouter does not enforce `required` on this route, so a missing field has to be caught
 explicitly rather than trusted. Pairwise runs **both orders and discards disagreements**; the
 discard rate is itself a judge-quality signal.
+
+### Calibration runs before the compare stage, not after
+
+`scripts/eval/calibrate.py` measures the judge against hand labels: raw agreement plus Cohen's
+kappa, targeting ~80% / kappa >0.6. A Tier 2/3 ranking means nothing until this passes, so it
+gates stage 2 rather than reviewing it. It is also **cheapest before any Tier 2/3 score is
+banked** — every judge-prompt revision moves `judge_version` and unpins banked comparisons, so
+iterating now costs nothing and iterating later destroys real work.
+
+Four things about it are load-bearing:
+
+- **The judge prompts and schemas are imported from `judge.py`, never restated.** Calibration
+  has to measure the prompt production actually uses; a copy would drift and the agreement
+  number would then describe nothing.
+- **Two label channels, because an annotation-queue item is one object.** Faithfulness is a
+  per-summary judgement and goes through a Langfuse queue. Pairwise needs two summaries side by
+  side, which no single queue item can show — the same constraint that stopped Tier 3 being an
+  evaluator — so it is labelled in a generated markdown file and ingested by `labels`.
+- **Queue items must point at the generation OBSERVATION, not the TRACE.** Trace-level
+  input/output is deprecated and nothing here sets it, so a TRACE item opens empty in the
+  annotation UI and the labeller sees nothing to label.
+- **The sample is derived, not stored** — items sorted by id and dealt round-robin across the
+  screening runs. Agreement is only comparable across prompt revisions when the items stay
+  fixed, and a stored manifest would drift from the runs it names.
+
+The generated labelling file is markdown containing *summaries that are themselves markdown*,
+so a parser keyed on a `## ` prefix alone reattributes verdicts to headings the model wrote.
+`labels` accepts a heading only when it names a known sample item. The failure mode is a
+dropped label that reads as an unlabelled item, not as an error.
 
 ## API shapes that cost real time to rediscover
 

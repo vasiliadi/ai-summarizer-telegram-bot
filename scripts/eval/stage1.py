@@ -162,7 +162,7 @@ def run(model_ids):
         )
 
 
-def _discover_runs():
+def discover_runs():
     """Map candidate model -> newest experiment for it, from Langfuse itself."""
     runs = {}
     # experiments() returns newest first, so the first hit per model wins.
@@ -190,7 +190,7 @@ def _item_scores(experiment):
 
 def report():  # noqa: C901
     """Tabulate Tier 1 pass rates per model and apply the elimination threshold."""
-    runs = _discover_runs()
+    runs = discover_runs()
     if not runs:
         sys.exit(f"no runs found with prefix {RUN_PREFIX!r}; run the sweep first")
 
@@ -306,7 +306,7 @@ def failures(check_names=()):
     older runs carry.
     """
     wanted = tuple(check_names) or CHECKS
-    runs = _discover_runs()
+    runs = discover_runs()
     if not runs:
         sys.exit(f"no runs found with prefix {RUN_PREFIX!r}; run the sweep first")
 
