@@ -1,12 +1,19 @@
-"""Screening stage: rank the model registry on Tier 1 only.
+"""Screening stage: whether a model clears the deterministic checks at all.
 
-Runs every registered model over `summarization-screen-v1` at one fixed
-thinking level with no judge calls, then tabulates the Tier 1 scores that
-Langfuse's `tier1-on-experiments` rule attaches to each run.
+Sweeps `summarization-screen-v1` at one fixed thinking level with no judge
+calls, then tabulates the Tier 1 scores that Langfuse's `tier1-on-experiments`
+rule attaches to each run. Screening only proves a model is not broken; the
+ranking is Tier 2/3's job.
 
     python scripts/eval/stage1.py run        # costs money
     python scripts/eval/stage1.py report
     python scripts/eval/stage1.py failures
+
+`run` sweeps `config.MODEL_SPECS`, so it cannot screen a **candidate** that is
+not registered yet — `LLMClient.build_model` indexes the registry unguarded and
+raises `KeyError`. Screen candidates through the Langfuse UI, naming the run
+`stage1 / <model-id>` so `report` picks it up; `docs/context/evals.md` covers
+what that path changes.
 
 The task drives `llm.LLMClient`, the same path the bot uses, rather than
 posting to a provider directly. That is what records cost (via
@@ -80,7 +87,11 @@ def make_task(model_id):
 
 
 def run():
-    """Sweep every registered model over the screening dataset."""
+    """Sweep every registered model over the screening dataset.
+
+    Candidates that are not in the registry cannot go through here; see the
+    module docstring.
+    """
     client = Langfuse()
     items = list(client.get_dataset(SCREEN).items)
     models = list(config.MODEL_SPECS)

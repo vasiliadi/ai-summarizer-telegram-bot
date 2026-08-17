@@ -7,15 +7,46 @@ Nothing here is imported by the bot — these are operational scripts, run by ha
 `architecture.md` owns the bot itself, including *how* it emits the traces this is built on;
 read its **Tracing** bullet before changing anything that produces trace data.
 
+## What this is for
+
+**The registry is the output of evaluation, not its input.** New models appear and existing
+ones change constantly, so the question this answers is *should this model be in
+`config.MODEL_SPECS` at all* — screen a candidate first, then decide whether to add it. It
+also re-checks models already registered, and gates prompt edits against regression, but
+candidate screening is the primary use.
+
+### A candidate's route
+
+Nothing below needs the model to be in `config.MODEL_SPECS`, and it should not be added until
+the end:
+
+1. **Screen through the Langfuse UI.** `stage1.py run` iterates `config.MODEL_SPECS` and
+   `LLMClient.build_model` indexes it unguarded, so an unregistered id raises `KeyError` — the
+   script cannot sweep a candidate. A UI Prompt Experiment needs no registry entry. Name the
+   run `stage1 / <model-id>` and `stage1.py report` picks it up with the rest.
+2. **Promote a survivor to Tier 2/3.** `judge.py` sends the model id straight to OpenRouter and
+   never touches the registry, so `judge.py run <candidate-id>` produces its outputs and
+   attaches the Tier 2 evaluators, and `judge.py pairwise <run-a> <run-b>` duels it against an
+   incumbent. A model that clears screening belongs here — screening only proves it is not
+   broken, and the ranking is Tier 2/3's job.
+3. **Then decide, and only then edit `config.py`.** Adding an id needs no migration; removing
+   or renaming one does — see the registry bullet in `architecture.md`.
+
+The gap to know about: neither `stage1.py`'s UI path nor `judge.py` records cost through the
+bot's own path, so a candidate carries quality numbers without a price next to them. Re-run it
+through the instrumented `stage1.py run` **after** it is registered if quality per dollar has
+to be settled.
+
 ## Staged execution
 
 Do not run the full grid. Model × thinking level × prompt strategy is a large space and most
 of it decides nothing, so the work is staged and each stage narrows the next:
 
-1. **Screen** — every registered model over the 25 screening items at one fixed thinking
-   level, Tier 1 only, no judge calls. Drops any model failing outright.
+1. **Screen** — the candidates over the 25 screening items at one fixed thinking level, Tier 1
+   only, no judge calls. Drops any model failing outright.
 2. **Compare** — the survivors over the 50-item set with the full scorer suite: Tier 2 per
-   dimension and Tier 3 pairwise with order swap.
+   dimension and Tier 3 pairwise with order swap. Candidates that cleared screening go in
+   here alongside the incumbents; this is where the ranking is actually decided.
 3. **Sweep thinking levels** on the winner only, and expect to decide it on cost and latency
    rather than quality, because adjacent levels rarely separate.
 
@@ -43,7 +74,7 @@ uv run python scripts/eval/stage1.py run        # COSTS MONEY: one call per item
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
 ```
 
-Anything that only reads is free. A full screening sweep is 25 items × every registered model,
+Anything that only reads is free. A full screening sweep is 25 items × every model swept,
 roughly **$1**; judge calls are the expensive part. Re-scoring Tier 1 never costs anything —
 the summaries already exist as trace outputs, so a broken scorer is repaired by reinstalling it
 and recomputing, not by re-generating.
@@ -130,6 +161,21 @@ the script, your code does.**
 | Tier 1 | fires | fires |
 | Tier 2/3 | not possible | `run_experiment(evaluators=[…])` |
 | In git | no | yes |
+
+**Screening a candidate is the UI's job**, because it needs no registry entry and Tier 1 does
+not care which transport produced the answer — it checks language and bullet count, not how
+the call was made. One thing does have to be checked before the numbers are comparable: a UI
+run renders the **Langfuse prompt mirror**, so if the mirror has drifted from `src/prompts.py`
+the candidate was asked a different question. The mirror stores `prompt_version` in its
+`config` for exactly this — compare it against `prompts.prompt_version(key)` and the runs are
+comparable. Distinguish the two kinds of run by `environment`:
+`langfuse-prompt-experiment` for UI, `sdk-experiment` for the script.
+
+Where the UI stops being enough is cost: it records Langfuse's own pricing rather than what the
+provider charged, and applies no thinking level. That does not matter for a Tier 1 screen, and
+does matter for the compare stage, where the question is quality per dollar — a candidate that
+survives screening has to be re-run through the instrumented script path before it can be
+ranked against the finalists.
 
 A UI run cannot go through `LLMClient`, so it has no cost wrapper, no thinking level, and
 routes Gemini over OpenRouter — it measures a call the bot never makes. Use it to eyeball
