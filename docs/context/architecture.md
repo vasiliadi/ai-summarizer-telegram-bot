@@ -389,6 +389,32 @@ to Gemini — return the raw model text with **no** prefix.
   exception and line number — which makes reinstalling the evaluator the cheapest way to test
   it, and means a rule that went active earlier is **not** evidence the code still runs, since
   preflight only sees whatever sample it was given.
+  **`tier1-deterministic` stays one evaluator emitting all seven scores** — splitting it into
+  one evaluator per score was considered and **deferred**, not overlooked. The argument for
+  splitting is real (the `char_length` crash destroyed five already-computed scores along with
+  the one that failed), but the price is higher than it looks:
+  - `t1_pass` cannot survive the split. An evaluator's context is its own observation and
+    experiment item; it cannot read scores other evaluators wrote. A standalone `t1_pass`
+    would have to recompute all five checks internally — restoring the same monolith and the
+    same single point of failure, just for the aggregate — or stop being a stored score and
+    become a report-time calculation.
+  - Each evaluator is a self-contained source blob with no imports between them, so `_text`,
+    `_lines`, `_is_bullet`, `_cyrillic_ratio` and `_number` would be copied seven times. One
+    fix becomes seven edits and seven reinstalls, and divergence between the copies is silent.
+  - Splitting only helps when one check's *input* breaks, which is the `char_length` case. A
+    change to the `ctx` shape itself breaks all seven identically either way.
+
+  The cheaper equivalent, if this is revisited: keep one evaluator and wrap each check in
+  `try/except`. Whatever is done, `t1_pass` must **not** silently become the conjunction of
+  whichever checks survived — a partial failure has to suppress it or label it, or the score
+  quietly changes meaning.
+  What makes deferring safe is that **re-scoring Tier 1 costs no tokens**. The summaries are
+  already trace outputs, so a broken scorer is repaired by recomputing over existing traces —
+  either through Langfuse's backfill (Traces table → `Actions` → `Evaluate`, requires the v4
+  preview toggle; documented for observation-level, **unverified** for a code evaluator on an
+  experiment target) or by running the same source locally and posting scores through the API.
+  Only Tier 2/3 spend money on a re-score, and those already live outside Langfuse.
+
   Two consequences for scoring runs:
   - Branch on `run_prompt_key` from the run metadata, not the item's `prompt_key`. An
     experiment applies one strategy to every item, while an item's `prompt_key` records the
