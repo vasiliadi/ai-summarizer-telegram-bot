@@ -27,20 +27,18 @@ pass over a registry that had never been evaluated. In steady state a new model 
 its own — vendors do not ship on the same day — so the normal invocation is one id, and a
 constant would be stale the week after it was written.
 
-One route for every model also keeps results comparable, and the price of
-that is accepted deliberately: `gemini-3.7-flash` is screened as `google/gemini-3.7-flash`
-rather than through its native Google path, so its numbers are very slightly off the bot's
-real behaviour for the one model that does not reach production over OpenRouter. Comparing
-models to each other — which is what screening is for — is unaffected.
+One route for every model also keeps results comparable, and the price of that is accepted
+deliberately: a model the bot reaches through its own provider is screened over OpenRouter
+instead, so its numbers sit very slightly off the bot's real behaviour. Comparing models to
+each other — which is what screening is for — is unaffected.
 
 **Never derive an OpenRouter id by prefixing a vendor name.** The catalog carries `:free` and
-`:batch` siblings next to the plain id (`google/gemini-3.7-flash` and
-`google/gemini-3.7-flash:batch` both exist), so a computed id can silently select a different
-model and bill for it. `stage1.py run` validates every id against the catalog and refuses to
-start otherwise, printing the near-misses.
+`:batch` siblings next to the plain id, so a computed id can silently select a different model
+and bill for it. `stage1.py run` validates every id against the catalog and refuses to start
+otherwise, printing the near-misses.
 
-Where a registered model is spelled differently in the registry — only Google today, whose
-native ids carry no vendor prefix — `stage1.py`'s `REGISTRY_ID` maps it and the run records
+Where a model's registry id differs from its OpenRouter id — a provider whose native ids carry
+no vendor prefix — `stage1.py`'s `REGISTRY_ID` maps the two and the run records
 `registry_model_id` in its metadata, so a screening result ties back to a production model
 without anyone having to know the mapping.
 
@@ -91,7 +89,7 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 | `tier1_evaluator.py` | Tier 1 deterministic scorers. Uploaded to Langfuse, **executed there** |
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
 | `stage1.py` | The screening stage — sweep, report, and per-item failures |
-| `judge.py` | Tier 2/3 LLM judge (`anthropic/claude-sonnet-5`), runs outside Langfuse |
+| `judge.py` | The Tier 2/3 LLM judge; runs outside Langfuse |
 | `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
 
 ```bash
@@ -121,55 +119,37 @@ The part that surprises people: `tier1_evaluator.py` **never runs on your machin
 stores the source and executes it on its own infrastructure when an experiment item arrives.
 The local file is only the source uploaded by `install_tier1.py`.
 
-## Langfuse v4
+## Working with the Langfuse API
 
-Langfuse Cloud becomes v4-only on **2026-11-16**, when the legacy APIs, features and ingestion
-are removed. What that means here, so none of it is re-derived:
+**Use the `langfuse` skill.** It carries the CLI, the current API reference and the version
+migration guides, and it is the authority on endpoint shapes and SDK usage — do not implement
+from memory, and do not restate its contents here. API surfaces change; a copy in this file
+would go stale silently.
 
-- **Ingestion needs nothing.** v4 requires Python SDK ≥ 4.7.0; `langfuse==4.14.4` is pinned and
-  ingestion already goes through OTel (`Agent.instrument_all()`), not `POST /ingestion`.
-- **Trace-level input/output is deprecated product-wide** — tables, judges and exports all read
-  from an observation instead. Nothing in `src/` sets it, and it must stay that way; see the
-  **Tracing** bullet in `architecture.md` for the constraint that enforces this.
-- **Evaluation targets `experiment`, already a v4 target.** The legacy targets are `trace` and
-  `dataset`, and the project has none — `tier1-on-experiments` is the only rule.
-- **No blob-storage, PostHog or Mixpanel export is configured**, so the enriched-observation
-  export migration does not apply. Only blob storage is visible on the public API; the other
-  two are UI-only under *Project Settings → Integrations*.
+What belongs here is only what the skill cannot know:
 
-### Read experiment results through the v4 experiment endpoints, never the trace join
+- **`scripts/eval/langfuse_api.py` is the only place that calls the REST API.** Add reads
+  there rather than scattering `requests` through the scripts.
+- **This project is already on the v4 data model.** Ingestion is OTel via the pinned SDK, the
+  one evaluation rule targets `experiment`, and no blob-storage, PostHog or Mixpanel export is
+  configured, so the export migration does not apply. Trace-level input/output is deprecated
+  product-wide and nothing in `src/` sets it — see the **Tracing** bullet in
+  `architecture.md` for the constraint that keeps it that way.
+- **Read experiment results from the experiment endpoints, never by joining traces.**
+  Evaluator scores attach to the **observation**, so filtering scores by experiment id returns
+  nothing for them and reads exactly like the evaluator never fired. Requesting the score and
+  IO field groups on the experiment's items returns both inline, which is one call per page
+  instead of a run fetch plus a trace fetch per item plus a separate score sweep.
 
-Evaluator scores attach to the **observation**, so `GET /v3/scores?experimentId=…` returns
-nothing for them and reads exactly like the evaluator never fired. The answer is not to join
-through traces: `fields=scores` on `GET /experiment-items` returns each item's scores inline,
-and `fields=io` returns its input, output and expected output. One call per page replaces a
-dataset-run fetch plus one trace fetch per item plus a separate score sweep.
-`scripts/eval/langfuse_api.py` is the only place that talks to these endpoints.
+Two traps cost a session each and are worth carrying:
 
-The v3 shapes this replaced are **deprecated and stop being served on 2026-11-16**:
-
-| Deprecated | Replacement |
-|---|---|
-| `GET /datasets/{name}/runs/{runName}` | `GET /experiments` then `GET /experiment-items` |
-| `GET /traces/{id}` | `fields=io` on the experiment item |
-| `GET /observations` | `GET /v2/observations` |
-
-Experiments are queried by dataset **id**, not name, so resolve it through
-`GET /v2/datasets/{name}` first, and `fromStartTime` is **required** on both experiment
-endpoints. Under v2, `input`/`output` come back as **raw strings** rather than parsed JSON, and
-a field group that was not requested is **absent** rather than null.
-
-Two traps survive the migration. The public API allows **30 requests per window** and answers a
-429 with `details.retryAfterSeconds`, which must be obeyed — blind exponential backoff does not
-converge, because every retry spends another request; an unchecked 429 falls through
-`.json().get("data", [])` as an empty list and is indistinguishable from a model that scored
-nothing, which produced a *different table on each run* until it was fixed. And pagination is
-`meta.cursor` — **not** `meta.nextCursor`, which does not exist and silently truncates a sweep
-at the first page.
-
-For a quick project-wide check that a rule is producing anything at all, `GET /v3/scores` with
-`source=EVAL` and no other filter still works; `metadata.job_configuration_id` names the rule
-that wrote each score.
+- The public API **rate-limits** and answers with a retry delay that must be **obeyed**. Blind
+  exponential backoff does not converge, because every retry spends another request. An
+  unchecked rate-limit response also falls through `.json().get("data", [])` as an empty list,
+  which is indistinguishable from a model that genuinely scored nothing — that produced a
+  *different table on each run* until it was fixed.
+- Paginate on the cursor the response actually returns. Guessing a plausible field name yields
+  `None` and silently truncates a sweep at the first page.
 
 ## Running an experiment: UI vs script
 
@@ -279,9 +259,9 @@ which is the only thing the screening stage needs to know. The Langfuse code eva
 Screening drops a model scoring `t1_pass` on under 70% of items. Three judgements are
 deliberate:
 
-- The language check passes at **70%** Cyrillic among letter characters, not 95%. A correct
-  Russian summary carries Latin proper nouns (`ChatGPT`, `macOS`, `Codex`), and a stricter floor
-  fails good output while adding nothing against a model that answered in English.
+- The language check passes at **70%** Cyrillic letters, not 95%. Correct output still carries
+  Latin proper nouns, so a stricter floor rejects good summaries while adding nothing against a
+  model that answered in the wrong language outright.
 - `t1_compression` is a **diagnostic with no threshold**. Judges reward length, so the length
   column belongs beside every quality score; gating on it would let a model win by truncating.
 - `t1_bullet_count` is emitted **only** for `key_points_for_transcript`, the one strategy that
@@ -299,9 +279,8 @@ hits, none of which changed a decision: a `### Краткое содержани
 outright false positive, since `расшифровк` is an ordinary Russian stem that appears in content
 about transcription and has nothing to do with a leaked cue.
 
-The one genuine defect they caught was `minimax/minimax-m3` emitting its `<mm:think>` reasoning
-block into the summary, and the settled judgement is that **Tier 2 is the right place to catch
-that**: a judge reading a Russian summary containing an English reasoning block will mark it
+The one genuine defect they caught was a model emitting its internal reasoning block into the
+summary, and the settled judgement is that **Tier 2 is the right place to catch that**: a judge reading a Russian summary containing an English reasoning block will mark it
 unfaithful, while a coarse screen gains nothing from one item in 25. Tier 1 now screens for
 outright breakage only — wrong language, no list where a list was asked for. Style and
 prompt-obedience belong to the judges.
@@ -397,19 +376,11 @@ conflating them is a mistake worth not repeating:
   does.** The original finding was that OpenRouter silently dropped the parameter, the model
   answered in prose, `provider: {require_parameters: true}` changed nothing, and Langfuse's
   managed judge — which sends `response_format` with no way to override it — failed preflight
-  with "No object generated: could not parse the response". **Retested 2026-08-17 against
-  `anthropic/claude-sonnet-5`: it returns clean schema-conforming JSON, with and without
-  `require_parameters`.** So this no longer blocks a Langfuse-managed Tier 2 judge. The forced
+  with "No object generated: could not parse the response". **Retested 2026-08-17: it returns clean
+  schema-conforming JSON, with and without `require_parameters`.** So this no longer blocks a Langfuse-managed Tier 2 judge. The forced
   tool call (`tools` + `tool_choice`) that `judge.py` uses still works and is kept because it is
   what the banked scores were produced with, not because the alternative is broken. Treat
   provider-behaviour findings as perishable and retest before relying on them.
-- **OpenRouter's half-price `:batch` model ids reject chat/completions** with "This model is only
-  available through the Batch API", pointing at `/api/beta/batches`. Langfuse's judge is
-  synchronous, so it can never reach them at all. The batch path is **abandoned** — it was built,
-  submission worked (a batch id and `status: validating` came back, pinning snapshot
-  `claude-sonnet-5-20260630`), but the poll→results cycle never delivered, and half price is not
-  worth a second unproven transport for a job costing tens of dollars. **The judge is synchronous
-  `anthropic/claude-sonnet-5`.** Do not rebuild `:batch` without a reason beyond price.
 - **An evaluator sees one item.** Its context is that item's `input`, `output`, `expected_output`
   and metadata; there is no mapping source for a second run's output. So **Tier 3 pairwise cannot
   be an evaluator of either kind**, whatever the judge model. This constraint is structural and
@@ -430,13 +401,19 @@ conflating them is a mistake worth not repeating:
 
 ### The judge model
 
-**`anthropic/claude-sonnet-5`**, settled. Anthropic is the only frontier family not in the
-candidate pool, so it is the one judge whose self-preference bias cannot favour a candidate, and
-Sonnet 5 still outranks a pool that is mostly flash tier. It is pinned by model id,
-`reasoning_effort` and judge-prompt hash — **not** by temperature, which Sonnet 5 and Opus 5
-reject outright with a 400. Calibration against hand labels may still revise the choice —
-20–30 labelled outputs, iterate the judge prompt until agreement reaches ~80% or Cohen's
-kappa passes 0.6 — but nothing else should.
+The current id is the `JUDGE_MODEL` constant in `judge.py`; what matters is the two
+constraints behind it, which outlive any particular model.
+
+**The judge's family must not appear in the candidate pool.** A judge scoring its own family
+favours it, and with several families competing that bias can decide the ranking outright.
+**And the judge must outrank the candidates** — judging mid-tier output with a mid-tier model
+measures the judge's ceiling, not the candidate. Re-check both whenever a candidate from the
+judge's family is screened; that is the event that invalidates the choice.
+
+The judge is pinned by model id, reasoning effort and judge-prompt hash — **not** by
+temperature, which frontier models increasingly reject outright. Calibration against hand
+labels may still revise the choice — 20–30 labelled outputs, iterate the judge prompt until
+agreement reaches ~80% or Cohen's kappa passes 0.6 — but nothing else should.
 
 ### Three details of the judge are load-bearing
 
@@ -447,38 +424,6 @@ reasoning string that runs into `max_tokens` — a truncated call then still car
 And OpenRouter does not enforce `required` on this route, so a missing field has to be caught
 explicitly rather than trusted. Pairwise runs **both orders and discards disagreements**; the
 discard rate is itself a judge-quality signal.
-
-## Results so far
-
-**Stage 1 is run and eliminated nobody.** All six registered models over the 25 screening items
-on `key_points_for_transcript` score `t1_pass` far above the 70% floor. Recomputed under the v4
-evaluator (`t1_language_match` AND `t1_bullet_count`), with the rate the five-check v3 evaluator
-recorded in brackets:
-
-| Model | `t1_pass` (v4) | recorded (v3) |
-|---|--:|--:|
-| `gemini-3.7-flash` | 100% | 100% |
-| `openai/gpt-5.6-luna` | 100% | 100% |
-| `meta/muse-spark-1.2` | 100% | 96% |
-| `thinkingmachines/inkling` | 96% | 96% |
-| `minimax/minimax-m3` | 88% | 84% |
-| `stepfun/step-3.7-flash` | 88% | 84% |
-
-Dropping checks can only remove failures, so the v4 column is the one to compare future runs
-against; the ranking is unchanged either way. Read that as *the deterministic checks do not
-separate this pool*, not as six equally good models — Tier 1 only asks whether a model obeyed
-the prompt's absolutes. The discrimination has to come from Tier 2/3, so do not spend another
-sweep tuning Tier 1 thresholds.
-
-Two things the failures actually are: `stepfun/step-3.7-flash` returned an **empty response on 3
-of 25 items** and `thinkingmachines/inkling` on 1, which Tier 1 books as a language failure (an
-empty string has no Cyrillic) — correct, and worth reading as a reliability signal rather than a
-quality one. `minimax/minimax-m3` returned no empties but answered in the **wrong language
-twice**, which is the failure mode Tier 1 exists to catch.
-
-`t1_compression` spans 0.125 (`gemini-3.7-flash`, tersest) to 0.228 (`meta/muse-spark-1.2`), a
-near-2x spread that must stay beside every Tier 2/3 score because judges reward length.
-
 
 ## API shapes that cost real time to rediscover
 
@@ -494,10 +439,8 @@ expected, not drift. A rule returning `status: "active"` means its preflight ran
 **once, against sample data**; it does not mean the code survives real data, so treat `422` from
 a later `POST /unstable/evaluators` as the authoritative crash report.
 
-Four more:
+Three more:
 
-- The batch endpoint parses the request body as a **stream**, so `endpoint` and `model` must be
-  serialised before `requests`; a plain dict literal in that order is what guarantees it.
 - Tier 2 evaluators attach through `Langfuse.run_experiment(evaluators=[…])` rather than by
   posting scores by hand — the run wires each `Evaluation` to the right item.
 - A Langfuse score **requires a target**. Passing `trace_id=None` fails with a bare

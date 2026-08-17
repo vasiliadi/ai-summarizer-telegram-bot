@@ -26,19 +26,23 @@ Before the first tracked-file edit, branch from `main` with `git checkout -b <sc
 
 ## Where Things Live
 
-- `docs/summaries/` — requested handoffs (`handoff-*.md`). **(gitignored)**
+### Code
+
+- `src/` — the bot. `architecture.md` maps it module by module.
+- `tests/` — the pytest suite. `src/` is at 100% line coverage; keep it there.
+- `scripts/` — standalone operational scripts, never imported by the bot. `scripts/eval/` is
+  the evaluation harness; read `docs/context/evals.md` before touching it.
+
+### Documentation
+
 - `docs/context/` — reusable domain knowledge. Load only what the task needs; record durable facts here, not in agent-local memory. **(tracked)**
   - `architecture.md` — component map and data flow; update only on architectural change
-  - `evals.md` — the Langfuse evaluation system: datasets, scoring tiers, judges, and the
+  - `evals.md` — the evaluation system: datasets, scoring tiers, judges, and the
     `scripts/eval/` harness. `architecture.md` owns how the bot emits traces; this owns
     everything built on top of them
   - `style-guide.md` — coding conventions Ruff does not enforce
   - `git-guide.md` — commit format, pre-commit hooks, coverage, CI workflows
   - `uv-guide.md` — running the project and managing dependencies
-- `scripts/eval/` — the evaluation harness: Tier 1 evaluator source, the stage sweeps, and
-  the Tier 2/3 judge. Operational scripts, never imported by the bot. Read
-  `docs/context/evals.md` first — state is split between this directory, Langfuse, and
-  untracked local files, and the Tier 1 evaluator executes **on Langfuse's infrastructure**,
-  not locally. **(tracked)**
+- `docs/summaries/` — requested handoffs (`handoff-*.md`). **(gitignored)**
 - `docs/archive/` — superseded handoffs, kept flat. Read only when explicitly told. **(gitignored)**
 - `.claude/commands/handoff.md` — the `/handoff` routine and its template; agents without slash commands follow its steps directly.

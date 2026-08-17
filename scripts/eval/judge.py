@@ -9,13 +9,14 @@ Tier 2 plugs into `Langfuse.run_experiment` as evaluator functions, so scores
 attach to the run automatically. Tier 3 compares two runs and posts its own
 scores.
 
-The judge is synchronous `anthropic/claude-sonnet-5` and returns structured
-output through a forced tool call. It **counts** (claims, entailed facts) and
+The judge is synchronous and returns structured output through a forced tool
+call; its model is the `JUDGE_MODEL` constant below, chosen so that no
+candidate shares its family. It **counts** (claims, entailed facts) and
 the ratio is computed here, because a model asked directly for `0.71` makes
 arithmetic slips no prompt wording fixes. Editing a judge prompt or schema moves
 its `judge_version` hash, which unpins it from every score already banked.
 
-    python judge.py run minimax/minimax-m3 2
+    python judge.py run <vendor/model> 2
     python judge.py pairwise <run-a> <run-b>
     python judge.py smoke 3
 """

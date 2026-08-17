@@ -5,7 +5,7 @@ calls, then tabulates the Tier 1 scores that Langfuse's `tier1-on-experiments`
 rule attaches to each run. Screening only proves a model is not broken; the
 ranking is Tier 2/3's job.
 
-    python scripts/eval/stage1.py run google/gemini-3.7-flash minimax/minimax-m3
+    python scripts/eval/stage1.py run <vendor/model> [<vendor/model> ...]
     python scripts/eval/stage1.py report
     python scripts/eval/stage1.py failures
 
@@ -16,9 +16,8 @@ to already be there inverts the tool. Nor should a default list come back — th
 set worth screening changes every time, and once the first pass over the
 registry is done the normal invocation is a single new model. Every model — candidate or incumbent —
 runs over the one OpenRouter route so results are comparable; the small
-difference against a provider's own endpoint is accepted deliberately, and it
-means `gemini-3.7-flash` is screened as `google/gemini-3.7-flash` rather than
-through its native Google path.
+difference against a provider's own endpoint is accepted deliberately, so a
+model the bot reaches natively is still screened over OpenRouter.
 
 Never *derive* an OpenRouter id by prefixing a vendor name: the catalog carries
 `:free` and `:batch` variants alongside the plain id, so a computed id can
@@ -157,7 +156,7 @@ def run(model_ids):
     if not model_ids:
         sys.exit(
             "usage: stage1.py run <openrouter-model-id> [...]\n"
-            "  e.g. stage1.py run google/gemini-3.7-flash minimax/minimax-m3",
+            "  ids are OpenRouter ids, e.g. vendor/model",
         )
     resolved = _resolve(model_ids)
 
