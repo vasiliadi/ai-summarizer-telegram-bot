@@ -15,27 +15,47 @@ ones change constantly, so the question this answers is *should this model be in
 also re-checks models already registered, and gates prompt edits against regression, but
 candidate screening is the primary use.
 
+### Everything runs over OpenRouter, and models are named by their OpenRouter id
+
+The harness never consults `config.MODEL_SPECS`. Model ids are passed as arguments, always,
+with no default list — requiring a model to be registered before it can be screened would
+invert the tool. One route for every model also keeps results comparable, and the price of
+that is accepted deliberately: `gemini-3.7-flash` is screened as `google/gemini-3.7-flash`
+rather than through its native Google path, so its numbers are very slightly off the bot's
+real behaviour for the one model that does not reach production over OpenRouter. Comparing
+models to each other — which is what screening is for — is unaffected.
+
+**Never derive an OpenRouter id by prefixing a vendor name.** The catalog carries `:free` and
+`:batch` siblings next to the plain id (`google/gemini-3.7-flash` and
+`google/gemini-3.7-flash:batch` both exist), so a computed id can silently select a different
+model and bill for it. `stage1.py run` validates every id against the catalog and refuses to
+start otherwise, printing the near-misses.
+
+Where a registered model is spelled differently in the registry — only Google today, whose
+native ids carry no vendor prefix — `stage1.py`'s `REGISTRY_ID` maps it and the run records
+`registry_model_id` in its metadata, so a screening result ties back to a production model
+without anyone having to know the mapping.
+
 ### A candidate's route
 
 Nothing below needs the model to be in `config.MODEL_SPECS`, and it should not be added until
 the end:
 
-1. **Screen through the Langfuse UI.** `stage1.py run` iterates `config.MODEL_SPECS` and
-   `LLMClient.build_model` indexes it unguarded, so an unregistered id raises `KeyError` — the
-   script cannot sweep a candidate. A UI Prompt Experiment needs no registry entry. Name the
-   run `stage1 / <model-id>` and `stage1.py report` picks it up with the rest.
+1. **Screen it.** `stage1.py run <openrouter-id>` — no registry entry needed. `EvalLLMClient`
+   subclasses `LLMClient` and overrides only `build_model`, so the run still goes through the
+   instrumented path and records cost and thinking level, while the base class's registry
+   lookup (which would raise `KeyError` for a candidate) is bypassed.
 2. **Promote a survivor to Tier 2/3.** `judge.py` sends the model id straight to OpenRouter and
-   never touches the registry, so `judge.py run <candidate-id>` produces its outputs and
+   never touches the registry either, so `judge.py run <candidate-id>` produces its outputs and
    attaches the Tier 2 evaluators, and `judge.py pairwise <run-a> <run-b>` duels it against an
    incumbent. A model that clears screening belongs here — screening only proves it is not
    broken, and the ranking is Tier 2/3's job.
 3. **Then decide, and only then edit `config.py`.** Adding an id needs no migration; removing
-   or renaming one does — see the registry bullet in `architecture.md`.
+   or renaming one does — see the registry bullet in `architecture.md`. A model registered
+   under the `google` provider keeps its native id there, and `REGISTRY_ID` gains a row.
 
-The gap to know about: neither `stage1.py`'s UI path nor `judge.py` records cost through the
-bot's own path, so a candidate carries quality numbers without a price next to them. Re-run it
-through the instrumented `stage1.py run` **after** it is registered if quality per dollar has
-to be settled.
+One gap remains: `judge.py` builds its own HTTP call rather than going through `LLMClient`, so
+Tier 2/3 runs still record no cost. Screening does.
 
 ## Staged execution
 
@@ -70,7 +90,7 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 uv run python scripts/eval/install_tier1.py     # after every edit to tier1_evaluator.py
 uv run python scripts/eval/stage1.py report     # free, read-only
 uv run python scripts/eval/stage1.py failures   # free — which items failed, and why
-uv run python scripts/eval/stage1.py run        # COSTS MONEY: one call per item per model
+uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
 ```
 
@@ -162,20 +182,13 @@ the script, your code does.**
 | Tier 2/3 | not possible | `run_experiment(evaluators=[…])` |
 | In git | no | yes |
 
-**Screening a candidate is the UI's job**, because it needs no registry entry and Tier 1 does
-not care which transport produced the answer — it checks language and bullet count, not how
-the call was made. One thing does have to be checked before the numbers are comparable: a UI
-run renders the **Langfuse prompt mirror**, so if the mirror has drifted from `src/prompts.py`
-the candidate was asked a different question. The mirror stores `prompt_version` in its
-`config` for exactly this — compare it against `prompts.prompt_version(key)` and the runs are
-comparable. Distinguish the two kinds of run by `environment`:
-`langfuse-prompt-experiment` for UI, `sdk-experiment` for the script.
-
-Where the UI stops being enough is cost: it records Langfuse's own pricing rather than what the
-provider charged, and applies no thinking level. That does not matter for a Tier 1 screen, and
-does matter for the compare stage, where the question is quality per dollar — a candidate that
-survives screening has to be re-run through the instrumented script path before it can be
-ranked against the finalists.
+The script screens candidates as well as incumbents, so the UI is not needed for that. It
+stays useful for eyeballing prompt wording by hand. If a UI run is compared against a script
+run, check first that the **Langfuse prompt mirror** has not drifted from `src/prompts.py` —
+otherwise the two were asked different questions. The mirror stores `prompt_version` in its
+`config` for exactly this: compare it against `prompts.prompt_version(key)`. Tell the two
+kinds of run apart by `environment` — `langfuse-prompt-experiment` for UI, `sdk-experiment`
+for the script.
 
 A UI run cannot go through `LLMClient`, so it has no cost wrapper, no thinking level, and
 routes Gemini over OpenRouter — it measures a call the bot never makes. Use it to eyeball

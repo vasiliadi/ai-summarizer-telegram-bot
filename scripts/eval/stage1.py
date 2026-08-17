@@ -5,21 +5,27 @@ calls, then tabulates the Tier 1 scores that Langfuse's `tier1-on-experiments`
 rule attaches to each run. Screening only proves a model is not broken; the
 ranking is Tier 2/3's job.
 
-    python scripts/eval/stage1.py run        # costs money
+    python scripts/eval/stage1.py run google/gemini-3.7-flash minimax/minimax-m3
     python scripts/eval/stage1.py report
     python scripts/eval/stage1.py failures
 
-`run` sweeps `config.MODEL_SPECS`, so it cannot screen a **candidate** that is
-not registered yet — `LLMClient.build_model` indexes the registry unguarded and
-raises `KeyError`. Screen candidates through the Langfuse UI, naming the run
-`stage1 / <model-id>` so `report` picks it up; `docs/context/evals.md` covers
-what that path changes.
+**Models are named by their OpenRouter id and passed as arguments.** There is
+no default list and the registry is not consulted: the point of screening is to
+decide whether a model belongs in `config.MODEL_SPECS` at all, so requiring it
+to already be there inverts the tool. Every model — candidate or incumbent —
+runs over the one OpenRouter route so results are comparable; the small
+difference against a provider's own endpoint is accepted deliberately, and it
+means `gemini-3.7-flash` is screened as `google/gemini-3.7-flash` rather than
+through its native Google path.
 
-The task drives `llm.LLMClient`, the same path the bot uses, rather than
-posting to a provider directly. That is what records cost (via
-`OpenRouterCostReporter`), applies the thinking level, and routes Gemini
-natively. A hand-rolled HTTP call records none of them and leaves the run
-showing `$0.00`. Importing `config` is what turns instrumentation on.
+Never *derive* an OpenRouter id by prefixing a vendor name: the catalog carries
+`:free` and `:batch` variants alongside the plain id, so a computed id can
+silently select the wrong one. `run` validates every id against the catalog
+before spending anything.
+
+Everything except model construction reuses `llm.LLMClient`, so a run records
+cost (via `OpenRouterCostReporter`) and applies the thinking level exactly as
+the bot does. Importing `config` is what turns instrumentation on.
 """
 
 from __future__ import annotations
@@ -29,14 +35,17 @@ import time
 from textwrap import dedent
 
 import _bootstrap
+import requests
 from langfuse import Langfuse
 from langfuse_api import LangfuseAPI
 
 REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
 
+from pydantic_ai.models.openrouter import OpenRouterModel, OpenRouterModelSettings
+
 import config
-from llm import LLMClient
+from llm import LLMClient, OpenRouterCostReporter
 from prompts import PROMPTS, prompt_version
 
 SCREEN = "summarization-screen-v1"
@@ -44,6 +53,7 @@ PROMPT_KEY = "key_points_for_transcript"
 THINKING_LEVEL = config.DEFAULT_THINKING_LEVEL
 RUN_PREFIX = "stage1 / "
 PASS_THRESHOLD = 0.70
+CATALOG_URL = "https://openrouter.ai/api/v1/models"
 
 # The binary checks `t1_pass` ANDs. `t1_no_preamble`, `t1_no_artifacts` and
 # `t1_bullet_purity` were removed from the evaluator; runs scored before that
@@ -53,7 +63,40 @@ CHECKS = (
     "t1_bullet_count",
 )
 
-_llm = LLMClient(
+# OpenRouter id -> the id `config.MODEL_SPECS` uses, where the two differ. Only
+# Google does today: its native ids carry no vendor prefix. Recorded in run
+# metadata so a screening result can be tied back to a production model without
+# anyone having to know the mapping.
+REGISTRY_ID = {"google/gemini-3.7-flash": "gemini-3.7-flash"}
+
+
+class EvalLLMClient(LLMClient):
+    """`LLMClient` that builds any OpenRouter id, registered or not.
+
+    Only `build_model` changes. The base class looks the id up in
+    `config.MODEL_SPECS` and raises `KeyError` for a candidate that is not
+    registered yet, which is exactly the model screening exists to judge.
+    Everything else — the instrumented agent, the system instruction, the
+    thinking-level settings and the cost wrapper — is inherited, so a screening
+    run measures the same path the bot takes.
+    """
+
+    def build_model(self, model_id: str) -> OpenRouterModel:
+        """Build (and cache) an OpenRouter model without consulting the registry."""
+        if model_id not in self._models:
+            self._models[model_id] = OpenRouterCostReporter(
+                OpenRouterModel(
+                    model_id,
+                    provider=self._openrouter_provider,
+                    settings=OpenRouterModelSettings(
+                        openrouter_usage={"include": True},
+                    ),
+                ),
+            )
+        return self._models[model_id]
+
+
+_llm = EvalLLMClient(
     client=config.gemini_client,
     openrouter_provider=config.openrouter_provider,
 )
@@ -86,23 +129,47 @@ def make_task(model_id):
     return task
 
 
-def run():
-    """Sweep every registered model over the screening dataset.
+def _resolve(model_ids):
+    """Check every id against OpenRouter's catalog, returning id -> display name.
 
-    Candidates that are not in the registry cannot go through here; see the
-    module docstring.
+    A typo or a wrongly guessed id would otherwise surface as a per-item error
+    partway through a paid sweep. Exits rather than screening a model that does
+    not exist, and names the `:free`/`:batch` siblings that a near-miss usually
+    means.
     """
+    catalog = requests.get(CATALOG_URL, timeout=60).json()["data"]
+    names = {m["id"]: m.get("name") or m["id"] for m in catalog}
+    unknown = [m for m in model_ids if m not in names]
+    if unknown:
+        for bad in unknown:
+            stem = bad.split(":")[0]
+            near = sorted(i for i in names if i.startswith(stem))
+            hint = f" — did you mean {', '.join(near)}?" if near else ""
+            print(f"unknown OpenRouter model: {bad}{hint}")
+        sys.exit("nothing run")
+    return {m: names[m] for m in model_ids}
+
+
+def run(model_ids):
+    """Sweep the given OpenRouter model ids over the screening dataset."""
+    if not model_ids:
+        sys.exit(
+            "usage: stage1.py run <openrouter-model-id> [...]\n"
+            "  e.g. stage1.py run google/gemini-3.7-flash minimax/minimax-m3",
+        )
+    resolved = _resolve(model_ids)
+
     client = Langfuse()
     items = list(client.get_dataset(SCREEN).items)
-    models = list(config.MODEL_SPECS)
     print(
-        f"{len(items)} items x {len(models)} models, {PROMPT_KEY}, "
+        f"{len(items)} items x {len(model_ids)} models, {PROMPT_KEY}, "
         f"thinking={THINKING_LEVEL}",
     )
 
-    for model_id in models:
-        provider = config.MODEL_SPECS[model_id].provider
-        print(f"\n{model_id}  (provider={provider})")
+    for model_id in model_ids:
+        registry_id = REGISTRY_ID.get(model_id)
+        note = f", registered as {registry_id}" if registry_id else ""
+        print(f"\n{model_id}  ({resolved[model_id]}{note})")
         started = time.monotonic()
         result = client.run_experiment(
             name=f"{RUN_PREFIX}{model_id}",
@@ -112,7 +179,9 @@ def run():
             metadata={
                 "stage": "screen",
                 "candidate_model": model_id,
-                "provider": provider,
+                # Present only for a model that is already in the registry, and
+                # only spelled differently there.
+                "registry_model_id": registry_id,
                 "thinking_level": THINKING_LEVEL,
                 # Distinct from the item's own prompt_key, which records the
                 # strategy of the trace the item was harvested from. Tier 1
@@ -286,7 +355,7 @@ def failures(check_names=()):
 if __name__ == "__main__":
     command = sys.argv[1] if len(sys.argv) > 1 else "report"
     if command == "run":
-        run()
+        run(sys.argv[2:])
     elif command == "report":
         report()
     elif command == "failures":
