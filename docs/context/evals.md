@@ -485,6 +485,17 @@ Four things about it are load-bearing:
 - **The sample is derived, not stored** — items sorted by id and dealt round-robin across the
   screening runs. Agreement is only comparable across prompt revisions when the items stay
   fixed, and a stored manifest would drift from the runs it names.
+- **Pairwise labelling is blind, and the blinding is per item.** Which model appears as A is
+  derived from a hash of the item id, so the layout reproduces without a manifest while no
+  vendor can be tracked down the file. These labels *become the standard the judge is measured
+  against*, so a preference leaking into them is not a bias in one score — it is a bias baked
+  into the target. Verdicts are stored canonically (A always means the first model), so a human
+  label and a judge label are the same kind of statement.
+
+An `INCONSISTENT` pairwise verdict is the judge **abstaining**, not disagreeing: the two orders
+contradicted each other, so there is no opinion to compare. Those are excluded from agreement
+and kappa and reported as a discard rate, exactly as the compare stage discards them. Counting
+them against the judge would understate agreement and quietly merge position bias with error.
 
 The generated labelling file is markdown containing *summaries that are themselves markdown*,
 so a parser keyed on a `## ` prefix alone reattributes verdicts to headings the model wrote.

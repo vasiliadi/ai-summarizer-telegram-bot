@@ -35,6 +35,7 @@ items stay fixed.
 from __future__ import annotations
 
 import sys
+from hashlib import sha256
 from pathlib import Path
 
 import _bootstrap
@@ -88,6 +89,17 @@ def _sources():
     return {i.id: judge._source_of(i.input) for i in client.get_dataset(SCREEN).items}  # noqa: SLF001
 
 
+def _flipped(item_id):
+    """Whether this item shows `PAIR_B` in the left column.
+
+    Which model sits in which column is randomised per item so the labeller
+    cannot track a vendor across the file, and derived from the item id rather
+    than drawn, so the layout reproduces exactly without a stored manifest — the
+    same property the rest of the sample relies on.
+    """
+    return sha256(item_id.encode()).digest()[0] % 2 == 1
+
+
 def sample():
     """Build the fixed calibration sample from the existing screening runs.
 
@@ -112,7 +124,13 @@ def sample():
         b = outputs.get(PAIR_B, {}).get(item_id)
         if a and b and a[0] and b[0]:
             pairwise.append(
-                {"item": item_id, "a": a[0], "b": b[0], "trace": a[1]},
+                {
+                    "item": item_id,
+                    "a": a[0],
+                    "b": b[0],
+                    "trace": a[1],
+                    "flipped": _flipped(item_id),
+                },
             )
     return faithful, pairwise, sources
 
@@ -249,15 +267,15 @@ def pairs():
     lines = [
         "# Pairwise calibration labels",
         "",
-        f"A = `{PAIR_A}`  B = `{PAIR_B}`",
+        "**Blind.** Two models are compared across these items, and which one is",
+        "shown as A is randomised per item. Nothing here says which is which, on",
+        "purpose: these labels become the standard the judge is measured against,",
+        "so a preference for a vendor would be baked into the target itself.",
         "",
         "For each item write `A`, `B` or `TIE` on the **verdict** line. Judge",
         "faithfulness first, then how much substance survives, then whether every",
         "sentence earns its place. Length is not quality. Use TIE only when",
         "neither is meaningfully better, not to avoid a hard call.",
-        "",
-        "Which model produced which column is fixed and not shown per item, so a",
-        "preference for one vendor cannot leak in item by item.",
         "",
         (
             "Then: `uv run python scripts/eval/calibrate.py labels "
@@ -282,11 +300,11 @@ def pairs():
             "",
             "### A",
             "",
-            row["a"],
+            row["b"] if row["flipped"] else row["a"],
             "",
             "### B",
             "",
-            row["b"],
+            row["a"] if row["flipped"] else row["b"],
             "",
             "verdict: ",
             "",
@@ -302,6 +320,7 @@ def labels(path):
     """Ingest hand-written pairwise verdicts and post them as scores."""
     _, pairwise, _ = sample()
     traces = {r["item"]: r["trace"] for r in pairwise}
+    flipped = {r["item"]: r["flipped"] for r in pairwise}
 
     text = Path(path).read_text(encoding="utf-8")
     verdicts, item = {}, None
@@ -326,16 +345,27 @@ def labels(path):
         if len(missing) == len(pairwise):
             sys.exit("nothing to post")
 
+    # The file is blind: its A is whichever model `_flipped` put on the left.
+    # Verdicts are stored canonically, A meaning PAIR_A always, so a human label
+    # and a judge label are the same kind of statement and can be compared.
+    unflip = {"A": "B", "B": "A", "TIE": "TIE"}
     client = Langfuse()
-    for item_id, value in verdicts.items():
+    for item_id, shown in verdicts.items():
         if item_id not in traces:
             continue
+        value = unflip[shown] if flipped[item_id] else shown
         client.create_score(
             name=H_PAIRWISE,
             value=value,
             data_type="CATEGORICAL",
             trace_id=traces[item_id],
-            metadata={"run_a": PAIR_A, "run_b": PAIR_B, "dataset_item_id": item_id},
+            metadata={
+                "run_a": PAIR_A,
+                "run_b": PAIR_B,
+                "dataset_item_id": item_id,
+                "shown_as": shown,
+                "columns_flipped": flipped[item_id],
+            },
         )
     client.flush()
     print(f"posted {len(verdicts)} human pairwise label(s)")
@@ -478,6 +508,20 @@ def agreement():
         print(f"\n{title}: {len(shared)} labelled of {len(rows)}")
         if not shared:
             print("  nothing to compare yet")
+            continue
+        # An INCONSISTENT pairwise verdict is the judge abstaining, not
+        # disagreeing: the two orders contradicted each other, so it has no
+        # opinion to compare. Production discards those, and counting them
+        # against the judge here would understate agreement while conflating
+        # position bias with error. The discard rate is reported instead — it is
+        # its own signal about judge quality.
+        abstained = [(i, h) for i, h, j in shared if j == "INCONSISTENT"]
+        if abstained:
+            rate = len(abstained) / len(shared)
+            print(f"  {len(abstained)} inconsistent ({rate:.0%}) — excluded")
+        shared = [(i, h, j) for i, h, j in shared if j != "INCONSISTENT"]
+        if not shared:
+            print("  every verdict was inconsistent; nothing to compare")
             continue
         pairs_seen = [(h, j) for _, h, j in shared]
         accuracy = sum(1 for h, j in pairs_seen if h == j) / len(pairs_seen)
