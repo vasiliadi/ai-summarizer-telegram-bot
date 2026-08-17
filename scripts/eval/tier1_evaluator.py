@@ -17,6 +17,13 @@ controls nor observes. Syntax gated on a recent Python — PEP 758's
 SyntaxError there, which yields no scores and looks exactly like it never ran.
 The repo targets py314, so a formatter will happily introduce that if a tuple
 `except` is written.
+
+`Score` and `EvaluationResult` are injected by that runtime and must **not** be
+defined or imported here — doing so would ship dead code to the evaluator. The
+two names are therefore suppressed per line rather than file-wide: a
+file-level `reportUndefinedVariable=false` would also hide a typo'd local
+name, and a real error in this module is invisible at runtime, so the editor
+is the only place it shows.
 """
 
 CYRILLIC_FLOOR = 0.70
@@ -103,7 +110,7 @@ def evaluate(ctx):
     def add(name, passed, comment):
         binary[name] = passed
         scores.append(
-            Score(name=name, value=passed, data_type="BOOLEAN", comment=comment),
+            Score(name=name, value=passed, data_type="BOOLEAN", comment=comment),  # pyright: ignore[reportUndefinedVariable]
         )
 
     ratio = _cyrillic_ratio(output)
@@ -125,7 +132,7 @@ def evaluate(ctx):
 
     compression = min(len(output) / source_chars, 1.0) if source_chars else 0.0
     scores.append(
-        Score(
+        Score(  # pyright: ignore[reportUndefinedVariable]
             name="t1_compression",
             value=compression,
             data_type="NUMERIC",
@@ -135,7 +142,7 @@ def evaluate(ctx):
 
     failed = [name for name, ok in binary.items() if not ok]
     scores.append(
-        Score(
+        Score(  # pyright: ignore[reportUndefinedVariable]
             name="t1_pass",
             value=not failed,
             data_type="BOOLEAN",
@@ -147,4 +154,4 @@ def evaluate(ctx):
         ),
     )
 
-    return EvaluationResult(scores=scores)
+    return EvaluationResult(scores=scores)  # pyright: ignore[reportUndefinedVariable]
