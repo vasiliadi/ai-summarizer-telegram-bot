@@ -211,11 +211,68 @@ def report():
     print(f"DROP    ({len(dropped)}): {', '.join(dropped) or 'none'}")
 
 
+def _collect_failures(runs, wanted):
+    """Items failing any of `wanted`, plus the score ids to fetch comments for."""
+    found, score_ids = [], []
+    for model, experiment in sorted(runs.items()):
+        for item in API.experiment_items(experiment["id"], fields="core,io,scores"):
+            failed = [
+                s
+                for s in (item.get("scores") or [])
+                if s["name"] in wanted and s.get("value") in (False, 0, 0.0)
+            ]
+            if failed:
+                found.append((model, item, failed))
+                score_ids.extend(s["id"] for s in failed)
+    return found, score_ids
+
+
+def failures(check_names=()):
+    """Show every item that failed a given Tier 1 check, with its trace link.
+
+    The pass rates say how often a model broke a rule; this says which item,
+    what the evaluator saw, and where to open it. Defaults to the three checks
+    that catch prompt-obedience failures rather than outright breakage.
+    """
+    wanted = tuple(check_names) or (
+        "t1_bullet_purity",
+        "t1_no_preamble",
+        "t1_no_artifacts",
+    )
+    runs = _discover_runs()
+    if not runs:
+        sys.exit(f"no runs found with prefix {RUN_PREFIX!r}; run the sweep first")
+
+    found, score_ids = _collect_failures(runs, wanted)
+    comments = API.score_comments(score_ids) if score_ids else {}
+    project = found[0][2][0].get("projectId") if found else None
+
+    print(f"\nTier 1 failures for: {', '.join(wanted)}")
+    print(f"{len(found)} failing item(s) across {len(runs)} runs\n")
+    for model, item, failed in found:
+        trace = item["traceId"]
+        print(f"{model}  item {item['experimentItemId']}")
+        for score in sorted(failed, key=lambda s: s["name"]):
+            print(f"  {score['name']:20s} {comments.get(score['id'], '')}")
+        output = (item.get("output") or "").strip()
+        lines = [ln for ln in output.splitlines() if ln.strip()]
+        if lines:
+            print(f"  first line : {lines[0][:100]!r}")
+            if len(lines) > 1:
+                print(f"  last line  : {lines[-1][:100]!r}")
+        print(f"  chars={len(output)}  lines={len(lines)}")
+        if project:
+            print(f"  {API.base}/project/{project}/traces/{trace}")
+        print()
+
+
 if __name__ == "__main__":
     command = sys.argv[1] if len(sys.argv) > 1 else "report"
     if command == "run":
         run()
     elif command == "report":
         report()
+    elif command == "failures":
+        failures(sys.argv[2:])
     else:
         sys.exit(f"unknown command: {command}")

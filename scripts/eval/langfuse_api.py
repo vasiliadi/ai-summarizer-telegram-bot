@@ -103,6 +103,26 @@ class LangfuseAPI:
                 return row
         return None
 
+    def score_comments(self, score_ids: list[str]) -> dict[str, str]:
+        """Map score id -> its comment.
+
+        Scores returned inline by `fields=scores` on an experiment item carry
+        the value but not the comment, and the comment is where a Tier 1 score
+        records *why* it failed. `fields=core,details` on `GET /v3/scores`
+        carries it; the `id` filter takes a comma-separated list.
+        """
+        out: dict[str, str] = {}
+        # Chunked to keep each URL short and each request inside the rate limit.
+        for start in range(0, len(score_ids), 50):
+            chunk = score_ids[start : start + 50]
+            body = self.get(
+                "v3/scores",
+                {"id": ",".join(chunk), "limit": 100, "fields": "core,details"},
+            )
+            for row in body.get("data", []):
+                out[row["id"]] = row.get("comment") or ""
+        return out
+
     def observations(
         self,
         limit: int = 10,
