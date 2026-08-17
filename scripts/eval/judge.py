@@ -9,6 +9,15 @@ Tier 2 plugs into `Langfuse.run_experiment` as evaluator functions, so scores
 attach to the run automatically. Tier 3 compares two runs and posts its own
 scores.
 
+Two model callers live here and only one of them is the bot's. The **candidate**
+summarises through `eval_client.LLM`, the same path screening takes, so a
+compare run records cost and applies the thinking level — quality alone always
+picks the most expensive configuration, so the price has to arrive beside the
+score. The **judge** keeps its own HTTP call: it needs a forced tool call
+against a JSON schema, which `LLMClient` does not do and the bot never asks for,
+and what it spends is a cost of running the evaluation rather than a property of
+the model being ranked.
+
 The judge is synchronous and returns structured output through a forced tool
 call; its model is the `JUDGE_MODEL` constant below, chosen so that no
 candidate shares its family. It **counts** (claims, entailed facts) and
@@ -27,6 +36,7 @@ import sys
 import urllib.error
 import urllib.request
 from hashlib import sha256
+from textwrap import dedent
 
 import _bootstrap
 from langfuse import Langfuse
@@ -36,7 +46,10 @@ from langfuse_api import LangfuseAPI
 REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
 
-from prompts import PROMPTS, SYSTEM_INSTRUCTION
+from eval_client import LLM, THINKING_LEVEL
+
+import config
+from prompts import PROMPTS, prompt_version
 
 BASE = "https://openrouter.ai/api"
 CHAT_URL = f"{BASE}/v1/chat/completions"
@@ -219,15 +232,6 @@ def _post(url, body, timeout=300):
         return json.load(response)
 
 
-def _get(url, timeout=120):
-    request = urllib.request.Request(  # noqa: S310
-        url,
-        headers={"Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}"},
-    )
-    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
-        return json.load(response)
-
-
 def _call_body(name, **fields):
     return {
         "max_tokens": 8000,
@@ -370,35 +374,29 @@ TIER2 = [eval_faithfulness, eval_coverage, eval_no_filler]
 def make_task(model_id, prompt_key):
     """Summarise one dataset item with a candidate model.
 
-    Sends the prompt and the content as two user parts and the system
-    instruction separately, mirroring `summary.summarize_text`. It does **not**
-    go through `llm.LLMClient`, so pydantic-ai's thinking effort and the
-    OpenRouter cost wrapper are absent — fine for ranking prompts and models,
-    not a substitute for the bot's own path when thinking level is the variable.
-    """
-    from textwrap import dedent
+    Goes through `EvalLLMClient`, so the call is the bot's own: instrumented
+    agent, system instruction, thinking level, and the cost wrapper that puts a
+    price on the same trace as the quality scores.
 
+    Nothing is caught here, unlike the screening task. An empty summary is a
+    verdict in screening — Tier 1 books it as a language failure — but in the
+    compare stage it would be handed to a judge as if the model had answered,
+    and a pairwise duel against a blank is a win that means nothing.
+    """
     prompt = dedent(PROMPTS[prompt_key]).strip()
 
     def task(*, item, **kwargs):  # noqa: ARG001
-        content = _source_of(item.input)
+        text = _source_of(item.input)
         language = (item.input or {}).get("target_language", "Russian")
-        body = {
-            "model": model_id,
-            "max_tokens": 4000,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": dedent(
-                        SYSTEM_INSTRUCTION.format(language=language),
-                    ).strip(),
-                },
-                {"role": "user", "content": prompt},
-                {"role": "user", "content": content},
-            ],
-        }
-        payload = _post(CHAT_URL, body)
-        return payload["choices"][0]["message"].get("content") or ""
+        # Mirrors summarize_text: prompt and content as two parts, and a blank
+        # text drops its part rather than sending an empty one.
+        content = [prompt, text] if text.strip() else [prompt]
+        return LLM.run(
+            content=content,
+            model_id=model_id,
+            target_language=language,
+            thinking_level=THINKING_LEVEL,
+        )
 
     return task
 
@@ -410,7 +408,10 @@ def cmd_run(model_id, limit, dataset_name, prompt_key):
     client = Langfuse()
     dataset = client.get_dataset(dataset_name)
     items = list(dataset.items)[: limit or None]
-    print(f"{model_id} over {len(items)} items of {dataset_name} ({prompt_key})")
+    print(
+        f"{model_id} over {len(items)} items of {dataset_name} "
+        f"({prompt_key}, thinking={THINKING_LEVEL})",
+    )
 
     result = client.run_experiment(
         name=f"{model_id} / {prompt_key}",
@@ -418,9 +419,22 @@ def cmd_run(model_id, limit, dataset_name, prompt_key):
         task=make_task(model_id, prompt_key),
         evaluators=TIER2,
         max_concurrency=4,
-        metadata={"candidate_model": model_id, "prompt_key": prompt_key},
+        metadata={
+            "stage": "compare",
+            "candidate_model": model_id,
+            "thinking_level": THINKING_LEVEL,
+            # `run_prompt_key`, not `prompt_key`: the Tier 1 rule fires on this
+            # experiment too, and it branches on the strategy the run applied.
+            # An item's own `prompt_key` is the strategy of the trace it was
+            # harvested from, and the datasets are mixed, so leaving this
+            # unnamed silently applied the bullet check to the wrong items.
+            "run_prompt_key": prompt_key,
+            "prompt_version": prompt_version(prompt_key),
+        },
     )
     client.flush()
+    if config.langfuse_client is not None:
+        config.langfuse_client.flush()
     print(f"\nrun: {result.run_name}")
     for row in result.item_results:
         scores = {e.name: e.value for e in row.evaluations}

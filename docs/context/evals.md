@@ -47,21 +47,34 @@ without anyone having to know the mapping.
 Nothing below needs the model to be in `config.MODEL_SPECS`, and it should not be added until
 the end:
 
-1. **Screen it.** `stage1.py run <openrouter-id>` — no registry entry needed. `EvalLLMClient`
-   subclasses `LLMClient` and overrides only `build_model`, so the run still goes through the
-   instrumented path and records cost and thinking level, while the base class's registry
-   lookup (which would raise `KeyError` for a candidate) is bypassed.
-2. **Promote a survivor to Tier 2/3.** `judge.py` sends the model id straight to OpenRouter and
-   never touches the registry either, so `judge.py run <candidate-id>` produces its outputs and
-   attaches the Tier 2 evaluators, and `judge.py pairwise <run-a> <run-b>` duels it against an
-   incumbent. A model that clears screening belongs here — screening only proves it is not
-   broken, and the ranking is Tier 2/3's job.
+1. **Screen it.** `stage1.py run <openrouter-id>` — no registry entry needed.
+   `eval_client.EvalLLMClient` subclasses `LLMClient` and overrides only `build_model`, so the
+   run still goes through the instrumented path and records cost and thinking level, while the
+   base class's registry lookup (which would raise `KeyError` for a candidate) is bypassed.
+2. **Promote a survivor to Tier 2/3.** `judge.py` never touches the registry either, so
+   `judge.py run <candidate-id>` produces its outputs and attaches the Tier 2 evaluators, and
+   `judge.py pairwise <run-a> <run-b>` duels it against an incumbent. A model that clears
+   screening belongs here — screening only proves it is not broken, and the ranking is Tier
+   2/3's job.
 3. **Then decide, and only then edit `config.py`.** Adding an id needs no migration; removing
    or renaming one does — see the registry bullet in `architecture.md`. A model registered
    under the `google` provider keeps its native id there, and `REGISTRY_ID` gains a row.
 
-One gap remains: `judge.py` builds its own HTTP call rather than going through `LLMClient`, so
-Tier 2/3 runs still record no cost. Screening does.
+### Both stages summarise through the same client; the judge does not
+
+`eval_client.py` holds `EvalLLMClient` and the single `THINKING_LEVEL` both stages read, and
+that sharing is the point rather than tidiness. A candidate's cost and latency are half of the
+question being answered — quality alone always picks the most expensive configuration — so the
+compare stage has to produce them on the same terms screening did. Two stages holding their own
+copy of the thinking level would drift, and the drift would look like a property of the model.
+
+The **judge** stays on its own HTTP call in `judge.py`, deliberately. It needs a forced tool
+call against a JSON schema, which `LLMClient` does not do and the bot never asks for, so routing
+it through the seam would mean adding structured output to `src/llm.py` for a request production
+never makes. What the judge spends is a cost of running the evaluation, not a property of the
+model being ranked, so it does not belong on the candidate's trace either. `ask` returns
+OpenRouter's `usage` and every caller discards it; totalling the evaluation's own bill from
+there is unbuilt, not rejected.
 
 ## Staged execution
 
@@ -85,6 +98,7 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 | File | Purpose |
 |---|---|
 | `_bootstrap.py` | Loads `.env`, puts `src/` on the import path, returns Langfuse REST credentials |
+| `eval_client.py` | `EvalLLMClient` and the shared `THINKING_LEVEL`. Both stages summarise through it |
 | `langfuse_api.py` | The only place that calls the Langfuse REST API. v4 endpoints, rate-limit aware |
 | `tier1_evaluator.py` | Tier 1 deterministic scorers. Uploaded to Langfuse, **executed there** |
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
@@ -333,6 +347,13 @@ Two consequences for scoring runs:
   silently applies to the wrong items. `summarization-screen-v1` has 24 items from
   `key_points_for_transcript` and 1 from `basic_prompt_for_transcript`, so this is live, not
   hypothetical. The evaluator prefers `run_prompt_key` and falls back to the item.
+  The obligation runs the other way too: the Tier 1 rule fires on **every** experiment, compare
+  runs included, so any runner calling `run_experiment` must put `run_prompt_key` in its run
+  metadata. Spelling it `prompt_key` there does not work and does not fail either — the
+  evaluator reads run metadata off `ctx.observation` and item metadata off `ctx.experiment`, two
+  different places, so a misnamed key overrides nothing and simply leaves the fallback to
+  decide. The symptom is a `t1_bullet_count` that looks perfectly plausible and was computed
+  against the wrong strategy.
 - Re-POSTing an evaluator under the same name creates a new **version** and every rule bound to
   that name follows it automatically — the rule's stored evaluator `id` changes to the new
   version's id. There is no separate update route, and no need to touch the rule.

@@ -24,9 +24,12 @@ Never *derive* an OpenRouter id by prefixing a vendor name: the catalog carries
 silently select the wrong one. `run` validates every id against the catalog
 before spending anything.
 
-Everything except model construction reuses `llm.LLMClient`, so a run records
-cost (via `OpenRouterCostReporter`) and applies the thinking level exactly as
-the bot does. Importing `config` is what turns instrumentation on.
+Summarising goes through `eval_client.LLM`, which reuses `llm.LLMClient` for
+everything except model construction, so a run records cost (via
+`OpenRouterCostReporter`) and applies the thinking level exactly as the bot
+does. The compare stage summarises through the same client, which is what keeps
+the two stages' cost and latency numbers comparable. Importing `config` is what
+turns instrumentation on.
 """
 
 from __future__ import annotations
@@ -43,15 +46,13 @@ from langfuse_api import LangfuseAPI
 REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
 
-from pydantic_ai.models.openrouter import OpenRouterModel, OpenRouterModelSettings
+from eval_client import LLM, THINKING_LEVEL
 
 import config
-from llm import LLMClient, OpenRouterCostReporter
 from prompts import PROMPTS, prompt_version
 
 SCREEN = "summarization-screen-v1"
 PROMPT_KEY = "key_points_for_transcript"
-THINKING_LEVEL = config.DEFAULT_THINKING_LEVEL
 RUN_PREFIX = "stage1 / "
 PASS_THRESHOLD = 0.70
 CATALOG_URL = "https://openrouter.ai/api/v1/models"
@@ -71,38 +72,6 @@ CHECKS = (
 REGISTRY_ID = {"google/gemini-3.7-flash": "gemini-3.7-flash"}
 
 
-class EvalLLMClient(LLMClient):
-    """`LLMClient` that builds any OpenRouter id, registered or not.
-
-    Only `build_model` changes. The base class looks the id up in
-    `config.MODEL_SPECS` and raises `KeyError` for a candidate that is not
-    registered yet, which is exactly the model screening exists to judge.
-    Everything else — the instrumented agent, the system instruction, the
-    thinking-level settings and the cost wrapper — is inherited, so a screening
-    run measures the same path the bot takes.
-    """
-
-    def build_model(self, model_id: str) -> OpenRouterModel:
-        """Build (and cache) an OpenRouter model without consulting the registry."""
-        if model_id not in self._models:
-            self._models[model_id] = OpenRouterCostReporter(
-                OpenRouterModel(
-                    model_id,
-                    provider=self._openrouter_provider,
-                    settings=OpenRouterModelSettings(
-                        openrouter_usage={"include": True},
-                    ),
-                ),
-            )
-        return self._models[model_id]
-
-
-_llm = EvalLLMClient(
-    client=config.gemini_client,
-    openrouter_provider=config.openrouter_provider,
-)
-
-
 def make_task(model_id):
     """Build the per-item task for one candidate model."""
     prompt = dedent(PROMPTS[PROMPT_KEY]).strip()
@@ -114,7 +83,7 @@ def make_task(model_id):
         # text drops its part rather than sending an empty one.
         content = [prompt, text] if text.strip() else [prompt]
         try:
-            return _llm.run(
+            return LLM.run(
                 content=content,
                 model_id=model_id,
                 target_language=language,
