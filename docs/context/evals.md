@@ -118,7 +118,8 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 | `tier1_evaluator.py` | Tier 1 deterministic scorers. Uploaded to Langfuse, **executed there** |
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
 | `stage1.py` | The screening stage — sweep, report, and per-item failures |
-| `judge.py` | The Tier 2/3 LLM judge; runs outside Langfuse |
+| `judge.py` | The Tier 2/3 LLM judge; runs outside Langfuse. One run, one duel per invocation |
+| `stage2.py` | The compare stage — the report over `t2_*`/`t3_*`, and the round-robin driver |
 | `calibrate.py` | Judge-vs-human agreement. Gates the compare stage |
 | `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
 
@@ -126,8 +127,10 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 uv run python scripts/eval/install_tier1.py     # after every edit to tier1_evaluator.py
 uv run python scripts/eval/stage1.py report     # free, read-only
 uv run python scripts/eval/stage1.py failures   # free — which items failed, and why
+uv run python scripts/eval/stage2.py report     # free, read-only
 uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
+uv run python scripts/eval/stage2.py duels [<model> ...]       # COSTS MONEY: every unduelled pair
 ```
 
 Anything that only reads is free. A full screening sweep is 25 items × every model swept,
@@ -538,6 +541,45 @@ so a parser keyed on a `## ` prefix alone reattributes verdicts to headings the 
 `labels` accepts a heading only when it names a known sample item. The failure mode is a
 dropped label that reads as an unlabelled item, not as an error.
 
+### The compare stage's report is where the ranking is read
+
+`scripts/eval/stage2.py` holds the two things built on top of `judge.py`: the aggregation the
+API does not provide, and the round-robin driver. `judge.py` stays one run and one duel per
+invocation.
+
+**A mean never ranks a model here.** With 25–50 items a few points between two means is noise,
+so every mean the report prints is paired with a test over *per-item* deltas — the sign test on
+Tier 3 verdicts, and the same test on per-item Tier 2 deltas between two candidates. That is why
+every candidate runs over the same items: controlling for item difficulty is worth roughly 3–4×
+the sample size, and fifty paired items beat two hundred unpaired ones. The paired Tier 2 table
+is also the cheap half of the ranking — it needs no judge call beyond the Tier 2 scores each run
+already banked, so it is available before a single duel is paid for.
+
+Five details are load-bearing:
+
+- **A candidate is a model *and* a strategy.** `t1_pass` and the Tier 2 means rank models only
+  within one strategy, so runs are keyed `<model> / <prompt_key>` throughout and a model swept
+  under both strategies is two candidates that can duel each other.
+- **Compare runs carry a `stage2 / ` prefix, for the same reason screening runs do.**
+  `GET /experiments` returns seven fields and none of them is metadata, so which stage a run
+  belongs to and which candidate produced it are readable *only* from the run name. Anything
+  that discovers runs is therefore parsing names, and renaming a run orphans it from the report.
+- **The bootstrap is seeded from a constant.** An unseeded interval moves on every read of the
+  same banked verdicts, and that movement is indistinguishable from the data having changed.
+- **The `unres` column merges two different things** — the judge abstaining because the two
+  orders contradicted each other, and a call that never returned. Only the first is a
+  judge-quality signal. `cmd_pairwise` banks a score for consistent verdicts *only*, so the
+  report can see how many are missing but not why; `judge.py pairwise` prints the true split at
+  run time. Do not read `unres` as the discard rate.
+- **Pairwise scores are read from the score table, not from the experiment.** A pairwise score
+  is anchored to run A's trace and carries the pair in its metadata, so filtering scores by
+  experiment id returns nothing for it — the same trap as evaluator scores attaching to the
+  observation.
+
+The round-robin driver skips pairs already banked, matching on the **exact run names** their
+scores carry. Re-running a candidate produces a new run name, so its pairs are duelled again —
+which is what re-running it means.
+
 ## API shapes that cost real time to rediscover
 
 Installing a code evaluator through the unstable API has a shape trap worth keeping: on
@@ -552,8 +594,13 @@ expected, not drift. A rule returning `status: "active"` means its preflight ran
 **once, against sample data**; it does not mean the code survives real data, so treat `422` from
 a later `POST /unstable/evaluators` as the authoritative crash report.
 
-Three more:
+A few more:
 
+- **A CATEGORICAL score's label may arrive in `stringValue` rather than `value`.** This is
+  **UNVERIFIED** — every score written so far is BOOLEAN or NUMERIC, so no categorical score has
+  ever been read back. `calibrate.py` reads `value`; `stage2.py` reads either. Reading the wrong
+  field yields `None` for every duel, which looks exactly like a judge that was never run, so
+  confirm this on the first real duel and then settle both files on the answer.
 - Tier 2 evaluators attach through `Langfuse.run_experiment(evaluators=[…])` rather than by
   posting scores by hand — the run wires each `Evaluation` to the right item.
 - **Score ingestion is asynchronous and can take longer than it looks.** A posted score was

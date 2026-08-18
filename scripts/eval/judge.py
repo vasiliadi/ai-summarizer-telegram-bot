@@ -59,6 +59,13 @@ JUDGE_EFFORT = "medium"  # pins depth; Sonnet 5 rejects temperature outright
 
 COMPARE_DATASET = "summarization-compare-v1"
 SCREEN_DATASET = "summarization-screen-v1"
+PROMPT_KEY = "key_points_for_transcript"
+
+# Compare runs carry a prefix for the same reason screening runs do: `GET
+# /experiments` returns no metadata, so which stage a run belongs to and which
+# candidate produced it are readable only from its name. What follows the prefix
+# is `<model> / <prompt_key>`, because a candidate is a model *and* a strategy.
+RUN_PREFIX = "stage2 / "
 
 FAITHFULNESS = """You are checking whether a summary invents information.
 
@@ -409,7 +416,7 @@ def cmd_run(model_id, limit, dataset_name, prompt_key):
     )
 
     result = client.run_experiment(
-        name=f"{model_id} / {prompt_key}",
+        name=f"{RUN_PREFIX}{model_id} / {prompt_key}",
         data=items,
         task=make_task(model_id, prompt_key),
         evaluators=TIER2,
@@ -461,7 +468,12 @@ def _run_outputs(dataset_name, run_name):
 
 
 def cmd_pairwise(dataset_name, run_a, run_b):
-    """Duel two runs over their shared items, both orders, consistent only."""
+    """Duel two runs over their shared items, both orders, consistent only.
+
+    Returns the win counts, how many verdicts were discarded as inconsistent,
+    and how many items the two runs shared, so a driver running many duels can
+    report progress without re-reading the scores it just wrote.
+    """
     client = Langfuse()
     dataset = client.get_dataset(dataset_name)
     sources = {i.id: (_source_of(i.input), i) for i in dataset.items}
@@ -531,6 +543,7 @@ def cmd_pairwise(dataset_name, run_a, run_b):
     for k, v in wins.items():
         share = f"{v / counted:.0%}" if counted else "-"
         print(f"  {k:45s} {v:3d}  {share}")
+    return wins, inconsistent, len(shared)
 
 
 def smoke(limit):
@@ -567,7 +580,7 @@ if __name__ == "__main__":
             args[1],
             int(args[2]) if len(args) > 2 else 0,
             args[3] if len(args) > 3 else SCREEN_DATASET,
-            args[4] if len(args) > 4 else "key_points_for_transcript",
+            args[4] if len(args) > 4 else PROMPT_KEY,
         )
     elif command == "pairwise":
         cmd_pairwise(args[1] if len(args) > 1 else COMPARE_DATASET, args[2], args[3])
