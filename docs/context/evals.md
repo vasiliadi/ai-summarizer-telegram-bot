@@ -556,6 +556,11 @@ Three more:
 
 - Tier 2 evaluators attach through `Langfuse.run_experiment(evaluators=[…])` rather than by
   posting scores by hand — the run wires each `Evaluation` to the right item.
+- **Score ingestion is asynchronous and can take longer than it looks.** A posted score was
+  absent from `GET /v3/scores` six seconds after `flush()` and present twenty seconds later, so
+  running `calibrate.py agreement` straight after `calibrate.py judge` reads fewer scores than
+  were written and looks exactly like a judge that silently failed. Wait, or re-read, before
+  concluding anything from a low count.
 - A Langfuse score **requires a target**. Passing `trace_id=None` fails with a bare
   `Bad request` while the calling code still prints success, so a pairwise score has to be
   anchored to something — run A's trace for that item is the natural choice.
