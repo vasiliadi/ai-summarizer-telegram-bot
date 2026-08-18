@@ -54,11 +54,15 @@ import stage1
 
 SCREEN = stage1.SCREEN
 
-# The pairwise duel worth calibrating on: Tier 1 cannot tell these two apart,
-# while one costs several times the other, so this is the comparison a ranking
-# would actually have to get right.
-PAIR_A = "openai/gpt-5.6-luna"
-PAIR_B = "meta/muse-spark-1.2"
+# The duel worth calibrating on is the one that varies along the axis the spec
+# is least sure of. These two sit close on length (compression 0.199 vs 0.176),
+# so length — the part the pairwise prompt already handles explicitly — is held
+# roughly fixed, and what separates them is how readable the Russian is. That is
+# the criterion the prompt gained last and has never been measured on. Two
+# models a reader rates equally would mostly produce TIE, which inflates chance
+# agreement and collapses kappa.
+PAIR_A = "minimax/minimax-m3"
+PAIR_B = "thinkingmachines/inkling"
 
 # Human channels vs judge channels. Distinct names, one score table — which is
 # what keeps the comparison a query instead of a spreadsheet.
@@ -264,8 +268,8 @@ def _enqueue(queue_id, observation_ids):
     return len(observation_ids)
 
 
-def setup():
-    """Create the score configs, the two queues, and the pairwise traces.
+def setup():  # noqa: C901, PLR0915
+    """Create the score configs, the queue, and the pairwise annotation traces.
 
     Faithfulness annotates observations that already exist — the root span of
     each screening run item. Pairwise has nothing to point at: a queue item is
@@ -344,7 +348,35 @@ def setup():
         f"  faithfulness: {_enqueue(queue_id, fresh)} queued, {len(faithful) - len(fresh)} already there",
     )
 
-    already = {m.get("dataset_item_id") for m in _pair_observations().values()}
+    pair_meta = _pair_observations()
+    already = {
+        m.get("dataset_item_id")
+        for m in pair_meta.values()
+        if m.get("run_a") == PAIR_A and m.get("run_b") == PAIR_B
+    }
+    # A trace built from a different duel answers a different question. Its
+    # observation cannot be deleted, but it must leave the queue or it gets
+    # labelled as though it belonged to this calibration.
+    stale = {
+        obs
+        for obs, m in pair_meta.items()
+        if m.get("run_a") != PAIR_A or m.get("run_b") != PAIR_B
+    }
+    if stale:
+        removed = 0
+        for item in API.paginate(
+            f"annotation-queues/{queue_id}/items",
+            {"limit": 100},
+        ):
+            if item.get("objectId") in stale:
+                response = requests.delete(
+                    f"{API.base}/api/public/annotation-queues/"
+                    f"{queue_id}/items/{item['id']}",
+                    auth=API.auth,
+                    timeout=120,
+                )
+                removed += response.status_code in (200, 202, 204)
+        print(f"  removed {removed} queue item(s) from a previous duel")
     client = Langfuse()
     created = []
     for row in pairwise:

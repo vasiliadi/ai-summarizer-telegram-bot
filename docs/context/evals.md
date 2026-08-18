@@ -504,7 +504,15 @@ Four things about it are load-bearing:
   comparison needs two summaries side by side — the constraint that stopped Tier 3 being an
   evaluator. `calibrate.py setup` writes one purpose-built span per pair, source as input and
   both summaries as output, and the blinding lives in its metadata as the only record of which
-  model was shown as A. They are free, named `calibration pair`, and never read as bot traffic.
+  model was shown as A. They are free, named `calibration pair`, and never read as bot traffic. Those traces are keyed by the duel they were built from, not only by
+  the item: change `PAIR_A`/`PAIR_B` and `setup` writes fresh ones and pulls the previous duel's
+  items out of the queue, because a trace from another duel answers a different question while
+  looking identical in the UI.
+- **Pick the calibration duel by which axis the spec is least sure of**, not by which models
+  matter most commercially. Two models a reader rates equally mostly produce TIE, which inflates
+  chance agreement and collapses kappa; two that differ on a criterion the prompt already
+  handles carefully test nothing. Holding the well-specified axis roughly fixed — length, say —
+  and varying the newest one is what makes 25 labels informative.
 - **One queue holds both dimensions.** The Hobby plan allows exactly one annotation queue, and
   no API route updates a queue's score configs after creation — so it has to be created with
   every config it will ever need. A queue missing one simply never offers that channel in the
