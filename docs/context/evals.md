@@ -462,6 +462,23 @@ And OpenRouter does not enforce `required` on this route, so a missing field has
 explicitly rather than trusted. Pairwise runs **both orders and discards disagreements**; the
 discard rate is itself a judge-quality signal.
 
+### Comprehensibility is substance; elegance is not
+
+The pairwise prompt separates the two deliberately, and the distinction was added because a
+real defect fell through the gap. It tells the judge to give no credit for elegance and to
+ignore which summary sounds more confident — a judge left free to reward polish picks the
+smoother of two summaries over the more accurate one. But it also states that language a reader
+has to fight (clumsy translation, mangled syntax, phrasing that leaves the meaning in doubt)
+costs **substance**: a fact the reader cannot extract has not been delivered.
+
+Without that second half, "judge substance, not polish" reads as licence to discount
+translationese entirely — and translationese is a live failure mode here, since summaries are
+Russian while sources usually are not. The human labelling the calibration set has to apply the
+same line, or the disagreement it produces will look like a miscalibrated judge when it is
+really an under-specified question. **Specification comes before calibration**; tuning a prompt
+against disagreements is what calibration is for, but only once both sides are asked the same
+thing.
+
 ### Calibration runs before the compare stage, not after
 
 `scripts/eval/calibrate.py` measures the judge against hand labels: raw agreement plus Cohen's

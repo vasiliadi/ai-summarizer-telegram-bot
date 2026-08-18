@@ -147,8 +147,11 @@ Length is not quality. A longer summary is not better for being longer, and the
 shorter of two summaries wins whenever it loses nothing that mattered — judges
 reliably drift toward length, so correct for it deliberately.
 
-Both summaries are in Russian. Judge substance, not polish, and ignore which one
-sounds more confident.
+Both summaries are in Russian. Ignore which one sounds more confident, and give
+no credit for elegance on its own. But language a reader has to fight — clumsy
+translation, mangled syntax, phrasing that leaves the meaning in doubt — costs
+substance, not style: a fact the reader cannot extract has not been delivered.
+Weigh that. Weigh mere polish not at all.
 
 Answer A, B, or TIE. Use TIE only when neither is meaningfully better, not to
 avoid a hard call. Keep the reasoning under 60 words."""
