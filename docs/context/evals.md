@@ -596,6 +596,12 @@ a later `POST /unstable/evaluators` as the authoritative crash report.
 
 A few more:
 
+- **Nothing in v4 deletes an experiment.** `experiments` and `experiment-items` expose `list`
+  only. The deprecated v3 `DELETE /datasets/{name}/runs/{runName}` returns **200** and clears
+  the run from the v3 view, but the v4 experiment and its items survive — so a botched sweep is
+  permanent and shows up in every listing afterwards. Score configs are the same shape: they
+  archive, they do not delete. Plan for junk runs to be *named* rather than removed, and check
+  a runner end to end on one item before sweeping a whole dataset with it.
 - **A CATEGORICAL score's label may arrive in `stringValue` rather than `value`.** This is
   **UNVERIFIED** — every score written so far is BOOLEAN or NUMERIC, so no categorical score has
   ever been read back. `calibrate.py` reads `value`; `stage2.py` reads either. Reading the wrong
