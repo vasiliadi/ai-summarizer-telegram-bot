@@ -163,6 +163,36 @@ Weigh that. Weigh mere polish not at all.
 Answer A, B, or TIE. Use TIE only when neither is meaningfully better, not to
 avoid a hard call. Keep the reasoning under 60 words."""
 
+KEY_FACTS = """Extract the facts a summary of this source must not omit.
+
+Write at least 5 and **at most 12**. This is a hard cap, not a target. Most
+sources support more than 12 candidates; when yours does, keep the 12 that
+matter most and drop the rest. A checklist is a test of what must survive
+summarisation, not an index of the source.
+
+SOURCE:
+{source}
+
+A key fact is **one** assertion: one event, one figure, one named actor and what
+it did, one causal link, or one conclusion the source draws. If a sentence needs
+"and" to join two assertions, it is two facts — write the more important one and
+drop the other, or spend two of your twelve on it. Each fact is judged entailed
+or not entailed with no partial credit, so a fact carrying two claims cannot be
+answered.
+
+Include only what the source states. Do not add background a reader might want,
+do not infer past the text, and do not include your own assessment of the
+material.
+
+Choose the facts a reader would be misinformed to miss, not everything the
+source mentions. Rank by what the source itself treats as important: what it
+leads with, returns to, or builds its conclusion on. Passing mentions, examples
+that only illustrate a point already listed, and scene-setting detail do not
+belong.
+
+Write one sentence per fact, in the language of the source, as flat statements:
+no numbering, no bullet markers, no commentary."""
+
 # The verdict field comes before `reasoning` in every schema. Models emit in
 # declared order and it is the long reasoning string that runs into `max_tokens`,
 # so putting the number first means a truncated call still carries the answer.
@@ -205,6 +235,17 @@ SCHEMAS = {
         "required": ["winner", "reasoning"],
         "additionalProperties": False,
     },
+    # No `reasoning` here, unlike the four above: the list *is* the answer, and
+    # there is no count for the runner to divide, so a reasoning string would
+    # only spend tokens ahead of the field that matters.
+    "key_facts": {
+        "type": "object",
+        "properties": {
+            "key_facts": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["key_facts"],
+        "additionalProperties": False,
+    },
 }
 
 TEMPLATES = {
@@ -212,6 +253,10 @@ TEMPLATES = {
     "coverage": COVERAGE,
     "no_filler": NO_FILLER,
     "pairwise": PAIRWISE,
+    # Not a verdict but built the same way, and it lives here for the reason
+    # every other prompt does: `judge_version` pins it, and `checklists.py`
+    # imports it rather than restating it.
+    "key_facts": KEY_FACTS,
 }
 
 

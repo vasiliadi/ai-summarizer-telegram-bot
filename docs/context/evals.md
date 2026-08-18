@@ -119,7 +119,8 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
 | `stage1.py` | The screening stage — sweep, report, and per-item failures |
 | `judge.py` | The Tier 2/3 LLM judge; runs outside Langfuse. One run, one duel per invocation |
-| `stage2.py` | The compare stage — the report over `t2_*`/`t3_*`, and the round-robin driver |
+| `stage2.py` | The compare stage — the sweep, the report over `t2_*`/`t3_*`, and the round-robin driver |
+| `checklists.py` | Builds the key-facts checklists `t2_coverage` scores against |
 | `calibrate.py` | Judge-vs-human agreement. Gates the compare stage |
 | `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
 
@@ -128,8 +129,12 @@ uv run python scripts/eval/install_tier1.py     # after every edit to tier1_eval
 uv run python scripts/eval/stage1.py report     # free, read-only
 uv run python scripts/eval/stage1.py failures   # free — which items failed, and why
 uv run python scripts/eval/stage2.py report     # free, read-only
+uv run python scripts/eval/checklists.py status # free — what has a checklist, what does not
+uv run python scripts/eval/checklists.py push   # free — writes reviewed checklists to both datasets
 uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
+uv run python scripts/eval/checklists.py generate [limit]      # COSTS MONEY: one call per item
+uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each
 uv run python scripts/eval/stage2.py duels [<model> ...]       # COSTS MONEY: every unduelled pair
 ```
 
@@ -281,6 +286,40 @@ content rather than being dropped. Detect it by **compression ratio**, not by an
 character's share: the observed failures repeat a multi-character sequence, so one of the two
 sat at 27% on its most common character and slipped a 30% threshold, while both compress to
 ~0.03 of their size against ~0.14 for the densest real item.
+
+### The key-facts checklist is the reference `t2_coverage` scores against
+
+Coverage is the hard part of reference-free summarization, and the checklist is what converts
+it into a reference-based problem without anyone writing a gold summary: a strong model extracts
+the atomic facts a summary must not omit, a human edits the list, and it is stored as the item's
+`expected_output`. Per-fact entailment is an easy judgement; "is this summary complete?" is not.
+The cost is paid once per **item**, not once per run. `scripts/eval/checklists.py` does the
+generating, reviewing and writing.
+
+- **The hand-review step is load-bearing, not decoration.** `eval_coverage` returns `None` while
+  an item has no checklist, which is visibly missing data. A *wrong* checklist mis-scores every
+  model at once and looks like a result. `push` therefore writes only entries marked
+  `"reviewed": true` unless `--all` overrides it, and generation goes to a working file under
+  `temp/` rather than straight to the dataset.
+- **Checklists are keyed by content digest, not by dataset item id.** The same source is
+  `cmp-<digest>` in the compare set and `scr-<digest>` in the screening subset, so one reviewed
+  list is written to both items and the 25 shared sources are reviewed once. This is what the
+  strict-subset property in `rebuild_datasets.py` is *for*.
+- **A dataset item has no partial update.** `POST /dataset-items` upserts by id, so writing
+  `expected_output` means re-sending `input`, `metadata`, `source_trace_id`,
+  `source_observation_id` and `status` alongside it. Omit one and it is gone, with no error and
+  no way to restore it — which is why `push` reads each item, changes exactly one field, and
+  then reads it back to verify.
+- **Facts are extracted in the language of the source**, which is usually not the summary's
+  language. Translating the checklist at build time would bake a translation error into the
+  reference everything downstream is measured against, and the judge is already told that
+  wording and language need not match.
+- **The count is capped at 12 and the cap needs stating twice.** Asked for "between 5 and 12"
+  once, at the end, the model returned 14 on the first real source and joined two assertions
+  with "and" in five of them. A fact carrying two claims cannot be answered entailed-or-not, so
+  the prompt now leads with the cap, calls it hard, and says to spend two of the twelve or drop
+  one. `checklists.py` re-checks the bound and the markers locally, because the prompt asking is
+  not the same as the model obeying.
 
 ## Tier 1: binary sub-checks, never weighted points
 
@@ -543,9 +582,11 @@ dropped label that reads as an unlabelled item, not as an error.
 
 ### The compare stage's report is where the ranking is read
 
-`scripts/eval/stage2.py` holds the two things built on top of `judge.py`: the aggregation the
-API does not provide, and the round-robin driver. `judge.py` stays one run and one duel per
-invocation.
+`scripts/eval/stage2.py` holds the three things built on top of `judge.py`: the sweep across
+models, the aggregation the API does not provide, and the round-robin driver. `judge.py` stays
+one run and one duel per invocation. `sweep` validates every model id against the OpenRouter
+catalog before spending anything, exactly as the screening sweep does — otherwise a typo in the
+sixth id surfaces only after the first five runs are paid for.
 
 **A mean never ranks a model here.** With 25–50 items a few points between two means is noise,
 so every mean the report prints is paired with a test over *per-item* deltas — the sign test on
