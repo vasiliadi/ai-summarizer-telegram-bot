@@ -35,7 +35,7 @@ from datetime import datetime
 from itertools import combinations
 
 import _bootstrap
-from langfuse_api import LangfuseAPI
+from langfuse_api import LangfuseAPI, score_value
 
 REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
@@ -106,18 +106,6 @@ def _item_rows(experiment):
     }
 
 
-def _value(row):
-    """A score's value, whichever field this data type puts it in.
-
-    A CATEGORICAL score carries its label in `stringValue`; a NUMERIC or
-    BOOLEAN one carries a number in `value`. Nothing in this project had ever
-    written a categorical score when this was written, so both are read rather
-    than one being assumed — reading the wrong field returns `None` for every
-    duel, which looks exactly like a judge that was never run.
-    """
-    return row.get("stringValue") or row.get("value")
-
-
 def _duels():
     """(run A name, run B name) -> {dataset item id: 'A' | 'B' | 'TIE'}.
 
@@ -133,7 +121,7 @@ def _duels():
         meta = row.get("metadata") or {}
         pair, item = (meta.get("run_a"), meta.get("run_b")), meta.get("dataset_item_id")
         if all(pair) and item:
-            out.setdefault(pair, {})[item] = _value(row)
+            out.setdefault(pair, {})[item] = score_value(row)
     return out
 
 

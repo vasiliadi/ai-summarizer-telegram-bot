@@ -556,10 +556,15 @@ Four things about it are load-bearing:
   handles carefully test nothing. Holding the well-specified axis roughly fixed — length, say —
   and varying the newest one is what makes 25 labels informative.
 - **One queue holds both dimensions.** The Hobby plan allows exactly one annotation queue, and
-  no API route updates a queue's score configs after creation — so it has to be created with
-  every config it will ever need. A queue missing one simply never offers that channel in the
-  UI. Mis-setting a channel on the wrong kind of item is harmless: agreement maps observations
-  back to sample items, and a label on an observation outside that mapping is ignored.
+  no API route updates *or deletes* a queue after creation — so it has to be created with every
+  config it will ever need, and fixing one that was not is a UI job. A queue missing a config
+  simply never offers that channel, on any item, with nothing to say why. Mis-setting a channel
+  on the wrong kind of item is harmless: agreement maps observations back to sample items, and a
+  label on an observation outside that mapping is ignored.
+- **Labels survive the queue.** A label is a score on an observation; the queue is only a work
+  list pointing at observations. Deleting and rebuilding the queue therefore loses no labelling
+  — the rebuilt items come back `PENDING` while their scores stay in the score table and keep
+  mapping. Verified with 25 `h_faithful` labels in hand.
 - **The sample is derived, not stored** — items sorted by id and dealt round-robin across the
   screening runs. Agreement is only comparable across prompt revisions when the items stay
   fixed, and a stored manifest would drift from the runs it names.
@@ -643,11 +648,25 @@ A few more:
   permanent and shows up in every listing afterwards. Score configs are the same shape: they
   archive, they do not delete. Plan for junk runs to be *named* rather than removed, and check
   a runner end to end on one item before sweeping a whole dataset with it.
-- **A CATEGORICAL score's label may arrive in `stringValue` rather than `value`.** This is
-  **UNVERIFIED** — every score written so far is BOOLEAN or NUMERIC, so no categorical score has
-  ever been read back. `calibrate.py` reads `value`; `stage2.py` reads either. Reading the wrong
-  field yields `None` for every duel, which looks exactly like a judge that was never run, so
-  confirm this on the first real duel and then settle both files on the answer.
+- **A score's value lives in a different field depending on its data type, and the two are
+  opposite.** Settled from the OpenAPI spec, not guessed. A **CATEGORICAL** score puts its label
+  in `stringValue` and a *numeric category mapping* in `value` — and `value` is `0` when no score
+  config is linked, which is the case for every score the judge writes, so reading `value`
+  returns `0` for `A`, `B`, `TIE` and `INCONSISTENT` alike and every comparison is false. A
+  **BOOLEAN** score is the reverse: `value` carries the boolean and `stringValue` is the text
+  `"True"`/`"False"` when present at all — the live v3 API omits it entirely. `langfuse_api.py`
+  holds the one decoder, `score_value(row)`; do not read `value` off a score row directly.
+- **`subject` is its own `fields` group on `GET /v3/scores` and must be requested.** Without it
+  a score row carries **no target at all** — no `observationId`, no `subject`, nothing saying
+  what was scored. Any code mapping labels back to items then matches nothing and reports zero,
+  which is indistinguishable from nobody having labelled anything. This cost real confusion with
+  25 hand labels already saved. Note the shape differs by route: scores returned *inline* by
+  `fields=core,scores` on `GET /experiment-items` carry `subject` without being asked.
+- **No route updates or deletes an annotation queue.** `/annotation-queues` has GET and POST,
+  `/annotation-queues/{queueId}` has **GET only** — no PATCH, no PUT, no DELETE. Only its
+  *items* can be changed (`POST`, `PATCH`, `DELETE` on the items routes). So a queue created
+  without a score config can never gain one through the API, and cannot be deleted through it
+  either; both need the UI. Create a queue with every config it will ever need.
 - Tier 2 evaluators attach through `Langfuse.run_experiment(evaluators=[…])` rather than by
   posting scores by hand — the run wires each `Evaluation` to the right item.
 - **Score ingestion is asynchronous and can take longer than it looks.** A posted score was

@@ -44,7 +44,7 @@ from hashlib import sha256
 import _bootstrap
 import requests
 from langfuse import Langfuse
-from langfuse_api import EPOCH, LangfuseAPI
+from langfuse_api import EPOCH, LangfuseAPI, score_value
 
 REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
@@ -235,10 +235,15 @@ def _queue(score_config_ids):
         missing = [c for c in score_config_ids if c not in attached]
         print(f"  queue exists: {QUEUE_NAME}")
         if missing:
+            # Both fixes are UI-only: the API has GET and POST on the queue
+            # collection and GET alone on a single queue — it can neither
+            # update a queue's configs nor delete it. Existing labels are
+            # scores on observations and survive either way.
             print(
-                f"  WARNING: {len(missing)} score config(s) not attached to it. "
-                "Add them in the queue's settings, or delete the queue and "
-                "re-run setup.",
+                f"  WARNING: {len(missing)} score config(s) not attached to it, "
+                "so that channel is offered on no item at all. Fix it in the "
+                "Langfuse UI: add them in the queue's settings, or delete the "
+                "queue and re-run setup. Labels already made are not lost.",
             )
         return queue["id"]
     created = _post(
@@ -516,7 +521,7 @@ def _scores_by_name(names):
             continue
         item = (row.get("metadata") or {}).get("dataset_item_id")
         if item:
-            out[name][item] = row.get("value")
+            out[name][item] = score_value(row)
     return out
 
 
@@ -526,15 +531,21 @@ def _human_scores(name, by_observation):
     A label set in the annotation UI hangs off the observation and carries no
     metadata this code controls, so the item id has to come from the mapping
     that put the observation in the queue in the first place.
+
+    **`subject` is its own `fields` group and has to be asked for.** Without it
+    a score carries no target at all — not `observationId`, not `subject` — so
+    every label maps to nothing and the report reads "0 labelled of 25", which
+    is indistinguishable from nobody having labelled anything. That is what it
+    said with 25 labels already saved.
     """
     out = {}
     for row in API.paginate(
         "v3/scores",
-        {"limit": 100, "fields": "core,details", "name": name},
+        {"limit": 100, "fields": "core,details,subject", "name": name},
     ):
-        item = by_observation.get(row.get("observationId"))
+        item = by_observation.get((row.get("subject") or {}).get("id"))
         if item:
-            out[item] = row.get("value")
+            out[item] = score_value(row)
     return out
 
 
@@ -577,9 +588,21 @@ def agreement():
             for r in rows
             if r["item"] in human and r["item"] in judged
         ]
-        print(f"\n{title}: {len(shared)} labelled of {len(rows)}")
+        # Three counts, not one. "0 comparable" with 25 hand labels banked and
+        # no judge run is a completely different state from nobody having
+        # labelled anything, and a single number cannot tell them apart — it
+        # reads as lost work.
+        print(
+            f"\n{title}: {len(shared)} comparable of {len(rows)} "
+            f"({len(human)} hand-labelled, {len(judged)} judged)",
+        )
         if not shared:
-            print("  nothing to compare yet")
+            if human and not judged:
+                print("  nothing to compare yet — run `calibrate.py judge`")
+            elif judged and not human:
+                print("  nothing to compare yet — label the queue in Langfuse")
+            else:
+                print("  nothing to compare yet — neither side has run")
             continue
         # An INCONSISTENT pairwise verdict is the judge abstaining, not
         # disagreeing: the two orders contradicted each other, so it has no

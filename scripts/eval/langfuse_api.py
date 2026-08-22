@@ -30,6 +30,31 @@ import requests
 EPOCH = "2020-01-01T00:00:00Z"
 
 
+def score_value(row: dict) -> object:
+    """The comparable value of a score row, chosen by its data type.
+
+    The two types this project reads store their value in opposite places, and
+    picking the wrong one fails silently rather than raising:
+
+    * **CATEGORICAL** puts the label in `stringValue` and a numeric category
+      mapping in `value` — which is `0` when no score config is linked, as it
+      is for every score the judge writes. Reading `value` therefore returns
+      `0` for `A`, `B`, `TIE` and `INCONSISTENT` alike, and every comparison
+      against a verdict string is false.
+    * **BOOLEAN** is the other way round: `value` is the boolean, and
+      `stringValue` is the text `"True"`/`"False"` when it is present at all —
+      the live v3 API omits it. Preferring `stringValue` here would compare a
+      string against a boolean and never match.
+
+    One decoder rather than one per call site, because the two rules diverging
+    is exactly how this goes wrong unnoticed.
+    """
+    if row.get("dataType") == "CATEGORICAL":
+        string_value = row.get("stringValue")
+        return string_value if string_value is not None else row.get("value")
+    return row.get("value")
+
+
 class LangfuseAPI:
     """Thin, rate-limit-aware reader for the Langfuse public v4 API."""
 
