@@ -266,9 +266,16 @@ def judge_version(name):
     return sha256(payload.encode()).hexdigest()[:12]
 
 
-def judge_meta(name):
+def judge_meta(name, model=None):
+    """The pin recorded beside every score this judge writes.
+
+    `model` is passed when a run is measuring a *candidate* judge rather than
+    the pinned one, so two judges scoring the same items stay separable in the
+    score table — they share the score name, and the pin is the only thing that
+    tells their verdicts apart.
+    """
     return {
-        "judge_model": JUDGE_MODEL,
+        "judge_model": model or JUDGE_MODEL,
         "judge_effort": JUDGE_EFFORT,
         "judge_prompt": f"{name}@{judge_version(name)}",
     }
@@ -291,6 +298,10 @@ def _call_body(name, **fields):
     return {
         "max_tokens": 8000,
         "reasoning": {"effort": JUDGE_EFFORT},
+        # Ask OpenRouter to price the call. Without this the usage block counts
+        # tokens only, and what a judge actually cost has to be reconstructed
+        # from a price table that goes stale the week a vendor changes it.
+        "usage": {"include": True},
         "messages": [{"role": "user", "content": TEMPLATES[name].format(**fields)}],
         "tools": [
             {
@@ -317,9 +328,9 @@ def _unpack(name, choice):
     return verdict
 
 
-def ask(name, **fields):
-    """One synchronous judge call."""
-    body = {"model": JUDGE_MODEL, **_call_body(name, **fields)}
+def ask(name, *, model=None, **fields):
+    """One synchronous judge call, against `model` or the pinned judge."""
+    body = {"model": model or JUDGE_MODEL, **_call_body(name, **fields)}
     payload = _post(CHAT_URL, body)
     return _unpack(name, payload["choices"][0]), payload.get("usage", {})
 

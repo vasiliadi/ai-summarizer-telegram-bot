@@ -6,8 +6,15 @@ rather than after.
 
     python scripts/eval/calibrate.py sample      # free: show the fixed sample
     python scripts/eval/calibrate.py setup       # free: configs, queues, traces
-    python scripts/eval/calibrate.py judge       # COSTS MONEY
+    python scripts/eval/calibrate.py judge [<model>]  # COSTS MONEY
     python scripts/eval/calibrate.py agreement   # free: accuracy + kappa
+
+Calibration decides the judge model rather than assuming it. Run `judge` once
+per candidate judge — the model id is an optional argument, defaulting to the
+pinned `judge.JUDGE_MODEL` — and `agreement` reports every judge it finds side
+by side against the same hand labels. Take the higher number, and if the
+cheaper judge clears the bar, spend the difference on dataset items instead:
+more items buy more statistical power than a better judge does.
 
 The judge prompts and schemas are imported from `judge.py` and never restated.
 Calibration has to measure the prompt production actually uses; a copy here
@@ -433,21 +440,34 @@ def setup():  # noqa: C901, PLR0915
     print(f"\nLabel both at {API.base} -> Human Annotation")
 
 
-def run_judge():
-    """Score the calibration sample with the judge. COSTS MONEY."""
+def run_judge(model=None):
+    """Score the calibration sample with one judge. COSTS MONEY.
+
+    `model` names a candidate judge to measure instead of the pinned one. The
+    plan is explicit that calibration *supersedes* judge-model choice: run two,
+    measure both against the same hand labels, take the higher number — and if
+    the cheaper one clears the bar, spend the difference on dataset items
+    instead. Both judges write the same score names and stay separable by the
+    pin in their metadata, so running a second one never disturbs the first.
+    """
     faithful, pairwise, sources = sample()
     client = Langfuse()
+    model = model or judge.JUDGE_MODEL
+    spent = []
 
+    print(f"judge: {model}, effort {judge.JUDGE_EFFORT}")
     print(f"faithfulness: {len(faithful)} calls")
     for row in faithful:
         source = sources.get(row["item"], "")
         if not source:
             continue
-        verdict, _ = judge.ask(
+        verdict, usage = judge.ask(
             "faithfulness",
+            model=model,
             source=source[:120000],
             summary=row["summary"],
         )
+        spent.append(usage.get("cost") or 0)
         # The judge counts and the runner decides. Binarised here because the
         # human label is binary: a ratio cannot be hand-assigned reproducibly.
         clean = verdict["unsupported_claims"] == 0
@@ -461,7 +481,7 @@ def run_judge():
             )[:900],
             trace_id=row["trace"],
             metadata={
-                **judge.judge_meta("faithfulness"),
+                **judge.judge_meta("faithfulness", model),
                 "candidate_model": row["model"],
                 "dataset_item_id": row["item"],
             },
@@ -472,18 +492,21 @@ def run_judge():
     flip = {"A": "B", "B": "A", "TIE": "TIE"}
     for row in pairwise:
         source = sources.get(row["item"], "")[:120000]
-        ab, _ = judge.ask(
+        ab, usage_ab = judge.ask(
             "pairwise",
+            model=model,
             source=source,
             summary_a=row["a"],
             summary_b=row["b"],
         )
-        ba, _ = judge.ask(
+        ba, usage_ba = judge.ask(
             "pairwise",
+            model=model,
             source=source,
             summary_a=row["b"],
             summary_b=row["a"],
         )
+        spent.extend([usage_ab.get("cost") or 0, usage_ba.get("cost") or 0])
         # Order-swap disagreement is position bias, not a verdict. Recording it
         # as INCONSISTENT keeps the discard rate visible instead of hiding it.
         consistent = ab["winner"] == flip[ba["winner"]]
@@ -495,7 +518,7 @@ def run_judge():
             comment=ab["reasoning"][:900],
             trace_id=row["trace"],
             metadata={
-                **judge.judge_meta("pairwise"),
+                **judge.judge_meta("pairwise", model),
                 "run_a": PAIR_A,
                 "run_b": PAIR_B,
                 "dataset_item_id": row["item"],
@@ -505,7 +528,13 @@ def run_judge():
         )
         print(f"  {row['item']}  {value}")
     client.flush()
-    print("\nscores posted; run `calibrate.py agreement`")
+    # OpenRouter prices each call, so this is what was actually charged rather
+    # than an estimate against a price table that goes stale.
+    total = sum(spent)
+    priced = sum(1 for c in spent if c)
+    print(f"\n{len(spent)} judge calls, ${total:.4f}", end="")
+    print(f" ({priced} priced)" if priced != len(spent) else "")
+    print("scores posted; run `calibrate.py agreement`")
 
 
 def _kappa(pairs_seen):
@@ -524,8 +553,18 @@ def _kappa(pairs_seen):
 
 
 def _scores_by_name(names):
-    """Score name -> {dataset item id: value}, read back from Langfuse."""
-    out: dict[str, dict[str, str]] = {n: {} for n in names}
+    """Score name -> judge pin -> {dataset item id: value}.
+
+    Grouped by pin because measuring a second judge is the *point* — the plan
+    says pick two, measure both against the same labels and take the higher
+    number. Both write the same score names, so without this grouping the
+    second run silently overwrites the first in whatever order the pages
+    arrive, and the comparison it was run for is unreadable.
+
+    The pin is model plus prompt hash, so iterating a judge prompt separates
+    its verdicts from the ones banked before the edit for the same reason.
+    """
+    out: dict[str, dict[tuple, dict]] = {n: {} for n in names}
     rows = API.paginate(
         "v3/scores",
         {"limit": 100, "fields": "core,details", "name": ",".join(names)},
@@ -534,9 +573,11 @@ def _scores_by_name(names):
         name = row.get("name")
         if name not in out:
             continue
-        item = (row.get("metadata") or {}).get("dataset_item_id")
+        meta = row.get("metadata") or {}
+        item = meta.get("dataset_item_id")
         if item:
-            out[name][item] = score_value(row)
+            pin = (meta.get("judge_model") or "?", meta.get("judge_prompt") or "?")
+            out[name].setdefault(pin, {})[item] = score_value(row)
     return out
 
 
@@ -594,53 +635,63 @@ def agreement():
         for item, v in shown.items()
     }
 
-    for title, human, judged, rows in (
+    for title, human, by_pin, rows in (
         ("faithfulness", human_faithful, scores[C_FAITHFUL], faithful),
         ("pairwise", human_pairwise, scores[C_PAIRWISE], pairwise),
     ):
-        shared = [
-            (r["item"], human[r["item"]], judged[r["item"]])
-            for r in rows
-            if r["item"] in human and r["item"] in judged
-        ]
-        # Three counts, not one. "0 comparable" with 25 hand labels banked and
-        # no judge run is a completely different state from nobody having
-        # labelled anything, and a single number cannot tell them apart — it
-        # reads as lost work.
+        # Two counts, not one. "Nothing to compare" with 25 hand labels banked
+        # and no judge run is a completely different state from nobody having
+        # labelled anything, and one number cannot tell them apart — it reads
+        # as lost work.
+        print(f"\n=== {title}: {len(human)} hand-labelled of {len(rows)} ===")
+        if not by_pin:
+            print(
+                "  no judge scores yet — run `calibrate.py judge [<model>]`"
+                if human
+                else "  neither side has run",
+            )
+            continue
+        for pin in sorted(by_pin):
+            _report_judge(pin, human, by_pin[pin], rows)
+
+
+def _report_judge(pin, human, judged, rows):
+    """Agreement for one judge pin against the hand labels, and its misses."""
+    model, prompt = pin
+    shared = [
+        (r["item"], human[r["item"]], judged[r["item"]])
+        for r in rows
+        if r["item"] in human and r["item"] in judged
+    ]
+    print(f"\n  {model}  [{prompt}]")
+    print(f"    {len(shared)} comparable ({len(judged)} judged)")
+    if not shared:
+        print("    nothing to compare — label the queue in Langfuse")
+        return
+    # An INCONSISTENT pairwise verdict is the judge abstaining, not
+    # disagreeing: the two orders contradicted each other, so it has no
+    # opinion to compare. Production discards those, and counting them
+    # against the judge here would understate agreement while conflating
+    # position bias with error. The discard rate is reported instead — it is
+    # its own signal about judge quality.
+    abstained = [(i, h) for i, h, j in shared if j == "INCONSISTENT"]
+    if abstained:
         print(
-            f"\n{title}: {len(shared)} comparable of {len(rows)} "
-            f"({len(human)} hand-labelled, {len(judged)} judged)",
+            f"    {len(abstained)} inconsistent "
+            f"({len(abstained) / len(shared):.0%}) — excluded",
         )
-        if not shared:
-            if human and not judged:
-                print("  nothing to compare yet — run `calibrate.py judge`")
-            elif judged and not human:
-                print("  nothing to compare yet — label the queue in Langfuse")
-            else:
-                print("  nothing to compare yet — neither side has run")
-            continue
-        # An INCONSISTENT pairwise verdict is the judge abstaining, not
-        # disagreeing: the two orders contradicted each other, so it has no
-        # opinion to compare. Production discards those, and counting them
-        # against the judge here would understate agreement while conflating
-        # position bias with error. The discard rate is reported instead — it is
-        # its own signal about judge quality.
-        abstained = [(i, h) for i, h, j in shared if j == "INCONSISTENT"]
-        if abstained:
-            rate = len(abstained) / len(shared)
-            print(f"  {len(abstained)} inconsistent ({rate:.0%}) — excluded")
-        shared = [(i, h, j) for i, h, j in shared if j != "INCONSISTENT"]
-        if not shared:
-            print("  every verdict was inconsistent; nothing to compare")
-            continue
-        pairs_seen = [(h, j) for _, h, j in shared]
-        accuracy = sum(1 for h, j in pairs_seen if h == j) / len(pairs_seen)
-        kappa = _kappa(pairs_seen)
-        verdict = "PASS" if accuracy >= 0.80 and kappa > 0.6 else "NOT CALIBRATED"
-        print(f"  agreement {accuracy:.0%}   kappa {kappa:.2f}   {verdict}")
-        for item, h, j in shared:
-            if h != j:
-                print(f"    {item}  human={h}  judge={j}")
+    shared = [(i, h, j) for i, h, j in shared if j != "INCONSISTENT"]
+    if not shared:
+        print("    every verdict was inconsistent; nothing to compare")
+        return
+    pairs_seen = [(h, j) for _, h, j in shared]
+    accuracy = sum(1 for h, j in pairs_seen if h == j) / len(pairs_seen)
+    kappa = _kappa(pairs_seen)
+    verdict = "PASS" if accuracy >= 0.80 and kappa > 0.6 else "NOT CALIBRATED"
+    print(f"    agreement {accuracy:.0%}   kappa {kappa:.2f}   {verdict}")
+    for item, h, j in shared:
+        if h != j:
+            print(f"      {item}  human={h}  judge={j}")
 
 
 if __name__ == "__main__":
@@ -651,7 +702,7 @@ if __name__ == "__main__":
     elif command == "setup":
         setup()
     elif command == "judge":
-        run_judge()
+        run_judge(args[1] if len(args) > 1 else None)
     elif command == "agreement":
         agreement()
     else:

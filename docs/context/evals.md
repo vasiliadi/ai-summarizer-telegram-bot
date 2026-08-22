@@ -494,6 +494,25 @@ temperature, which frontier models increasingly reject outright. Calibration aga
 labels may still revise the choice — 20–30 labelled outputs, iterate the judge prompt until
 agreement reaches ~80% or Cohen's kappa passes 0.6 — but nothing else should.
 
+**Calibration decides the judge model; it does not assume it.** `calibrate.py judge [<model>]`
+takes a candidate judge as an argument, and running it once per candidate measures each against
+the *same* hand labels. Every score carries the judge pin — model plus prompt hash — in its
+metadata, which is what keeps two judges' verdicts separable: they write the same score names,
+so without that grouping the second run silently overwrites the first and the comparison it was
+run for is unreadable. `agreement` reports each pin as its own block.
+
+Take the higher number, and when the cheaper judge clears the bar, **use it and spend the
+difference on dataset items** — more items buy more statistical power than a better judge does.
+One calibration round is small next to a compare stage, so measuring a second judge is cheap
+relative to the decision it settles. Weigh it against the *whole* Tier 2/3 bill, not against the
+round. Note the second constraint still binds: a judge below the candidates' tier measures its
+own ceiling, so "cheaper" has a floor that a mid-tier model does not clear here.
+
+**Judge spend is measured, not estimated.** `_call_body` sets `usage: {include: true}`, so
+OpenRouter prices every call and `ask` returns that alongside the verdict; `run_judge` totals it
+and prints what the round actually cost. Do not reconstruct a bill from a price table written
+down here — vendor prices move, and one of them is on a dated introductory rate.
+
 ### Three details of the judge are load-bearing
 
 The judge **counts** (claims, entailed facts) and the runner computes the ratio, because a model
