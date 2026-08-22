@@ -409,10 +409,23 @@ def setup():  # noqa: C901, PLR0915
         span.end()
         created.append(span.id)
     client.flush()
-    if created:
-        _enqueue(queue_id, created)
+    # Enqueue every span for this duel that is not in the queue, not only the
+    # ones just created. The two sets come apart exactly when the queue is
+    # rebuilt to fix its score configs: the spans still exist, so nothing is
+    # created, and queueing only `created` would leave the new queue with 25
+    # faithfulness items and no pairwise ones — the very problem the rebuild
+    # was meant to fix.
+    existing_pairs = [
+        obs
+        for obs, m in pair_meta.items()
+        if m.get("run_a") == PAIR_A and m.get("run_b") == PAIR_B and obs not in queued
+    ]
+    if created or existing_pairs:
+        _enqueue(queue_id, created + existing_pairs)
     print(
-        f"  pairwise: {len(created)} created and queued, {len(already)} already there",
+        f"  pairwise: {len(created)} created, "
+        f"{len(created) + len(existing_pairs)} queued, "
+        f"{len(already) - len(existing_pairs)} already there",
     )
 
     print(f"\nLabel both at {API.base} -> Human Annotation")
