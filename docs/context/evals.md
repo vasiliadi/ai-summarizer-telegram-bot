@@ -556,11 +556,15 @@ Four things about it are load-bearing:
   handles carefully test nothing. Holding the well-specified axis roughly fixed — length, say —
   and varying the newest one is what makes 25 labels informative.
 - **One queue holds both dimensions.** The Hobby plan allows exactly one annotation queue, and
-  no API route updates *or deletes* a queue after creation — so it has to be created with every
-  config it will ever need, and fixing one that was not is a UI job. A queue missing a config
-  simply never offers that channel, on any item, with nothing to say why. Mis-setting a channel
-  on the wrong kind of item is harmless: agreement maps observations back to sample items, and a
-  label on an observation outside that mapping is ignored.
+  no API route updates *or deletes* a queue after creation. A queue missing a config simply
+  never offers that channel, on any item, with nothing to say why. Mis-setting a channel on the
+  wrong kind of item is harmless: agreement maps observations back to sample items, and a label
+  on an observation outside that mapping is ignored.
+- **The UI *can* attach a score config to an existing queue** — verified, and it takes effect
+  immediately with the queue's items and their statuses intact. So a queue built short of a
+  config is fixed in its settings; it never has to be deleted and rebuilt. The API restriction
+  above is an API restriction only, and `setup` creating a queue with every config it will need
+  stays the rule for a *new* queue rather than a repair procedure.
 - **Labels survive the queue.** A label is a score on an observation; the queue is only a work
   list pointing at observations. Deleting and rebuilding the queue therefore loses no labelling
   — the rebuilt items come back `PENDING` while their scores stay in the score table and keep

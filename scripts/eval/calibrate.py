@@ -235,15 +235,17 @@ def _queue(score_config_ids):
         missing = [c for c in score_config_ids if c not in attached]
         print(f"  queue exists: {QUEUE_NAME}")
         if missing:
-            # Both fixes are UI-only: the API has GET and POST on the queue
-            # collection and GET alone on a single queue — it can neither
-            # update a queue's configs nor delete it. Existing labels are
-            # scores on observations and survive either way.
+            # UI-only: the API has GET and POST on the queue collection and GET
+            # alone on a single queue, so it can neither update a queue's
+            # configs nor delete it. The UI can, and adding one there is
+            # verified to take effect immediately with items and statuses
+            # intact — no rebuild, and nothing labelled is at risk either way,
+            # since a label is a score on an observation, not on the queue.
             print(
                 f"  WARNING: {len(missing)} score config(s) not attached to it, "
-                "so that channel is offered on no item at all. Fix it in the "
-                "Langfuse UI: add them in the queue's settings, or delete the "
-                "queue and re-run setup. Labels already made are not lost.",
+                "so that channel is offered on no item at all. Add them in the "
+                "queue's settings in the Langfuse UI, then re-run this. "
+                "Existing items, statuses and labels are unaffected.",
             )
         return queue["id"]
     created = _post(
