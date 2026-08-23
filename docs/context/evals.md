@@ -826,6 +826,31 @@ A few more:
   running `calibrate.py agreement` straight after `calibrate.py judge` reads fewer scores than
   were written and looks exactly like a judge that silently failed. Wait, or re-read, before
   concluding anything from a low count.
+- **A `402` from OpenRouter usually means the API key's own limit, not an empty account.** The
+  body distinguishes them: `limit_source: openrouter_key_limit` with a `remedy_hint` pointing at
+  the key settings. The message reads *"This request requires more credits, or fewer max_tokens.
+  You requested up to 65536 tokens, but can only afford 8028"* — OpenRouter reserves the
+  **maximum possible** cost of a call, so a request is refused on `max_tokens` alone while the
+  balance still shows plenty (verified with $19.51 available). Two consequences: the failure is
+  per-request, so **judge calls kept working while candidate generation did not** — `_call_body`
+  asks for 8000 tokens and the summariser for 65536 — and raising the key's monthly limit, not
+  topping up the balance, is the fix.
+- **A failed task is stored, not lost, and a partly failed run reads as a bad model.**
+  `run_experiment` catches whatever the task raises and writes `Error: {exc}` into the item's
+  output, then skips that item's Tier 2 evaluators — so no garbage Tier 2 score is banked, which
+  is the good half. The bad half: **the Tier 1 rule still fires**, and it scores the English error
+  string as a language failure. A sweep that lost 36 of 49 items to `402` therefore reported
+  `t1_pass` 0.245 and `t1_language_match` 0.245 — a completely plausible verdict about a model
+  that had in fact never answered. `stage1.py report` guards only the *total* case (every item at
+  `t1_compression` 0); the partial case is caught by nothing, so `cmd_run` now counts items whose
+  output begins with `Error:` and says so while there is still a sweep to stop.
+- **A botched compare run does not have to be lived with, despite experiments being undeletable.**
+  Langfuse appends a timestamp to the run name, and `discover_runs` walks newest-first with
+  `setdefault`, so the freshest run per candidate wins and an earlier broken one is simply never
+  read. That is what makes the documented advice — check a runner end to end on a couple of items
+  before sweeping a whole dataset — cheap and safe rather than something that permanently
+  pollutes the report. Do it; a 2-item probe costs cents and catches exactly this class of
+  failure.
 - **A judge call can come back `content_filter`, on content that explains nothing.** Opus refused
   one calibration item — a summary of a Google blog post about the Go language — returning a tool
   call with no arguments and `finish_reason: content_filter`. `_unpack` raises on the missing

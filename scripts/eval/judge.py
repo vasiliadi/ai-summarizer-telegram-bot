@@ -637,6 +637,20 @@ def cmd_run(model_id, limit, dataset_name, prompt_key):
     for row in result.item_results:
         scores = {e.name: e.value for e in row.evaluations}
         print(f"  {str(row.item.id)[:18]:20s} {len(_text(row.output)):5d}ch  {scores}")
+    # A task that raises is not lost, it is *stored*: `run_experiment` writes
+    # `Error: {exc}` into the item's output and skips that item's Tier 2
+    # evaluators. The Tier 1 rule still fires, and it scores the English error
+    # text as a language failure — so a partly failed run reads as a plausible
+    # report about a bad model. Screening only guards the total case (every item
+    # at compression 0); nothing catches the partial one, so say it here, where
+    # there is still a sweep to stop.
+    failed = [r for r in result.item_results if _text(r.output).startswith("Error:")]
+    if failed:
+        print(
+            f"\n  WARNING: {len(failed)}/{len(result.item_results)} items failed to "
+            f"generate. Their Tier 1 scores describe the error text, not a summary.",
+        )
+        print(f"  first: {_text(failed[0].output)[:200]}")
     return result
 
 
