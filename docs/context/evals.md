@@ -143,6 +143,23 @@ roughly **$1**; judge calls are the expensive part. Re-scoring Tier 1 never cost
 the summaries already exist as trace outputs, so a broken scorer is repaired by reinstalling it
 and recomputing, not by re-generating.
 
+### Harness runs report to Sentry as `production`, and that is left alone deliberately
+
+Every script here imports `config` from `src/`, whose `sentry_sdk.init` sets no `environment` —
+so the SDK defaults to `production` — and enables `LoggingIntegration(capture_sentry_logs=True)`,
+which forwards stdlib `ERROR` records. Langfuse logs a failed evaluator at `ERROR`, so **a sweep
+run from a laptop raises Sentry issues in the bot's production stream**, tagged
+`environment: production` with `server_name` set to the developer's machine.
+
+Do not diagnose these as bot defects. Tell them apart by `sys.argv` in the event's extra data:
+a harness event carries `scripts/eval/...`, and `Users Impacted` is 0. Two were raised and closed
+this way (`AI-SUMMARIZER-TELEGRAM-BOT-72`, `-73`), both judge-output formatting failures.
+
+Threading a `SENTRY_ENVIRONMENT` through `config.py` was proposed and **declined** — it is a
+change to production code at 100% coverage for a developer-only annoyance. The consequence is
+accepted rather than overlooked: these issues **recur on every sweep** and are closed as noise.
+Revisit only if harness noise starts masking a real production alert.
+
 ## Where state lives
 
 State is split across three places, and only one of them is the repository.
