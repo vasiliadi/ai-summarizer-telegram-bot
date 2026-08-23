@@ -631,6 +631,12 @@ Four things about it are load-bearing:
 - **The judge prompts and schemas are imported from `judge.py`, never restated.** Calibration
   has to measure the prompt production actually uses; a copy would drift and the agreement
   number would then describe nothing.
+- **Name the dimension being re-measured: `judge [<model>] [faithfulness|pairwise]`.** Prompts
+  move one dimension at a time, so a whole-round re-run pays to re-score a dimension whose prompt
+  has not changed — and it does not merely waste the money. Severity near the boundary is
+  unstable per run, so the second round *replaces* a banked, quoted result with a different
+  number for the same prompt. The two arguments are order-independent; omitting the dimension
+  keeps the old both-dimensions behaviour.
 - **Both dimensions are hand-labelled in a Langfuse annotation queue, and its items must point
   at the ROOT span.** A screening trace holds four observations, and only the choice between
   them decides whether the measurement means anything. The root span's output is the clean
@@ -716,7 +722,7 @@ the summary the labeller preferred on style. **Both sides were internally consis
 answering different questions**, which is why a stronger judge made the number worse rather than
 better — Opus simply found more of the errors it had been told to rank on.
 
-Two consequences follow, and the second is easy to miss:
+Three consequences follow, and the second is easy to miss:
 
 - **The source is still shown to the pairwise judge**, because dense and disconnected cannot be
   told apart without knowing what was being condensed. The prompt therefore has to say what the
@@ -727,6 +733,17 @@ Two consequences follow, and the second is easy to miss:
   verdict. The score name predates this and is now misleading; renaming it would orphan any
   banked score from its history, so it is left alone deliberately — read this paragraph, not the
   name.
+- **A summary in the wrong language does not lose the duel for being in the wrong language.** The
+  judge had been disqualifying it on its own initiative — *"a reader of the intended output gets
+  nothing"* — which is the double-counting rule again from a different direction: `t1_language_match`
+  already scores output language, per summary and binary, so deciding a duel on it both counts the
+  defect twice and ends the comparison before readability is reached. The labeller applies the
+  same line and preferred an English summary over a badly written Russian one. The prompt now says
+  so explicitly, because left unsaid the judge supplies the disqualification itself.
+
+  This is a **specification** decision, not a preference about output language: the bot must still
+  answer in the language asked for, and `t1_language_match` is where that is enforced and where a
+  failure like minimax's 8% drift rate shows up.
 
 ### The round that produced this: pairwise was not calibrated on either judge
 
@@ -794,6 +811,50 @@ Five details are load-bearing:
 The round-robin driver skips pairs already banked, matching on the **exact run names** their
 scores carry. Re-running a candidate produces a new run name, so its pairs are duelled again —
 which is what re-running it means.
+
+### Two things the report does not print, and both change how its table reads
+
+- **Only `t2_faithfulness` gets a paired test.** `t2_no_filler` means are printed with nothing
+  behind them, so they cannot rank anything and a reader of the table will not guess that from
+  looking at it. Two further reasons not to read that column as a ranking: `t2_no_filler` has
+  never been calibrated against hand labels the way faithfulness has, so it is a signal rather
+  than a verdict; and malformed verdicts left it missing on **8 of 149** items, so its
+  denominators differ per candidate (47, 46, 48) while the faithfulness column's do not.
+- **There is no cost column, though cost is half the decision.** It is missing because the number
+  is not obtainable from the harness rather than because nobody added it: the observation price
+  fields come back `null` on the list endpoint, and `run_experiment` discards the usage `ask`
+  returns. Judge spend *is* measured — `_call_body` sets `usage: {include: true}` and `run_judge`
+  totals it — so the asymmetry is real: a calibration round reports what it cost and a sweep does
+  not. Price a sweep from the live OpenRouter catalog, and do not write a price table down here;
+  vendor prices move and at least one candidate is on a dated introductory rate.
+
+### The first compare round, and what it settled
+
+Three candidates over `summarization-compare-v1`, all on the same 50 items. Kept because the
+paired tests are the point, not the means:
+
+| candidate | t2_faithfulness | t2_no_filler | t1_pass | compression | latency |
+|---|---|---|---|---|---|
+| inkling | **0.860** | 0.875 | 100% | 0.1725 | 36.7s |
+| minimax | 0.840 | 0.809 | **92%** | 0.1969 | 42.7s |
+| stepfun | 0.653 | 0.804 | 100% | 0.1879 | 37.2s |
+
+Paired sign tests on per-item `t2_faithfulness` deltas: **minimax vs inkling is 5 better / 6
+worse, p = 1.000 — indistinguishable**; minimax vs stepfun 12/3, p = 0.035; stepfun vs inkling
+4/14, p = 0.031. **The two means differing by 0.02 is exactly the noise the paired test exists to
+catch**, and this round is the worked example: read the test, never the gap between two means.
+
+Two findings the table does not carry on its face:
+
+- **All 4 of minimax's `t1_pass` failures are `t1_language_match`** — it answered in English where
+  Russian was asked, on **8% of 50** items. A single sub-check accounting for every failure is
+  what makes `t1_pass` worth decomposing before reading it as a quality number.
+- **Cost separates what the quality tests could not.** At list prices minimax was roughly 3.4×
+  cheaper on output than inkling, which is the whole decision between two candidates the paired
+  test calls indistinguishable — and it is precisely the column the report cannot print.
+
+The ranking is **not** final: `t2_coverage` is empty on every item until the checklists exist, and
+Tier 3 cannot contribute until pairwise calibrates.
 
 ## API shapes that cost real time to rediscover
 
