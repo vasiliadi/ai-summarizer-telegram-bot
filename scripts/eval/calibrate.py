@@ -260,11 +260,13 @@ def _queue(score_config_ids):
         {
             "name": QUEUE_NAME,
             "description": (
-                "Judge calibration. Two kinds of item share this queue. If "
-                "Output holds one summary, answer h_faithful: does it assert "
-                "anything the source does not support? If Output holds two "
-                "under A and B, answer h_pairwise: which serves a reader "
-                "better? Leave the other channel empty."
+                "Judge calibration. Two kinds of item share this queue, and "
+                "they ask deliberately different questions. If Output holds one "
+                "summary, answer h_faithful: does it assert anything the source "
+                "does not support? If Output holds two under A and B, answer "
+                "h_pairwise: which is better to READ — style, coherence, "
+                "comprehensibility — ignoring factual errors, which h_faithful "
+                "already covers. Leave the other channel empty."
             ),
             "scoreConfigIds": score_config_ids,
         },
@@ -324,8 +326,10 @@ def setup():  # noqa: C901, PLR0915
     config(
         H_PAIRWISE,
         "CATEGORICAL",
-        "Human: which summary serves a reader better, A or B as shown? "
-        "Blind — which model is which is randomised per item.",
+        "Human: which summary is better to READ, A or B as shown? Judge style, "
+        "coherence and comprehensibility only. Ignore factual errors entirely — "
+        f"accuracy is {H_FAITHFUL}'s question, and weighing it here counts the "
+        "same defect twice. Blind — which model is which is randomised per item.",
         PAIRWISE_CATEGORIES,
     )
     config(

@@ -582,20 +582,24 @@ Three consequences worth keeping:
 
 ### Comprehensibility is substance; elegance is not
 
-The pairwise prompt separates the two deliberately, and the distinction was added because a
-real defect fell through the gap. It tells the judge to give no credit for elegance and to
-ignore which summary sounds more confident — a judge left free to reward polish picks the
-smoother of two summaries over the more accurate one. But it also states that language a reader
-has to fight (clumsy translation, mangled syntax, phrasing that leaves the meaning in doubt)
-costs **substance**: a fact the reader cannot extract has not been delivered.
+Now that Tier 3 judges readability alone, this distinction carries more weight rather than less —
+it is what keeps "better to read" from collapsing into "sounds nicer". The prompt tells the judge
+to ignore which summary sounds more confident and to give no credit for polish that does not help
+a reader understand. What it does count is language a reader has to fight (clumsy translation,
+mangled syntax, phrasing that leaves the meaning in doubt) and points so compressed that the
+thread between them has to be reconstructed: **a point the reader cannot extract has not been
+delivered**, whether the obstacle is bad syntax or missing connective tissue.
 
-Without that second half, "judge substance, not polish" reads as licence to discount
-translationese entirely — and translationese is a live failure mode here, since summaries are
-Russian while sources usually are not. The human labelling the calibration set has to apply the
-same line, or the disagreement it produces will look like a miscalibrated judge when it is
-really an under-specified question. **Specification comes before calibration**; tuning a prompt
-against disagreements is what calibration is for, but only once both sides are asked the same
-thing.
+Translationese is a live failure mode here, since summaries are Russian while sources usually are
+not, so discounting it entirely would blind the one dimension meant to catch it.
+
+The labeller has to apply the same line, and the cost of not doing so is now measured rather than
+hypothetical: **a whole round was spent, twice, on a dimension where the two sides were asked
+different questions**, and it read as a miscalibrated judge for as long as nobody compared the
+instructions. **Specification comes before calibration.** Tuning a prompt against disagreements
+is what calibration is for, but only once both sides are asked the same thing — and the cheapest
+way to check that is to read the judge's own reasoning on the disagreements before touching
+anything, because it states the criterion it applied.
 
 ### Calibration runs before the compare stage, not after
 
@@ -675,37 +679,58 @@ contradicted each other, so there is no opinion to compare. Those are excluded f
 and kappa and reported as a discard rate, exactly as the compare stage discards them. Counting
 them against the judge would understate agreement and quietly merge position bias with error.
 
-### Pairwise is not calibrated, and the better judge scored worse
+### Tier 3 ranks readability, not overall quality
 
-Faithfulness passes; **pairwise does not, on either judge**, and the shape of the failure says the
-cause is the question rather than the model:
+**Pairwise must not weigh factual accuracy, and the prompt used to open by demanding
+it.** That single line — *"Weigh faithfulness to the source first"* — is what made Tier 3
+uncalibratable, and it is worth understanding rather than just fixing, because the failure was
+invisible in every individual verdict.
+
+The two dimensions are deliberately **orthogonal**. `h_faithful` asks whether the source supports
+the claims, per summary. `h_pairwise` asks which summary is better to *read* — style, coherence,
+comprehensibility. Scoring accuracy in both counts the same defect twice, and worse, it lets
+accuracy dominate the comparison so completely that the readability signal never surfaces: a
+judge told to rank faithfulness first will decide almost every pair on the first criterion and
+never reach the second.
+
+That is exactly what the banked round shows. The labeller applied the split as designed; the
+judge obeyed its prompt; nine of eleven disagreements have the judge citing a factual error in
+the summary the labeller preferred on style. **Both sides were internally consistent and
+answering different questions**, which is why a stronger judge made the number worse rather than
+better — Opus simply found more of the errors it had been told to rank on.
+
+Two consequences follow, and the second is easy to miss:
+
+- **The source is still shown to the pairwise judge**, because dense and disconnected cannot be
+  told apart without knowing what was being condensed. The prompt therefore has to say what the
+  source is *not* for, or the judge starts checking claims against it again by default.
+- **`t3_pairwise_win` no longer means "better summary".** It means "better to read", so it cannot
+  by itself rank candidates the way the compare stage was originally written to expect. A ranking
+  now has to combine it with `t2_faithfulness` and `t2_coverage` rather than read Tier 3 as the
+  verdict. The score name predates this and is now misleading; renaming it would orphan any
+  banked score from its history, so it is left alone deliberately — read this paragraph, not the
+  name.
+
+### The round that produced this: pairwise was not calibrated on either judge
+
+These are the numbers the mismatch above produced, kept because they are what a
+criterion-mismatch looks like from the outside — near-chance agreement, negative kappa, and a
+*stronger* judge scoring worse:
 
 | judge | agreement | kappa | inconsistent |
 |---|---|---|---|
 | Sonnet 5 | 50% | −0.05 | 12% |
 | Opus 5 | **39%** | **−0.09** | **28%** |
 
-Opus is decisively better at faithfulness on these exact items and decisively *worse* here. Do
-not respond to that by reaching for a stronger judge again.
+Neither is evidence about judge quality on the question Tier 3 is now asking, and neither is a
+baseline to improve on: the prompt they were run under has been replaced, so `judge_version`
+moved and both are unpinned. Re-measure before concluding anything.
 
-**The disagreement is systematic, not noisy.** Nine of Opus's eleven misses run one way: the
-labeller picked the more detailed summary, the judge picked the other one. That reconciles with
-the same labeller's faithfulness verdicts, which reject **every** sampled summary from the model
-they preferred in the duel while accepting all of those from the model they rejected there. Both
-sides are self-consistent and they are answering different questions — the pairwise prompt orders
-faithfulness *first*, then substance, so a judge that just found material errors in the detailed
-summary is obeying its instructions when it prefers the other. A human rewarding detail is not
-wrong either; the specification never said what to do when the more informative summary is also
-the less faithful one.
-
-So the repair is a **specification decision, not prompt tuning**: state how faithfulness and
-completeness trade off when they conflict, on both sides, before spending another round. Until
-then a Tier 3 ranking means nothing, and the paired Tier 2 tables — which need no duel — are the
-part of the compare stage that is actually available.
-
-The 28% discard rate is a **second, independent** defect: on seven pairs the judge contradicted
-itself when the order was swapped. That is position sensitivity, unrelated to the disagreement
-above, and it more than doubled when the judge got stronger. Treat the two separately.
+The 28% discard rate is a **second, independent** defect and does *not* go away with the rewrite:
+on seven pairs the judge contradicted itself when the order was swapped. That is position
+sensitivity, unrelated to the criterion mismatch, and it more than doubled when the judge got
+stronger. Watch it separately in the next round — if it stays high, the order-swap discard is
+telling you the comparison itself is under-determined, not that the judge is careless.
 
 The generated labelling file is markdown containing *summaries that are themselves markdown*,
 so a parser keyed on a `## ` prefix alone reattributes verdicts to headings the model wrote.

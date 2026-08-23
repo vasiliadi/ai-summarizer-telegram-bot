@@ -186,8 +186,8 @@ the material rather than summarising it.
 A bullet is not padding merely for being short, minor, or less interesting than
 the others. A genuine but small point is still a distinct idea."""
 
-PAIRWISE = """Two summaries of the same source are shown below. Decide which one serves a
-reader better.
+PAIRWISE = """Two summaries of the same source are shown below. Decide which one is better to
+read.
 
 SOURCE:
 {source}
@@ -198,18 +198,36 @@ SUMMARY A:
 SUMMARY B:
 {summary_b}
 
-Weigh faithfulness to the source first, then how much of the source's substance
-survives, then whether every sentence earns its place.
+**Do not weigh factual accuracy, and do not let an error you notice decide this.**
+Whether the source supports a claim is measured separately, per summary, by
+another judge. Treat both summaries as equally faithful even where one plainly is
+not. Ranking them on accuracy here would count the same defect twice and would
+bury the one property this comparison exists to measure.
 
-Length is not quality. A longer summary is not better for being longer, and the
-shorter of two summaries wins whenever it loses nothing that mattered — judges
-reliably drift toward length, so correct for it deliberately.
+The source is given so that you can tell dense from disconnected — a summary can
+only be judged readable against what it was condensing. It is not given so that
+you can check the claims.
 
-Both summaries are in Russian. Ignore which one sounds more confident, and give
-no credit for elegance on its own. But language a reader has to fight — clumsy
-translation, mangled syntax, phrasing that leaves the meaning in doubt — costs
-substance, not style: a fact the reader cannot extract has not been delivered.
-Weigh that. Weigh mere polish not at all.
+Weigh, in order:
+
+- **Coherence.** Do the points follow one another, or must the reader
+  reconstruct the thread between them? Bullets that have been compressed into
+  bare stacks of noun phrases read as fragments however much they contain, and
+  that is work moved onto the reader rather than done for them.
+- **Comprehensibility.** Language a reader has to fight — clumsy translation,
+  mangled syntax, phrasing that leaves the meaning in doubt — is the defect this
+  is most meant to catch. A point the reader cannot extract has not been
+  delivered.
+- **Economy.** Whether each sentence earns its place, and whether anything is
+  merely restated.
+
+Length decides nothing in either direction. A longer summary is not better for
+being longer, and a shorter one is not better for being shorter; judges drift
+toward length, so correct for that deliberately — but do not overcorrect into
+rewarding terseness that costs the reader the thread.
+
+Ignore which summary sounds more confident, and give no credit for polish that
+does not help a reader understand.
 
 Answer A, B, or TIE. Use TIE only when neither is meaningfully better, not to
 avoid a hard call. Keep the reasoning under 60 words."""
