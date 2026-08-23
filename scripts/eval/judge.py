@@ -208,6 +208,13 @@ The source is given so that you can tell dense from disconnected — a summary c
 only be judged readable against what it was condensing. It is not given so that
 you can check the claims.
 
+**A summary written in an unexpected language is not disqualified here**, and it
+does not lose for that reason alone. Whether the output language was the one
+asked for is a separate binary check on each summary; deciding this comparison
+on it would count that defect twice and would end the comparison before the
+readability question is reached. Judge each summary on how well it reads in the
+language it is actually written in, and compare those.
+
 Weigh, in order:
 
 - **Coherence.** Do the points follow one another, or must the reader
