@@ -4,8 +4,7 @@ The project uses [uv](https://docs.astral.sh/uv/) for dependency management. Run
 command through `uv run`; never bare `python`, `pip`, `poetry`, or `conda`.
 
 ```bash
-uv sync                              # install deps (dev + eval + test by default)
-uv sync --no-default-groups --group eval  # just enough to run scripts/eval/
+uv sync                              # install deps (dev + test by default)
 uv run pytest --cov                  # run the tests with the coverage report
 uv run python src/main.py            # run the bot
 uv run python scripts/db.py          # bootstrap the users table
@@ -36,39 +35,20 @@ Use `uv add` rather than hand-editing `pyproject.toml`. Keep production dependen
 | Group | Purpose | When active |
 |-------|---------|-------------|
 | `dev` | Local development (alembic, modal, python-dotenv, yt-dlp[deno]) | Default — included by `uv sync` |
-| `eval` | What `scripts/eval/` needs and the bot does not | Default — included by `uv sync` |
 | `test` | Local testing (pytest, coverage, fakeredis, pytest-mock, pytest-cov) | Default — included by `uv sync` |
 | `build` | CI build/deploy (alembic, modal, psycopg2-binary, sqlalchemy) | CI only — explicit `uv sync --group build` |
 | `modal` | Modal cron image (redis) | CI only — explicit `uv sync --group modal` |
 
-`default-groups = ["dev", "eval", "test"]` in `[tool.uv]` means `uv sync` always installs those
-three. Do not add `build` or `modal` to local installs. The `Dockerfile` excludes all five
-non-production groups explicitly (`--no-group dev/eval/test/modal/build`) rather than relying on
-the defaults, so adding a group means adding a `--no-group` line there too.
+`default-groups = ["dev", "test"]` in `[tool.uv]` means `uv sync` always installs `dev` and
+`test`. Do not add `build` or `modal` to local installs. The `Dockerfile` excludes every
+non-production group explicitly (`--no-group dev/test/modal/build`) rather than relying on the
+defaults, so adding a group means adding a `--no-group` line there too.
 
-**The `eval` group exists so the harness can be installed without the dev and test toolchains:**
-
-```bash
-uv sync --no-default-groups --group eval   # project deps + eval, no dev/test
-```
-
-That is the invocation the group is for. **`--only-group eval` does not work** and is the easy
-mistake: it installs `python-dotenv` and nothing else, and the harness dies on its first
-`import requests`. The harness imports `config`, `llm` and `prompts` from `src/`, so it needs the
-bot's entire runtime dependency set — that is the cost of `eval_client.EvalLLMClient` subclassing
-`LLMClient` instead of reimplementing the bot's path, and the cost is deliberate.
-
-The group is therefore almost empty, and that is not an oversight: `langfuse`, `pydantic-ai-slim`
-and `requests` are already project dependencies and must stay there. What belongs in the group is
-only what the harness imports and the bot does not — today just `python-dotenv`, tomorrow a
-statistics or plotting library. `python-dotenv` sits in both `dev` and `eval` for the same reason
-`redis` is declared twice: two independent consumers, bumped together.
-
-Do not read `--no-group eval` as "these packages are absent from the image". `exa-py` depends on
-`python-dotenv`, so it ships regardless of any group flag. What keeps it out of production is not
-the packaging but the guard in `src/config.py`, which imports it only when `ENV` is not `PROD` —
-`test_dotenv_skipped_in_prod` pins that branch. The group states intent; the guard enforces
-behaviour.
+**`scripts/eval/` gets no dependency group of its own, and one was tried and removed.** The
+harness imports `config`, `llm` and `prompts` from `src/`, so running it needs the bot's entire
+runtime set — a group could never be synced on its own, which is the only thing such a group
+would have been for. Everything it needs is already a project or `dev` dependency, so a group
+would have held `python-dotenv` and nothing else. Install the harness with a plain `uv sync`.
 
 **`requests` is a production dependency**, not a transitive one to rely on. `src/transcription.py`,
 `src/services.py` and `src/summary.py` all catch `requests.exceptions`; it reached them through

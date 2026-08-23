@@ -32,7 +32,6 @@ RUN uv sync \
     --frozen \
     --no-cache \
     --no-group dev \
-    --no-group eval \
     --no-group test \
     --no-group modal \
     --no-group build \

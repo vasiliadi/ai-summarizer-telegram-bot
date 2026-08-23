@@ -47,9 +47,6 @@ dev = [
     { name = "python-dotenv" },
     { name = "yt-dlp", extra = ["deno"] },
 ]
-eval = [
-    { name = "python-dotenv" },
-]
 modal = [
     { name = "redis" },
 ]
@@ -100,7 +97,6 @@ dev = [
     { name = "python-dotenv", specifier = "==1.2.2" },
     { name = "yt-dlp", extras = ["deno"], specifier = "==2026.7.4" },
 ]
-eval = [{ name = "python-dotenv", specifier = "==1.2.2" }]
 modal = [{ name = "redis", specifier = "==8.1.0" }]
 test = [
     { name = "coverage", specifier = "==7.15.4" },
