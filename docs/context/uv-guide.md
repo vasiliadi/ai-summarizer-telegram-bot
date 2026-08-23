@@ -64,6 +64,19 @@ behaviour.
 `exa-py`/`tavily-python`/`replicate` for a long time before being declared. Anything `src/`
 imports belongs in `[project.dependencies]`, however reliably some other package drags it in.
 
+**Do not swap `requests.exceptions` for `curl_cffi.requests.exceptions`.** The names all exist on
+both sides — `SSLError`, `ProxyError`, `ChunkedEncodingError`, `ReadTimeout` — which makes the swap
+look like a free way to drop a dependency. They are **unrelated classes with no subclass relation
+in either direction**, so `except` on one never catches the other, and the failure is silent: the
+handler simply stops firing and `tenacity` stops retrying, with no error to say so. The exceptions
+are not raised by `curl-cffi` at those sites anyway — `pyTelegramBotAPI` and
+`youtube-transcript-api` both transport over `requests`, so their errors *are* `requests`
+exceptions, and that is an API contract of those libraries rather than an implementation detail.
+`summary.py` imports both deliberately and catches both in `summarize_with_document`, which is the
+one path that also downloads through `curl-cffi`; `summarize_with_file` takes an already-local path
+and needs only the `requests` side. Dropping `requests` means replacing those two libraries, not
+rewriting an import.
+
 `redis` is declared twice on purpose — once in `[project.dependencies]` for the bot and once in
 the `modal` group for the cron image. Bump both together, and do not fold either back into a
 `limits[redis]` extra; see *Why this stack* in `architecture.md` for the version cap that forbids it.
