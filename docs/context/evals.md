@@ -510,17 +510,25 @@ relative to the decision it settles. Weigh it against the *whole* Tier 2/3 bill,
 round. Note the second constraint still binds: a judge below the candidates' tier measures its
 own ceiling, so "cheaper" has a floor that a mid-tier model does not clear here.
 
-**That floor was reached, and it decided the current pin.** Measured on faithfulness against the
-same 24 hand labels with an identical prompt, **Sonnet 5 scored 75% agreement / kappa 0.19 and
-Opus 5 scored 92% / 0.78** — so `JUDGE_MODEL` is Opus, and the spend-the-difference rule simply
-does not arise when the cheap judge fails the gate. The failure was one-directional and worth
-recognising again elsewhere: both models stayed clean on **all 17** summaries the labels call
-faithful, so neither invents faults. They separated only on the 7 the labels reject, where Opus
-found a material error in 5 and Sonnet in 1 — Sonnet located the same passages but graded them
-`minor`. A weaker judge here does not hallucinate problems; it **under-rates real ones**, which
-looks like agreement on the easy majority and collapses on the cases that decide a ranking.
-Sonnet's severity grades were also unstable between runs on the same input, so do not read a
-single round as that model's ceiling.
+**That floor was reached, and it decided the current pin.** The banked round has Opus 5 at
+**88% agreement / kappa 0.65 — PASS** on faithfulness over 24 comparable items, against Sonnet 5
+at 64% / 0.32 on the prompt it was run with. Sonnet was also probed on the *current* prompt and
+reached roughly 75% / 0.19, so the redesign did not rescue it. `JUDGE_MODEL` is therefore Opus,
+and the spend-the-difference rule simply does not arise when the cheap judge fails the gate.
+
+The failure was one-directional and worth recognising again elsewhere: both models stayed clean
+on **all 17** summaries the labels call faithful, so neither invents faults. They separated only
+on the 7 the labels reject, where Opus found a material error in 4–5 and Sonnet in 1 — Sonnet
+located the same passages but graded them `minor`. A weaker judge here does not hallucinate
+problems; it **under-rates real ones**, which looks like agreement on the easy majority and
+collapses on the cases that decide a ranking.
+
+**Quote the banked round, not a probe.** Probing the same items ahead of the round gave 92% /
+0.78, and the round gave 88% / 0.65 — one item (`scr-11e822219c80`) graded `material` in the probe
+and `minor` in the round. That item flipped on Sonnet too, so severity near the boundary is
+unstable *per run* on both models, and a single round is a sample rather than a model's ceiling.
+Cheap probes are still the right way to decide whether a round is worth paying for; they are just
+not the number to record.
 
 **Judge spend is measured, not estimated.** `_call_body` sets `usage: {include: true}`, so
 OpenRouter prices every call and `ask` returns that alongside the verdict; `run_judge` totals it
@@ -666,6 +674,38 @@ An `INCONSISTENT` pairwise verdict is the judge **abstaining**, not disagreeing:
 contradicted each other, so there is no opinion to compare. Those are excluded from agreement
 and kappa and reported as a discard rate, exactly as the compare stage discards them. Counting
 them against the judge would understate agreement and quietly merge position bias with error.
+
+### Pairwise is not calibrated, and the better judge scored worse
+
+Faithfulness passes; **pairwise does not, on either judge**, and the shape of the failure says the
+cause is the question rather than the model:
+
+| judge | agreement | kappa | inconsistent |
+|---|---|---|---|
+| Sonnet 5 | 50% | −0.05 | 12% |
+| Opus 5 | **39%** | **−0.09** | **28%** |
+
+Opus is decisively better at faithfulness on these exact items and decisively *worse* here. Do
+not respond to that by reaching for a stronger judge again.
+
+**The disagreement is systematic, not noisy.** Nine of Opus's eleven misses run one way: the
+labeller picked the more detailed summary, the judge picked the other one. That reconciles with
+the same labeller's faithfulness verdicts, which reject **every** sampled summary from the model
+they preferred in the duel while accepting all of those from the model they rejected there. Both
+sides are self-consistent and they are answering different questions — the pairwise prompt orders
+faithfulness *first*, then substance, so a judge that just found material errors in the detailed
+summary is obeying its instructions when it prefers the other. A human rewarding detail is not
+wrong either; the specification never said what to do when the more informative summary is also
+the less faithful one.
+
+So the repair is a **specification decision, not prompt tuning**: state how faithfulness and
+completeness trade off when they conflict, on both sides, before spending another round. Until
+then a Tier 3 ranking means nothing, and the paired Tier 2 tables — which need no duel — are the
+part of the compare stage that is actually available.
+
+The 28% discard rate is a **second, independent** defect: on seven pairs the judge contradicted
+itself when the order was swapped. That is position sensitivity, unrelated to the disagreement
+above, and it more than doubled when the judge got stronger. Treat the two separately.
 
 The generated labelling file is markdown containing *summaries that are themselves markdown*,
 so a parser keyed on a `## ` prefix alone reattributes verdicts to headings the model wrote.
