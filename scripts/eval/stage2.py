@@ -4,9 +4,9 @@ Screening only proves a model is not broken. This is where the ranking is
 decided, over the 50-item set with the full scorer suite: Tier 2 per dimension
 and Tier 3 pairwise with the order swapped.
 
-    python scripts/eval/stage2.py report                    # free
-    python scripts/eval/stage2.py sweep <model> ...         # COSTS MONEY
-    python scripts/eval/stage2.py duels [<model> ...]       # COSTS MONEY
+    uv run python scripts/eval/stage2.py report                    # free
+    uv run python scripts/eval/stage2.py sweep <model> ...         # COSTS MONEY
+    uv run python scripts/eval/stage2.py duels [<model> ...]       # COSTS MONEY
 
 `judge.py` holds the judge itself and runs one duel per invocation; this holds
 the two things built on top of it — the aggregation `GET /experiments` does not

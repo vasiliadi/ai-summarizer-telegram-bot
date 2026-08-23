@@ -23,6 +23,7 @@ dependencies = [
     { name = "pytelegrambotapi" },
     { name = "redis" },
     { name = "replicate" },
+    { name = "requests" },
     { name = "sentry-sdk" },
     { name = "sqlalchemy" },
     { name = "tavily-python" },
@@ -45,6 +46,9 @@ dev = [
     { name = "modal" },
     { name = "python-dotenv" },
     { name = "yt-dlp", extra = ["deno"] },
+]
+eval = [
+    { name = "python-dotenv" },
 ]
 modal = [
     { name = "redis" },
@@ -72,6 +76,7 @@ requires-dist = [
     { name = "pytelegrambotapi", specifier = "==4.36.1" },
     { name = "redis", specifier = "==8.1.0" },
     { name = "replicate", specifier = "==1.0.7" },
+    { name = "requests", specifier = "==2.34.2" },
     { name = "sentry-sdk", specifier = "==2.68.0" },
     { name = "sqlalchemy", specifier = "==2.0.52" },
     { name = "tavily-python", specifier = "==0.7.27" },
@@ -95,6 +100,7 @@ dev = [
     { name = "python-dotenv", specifier = "==1.2.2" },
     { name = "yt-dlp", extras = ["deno"], specifier = "==2026.7.4" },
 ]
+eval = [{ name = "python-dotenv", specifier = "==1.2.2" }]
 modal = [{ name = "redis", specifier = "==8.1.0" }]
 test = [
     { name = "coverage", specifier = "==7.15.4" },

@@ -5,9 +5,9 @@ calls, then tabulates the Tier 1 scores that Langfuse's `tier1-on-experiments`
 rule attaches to each run. Screening only proves a model is not broken; the
 ranking is Tier 2/3's job.
 
-    python scripts/eval/stage1.py run <vendor/model> [<vendor/model> ...]
-    python scripts/eval/stage1.py report
-    python scripts/eval/stage1.py failures
+    uv run python scripts/eval/stage1.py run <vendor/model> [<vendor/model> ...]
+    uv run python scripts/eval/stage1.py report
+    uv run python scripts/eval/stage1.py failures
 
 **Models are named by their OpenRouter id and passed as arguments.** There is
 no default list and the registry is not consulted: the point of screening is to

@@ -25,9 +25,9 @@ the ratio is computed here, because a model asked directly for `0.71` makes
 arithmetic slips no prompt wording fixes. Editing a judge prompt or schema moves
 its `judge_version` hash, which unpins it from every score already banked.
 
-    python judge.py run <vendor/model> 2
-    python judge.py pairwise <run-a> <run-b>
-    python judge.py smoke 3
+    uv run python scripts/eval/judge.py run <vendor/model> 2
+    uv run python scripts/eval/judge.py pairwise <run-a> <run-b>
+    uv run python scripts/eval/judge.py smoke 3
 """
 
 import json

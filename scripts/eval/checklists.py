@@ -7,10 +7,10 @@ the list, and it is stored as the dataset item's `expected_output`. Every
 experiment afterwards scores recall against it. The cost is paid once per
 *item*, not once per run.
 
-    python scripts/eval/checklists.py status            # free
-    python scripts/eval/checklists.py generate [limit]  # COSTS MONEY: one call per item
-    python scripts/eval/checklists.py show <digest>     # free: source + facts, to review
-    python scripts/eval/checklists.py push [--all]      # free: writes expected_output
+    uv run python scripts/eval/checklists.py status            # free
+    uv run python scripts/eval/checklists.py generate [limit]  # COSTS MONEY: one call per item
+    uv run python scripts/eval/checklists.py show <digest>     # free: source + facts, to review
+    uv run python scripts/eval/checklists.py push [--all]      # free: writes expected_output
 
 Generation writes to a working file under `temp/`, never straight to Langfuse.
 The hand-review step in the middle is not optional decoration: `eval_coverage`

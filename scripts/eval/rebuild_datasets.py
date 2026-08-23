@@ -7,7 +7,7 @@ per-stratum quotas, and writes `summarization-compare-v1` plus its strict subset
 **Destructive**: it deletes every existing item in both datasets first, so it
 refuses to run without `--yes-wipe`.
 
-    python scripts/eval/rebuild_datasets.py --yes-wipe path/to/obs.json
+    uv run python scripts/eval/rebuild_datasets.py --yes-wipe path/to/obs.json
 
 `obs.json` is the raw harvest of traced generations (`langfuse-cli api
 observations list --type GENERATION --fields core,io --json`). It is tens of

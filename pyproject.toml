@@ -19,6 +19,10 @@ dependencies = [
     "pytelegrambotapi==4.36.1",
     "redis==8.1.0",
     "replicate==1.0.7",
+    # `src/` catches requests.exceptions in transcription, services and summary.
+    # It arrived transitively through exa-py/tavily-python/replicate for a long
+    # time; declared here so a provider dropping it cannot break the bot.
+    "requests==2.34.2",
     "sentry-sdk==2.68.0",
     "sqlalchemy==2.0.52",
     "tavily-python==0.7.27",
@@ -42,6 +46,16 @@ dev = [
     "python-dotenv==1.2.2",
     "yt-dlp[deno]==2026.7.4",
 ]
+# What `scripts/eval/` needs and the bot does not. Deliberately short: the
+# harness reuses the bot's own client, prompts and Langfuse SDK rather than
+# reimplementing them, so `langfuse`, `pydantic-ai-slim` and `requests` are
+# already project dependencies. The group exists to keep that boundary explicit
+# and to give eval-only tooling — a statistics or plotting library, say — a home
+# the production image already excludes. `python-dotenv` is declared here and in
+# `dev`, the same way `redis` is declared twice: two independent consumers.
+eval = [
+    "python-dotenv==1.2.2",
+]
 modal = [
     "redis==8.1.0",
 ]
@@ -55,7 +69,7 @@ test = [
 ]
 
 [tool.uv]
-default-groups = ["dev", "test"]
+default-groups = ["dev", "eval", "test"]
 exclude-newer = "3 days"
 
 [tool.ruff]

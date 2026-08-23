@@ -35,11 +35,34 @@ Use `uv add` rather than hand-editing `pyproject.toml`. Keep production dependen
 | Group | Purpose | When active |
 |-------|---------|-------------|
 | `dev` | Local development (alembic, modal, python-dotenv, yt-dlp[deno]) | Default — included by `uv sync` |
+| `eval` | What `scripts/eval/` needs and the bot does not | Default — included by `uv sync` |
 | `test` | Local testing (pytest, coverage, fakeredis, pytest-mock, pytest-cov) | Default — included by `uv sync` |
 | `build` | CI build/deploy (alembic, modal, psycopg2-binary, sqlalchemy) | CI only — explicit `uv sync --group build` |
 | `modal` | Modal cron image (redis) | CI only — explicit `uv sync --group modal` |
 
-`default-groups = ["dev", "test"]` in `[tool.uv]` means `uv sync` always installs `dev` and `test`. Do not add `build` or `modal` to local installs.
+`default-groups = ["dev", "eval", "test"]` in `[tool.uv]` means `uv sync` always installs those
+three. Do not add `build` or `modal` to local installs. The `Dockerfile` excludes all five
+non-production groups explicitly (`--no-group dev/eval/test/modal/build`) rather than relying on
+the defaults, so adding a group means adding a `--no-group` line there too.
+
+**The `eval` group is deliberately almost empty.** The evaluation harness reuses the bot's own
+client, prompts and Langfuse SDK instead of reimplementing them — `eval_client.EvalLLMClient`
+subclasses `LLMClient` — so `langfuse`, `pydantic-ai-slim` and `requests` are already project
+dependencies and must stay there. The group holds only what the harness imports and the bot does
+not, and exists to keep that boundary explicit and to give eval-only tooling (a statistics or
+plotting library) a home the production image already excludes. `python-dotenv` sits in both
+`dev` and `eval` for the same reason `redis` is declared twice: two independent consumers.
+
+Do not read `--no-group eval` as "these packages are absent from the image". `exa-py` depends on
+`python-dotenv`, so it ships regardless of any group flag. What keeps it out of production is not
+the packaging but the guard in `src/config.py`, which imports it only when `ENV` is not `PROD` —
+`test_dotenv_skipped_in_prod` pins that branch. The group states intent; the guard enforces
+behaviour.
+
+**`requests` is a production dependency**, not a transitive one to rely on. `src/transcription.py`,
+`src/services.py` and `src/summary.py` all catch `requests.exceptions`; it reached them through
+`exa-py`/`tavily-python`/`replicate` for a long time before being declared. Anything `src/`
+imports belongs in `[project.dependencies]`, however reliably some other package drags it in.
 
 `redis` is declared twice on purpose — once in `[project.dependencies]` for the bot and once in
 the `modal` group for the cron image. Bump both together, and do not fold either back into a

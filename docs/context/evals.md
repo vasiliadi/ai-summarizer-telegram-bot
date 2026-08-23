@@ -671,14 +671,14 @@ A few more:
   permanent and shows up in every listing afterwards. Score configs are the same shape: they
   archive, they do not delete. Plan for junk runs to be *named* rather than removed, and check
   a runner end to end on one item before sweeping a whole dataset with it.
-- **A score's value lives in a different field depending on its data type, and the two are
-  opposite.** Settled from the OpenAPI spec, not guessed. A **CATEGORICAL** score puts its label
-  in `stringValue` and a *numeric category mapping* in `value` — and `value` is `0` when no score
-  config is linked, which is the case for every score the judge writes, so reading `value`
-  returns `0` for `A`, `B`, `TIE` and `INCONSISTENT` alike and every comparison is false. A
-  **BOOLEAN** score is the reverse: `value` carries the boolean and `stringValue` is the text
-  `"True"`/`"False"` when present at all — the live v3 API omits it entirely. `langfuse_api.py`
-  holds the one decoder, `score_value(row)`; do not read `value` off a score row directly.
+- **A score's value: the OpenAPI spec and the live API disagree, and the live one wins.** The
+  spec declares `CategoricalScore.value` a *number* (the category mapping) with the label in
+  `stringValue`. What `GET /v3/scores` actually returns is `value: "A"` with `stringValue`
+  absent — verified against 25 categorical hand labels. BOOLEAN is the same shape: the boolean
+  in `value`, no `stringValue`. Reading only one field fails silently either way, yielding
+  `None` or `0` for every verdict, which looks exactly like a judge that never ran.
+  `langfuse_api.py` holds the one decoder, `score_value(row)`, covering both shapes; do not read
+  `value` off a score row directly, and do not "correct" it to match the spec.
 - **`subject` is its own `fields` group on `GET /v3/scores` and must be requested.** Without it
   a score row carries **no target at all** — no `observationId`, no `subject`, nothing saying
   what was scored. Any code mapping labels back to items then matches nothing and reports zero,

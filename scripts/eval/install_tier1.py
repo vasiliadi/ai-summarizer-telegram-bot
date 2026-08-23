@@ -12,7 +12,7 @@ against sample data, so a crash comes back here as
 the same crash is silent — the rule stays `active`, the experiment completes,
 and no score is ever written.
 
-    python scripts/eval/install_tier1.py
+    uv run python scripts/eval/install_tier1.py
 """
 
 from __future__ import annotations

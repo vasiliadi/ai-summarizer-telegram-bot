@@ -33,18 +33,19 @@ EPOCH = "2020-01-01T00:00:00Z"
 def score_value(row: dict) -> object:
     """The comparable value of a score row, chosen by its data type.
 
-    The two types this project reads store their value in opposite places, and
-    picking the wrong one fails silently rather than raising:
+    **The OpenAPI spec and the live API disagree here, and the live one wins.**
+    The spec declares `CategoricalScore.value` a number (the category mapping)
+    with the label in `stringValue`. Observed on `GET /v3/scores`, a categorical
+    score arrives as `value: "A"` with `stringValue` absent entirely — verified
+    against 25 hand labels. BOOLEAN behaves the same way: `value` is the
+    boolean, `stringValue` is absent.
 
-    * **CATEGORICAL** puts the label in `stringValue` and a numeric category
-      mapping in `value` — which is `0` when no score config is linked, as it
-      is for every score the judge writes. Reading `value` therefore returns
-      `0` for `A`, `B`, `TIE` and `INCONSISTENT` alike, and every comparison
-      against a verdict string is false.
-    * **BOOLEAN** is the other way round: `value` is the boolean, and
-      `stringValue` is the text `"True"`/`"False"` when it is present at all —
-      the live v3 API omits it. Preferring `stringValue` here would compare a
-      string against a boolean and never match.
+    So `value` carries what is wanted on this route today, and the
+    `stringValue` branch is what covers the spec's shape if the API ever starts
+    honouring it, or if another route already does — inline scores on
+    `GET /experiment-items` return a different envelope. Reading only one field
+    fails silently rather than raising: the wrong pick yields `None` or `0` for
+    every verdict, which looks exactly like a judge that never ran.
 
     One decoder rather than one per call site, because the two rules diverging
     is exactly how this goes wrong unnoticed.

@@ -4,10 +4,10 @@ A judge is worth nothing until it agrees with a human. Nothing in a Tier 2/3
 ranking means anything until this passes, so it runs *before* the compare stage
 rather than after.
 
-    python scripts/eval/calibrate.py sample      # free: show the fixed sample
-    python scripts/eval/calibrate.py setup       # free: configs, queues, traces
-    python scripts/eval/calibrate.py judge [<model>]  # COSTS MONEY
-    python scripts/eval/calibrate.py agreement   # free: accuracy + kappa
+    uv run python scripts/eval/calibrate.py sample      # free: show the fixed sample
+    uv run python scripts/eval/calibrate.py setup       # free: configs, queues, traces
+    uv run python scripts/eval/calibrate.py judge [<model>]  # COSTS MONEY
+    uv run python scripts/eval/calibrate.py agreement   # free: accuracy + kappa
 
 Calibration decides the judge model rather than assuming it. Run `judge` once
 per candidate judge — the model id is an optional argument, defaulting to the
