@@ -4,7 +4,8 @@ The project uses [uv](https://docs.astral.sh/uv/) for dependency management. Run
 command through `uv run`; never bare `python`, `pip`, `poetry`, or `conda`.
 
 ```bash
-uv sync                              # install deps (dev + test by default)
+uv sync                              # install deps (dev + eval + test by default)
+uv sync --no-default-groups --group eval  # just enough to run scripts/eval/
 uv run pytest --cov                  # run the tests with the coverage report
 uv run python src/main.py            # run the bot
 uv run python scripts/db.py          # bootstrap the users table
@@ -45,13 +46,23 @@ three. Do not add `build` or `modal` to local installs. The `Dockerfile` exclude
 non-production groups explicitly (`--no-group dev/eval/test/modal/build`) rather than relying on
 the defaults, so adding a group means adding a `--no-group` line there too.
 
-**The `eval` group is deliberately almost empty.** The evaluation harness reuses the bot's own
-client, prompts and Langfuse SDK instead of reimplementing them — `eval_client.EvalLLMClient`
-subclasses `LLMClient` — so `langfuse`, `pydantic-ai-slim` and `requests` are already project
-dependencies and must stay there. The group holds only what the harness imports and the bot does
-not, and exists to keep that boundary explicit and to give eval-only tooling (a statistics or
-plotting library) a home the production image already excludes. `python-dotenv` sits in both
-`dev` and `eval` for the same reason `redis` is declared twice: two independent consumers.
+**The `eval` group exists so the harness can be installed without the dev and test toolchains:**
+
+```bash
+uv sync --no-default-groups --group eval   # project deps + eval, no dev/test
+```
+
+That is the invocation the group is for. **`--only-group eval` does not work** and is the easy
+mistake: it installs `python-dotenv` and nothing else, and the harness dies on its first
+`import requests`. The harness imports `config`, `llm` and `prompts` from `src/`, so it needs the
+bot's entire runtime dependency set — that is the cost of `eval_client.EvalLLMClient` subclassing
+`LLMClient` instead of reimplementing the bot's path, and the cost is deliberate.
+
+The group is therefore almost empty, and that is not an oversight: `langfuse`, `pydantic-ai-slim`
+and `requests` are already project dependencies and must stay there. What belongs in the group is
+only what the harness imports and the bot does not — today just `python-dotenv`, tomorrow a
+statistics or plotting library. `python-dotenv` sits in both `dev` and `eval` for the same reason
+`redis` is declared twice: two independent consumers, bumped together.
 
 Do not read `--no-group eval` as "these packages are absent from the image". `exa-py` depends on
 `python-dotenv`, so it ships regardless of any group flag. What keeps it out of production is not

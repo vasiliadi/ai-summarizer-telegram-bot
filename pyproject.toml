@@ -46,13 +46,15 @@ dev = [
     "python-dotenv==1.2.2",
     "yt-dlp[deno]==2026.7.4",
 ]
-# What `scripts/eval/` needs and the bot does not. Deliberately short: the
-# harness reuses the bot's own client, prompts and Langfuse SDK rather than
-# reimplementing them, so `langfuse`, `pydantic-ai-slim` and `requests` are
-# already project dependencies. The group exists to keep that boundary explicit
-# and to give eval-only tooling — a statistics or plotting library, say — a home
-# the production image already excludes. `python-dotenv` is declared here and in
-# `dev`, the same way `redis` is declared twice: two independent consumers.
+# What `scripts/eval/` needs and the bot does not, so the harness can be
+# installed without the dev and test toolchains:
+#     uv sync --no-default-groups --group eval
+# `--only-group eval` does NOT work: it installs this list alone, and the
+# harness imports config, llm and prompts from src/, so it needs the bot's whole
+# runtime set. That is the price of EvalLLMClient subclassing LLMClient instead
+# of reimplementing the bot's path, and it is deliberate — which is also why
+# this group is nearly empty rather than incomplete. `python-dotenv` is declared
+# here and in `dev`, as `redis` is declared twice: two independent consumers.
 eval = [
     "python-dotenv==1.2.2",
 ]
