@@ -20,10 +20,13 @@ the model being ranked.
 
 The judge is synchronous and returns structured output through a forced tool
 call; its model is the `JUDGE_MODEL` constant below, chosen so that no
-candidate shares its family. It **counts** (claims, entailed facts) and
-the ratio is computed here, because a model asked directly for `0.71` makes
-arithmetic slips no prompt wording fixes. Editing a judge prompt or schema moves
-its `judge_version` hash, which unpins it from every score already banked.
+candidate shares its family. It never returns a verdict already reduced to one
+number: coverage **counts** entailed facts and faithfulness **enumerates** its
+findings, and the ratio, the severity gate and the pass/fail are all applied
+here. A model asked directly for `0.71` makes arithmetic slips no prompt wording
+fixes, and one asked for a gated verdict hides what it gated on. Editing a judge
+prompt or schema moves its `judge_version` hash, which unpins it from every score
+already banked.
 
     uv run python scripts/eval/judge.py run <vendor/model> 2
     uv run python scripts/eval/judge.py pairwise <run-a> <run-b>
@@ -54,7 +57,16 @@ from prompts import PROMPTS, prompt_version
 BASE = "https://openrouter.ai/api"
 CHAT_URL = f"{BASE}/v1/chat/completions"
 
-JUDGE_MODEL = "anthropic/claude-sonnet-5"
+# Calibration chose this, and it chose against the cheaper option deliberately.
+# Sonnet 5 reached 75% agreement and kappa 0.19 against the hand labels on this
+# exact prompt; Opus 5 reached 92% and 0.78 on the same 24 items. The usual rule
+# — take the cheaper judge and spend the difference on dataset items — does not
+# apply when the cheaper judge does not clear the bar at all. The two failed in
+# one direction only: Sonnet graded as `minor` what the labels call `material`,
+# catching 1 of 7 unfaithful summaries where Opus caught 5, while both stayed
+# clean on all 17 faithful ones. Re-measure before assuming a newer cheap model
+# inherits this.
+JUDGE_MODEL = "anthropic/claude-opus-5"
 JUDGE_EFFORT = "medium"  # pins depth; Sonnet 5 rejects temperature outright
 
 COMPARE_DATASET = "summarization-compare-v1"
@@ -75,25 +87,64 @@ SOURCE:
 SUMMARY:
 {summary}
 
-Work through the summary one claim at a time. A claim is a single assertion of
-fact: a name, a number, an event, a causal link, or an attribution.
+Work through the summary one claim at a time, covering every bullet from the
+first to the last. A claim is a single assertion of fact: a name, a number, an
+event, a causal link, or an attribution. Being conservative is about the bar a
+claim must clear to be reported, never about how much of the summary you read.
 
-A claim is UNSUPPORTED when the source neither states it nor directly implies it.
-Invented names, dates, figures or quotations count as unsupported, as does a
-causal link the source never draws, a statement attributed to the wrong speaker,
-and a specific detail where the source was vague.
+Be conservative. A summary compresses, generalises and rewords by design, and
+none of that is a defect. Do not hunt for faults: when a claim follows reasonably
+from the source it is supported, however differently it is worded. An empty list
+of findings is a normal answer, not a failure to look.
 
-A claim is SUPPORTED when the source states it, or when it is a fair paraphrase
-or generalisation of something the source states. Rewording, condensing and
-reordering are not violations.
+Never report any of these: ordinary paraphrase, dropped detail, outright
+omission, related points merged into one, a fair generalisation, an inference the
+context plainly supports, reordered information, shorter terminology that keeps
+the meaning, obvious transcription noise, style, or rhetoric the summary left
+out.
+
+Report a claim only when the summary does one of these:
+- contradicts the source;
+- adds a fact the source neither states nor implies;
+- states something markedly more strongly than the source does;
+- changes the status of a fact — first to exclusive, proposed to implemented,
+  can to does, may to will, included to free, draft to send, a potential
+  customer or channel to an existing one;
+- distorts a number, date, period, percentage, cost or scale;
+- asserts a causal link the source never draws;
+- attributes an action or opinion to the wrong person or company;
+- merges distinct conditions, stages or categories so that the meaning shifts;
+- uses a term that markedly changes the original sense.
+
+Words like always, never, only, exclusive, guaranteed, required, automatically,
+free, all, every, directly causes, will and must are where this usually goes
+wrong, because they quietly make a summary stronger than its source. Check each
+one you find against what the source actually says.
+
+Verbs deserve the same care, because a changed status hides in one of them and
+reads perfectly naturally. Where the summary says a system sends, publishes,
+does or has, check whether the source only had it draft, propose, be able to, or
+plan to. That substitution is the single most common material error here, and it
+never looks like an error in isolation — only against the source.
 
 Judge only whether the source backs each claim. Do not judge whether the summary
 is complete, well written, or the right length — omission is not a faithfulness
-error and must not be counted. The summary is in Russian while the source may be
+error and must not be reported. The summary is in Russian while the source may be
 in another language; a faithful translation of a supported claim is supported.
 
-Report the total number of claims and how many were unsupported. Keep the
-reasoning under 60 words: name the unsupported claims, and nothing else."""
+Grade every finding:
+- material — the factual meaning, status, conclusion or practical reading changes;
+- minor — a real error that leaves the summary's meaning intact;
+- borderline — defensibly stronger or looser, yet still close to the source. Use
+  this rarely; it is not a bin for wording you merely dislike.
+
+Never let the type decide the severity, and never reserve material for claims
+carrying one of the words above — a changed status is material whether or not any
+such word appears. Ask only whether a reader who acted on the summary would be
+misled about what is true.
+
+Return one entry per finding, and an empty list when there is nothing to
+report."""
 
 COVERAGE = """You are measuring how much of a checklist a summary covers.
 
@@ -196,15 +247,54 @@ no numbering, no bullet markers, no commentary."""
 # The verdict field comes before `reasoning` in every schema. Models emit in
 # declared order and it is the long reasoning string that runs into `max_tokens`,
 # so putting the number first means a truncated call still carries the answer.
+#
+# Faithfulness is the exception, and calibration is why. Declaring a count ahead
+# of the reasoning makes the model commit to a number before it has thought:
+# measured against 25 hand labels, one verdict's own reasoning ended "retracting
+# to 0 unsupported" while the emitted count stayed 1, and another talked itself
+# out of every flag it had already counted. The count could not be revised and
+# the reasoning that would explain it was truncated at the comment cap, leaving a
+# number nothing could audit. So the judge enumerates instead: each finding
+# justifies itself where it is written, an empty list is a clean verdict, and the
+# runner applies the severity gate. Truncation now loses the tail of the list
+# rather than the grounds for a number already asserted. No claim total survives
+# either; `faithfulness_verdict` records what was wrong with the one it replaced.
 SCHEMAS = {
     "faithfulness": {
         "type": "object",
         "properties": {
-            "total_claims": {"type": "integer"},
-            "unsupported_claims": {"type": "integer"},
-            "reasoning": {"type": "string"},
+            "findings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "claim": {"type": "string"},
+                        "source_says": {"type": "string"},
+                        "severity": {
+                            "type": "string",
+                            "enum": ["material", "minor", "borderline"],
+                        },
+                        "type": {
+                            "type": "string",
+                            "enum": [
+                                "contradiction",
+                                "unsupported addition",
+                                "overstatement",
+                                "wrong status",
+                                "wrong number",
+                                "causal distortion",
+                                "terminology",
+                                "compression",
+                                "other",
+                            ],
+                        },
+                    },
+                    "required": ["claim", "source_says", "severity", "type"],
+                    "additionalProperties": False,
+                },
+            },
         },
-        "required": ["total_claims", "unsupported_claims", "reasoning"],
+        "required": ["findings"],
         "additionalProperties": False,
     },
     "coverage": {
@@ -366,22 +456,54 @@ def _facts_of(expected_output):
     return []
 
 
+def faithfulness_verdict(verdict):
+    """The material findings and the comment to store.
+
+    The severity gate lives here rather than in the prompt, for the same reason
+    the judge counts and the runner divides elsewhere: a model asked to return
+    one already-gated verdict lets a single nitpick decide the answer, with
+    nothing left to inspect afterwards. Only `material` moves the score —
+    `minor` and `borderline` are recorded and deliberately do not, because
+    calibration showed the hand labels tolerate a real-but-immaterial error and
+    reject a changed meaning.
+
+    There is deliberately no claim total to divide by. The judge was asked for
+    one and supplied it erratically — absent entirely on one call, and 6 against
+    the previous prompt's 15 on the very same summary. A denominator that
+    reflects how finely the model chose to slice the summary, and that sometimes
+    fails to arrive, cannot carry a quality score.
+    """
+    findings = verdict["findings"]
+    material = [f for f in findings if f["severity"] == "material"]
+    detail = "; ".join(f"{f['type']}: {f['claim']}" for f in material) or "none"
+    counts = "/".join(
+        f"{sum(1 for f in findings if f['severity'] == s)} {s}"
+        for s in ("material", "minor", "borderline")
+    )
+    return material, f"{counts}. {detail}"[:900]
+
+
 # --- Tier 2: evaluator functions for Langfuse.run_experiment -----------------
 
 
 def eval_faithfulness(*, input, output, expected_output=None, metadata=None, **kw):  # noqa: A002, ARG001
-    """Share of the summary's claims the source actually supports."""
+    """Whether the summary is free of any material faithfulness error.
+
+    Scored 1 or 0 rather than as a ratio, so that a run's mean reads as the share
+    of its summaries that carry no material error — the same statement the hand
+    labels make. Tying the two to one definition is what lets the calibration
+    number say anything about this score.
+    """
     source, summary = _source_of(input), _text(output)
     if not source or not summary:
         return None
     verdict, _ = ask("faithfulness", source=source[:120000], summary=summary)
-    total = max(verdict["total_claims"], 1)
-    unsupported = min(verdict["unsupported_claims"], total)
+    material, comment = faithfulness_verdict(verdict)
     return Evaluation(
         name="t2_faithfulness",
-        value=1 - unsupported / total,
+        value=0.0 if material else 1.0,
         data_type="NUMERIC",
-        comment=f"{unsupported}/{total} unsupported. {verdict['reasoning']}"[:900],
+        comment=comment,
         metadata=judge_meta("faithfulness"),
     )
 

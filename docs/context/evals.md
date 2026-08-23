@@ -468,9 +468,11 @@ conflating them is a mistake worth not repeating:
   per-item single-observation judgements, so they would fit a managed evaluator, and on an
   `experiment` target it can read `expected_output` — the key-facts checklist coverage needs. Two
   things are given up by moving them, and both are load-bearing rather than stylistic: the
-  **judge counts and the runner divides** (a managed evaluator's output definition is one numeric
+  **judge reports and the runner decides** (a managed evaluator's output definition is one numeric
   `score` plus reasoning, so asking the model for `0.71` directly is exactly the arithmetic slip
-  that design removed), and `judge_version` **pins the prompt and schema by hash** so banked
+  that design removed — and it could not carry the faithfulness `findings[]` at all, since that
+  needs a list the runner gates on rather than a number), and `judge_version` **pins the prompt
+  and schema by hash** so banked
   comparisons stay valid, whereas a managed evaluator is versioned by Langfuse and that version
   would have to be copied into run metadata by hand. The Ragas library evaluators are not a
   shortcut here either: their `Faithfulness` takes `context`/`answer` and is RAG-shaped, while
@@ -508,6 +510,18 @@ relative to the decision it settles. Weigh it against the *whole* Tier 2/3 bill,
 round. Note the second constraint still binds: a judge below the candidates' tier measures its
 own ceiling, so "cheaper" has a floor that a mid-tier model does not clear here.
 
+**That floor was reached, and it decided the current pin.** Measured on faithfulness against the
+same 24 hand labels with an identical prompt, **Sonnet 5 scored 75% agreement / kappa 0.19 and
+Opus 5 scored 92% / 0.78** — so `JUDGE_MODEL` is Opus, and the spend-the-difference rule simply
+does not arise when the cheap judge fails the gate. The failure was one-directional and worth
+recognising again elsewhere: both models stayed clean on **all 17** summaries the labels call
+faithful, so neither invents faults. They separated only on the 7 the labels reject, where Opus
+found a material error in 5 and Sonnet in 1 — Sonnet located the same passages but graded them
+`minor`. A weaker judge here does not hallucinate problems; it **under-rates real ones**, which
+looks like agreement on the easy majority and collapses on the cases that decide a ranking.
+Sonnet's severity grades were also unstable between runs on the same input, so do not read a
+single round as that model's ceiling.
+
 **Judge spend is measured, not estimated.** `_call_body` sets `usage: {include: true}`, so
 OpenRouter prices every call and `ask` returns that alongside the verdict; `run_judge` totals it
 and prints what the round actually cost. Do not reconstruct a bill from a price table written
@@ -515,13 +529,48 @@ down here — vendor prices move, and one of them is on a dated introductory rat
 
 ### Three details of the judge are load-bearing
 
-The judge **counts** (claims, entailed facts) and the runner computes the ratio, because a model
-asked directly for `0.71` makes arithmetic slips no prompt wording fixes. Each schema declares
-its **verdict field before `reasoning`**, since models emit in declared order and it is the long
-reasoning string that runs into `max_tokens` — a truncated call then still carries the answer.
-And OpenRouter does not enforce `required` on this route, so a missing field has to be caught
-explicitly rather than trusted. Pairwise runs **both orders and discards disagreements**; the
-discard rate is itself a judge-quality signal.
+The judge never returns a verdict already reduced to one number: coverage **counts** entailed
+facts and the runner computes the ratio, because a model asked directly for `0.71` makes
+arithmetic slips no prompt wording fixes. Those schemas declare their **verdict field before
+`reasoning`**, since models emit in declared order and it is the long reasoning string that runs
+into `max_tokens` — a truncated call then still carries the answer. And OpenRouter does not
+enforce `required` on this route, so a missing field has to be caught explicitly rather than
+trusted. Pairwise runs **both orders and discards disagreements**; the discard rate is itself a
+judge-quality signal.
+
+### Faithfulness enumerates; it does not count
+
+The faithfulness schema is the exception to the ordering above, and calibration is what forced
+it. Declaring a count ahead of the reasoning makes the model commit to a number **before it has
+thought**, and the number cannot then be revised: across 25 hand-labelled items one verdict's own
+reasoning ended *"Re-checking, all claims are supported; retracting to 0 unsupported"* while the
+stored count stayed 1, and another wrote *"Actually hard to find clear unsupported claims"*
+under a count of 2. The reasoning that would explain the number was then truncated at the
+900-character comment cap, so the count could be neither justified nor audited. That single
+defect produced most of one judge's false positives.
+
+So the judge returns `findings[]` — each entry carrying the claim, what the source actually says,
+a `severity` and a `type` — and **the runner applies the gate**. An empty list is a clean verdict.
+Truncation now loses the tail of a list rather than the grounds for a number already asserted.
+
+Three consequences worth keeping:
+
+- **Only `material` moves the score.** `minor` and `borderline` are recorded and deliberately do
+  not, because the hand labels tolerate a real-but-immaterial error and reject a changed meaning.
+  Gating inside the prompt instead would let one nitpick decide the verdict with nothing left to
+  inspect afterwards.
+- **There is no claim total to divide by, and asking for one was tried.** The model supplied it
+  erratically — absent entirely on one call, and **6** against the previous prompt's **15** on the
+  very same summary. A denominator that reflects how finely the model chose to slice the summary,
+  and that sometimes fails to arrive, cannot carry a quality score. `t2_faithfulness` is therefore
+  **1 or 0**, so a run's mean reads as the share of its summaries free of a material error — the
+  same statement the hand labels make, which is what lets the calibration number say anything
+  about the score at all.
+- **The severity boundary is the hard part, and prose alone does not convey it.** Tightening the
+  wording moved nothing measurable. Adding a worked minor/material pair as a few-shot example was
+  tried and **removed**: it produced no net gain — one item gained, another lost — while
+  contaminating a calibration item by handing the judge its answer. Do not re-add examples drawn
+  from the calibration set; the set is 25 items, so one of them is worth four points of agreement.
 
 ### Comprehensibility is substance; elegance is not
 
@@ -597,6 +646,21 @@ Four things about it are load-bearing:
   against*, so a preference leaking into them is not a bias in one score — it is a bias baked
   into the target. Verdicts are stored canonically (A always means the first model), so a human
   label and a judge label are the same kind of statement.
+- **The unflip has been verified against real labels, and the blinded view is not the result.**
+  The stored `columns_flipped` matched the value derived from the item id on all 50 spans, and
+  unflipping scored 11/22 against the judge where leaving it raw scored 8/22. The trap is
+  reading the *blinded* tally as a preference: 25 labels came out **12 / 12 / 1 TIE** as shown
+  and **19 / 5 / 1** once canonical. The even split is evidence the blinding worked, nothing
+  more — quote the canonical figures, never the as-shown ones.
+- **Read only the current duel's spans.** A previous duel's spans survive forever, nothing in v4
+  deletes an observation, and they carry the same `dataset_item_id` — so an unfiltered read maps
+  a label about two *other* models onto this comparison. `setup` filters on `run_a`/`run_b` when
+  it enqueues and `agreement` now filters the same way on the way back out.
+- **A skewed marginal collapses kappa exactly as a TIE-heavy one does.** The duel above ran
+  19/5/1, and that lopsidedness pushed chance agreement to ~57% against an observed 50%, giving a
+  **negative** kappa. The guidance to avoid two models a reader rates equally is only half the
+  rule: *any* strongly unbalanced label distribution starves kappa, so pick a duel the labeller
+  will split somewhere near evenly, in either direction.
 
 An `INCONSISTENT` pairwise verdict is the judge **abstaining**, not disagreeing: the two orders
 contradicted each other, so there is no opinion to compare. Those are excluded from agreement
@@ -697,6 +761,14 @@ A few more:
   running `calibrate.py agreement` straight after `calibrate.py judge` reads fewer scores than
   were written and looks exactly like a judge that silently failed. Wait, or re-read, before
   concluding anything from a low count.
+- **A judge call can come back `content_filter`, on content that explains nothing.** Opus refused
+  one calibration item — a summary of a Google blog post about the Go language — returning a tool
+  call with no arguments and `finish_reason: content_filter`. `_unpack` raises on the missing
+  field, which is right for one call and wrong for a round: `run_judge` posts 75 scores and
+  flushes only at the end, so an escaping exception discards every verdict already paid for. It
+  therefore catches the refusal, drops that item, names it in the summary line, and continues.
+  A dropped item has to be *named*: silently scoring fewer items than the sample holds is exactly
+  what a broken runner also looks like.
 - A Langfuse score **requires a target**. Passing `trace_id=None` fails with a bare
   `Bad request` while the calling code still prints success, so a pairwise score has to be
   anchored to something — run A's trace for that item is the natural choice.

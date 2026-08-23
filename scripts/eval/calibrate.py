@@ -454,6 +454,22 @@ def run_judge(model=None):
     client = Langfuse()
     model = model or judge.JUDGE_MODEL
     spent = []
+    refused = []
+
+    def attempt(**fields):
+        """One judge call, or `None` when the provider refused to answer.
+
+        A round is 75 calls and the scores are only flushed at the end, so
+        letting one refusal propagate discards every verdict bought before it.
+        Opus returned `content_filter` on an ordinary summary about the Go
+        language — nothing about the item predicts it, and a retry is not free —
+        so the item is dropped, named at the end, and the round continues.
+        """
+        try:
+            return judge.ask(model=model, **fields)
+        except RuntimeError as exc:
+            refused.append(str(exc))
+            return None
 
     print(f"judge: {model}, effort {judge.JUDGE_EFFORT}")
     print(f"faithfulness: {len(faithful)} calls")
@@ -461,24 +477,28 @@ def run_judge(model=None):
         source = sources.get(row["item"], "")
         if not source:
             continue
-        verdict, usage = judge.ask(
-            "faithfulness",
-            model=model,
+        answer = attempt(
+            name="faithfulness",
             source=source[:120000],
             summary=row["summary"],
         )
+        if answer is None:
+            print(f"  {row['item']}  refused")
+            continue
+        verdict, usage = answer
         spent.append(usage.get("cost") or 0)
-        # The judge counts and the runner decides. Binarised here because the
+        # The judge enumerates and the runner decides. Binarised here because the
         # human label is binary: a ratio cannot be hand-assigned reproducibly.
-        clean = verdict["unsupported_claims"] == 0
+        # An item is unfaithful when it carries at least one *material* finding —
+        # the same gate the hand labels were assigned under, which is what makes
+        # the two sides answers to one question rather than two.
+        material, comment = judge.faithfulness_verdict(verdict)
+        clean = not material
         client.create_score(
             name=C_FAITHFUL,
             value=clean,
             data_type="BOOLEAN",
-            comment=(
-                f"{verdict['unsupported_claims']}/{verdict['total_claims']} "
-                f"unsupported. {verdict['reasoning']}"
-            )[:900],
+            comment=comment,
             trace_id=row["trace"],
             metadata={
                 **judge.judge_meta("faithfulness", model),
@@ -492,20 +512,22 @@ def run_judge(model=None):
     flip = {"A": "B", "B": "A", "TIE": "TIE"}
     for row in pairwise:
         source = sources.get(row["item"], "")[:120000]
-        ab, usage_ab = judge.ask(
-            "pairwise",
-            model=model,
+        forward = attempt(
+            name="pairwise",
             source=source,
             summary_a=row["a"],
             summary_b=row["b"],
         )
-        ba, usage_ba = judge.ask(
-            "pairwise",
-            model=model,
+        backward = attempt(
+            name="pairwise",
             source=source,
             summary_a=row["b"],
             summary_b=row["a"],
         )
+        if forward is None or backward is None:
+            print(f"  {row['item']}  refused")
+            continue
+        (ab, usage_ab), (ba, usage_ba) = forward, backward
         spent.extend([usage_ab.get("cost") or 0, usage_ba.get("cost") or 0])
         # Order-swap disagreement is position bias, not a verdict. Recording it
         # as INCONSISTENT keeps the discard rate visible instead of hiding it.
@@ -534,6 +556,14 @@ def run_judge(model=None):
     priced = sum(1 for c in spent if c)
     print(f"\n{len(spent)} judge calls, ${total:.4f}", end="")
     print(f" ({priced} priced)" if priced != len(spent) else "")
+    if refused:
+        # A refusal is a missing item, not a verdict. Naming it keeps the count
+        # in `agreement` honest — a silently dropped item reads as a judge that
+        # scored fewer items than the sample holds, which is what a broken
+        # runner also looks like.
+        print(f"{len(refused)} call(s) refused, item(s) left unscored:")
+        for message in refused:
+            print(f"  {message}")
     print("scores posted; run `calibrate.py agreement`")
 
 
@@ -618,7 +648,16 @@ def agreement():
         {roots[r["trace"]]: r["item"] for r in faithful if r["trace"] in roots},
     )
 
-    pair_meta = _pair_observations()
+    # Only this duel's spans. A previous duel's spans survive forever — nothing
+    # in v4 deletes an observation — and they carry the same `dataset_item_id`,
+    # so an unfiltered read maps a label about two *other* models onto this
+    # comparison. `setup` already filters on `run_a`/`run_b` when it enqueues;
+    # this is the same filter on the way back out.
+    pair_meta = {
+        obs: m
+        for obs, m in _pair_observations().items()
+        if m.get("run_a") == PAIR_A and m.get("run_b") == PAIR_B
+    }
     flipped = {
         m["dataset_item_id"]: m.get("columns_flipped") for m in pair_meta.values()
     }
