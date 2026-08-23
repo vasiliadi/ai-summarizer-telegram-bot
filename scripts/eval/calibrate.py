@@ -6,8 +6,13 @@ rather than after.
 
     uv run python scripts/eval/calibrate.py sample      # free: show the fixed sample
     uv run python scripts/eval/calibrate.py setup       # free: configs, queues, traces
-    uv run python scripts/eval/calibrate.py judge [<model>]  # COSTS MONEY
+    uv run python scripts/eval/calibrate.py judge [<model>] [<dimension>]  # COSTS MONEY
     uv run python scripts/eval/calibrate.py agreement   # free: accuracy + kappa
+
+`judge` takes both arguments in either order; `<dimension>` is `faithfulness` or
+`pairwise` and restricts the round to it. Prompts move one dimension at a time,
+so naming one is the normal invocation — re-scoring the other pays to replace a
+banked result whose prompt has not changed.
 
 Calibration decides the judge model rather than assuming it. Run `judge` once
 per candidate judge — the model id is an optional argument, defaulting to the
@@ -77,6 +82,10 @@ H_FAITHFUL, C_FAITHFUL = "h_faithful", "cal_faithful"
 H_PAIRWISE, C_PAIRWISE = "h_pairwise", "cal_pairwise"
 
 PAIRWISE_CATEGORIES = ("A", "B", "TIE")
+
+# `judge` takes its arguments in either order: a token naming a dimension
+# restricts the round to it, anything else is a candidate judge model.
+DIMENSIONS = ("faithfulness", "pairwise")
 
 # One queue holds both dimensions: the Hobby plan allows exactly one, and
 # there is no API route to update a queue's score configs after creation.
@@ -444,7 +453,7 @@ def setup():  # noqa: C901, PLR0915
     print(f"\nLabel both at {API.base} -> Human Annotation")
 
 
-def run_judge(model=None):
+def run_judge(model=None, only=None):  # noqa: C901, PLR0915
     """Score the calibration sample with one judge. COSTS MONEY.
 
     `model` names a candidate judge to measure instead of the pinned one. The
@@ -453,8 +462,19 @@ def run_judge(model=None):
     the cheaper one clears the bar, spend the difference on dataset items
     instead. Both judges write the same score names and stay separable by the
     pin in their metadata, so running a second one never disturbs the first.
+
+    `only` restricts the round to one dimension. Prompts move one dimension at a
+    time, so this is the normal case rather than an optimisation: the other
+    dimension's banked round is still pinned to a prompt that has not changed,
+    and re-running it would spend money replacing a measured result with a fresh
+    sample of itself — severity near the boundary is unstable per run, so the
+    replacement would not even be the same number.
     """
     faithful, pairwise, sources = sample()
+    if only == "pairwise":
+        faithful = []
+    elif only == "faithfulness":
+        pairwise = []
     client = Langfuse()
     model = model or judge.JUDGE_MODEL
     spent = []
@@ -745,7 +765,9 @@ if __name__ == "__main__":
     elif command == "setup":
         setup()
     elif command == "judge":
-        run_judge(args[1] if len(args) > 1 else None)
+        rest = args[1:]
+        dimension = next((a for a in rest if a in DIMENSIONS), None)
+        run_judge(next((a for a in rest if a not in DIMENSIONS), None), dimension)
     elif command == "agreement":
         agreement()
     else:
