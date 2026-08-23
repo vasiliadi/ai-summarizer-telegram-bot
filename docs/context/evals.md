@@ -793,11 +793,78 @@ Neither is evidence about judge quality on the question Tier 3 is now asking, an
 baseline to improve on: the prompt they were run under has been replaced, so `judge_version`
 moved and both are unpinned. Re-measure before concluding anything.
 
-The 28% discard rate is a **second, independent** defect and does *not* go away with the rewrite:
-on seven pairs the judge contradicted itself when the order was swapped. That is position
-sensitivity, unrelated to the criterion mismatch, and it more than doubled when the judge got
-stronger. Watch it separately in the next round — if it stays high, the order-swap discard is
-telling you the comparison itself is under-determined, not that the judge is careless.
+The 28% discard rate looked like a **second, independent** defect: on seven pairs the judge
+contradicted itself when the order was swapped, which is position sensitivity rather than
+criterion mismatch, and it more than doubled when the judge got stronger. It was not independent.
+Fixing the specification took it to 8% without anything addressing position bias directly — so a
+high discard rate here meant the *comparison* was under-determined, not that the judge was
+careless. A judge asked a question its instructions cannot settle will answer it differently in
+the two orders.
+
+### The round that measured the rewritten prompt: better on every axis, still not calibrated
+
+Same 25 hand labels, same judge model, three specification fixes later
+(`pairwise@ccc8bc85092a`):
+
+| judge / prompt | agreement | kappa | inconsistent |
+|---|---|---|---|
+| Opus 5, accuracy-first | 39% | −0.09 | 28% |
+| Sonnet 5, accuracy-first | 50% | −0.05 | 12% |
+| **Opus 5, readability** | **78%** | **0.23** | **8%** |
+
+Agreement doubled, the discard rate fell to a third, and kappa went from negative to positive —
+and the verdict is still **NOT CALIBRATED**, because 0.23 is nowhere near 0.6. Understanding why
+those two facts sit together is the whole lesson of this round.
+
+**The marginal is degenerate.** The judge answered A on 22 of 25 and B once; the labeller answered
+A 19 times, B 5 and TIE once. Two raters who both almost always say A agree often by construction:
+chance agreement alone is about 72% here, so 78% observed buys almost nothing above it. **Raw
+agreement passed the ~80% bar while kappa says the number is uninformative** — which is exactly
+why the target is stated as both, and why quoting agreement alone would have declared this
+calibrated.
+
+All five disagreements are the same shape: `human=B` or `TIE` against `judge=A`. The judge never
+picks the second model where the labeller does.
+
+**Length bias was the obvious suspect and the data clears it.** Telling a judge that density is a
+cost could plausibly push it into preferring whichever summary is longer, and the candidate that
+won 22 times is systematically the longer one. It did not happen. Mean A/B character ratio where
+the judge says A is **1.23**, against **1.26** where the labeller says A — indistinguishable. The
+judge's single B came on the item where A was **1.75×** longer, the opposite of a length
+preference. And the labeller's own B verdicts average **1.32**, so those are not "the shorter one
+wins" either; they are cases where the extra length stopped paying for itself.
+
+So the prompt is not over-corrected, and the judge tracks the labeller across the easy majority.
+What it cannot do is call the five hard ones, and **this duel does not contain enough of them to
+certify anything either way**. That is the duel-selection rule biting from the other side: a
+19/5/1 split starves kappa whichever direction it leans, and picking this pair for varying the
+newest criterion did not make the labeller split evenly on it.
+
+**A better round on this duel cannot fix this.** The next move for Tier 3 is a duel the labeller
+splits closer to evenly, which costs 25 fresh hand labels and about $2.80 of judge time — not
+another prompt revision. Until then Tier 3 stays uncalibrated and a ranking rests on
+`t2_faithfulness` and `t2_coverage`.
+
+### Two operational traps this round exposed
+
+- **A 402 mid-round is a reservation failure, not an empty account, and it is not the
+  `openrouter_key_limit` trap recorded above.** OpenRouter reserves the *maximum possible* cost of
+  a call — prompt tokens plus the whole `max_tokens` budget — against the remaining credit, so a
+  balance that comfortably covers an entire round still refuses one call carrying a full-size
+  source. The first round died at item 14 of 25 with $3.79 left and $19.28 of key limit unused,
+  and a trivial call on the same key succeeded seconds later. Check the **credit balance**
+  (`/api/v1/credits`), not the key limit (`/api/v1/key`); they are different numbers and this
+  round had room in the one that gets checked first.
+- **The verdicts bought before the crash survived**, because the Langfuse SDK flushes at exit even
+  though `run_judge`'s own `client.flush()` never ran. Do not rely on that — but do check what
+  landed before paying again. `run_judge` now skips sample items already banked under the current
+  pin, filtered on the duel as well, so a killed round is resumed rather than repurchased. Editing
+  the prompt moves the pin and re-runs everything, which is what makes a deliberate
+  re-measurement still possible.
+- **Judge spend is $0.056 per pairwise call**, measured over the 24-call resume at $1.3445. Two
+  calls per pair, so a 25-item duel is about $2.80. That is the figure to size the round-robin
+  from: seven candidates is 21 duels, ~2100 calls, on the order of **$120** — which is why the
+  duel stage is a decision and not a step.
 
 The generated labelling file is markdown containing *summaries that are themselves markdown*,
 so a parser keyed on a `## ` prefix alone reattributes verdicts to headings the model wrote.
