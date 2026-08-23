@@ -81,6 +81,9 @@ PAIR_B = "thinkingmachines/inkling"
 H_FAITHFUL, C_FAITHFUL = "h_faithful", "cal_faithful"
 H_PAIRWISE, C_PAIRWISE = "h_pairwise", "cal_pairwise"
 
+# Judge-prompt name -> the score name its verdicts are banked under.
+SCORE_NAMES = {"faithfulness": C_FAITHFUL, "pairwise": C_PAIRWISE}
+
 PAIRWISE_CATEGORIES = ("A", "B", "TIE")
 
 # `judge` takes its arguments in either order: a token naming a dimension
@@ -453,6 +456,48 @@ def setup():  # noqa: C901, PLR0915
     print(f"\nLabel both at {API.base} -> Human Annotation")
 
 
+def _resume(name, model, rows):
+    """Drop the sample items this pin has already banked a verdict for.
+
+    A round is 50 calls and any one of them can fail outright, mid-round.
+    OpenRouter reserves the *maximum possible* cost of a call against the
+    remaining credit, so a balance that comfortably covers a whole round still
+    refuses a single item carrying a full-size source — a 402 that says nothing
+    about the item and everything about the reservation. The verdicts bought
+    before that point are real and already banked, so re-running the round
+    whole would pay for them a second time and leave two scores per item under
+    one pin, which `agreement` resolves to whichever page arrived last.
+
+    Pairwise is filtered on the duel as well as the pin. A previous duel's
+    scores carry the same `dataset_item_id` and would otherwise read as work
+    already done, for two entirely different models.
+
+    Editing the judge prompt moves the pin, which is what makes a genuine
+    re-measurement possible: nothing is skipped when the pin is new.
+    """
+    if not rows:
+        return rows
+    pin = f"{name}@{judge.judge_version(name)}"
+    done = set()
+    for row in API.paginate(
+        "v3/scores",
+        {"limit": 100, "fields": "core,details", "name": SCORE_NAMES[name]},
+    ):
+        meta = row.get("metadata") or {}
+        if (meta.get("judge_model"), meta.get("judge_prompt")) != (model, pin):
+            continue
+        if name == "pairwise" and (
+            meta.get("run_a") != PAIR_A or meta.get("run_b") != PAIR_B
+        ):
+            continue
+        if item := meta.get("dataset_item_id"):
+            done.add(item)
+    remaining = [r for r in rows if r["item"] not in done]
+    if skipped := len(rows) - len(remaining):
+        print(f"{name}: {skipped} already banked under {pin}, skipping")
+    return remaining
+
+
 def run_judge(model=None, only=None):  # noqa: C901, PLR0915
     """Score the calibration sample with one judge. COSTS MONEY.
 
@@ -477,6 +522,8 @@ def run_judge(model=None, only=None):  # noqa: C901, PLR0915
         pairwise = []
     client = Langfuse()
     model = model or judge.JUDGE_MODEL
+    faithful = _resume("faithfulness", model, faithful)
+    pairwise = _resume("pairwise", model, pairwise)
     spent = []
     refused = []
 
