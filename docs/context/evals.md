@@ -152,8 +152,8 @@ run from a laptop raises Sentry issues in the bot's production stream**, tagged
 `environment: production` with `server_name` set to the developer's machine.
 
 Do not diagnose these as bot defects. Tell them apart by `sys.argv` in the event's extra data:
-a harness event carries `scripts/eval/...`, and `Users Impacted` is 0. Two were raised and closed
-this way (`AI-SUMMARIZER-TELEGRAM-BOT-72`, `-73`), both judge-output formatting failures.
+a harness event carries `scripts/eval/...`, and `Users Impacted` is 0. Issues of this kind have
+been raised and closed as noise.
 
 Threading a `SENTRY_ENVIRONMENT` through `config.py` was proposed and **declined** — it is a
 change to production code at 100% coverage for a developer-only annoyance. The consequence is
