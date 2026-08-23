@@ -745,6 +745,39 @@ Three consequences follow, and the second is easy to miss:
   answer in the language asked for, and `t1_language_match` is where that is enforced and where a
   failure like minimax's 8% drift rate shows up.
 
+#### Density is a cost, and this is the defect a prohibition does not fix
+
+Excluding accuracy left a second leak of the same shape, found by re-reading the eleven
+disagreements after the rewrite: **six were decided on how much of the source each summary
+retained**, a seventh cited it as a secondary reason, and only two turned on the criteria the
+prompt actually lists. Retained substance is `t2_coverage`'s question, measured per summary
+against a fixed checklist, so weighing it here is the double-count again — and the prompt did not
+forbid it, having forbidden only claim-checking. It now forbids both, and says the source is not
+an inventory to score omissions against.
+
+The direction of the disagreement is the part worth keeping, because a prohibition alone would
+not have fixed it. In all six the judge named the *denser* summary as the one that retained more
+and picked it; the labeller picked the other one every time. Across the whole duel the labeller
+preferred the longer model 19–5, and the judge preferred the shorter one in 9 of the 11
+disagreements. So the two sides were not disagreeing about how much was kept — they were
+disagreeing about whether packing it in is a virtue:
+
+- **The judge treated density as a virtue**, crediting facts-per-line and forgiving length when
+  the payload justified it — *"A is longer but earns it."*
+- **The labeller treated density as a cost**, which is what the prompt's own Coherence bullet
+  already said: a stack of noun phrases reads as fragments *however much it contains*.
+
+The rule was therefore already in the prompt and lost to a criterion nothing ruled out. The fix
+is not another prohibition but an explicit statement that density is a cost — plus the note that
+economy and density are not the same thing, since cutting the words that carried the connection
+between two points is damage, not concision.
+
+**The general lesson, now on its third instance: what the pairwise judge decides on is whatever
+the prompt fails to exclude.** Accuracy, output language and retained coverage each arrived this
+way, each looked like a miscalibrated judge, and each was found the same way — by reading the
+judge's own stated reasons on the disagreements rather than by tuning wording. Do that read
+before paying for any round.
+
 ### The round that produced this: pairwise was not calibrated on either judge
 
 These are the numbers the mismatch above produced, kept because they are what a

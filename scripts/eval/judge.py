@@ -204,9 +204,15 @@ another judge. Treat both summaries as equally faithful even where one plainly i
 not. Ranking them on accuracy here would count the same defect twice and would
 bury the one property this comparison exists to measure.
 
+**Do not weigh how much of the source each summary retained.** Which one kept
+more facts, dropped more detail, or omitted a point the other covered is not a
+question you are being asked. Coverage is measured separately, per summary,
+against a fixed checklist. A summary is not better here for being fuller, and
+being fuller never earns a summary anything it did not earn as prose.
+
 The source is given so that you can tell dense from disconnected — a summary can
 only be judged readable against what it was condensing. It is not given so that
-you can check the claims.
+you can check the claims, and it is not an inventory to score omissions against.
 
 **A summary written in an unexpected language is not disqualified here**, and it
 does not lose for that reason alone. Whether the output language was the one
@@ -226,7 +232,15 @@ Weigh, in order:
   is most meant to catch. A point the reader cannot extract has not been
   delivered.
 - **Economy.** Whether each sentence earns its place, and whether anything is
-  merely restated.
+  merely restated. Economy is not the same as density: cutting the words that
+  carried the connection between two points is not economical, it is damage.
+
+**Density is a cost, not a virtue.** A summary that packs more into less is
+harder to read, not better, and the reader pays for every specific that was
+dropped into a line without being connected to anything. So do not credit a
+summary for how much it managed to fit in, and do not treat a rival as padded
+merely for being longer than it. The question is always what reaches the reader,
+never what was fitted into the text.
 
 Length decides nothing in either direction. A longer summary is not better for
 being longer, and a shorter one is not better for being shorter; judges drift
