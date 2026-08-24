@@ -558,6 +558,31 @@ located the same passages but graded them `minor`. A weaker judge here does not 
 problems; it **under-rates real ones**, which looks like agreement on the easy majority and
 collapses on the cases that decide a ranking.
 
+**A third judge was screened and rejected: `openai/gpt-5.6-sol-pro`.** On the *same* prompt pin as
+the Opus round it reached **80% / kappa 0.56 — NOT CALIBRATED**, clearing the agreement bar and
+missing the kappa one. It is the closest any alternative has come, and it still should not be used,
+for two reasons that are worth separating.
+
+**Its errors point the wrong way, and it breaks the property the paragraph above records.** Opus's
+three disagreements are all *misses* — a fault the labels record and it did not. sol-pro has one
+miss and **four false alarms**: it called four of the seventeen hand-accepted summaries unfaithful.
+So "neither invents faults" held for the two Anthropic judges and does **not** generalise. Those
+failures are not interchangeable: a judge that misses faults under-detects and punishes nobody, and
+a judge that invents them **penalises good models in the ranking**, which is the thing the score
+exists to produce. Weigh the direction of the errors, not only the agreement number — on agreement
+alone sol-pro at 80% looks like a near-miss, and on error direction it is the worse instrument.
+
+**And it is not cheaper, measured.** The price card says $2/$10 per M against Opus's $5/$25, so
+2.5× — and the round came to **$0.057 per call against Opus's $0.058**. No saving at all: the
+cheaper token price was spent on roughly 2.5× more tokens, almost certainly reasoning. This is the
+second time a price card has misled here (Sonnet promised 5× and gave 2.2×), and the second time
+in the more expensive direction. **Never quote a judge's cost from the catalog — measure a round.**
+
+A useful consequence: the candidate pool keeps `openai/gpt-5.6-luna`. Adopting an OpenAI judge
+would have forced it out under the family rule, and that trade — a permanent per-request saving on
+a candidate, for a one-off saving on judging — was only ever worth making if the judging saving was
+real. It was not.
+
 **Quote the banked round, not a probe.** Probing the same items ahead of the round gave 92% /
 0.78, and the round gave 88% / 0.65 — one item (`scr-11e822219c80`) graded `material` in the probe
 and `minor` in the round. That item flipped on Sonnet too, so severity near the boundary is
