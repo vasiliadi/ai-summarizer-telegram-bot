@@ -337,6 +337,24 @@ generating, reviewing and writing.
   the prompt now leads with the cap, calls it hard, and says to spend two of the twelve or drop
   one. `checklists.py` re-checks the bound and the markers locally, because the prompt asking is
   not the same as the model obeying.
+- **The cap is read as a quota, and that is worse than the overshoots.** Measured over a full
+  50-item generation on Opus: **39 lists came back at exactly 12, 49 of 50 at twelve or more**,
+  and one list in five broke the cap outright (13–15 facts). Only a single source produced fewer
+  than twelve. A model told "at most 12, this is a hard cap, not a target" fills the quota
+  anyway.
+
+  The overshoots are cosmetic — trim to twelve. The quota is not. A checklist is meant to be a
+  test of what must survive summarisation, not an index of the source, and a list padded to
+  length turns `t2_coverage` into "did you cover twelve arbitrary things", with its tail
+  penalising every candidate equally for material that never mattered. **This is what the
+  hand-review step is really for**: cutting the tail, not fixing the count. Read the last few
+  facts of each list first — they are where the padding is.
+- **Generation costs about $0.06 per item, not the cents a short prompt suggests.** 48 items came
+  to **$2.79** on Opus. The output is a dozen short sentences; the bill is the *source*, up to
+  120k characters of it at input rates. Anything priced per item here scales with source length,
+  so estimate from the corpus rather than from the reply. `generate` discards the usage `ask`
+  returns, so the number came from the credit balance either side of the run — the same gap the
+  compare report has.
 
 ## Tier 1: binary sub-checks, never weighted points
 
