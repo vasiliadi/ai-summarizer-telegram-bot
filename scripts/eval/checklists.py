@@ -10,6 +10,8 @@ experiment afterwards scores recall against it. The cost is paid once per
     uv run python scripts/eval/checklists.py status            # free
     uv run python scripts/eval/checklists.py generate [limit]  # COSTS MONEY: one call per item
     uv run python scripts/eval/checklists.py show <digest>     # free: source + facts, to review
+    uv run python scripts/eval/checklists.py review            # free: one markdown file to edit
+    uv run python scripts/eval/checklists.py apply             # free: reads that file back
     uv run python scripts/eval/checklists.py push [--all]      # free: writes expected_output
 
 Generation writes to a working file under `temp/`, never straight to Langfuse.
@@ -238,6 +240,179 @@ def _upsert(client, item, facts):
     )
 
 
+REVIEW_FILE = REPO / "temp" / "checklist-review.md"
+EXCERPT = 700
+TAIL = 3
+
+# The parser keys on these exact lines rather than on markdown structure. Facts
+# are model-written prose and sources are raw transcripts, so any heading- or
+# bullet-shaped anchor can be produced by the content itself — the same trap the
+# pairwise labelling file hit, where a `## ` prefix reattributed verdicts to
+# headings inside a summary. A digest heading is additionally only honoured when
+# it names a checklist the working file already knows.
+FACTS_OPEN, FACTS_CLOSE = "<!-- facts -->", "<!-- /facts -->"
+REVIEWED_NO, REVIEWED_YES = "<!-- reviewed: no -->", "<!-- reviewed: yes -->"
+
+
+def _flags(facts):
+    """Why this checklist needs attention before the padding question."""
+    out = []
+    if len(facts) > MAX_FACTS:
+        out.append(f"{len(facts)} фактов при потолке {MAX_FACTS} — сократить")
+    if len(facts) < MIN_FACTS:
+        out.append(f"{len(facts)} фактов, минимум {MIN_FACTS}")
+    marked = sum(1 for f in facts if _is_marked(f))
+    if marked:
+        out.append(f"{marked} факт(ов) с маркером или номером внутри — убрать")
+    return out
+
+
+def review(client=None):
+    """Write every checklist to one markdown file for the hand-review pass.
+
+    The source is *not* inlined. Fifty sources run to 1.28M characters, so the
+    file would be unreadable and the facts — the thing actually being edited —
+    would be buried. A short excerpt orients, `show` prints the whole thing for
+    the few that need it.
+
+    Flagged checklists come first. The cap is read as a quota rather than a
+    limit, so nearly every list arrives at exactly twelve and the real work is
+    cutting the tail, not fixing the count; the last few facts are marked for
+    that reason.
+    """
+    state = _load()
+    if not state["items"]:
+        sys.exit(f"nothing in {WORKING_FILE}; run `generate` first")
+
+    client = client or Langfuse()
+    sources = {
+        _digest(i.id): (i.input or {}).get("content", "")
+        for i in _items(client, COMPARE)
+    }
+
+    ordered = sorted(
+        state["items"].items(),
+        key=lambda kv: (not _flags(kv[1]["key_facts"]), kv[0]),
+    )
+    flagged = sum(1 for _, e in ordered if _flags(e["key_facts"]))
+
+    out = [
+        "# Вычитка чеклистов",
+        "",
+        f"{len(ordered)} списков, {flagged} помечены как требующие правки — они идут первыми.",
+        "",
+        "**Как править:**",
+        "",
+        "- Удалите строку факта, чтобы выбросить его. Правьте текст прямо в строке.",
+        f"- Строки внутри `{FACTS_OPEN}` … `{FACTS_CLOSE}` — это факты, по одному на строку.",
+        f"- Закончив список, замените `{REVIEWED_NO}` на `{REVIEWED_YES}`.",
+        "  Разбор возьмёт только помеченные — недоделанное можно оставить как есть.",
+        f"- Потолок — {MAX_FACTS} фактов, но это ограничение, а не норма. Хвост помечен",
+        "  `TAIL`: именно там добивка до счёта, и именно его чаще всего надо резать.",
+        "",
+        "Затем: `uv run python scripts/eval/checklists.py apply`",
+        "",
+    ]
+    for key, entry in ordered:
+        facts = entry["key_facts"]
+        source = sources.get(key, "")
+        out += [
+            "---",
+            "",
+            f"## {key}",
+            REVIEWED_NO,
+            "",
+            (
+                f"страта: {entry.get('stratum')} · источник: {entry['chars']} знаков"
+                f" · фактов: {len(facts)}"
+            ),
+        ]
+        out += [f"⚠️ {f}" for f in _flags(facts)]
+        out += [
+            "",
+            f"полный источник: `uv run python scripts/eval/checklists.py show {key}`",
+            "",
+            "<details><summary>начало источника</summary>",
+            "",
+            "> " + " ".join(source[:EXCERPT].split()) + "…",
+            "",
+            "</details>",
+            "",
+            FACTS_OPEN,
+        ]
+        for index, fact in enumerate(facts):
+            tail = "  <!-- TAIL -->" if index >= len(facts) - TAIL else ""
+            out.append(f"- {fact}{tail}")
+        out += [FACTS_CLOSE, ""]
+
+    REVIEW_FILE.parent.mkdir(parents=True, exist_ok=True)
+    REVIEW_FILE.write_text("\n".join(out) + "\n")
+    print(f"{len(ordered)} checklist(s) written to {REVIEW_FILE}")
+    print(f"{flagged} flagged, listed first")
+    print("Edit, mark each finished list reviewed, then `checklists.py apply`.")
+
+
+def apply_review():  # noqa: C901, PLR0912
+    """Read the edited review file back into the working file.
+
+    Only sections marked reviewed are taken, so a half-finished pass is safe to
+    apply and resume. A section deleted outright is left alone rather than
+    emptied — the file is an editing surface, not the record.
+    """
+    if not REVIEW_FILE.exists():
+        sys.exit(f"{REVIEW_FILE} does not exist; run `review` first")
+    state = _load()
+    known = set(state["items"])
+
+    edited, key, in_facts, reviewed, facts = {}, None, False, False, []
+
+    def close():
+        if key and reviewed:
+            edited[key] = facts
+
+    for raw in REVIEW_FILE.read_text().splitlines():
+        line = raw.strip()
+        if line.startswith("## ") and line[3:].strip() in known:
+            close()
+            key, in_facts, reviewed, facts = line[3:].strip(), False, False, []
+        elif line == REVIEWED_YES:
+            reviewed = True
+        elif line == FACTS_OPEN:
+            in_facts = True
+        elif line == FACTS_CLOSE:
+            in_facts = False
+        elif in_facts and line.startswith("- "):
+            fact = line[2:].split("<!-- TAIL -->")[0].strip()
+            if fact:
+                facts.append(fact)
+    close()
+
+    if not edited:
+        sys.exit(
+            f"no list is marked {REVIEWED_YES} in {REVIEW_FILE}; nothing to apply",
+        )
+
+    changed = 0
+    for key, facts in edited.items():
+        entry = state["items"][key]
+        if entry["key_facts"] != facts:
+            changed += 1
+        entry["key_facts"] = facts
+        entry["reviewed"] = True
+    _save(state)
+
+    print(f"{len(edited)} list(s) marked reviewed, {changed} edited")
+    for key, facts in sorted(edited.items()):
+        complaints = _check(facts)
+        if complaints:
+            print(f"  {key}: {'; '.join(complaints)}")
+    remaining = len(state["items"]) - sum(
+        1 for e in state["items"].values() if e.get("reviewed")
+    )
+    print(f"{remaining} still awaiting review")
+    print(f"written to {WORKING_FILE}; `checklists.py push` when done")
+
+
 def push(include_unreviewed=False):  # noqa: C901, PLR0912
     """Write reviewed checklists onto both datasets' items, and verify."""
     client = Langfuse()
@@ -303,6 +478,10 @@ if __name__ == "__main__":
         generate(int(args[1]) if len(args) > 1 else 0)
     elif command == "show":
         show(args[1])
+    elif command == "review":
+        review()
+    elif command == "apply":
+        apply_review()
     elif command == "push":
         push(include_unreviewed="--all" in args)
     else:
