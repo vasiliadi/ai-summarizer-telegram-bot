@@ -828,7 +828,8 @@ Same 25 hand labels, same judge model, three specification fixes later
 |---|---|---|---|
 | Opus 5, accuracy-first | 39% | −0.09 | 28% |
 | Sonnet 5, accuracy-first | 50% | −0.05 | 12% |
-| **Opus 5, readability** | **78%** | **0.23** | **8%** |
+| **Opus 5, readability** | **78%** | 0.23 | **8%** |
+| Sonnet 5, readability | 50% | **0.29** | **60%** |
 
 Agreement doubled, the discard rate fell to a third, and kappa went from negative to positive —
 and the verdict is still **NOT CALIBRATED**, because 0.23 is nowhere near 0.6. Understanding why
@@ -863,6 +864,36 @@ splits closer to evenly, which costs 25 fresh hand labels and about $2.80 of jud
 another prompt revision. Until then Tier 3 stays uncalibrated and a ranking rests on
 `t2_faithfulness` and `t2_coverage`.
 
+#### Do not read that table's kappa column across rows
+
+Sonnet on the rewritten prompt scores kappa **0.29 against Opus's 0.23**, and it costs less than
+half as much per call. Reading the column downward says take Sonnet. That is wrong, and the reason
+is worth holding onto because the table itself does not show it.
+
+Sonnet discarded **60%** of the pairs. Its kappa is computed on the **10 verdicts that survived**,
+Opus's on 23 — different samples, different sizes, and no basis for comparison. Sonnet's number is
+higher precisely *because* what survived is balanced (3 A / 3 B / 4 TIE), and a balanced marginal
+lowers chance agreement; the same property that starves Opus's kappa inflates Sonnet's. Four of
+its ten consistent verdicts are TIE, so it is hedging rather than deciding.
+
+**Kappa is only comparable between judges at comparable discard rates.** Read the discard column
+first: it is the one number here that is a direct judge-quality signal, needs no hand labels at
+all, and cannot be inflated by a favourable marginal.
+
+**A tighter specification made the weaker judge worse, and that direction is the finding.** Sonnet
+went from 12% discards to 60% on the rewritten prompt while Opus went from 28% to 8%. The new
+prompt asks the judge to hold four exclusions at once — accuracy, output language, retained
+coverage, density-as-virtue — and apply what is left. Holding them is capability-bound. So the
+failure mode is not the one faithfulness showed, where a weaker judge *under-rated* real problems;
+here the weaker judge does not disagree at all, it becomes **unstable**, answering differently
+depending on which summary it sees first. Expect a precision-raising prompt edit to cost a weak
+judge consistency, and re-check the discard rate rather than the agreement after making one.
+
+This closes the spend-the-difference question for Tier 3 for now: the cheap judge does not clear
+the bar, for a second and different reason than on faithfulness. It cost $1.24 to settle with
+numbers instead of assumption, which is the right trade — do not re-litigate it from the price
+table.
+
 ### Two operational traps this round exposed
 
 - **A 402 mid-round is a reservation failure, not an empty account, and it is not the
@@ -879,7 +910,9 @@ another prompt revision. Until then Tier 3 stays uncalibrated and a ranking rest
   pin, filtered on the duel as well, so a killed round is resumed rather than repurchased. Editing
   the prompt moves the pin and re-runs everything, which is what makes a deliberate
   re-measurement still possible.
-- **Judge spend is $0.056 per pairwise call**, measured over the 24-call resume at $1.3445. Two
+- **Judge spend is $0.056 per pairwise call on Opus**, measured over the 24-call resume at $1.3445;
+  Sonnet is $0.025, only 2.2x cheaper rather than the 5x its price card suggests, because the bill
+  is dominated by the source on input rather than by the short verdict. Two
   calls per pair, so a 25-item duel is about $2.80. That is the figure to size the round-robin
   from: seven candidates is 21 duels, ~2100 calls, on the order of **$120** — which is why the
   duel stage is a decision and not a step.
