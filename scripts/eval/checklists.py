@@ -225,9 +225,16 @@ def show(key, full=False):
         print(f"{index:2d}. {fact}")
     for complaint in _check(entry["key_facts"]):
         print(f"\n  NOTE: {complaint}")
-    print(
-        f'\nEdit {WORKING_FILE} under "{key}", then set its "reviewed" to true.',
-    )
+    # The next-step hint is for a person reading a terminal, and `--full` output
+    # is not that: it goes to a file handed to another model. An imperative
+    # sentence sitting in that file is an instruction something may act on, and
+    # this one names a path and an edit to make there. The same shape as the
+    # `## ` heading that once reattributed labels — content read as direction —
+    # except the reader here can write to disk. Nothing imperative goes in.
+    if not full:
+        print(
+            f'\nEdit {WORKING_FILE} under "{key}", then set its "reviewed" to true.',
+        )
 
 
 def _upsert(client, item, facts):
