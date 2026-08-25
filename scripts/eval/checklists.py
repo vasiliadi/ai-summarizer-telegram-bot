@@ -9,7 +9,7 @@ experiment afterwards scores recall against it. The cost is paid once per
 
     uv run python scripts/eval/checklists.py status            # free
     uv run python scripts/eval/checklists.py generate [limit]  # COSTS MONEY: one call per item
-    uv run python scripts/eval/checklists.py show <digest>     # free: source + facts, to review
+    uv run python scripts/eval/checklists.py show <digest> [--full]  # free: source + facts, to review
     uv run python scripts/eval/checklists.py review            # free: one markdown file to edit
     uv run python scripts/eval/checklists.py apply             # free: reads that file back
     uv run python scripts/eval/checklists.py push [--all]      # free: writes expected_output
@@ -196,8 +196,15 @@ def generate(limit=0):
     print('Review each list, set "reviewed": true, then `checklists.py push`.')
 
 
-def show(key):
-    """Print one source next to its checklist, for the hand-review step."""
+def show(key, full=False):
+    """Print one source next to its checklist, for the hand-review step.
+
+    The default truncates to keep a 70k-character transcript from filling the
+    terminal. `--full` prints all of it, for handing the source to something
+    else: asked over a *truncated* source, a model reports the entries it
+    cannot see as absent, which is indistinguishable from the generator having
+    invented them and is wrong. Redirect it to a file.
+    """
     state = _load()
     entry = state["items"].get(key)
     if not entry:
@@ -209,9 +216,10 @@ def show(key):
     }
     source = sources.get(key, "")
     print(f"\n=== {key} | {entry.get('stratum')} | {entry['chars']} chars ===\n")
-    print(source[:12000])
-    if len(source) > 12000:
-        print(f"\n[... {len(source) - 12000} more chars]")
+    limit = len(source) if full else 12000
+    print(source[:limit])
+    if len(source) > limit:
+        print(f"\n[... {len(source) - limit} more chars — pass --full for all]")
     print(f"\n=== {len(entry['key_facts'])} facts ===\n")
     for index, fact in enumerate(entry["key_facts"], 1):
         print(f"{index:2d}. {fact}")
@@ -477,7 +485,7 @@ if __name__ == "__main__":
     elif command == "generate":
         generate(int(args[1]) if len(args) > 1 else 0)
     elif command == "show":
-        show(args[1])
+        show(args[1], full="--full" in args)
     elif command == "review":
         review()
     elif command == "apply":
