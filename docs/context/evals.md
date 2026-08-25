@@ -337,6 +337,30 @@ generating, reviewing and writing.
   the prompt now leads with the cap, calls it hard, and says to spend two of the twelve or drop
   one. `checklists.py` re-checks the bound and the markers locally, because the prompt asking is
   not the same as the model obeying.
+- **The cap is fixed because the denominator is anchored to the summary, not to the source.**
+  The obvious objection is that a conference transcript genuinely holds more than twelve facts
+  worth keeping, and it does. It is still the wrong thing to size the checklist by, because
+  **summary length barely follows source length**: measured across the 25 duel items, the source
+  grows **7×** between the shortest and longest eight (median 6,340 → 44,164 characters) while the
+  summaries grow **1.54×** and **1.24×** (correlation +0.54 and +0.31). The bot writes a Telegram
+  message, not a report.
+
+  Scale the checklist with the source and a 70k-character conference earns roughly 130 facts
+  against a summary half again as long as usual: every candidate scores about 0.1 and
+  `t2_coverage` measures source length rather than summary quality. **A metric needs an attainable
+  ceiling** — a 2,600–3,400-character summary carries on the order of 12–20 distinct assertions,
+  so twelve sits under that capacity and a perfect summary can reach 12/12. At thirty the maximum
+  is unreachable and every difference between candidates is compressed into the bottom of the
+  scale. The question the score asks is "of the twelve that mattered most, how many arrived", and
+  that is equally meaningful for a conference and for a short article.
+
+  Two costs come with it, and both are real. **Coverage saturates on short sources**: the shortest
+  item is 3,043 characters against summaries of 1,554 and 1,659, barely 2× compression, so
+  everything fits and every candidate scores near 12/12 with nothing to separate them. And the
+  fixed cap makes the *ranking* of facts carry all the weight — which the generating model does
+  not actually do. Source length spans **23×** across the set, so a single mean `t2_coverage`
+  mixes saturated short items with coarse long ones; read it banded by `chars` or `stratum` before
+  concluding anything from it.
 - **The cap is read as a quota, and that is worse than the overshoots.** Measured over a full
   50-item generation on Opus: **39 lists came back at exactly 12, 49 of 50 at twelve or more**,
   and one list in five broke the cap outright (13–15 facts). Only a single source produced fewer
