@@ -266,12 +266,12 @@ def _flags(facts):
     """Why this checklist needs attention before the padding question."""
     out = []
     if len(facts) > MAX_FACTS:
-        out.append(f"{len(facts)} фактов при потолке {MAX_FACTS} — сократить")
+        out.append(f"{len(facts)} facts over the cap of {MAX_FACTS} — cut it down")
     if len(facts) < MIN_FACTS:
-        out.append(f"{len(facts)} фактов, минимум {MIN_FACTS}")
+        out.append(f"{len(facts)} facts, minimum is {MIN_FACTS}")
     marked = sum(1 for f in facts if _is_marked(f))
     if marked:
-        out.append(f"{marked} факт(ов) с маркером или номером внутри — убрать")
+        out.append(f"{marked} fact(s) carry a bullet or number inside — strip it")
     return out
 
 
@@ -305,26 +305,20 @@ def review(client=None):
     flagged = sum(1 for _, e in ordered if _flags(e["key_facts"]))
 
     out = [
-        "# Вычитка чеклистов",
+        "# Checklist review",
         "",
-        f"{len(ordered)} списков, {flagged} помечены как требующие правки — они идут первыми.",
+        f"{len(ordered)} lists, {flagged} flagged and listed first.",
         "",
-        "**Как править:**",
+        "Delete a fact's line to drop it; edit in place to reword it. Only lines",
+        f"between `{FACTS_OPEN}` and `{FACTS_CLOSE}` are facts.",
         "",
-        "- Удалите строку факта, чтобы выбросить его. Правьте текст прямо в строке.",
-        f"- Строки внутри `{FACTS_OPEN}` … `{FACTS_CLOSE}` — это факты, по одному на строку.",
-        f"- Закончив список, замените `{REVIEWED_NO}` на `{REVIEWED_YES}`.",
-        "  Разбор возьмёт только помеченные — недоделанное можно оставить как есть.",
-        f"- Потолок — {MAX_FACTS} фактов, но это ограничение, а не норма. Хвост помечен",
-        "  `TAIL`: именно там добивка до счёта, и именно его чаще всего надо резать.",
+        f"Change `{REVIEWED_NO}` to `{REVIEWED_YES}` when a list is done — `apply`",
+        "takes only those, so stopping part-way is safe.",
         "",
-        "**Выдержка под каждым списком — только чтобы узнать источник.** Она обрезана",
-        "до 700 знаков из десятков тысяч. Отдавать её модели нельзя: спрошенная по",
-        "выдержке, модель объявит отсутствующими факты, которые в полном тексте",
-        "встречаются десятки раз, и это неотличимо от «генератор их выдумал».",
-        "Полный текст — командой под каждым списком, она пишет его в файл.",
+        f"`TAIL` marks the last {TAIL} facts. {MAX_FACTS} is a cap, not a target, and it",
+        "is read as one: that is where the padding is.",
         "",
-        "Затем: `uv run python scripts/eval/checklists.py apply`",
+        "Then: `uv run python scripts/eval/checklists.py apply`",
         "",
     ]
     for key, entry in ordered:
@@ -337,21 +331,21 @@ def review(client=None):
             REVIEWED_NO,
             "",
             (
-                f"страта: {entry.get('stratum')} · источник: {entry['chars']} знаков"
-                f" · фактов: {len(facts)}"
+                f"{entry.get('stratum')} · source {entry['chars']} chars"
+                f" · {len(facts)} facts"
             ),
         ]
         out += [f"⚠️ {f}" for f in _flags(facts)]
         out += [
             "",
             (
-                "полный источник в файл: `uv run python scripts/eval/checklists.py"
+                "whole source to a file: `uv run python scripts/eval/checklists.py"
                 f" show {key} --full > temp/src-{key}.md`"
             ),
             "",
             (
-                "<details><summary>начало источника — только для узнавания,"
-                " не для модели</summary>"
+                "<details><summary>opening of the source — to recognise it, not to"
+                " hand to a model</summary>"
             ),
             "",
             "> " + " ".join(source[:EXCERPT].split()) + "…",
