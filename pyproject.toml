@@ -19,7 +19,7 @@ dependencies = [
     "pytelegrambotapi==4.36.1",
     "redis==8.1.0",
     "replicate==1.0.7",
-    "sentry-sdk==2.68.0",
+    "sentry-sdk==2.68.1",
     "sqlalchemy==2.0.52",
     "tavily-python==0.7.27",
     "telegramify-markdown==1.2.0",
