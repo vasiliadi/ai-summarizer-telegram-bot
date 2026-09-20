@@ -174,6 +174,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/85/ed/0357a015892fd68058bf2d39d3fd1958e459b997a7db30aaa6aaa434ae96/aiohttp-3.14.3-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/88/c6/92fcd42f1ba33e1184263f25bfabf3d27c383410470f169e4b8163bf9c17/beautifulsoup4-4.15.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8b/69/1acef0ae723f28ec0554cfad06fac1004b6d75ef2540ef29ff8e46688d58/pydantic_ai_slim-2.44.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/8b/bf/3a33719519efe72d6ee61d12dcad9b8e698713c567062b6743493ce7abcf/exa_py-2.22.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8e/09/c46e566dd9f8dbc09c376c9c273e27da61d89e4e7e7d03b5be35720ecfb3/deno-2.9.6-py3-none-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/8f/a7/b470f672e6fc5fee0a01d9e75005a0e617e162381974213a945fcd274843/pytokens-0.4.1-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/91/25/489751806bf5c95e4007f8e17409199c54d31e49ffbea07c5729b1286c8e/types_toml-0.10.8.20260518-py3-none-any.whl
@@ -199,7 +200,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/ba/19/797e2aaac9df6a66f1550f49979dc1b1e39ecd2077501c30efa81e8d5d67/cryptography-50.0.1-cp311-abi3-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/be/95/129ea37efd6cd6ed00f62baae6543345c677810b8a3bf0026756e1d3cf3c/youtube_transcript_api-1.2.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/c2/5a/b3aa02a11a33de08e7771579154af3193decfb9d923b30b14c17b4e8bbce/replicate-1.0.7-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/c6/05/bfe1da94bd79fb2ef50f82b391ee495f363995e465bc3c2fbafafa030381/exa_py-2.21.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/c8/95/411ba65569158e862368917aaf56597f3e5fa3b91b0502919638465a08f3/httpx2-2.12.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ca/6f/a04e900f465ff3221ccc395522503e2d10e79fa21f2723c8e177aae1e0d1/opentelemetry_api-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl
@@ -390,6 +390,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/85/ed/0357a015892fd68058bf2d39d3fd1958e459b997a7db30aaa6aaa434ae96/aiohttp-3.14.3-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/88/c6/92fcd42f1ba33e1184263f25bfabf3d27c383410470f169e4b8163bf9c17/beautifulsoup4-4.15.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8b/69/1acef0ae723f28ec0554cfad06fac1004b6d75ef2540ef29ff8e46688d58/pydantic_ai_slim-2.44.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/8b/bf/3a33719519efe72d6ee61d12dcad9b8e698713c567062b6743493ce7abcf/exa_py-2.22.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8e/09/c46e566dd9f8dbc09c376c9c273e27da61d89e4e7e7d03b5be35720ecfb3/deno-2.9.6-py3-none-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/8f/a7/b470f672e6fc5fee0a01d9e75005a0e617e162381974213a945fcd274843/pytokens-0.4.1-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/91/25/489751806bf5c95e4007f8e17409199c54d31e49ffbea07c5729b1286c8e/types_toml-0.10.8.20260518-py3-none-any.whl
@@ -414,7 +415,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/ba/19/797e2aaac9df6a66f1550f49979dc1b1e39ecd2077501c30efa81e8d5d67/cryptography-50.0.1-cp311-abi3-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/be/95/129ea37efd6cd6ed00f62baae6543345c677810b8a3bf0026756e1d3cf3c/youtube_transcript_api-1.2.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/c2/5a/b3aa02a11a33de08e7771579154af3193decfb9d923b30b14c17b4e8bbce/replicate-1.0.7-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/c6/05/bfe1da94bd79fb2ef50f82b391ee495f363995e465bc3c2fbafafa030381/exa_py-2.21.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/c8/95/411ba65569158e862368917aaf56597f3e5fa3b91b0502919638465a08f3/httpx2-2.12.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ca/6f/a04e900f465ff3221ccc395522503e2d10e79fa21f2723c8e177aae1e0d1/opentelemetry_api-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cd/d0/fdeb1a98d8d3a6205f5f297c51b4a9bfe65126ab60339669bbe3dd54c2e2/opentelemetry_exporter_otlp_proto_http-1.44.0-py3-none-any.whl
@@ -588,6 +588,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/85/ed/0357a015892fd68058bf2d39d3fd1958e459b997a7db30aaa6aaa434ae96/aiohttp-3.14.3-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/88/c6/92fcd42f1ba33e1184263f25bfabf3d27c383410470f169e4b8163bf9c17/beautifulsoup4-4.15.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8b/69/1acef0ae723f28ec0554cfad06fac1004b6d75ef2540ef29ff8e46688d58/pydantic_ai_slim-2.44.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/8b/bf/3a33719519efe72d6ee61d12dcad9b8e698713c567062b6743493ce7abcf/exa_py-2.22.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8e/09/c46e566dd9f8dbc09c376c9c273e27da61d89e4e7e7d03b5be35720ecfb3/deno-2.9.6-py3-none-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/97/bd/8e0cadd69d0855646eda8d584ef4f38ca46cf271553af8ba7f93ae607626/langfuse-4.15.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/99/91/8acff4f5e50511b911bbccb72b8628a49c68ce14148cd9f6431094859a90/annotated_types-0.8.0-py3-none-any.whl
@@ -604,7 +605,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/ba/19/797e2aaac9df6a66f1550f49979dc1b1e39ecd2077501c30efa81e8d5d67/cryptography-50.0.1-cp311-abi3-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/be/95/129ea37efd6cd6ed00f62baae6543345c677810b8a3bf0026756e1d3cf3c/youtube_transcript_api-1.2.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/c2/5a/b3aa02a11a33de08e7771579154af3193decfb9d923b30b14c17b4e8bbce/replicate-1.0.7-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/c6/05/bfe1da94bd79fb2ef50f82b391ee495f363995e465bc3c2fbafafa030381/exa_py-2.21.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/c8/95/411ba65569158e862368917aaf56597f3e5fa3b91b0502919638465a08f3/httpx2-2.12.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ca/6f/a04e900f465ff3221ccc395522503e2d10e79fa21f2723c8e177aae1e0d1/opentelemetry_api-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cd/d0/fdeb1a98d8d3a6205f5f297c51b4a9bfe65126ab60339669bbe3dd54c2e2/opentelemetry_exporter_otlp_proto_http-1.44.0-py3-none-any.whl
@@ -794,6 +794,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/85/ed/0357a015892fd68058bf2d39d3fd1958e459b997a7db30aaa6aaa434ae96/aiohttp-3.14.3-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/88/c6/92fcd42f1ba33e1184263f25bfabf3d27c383410470f169e4b8163bf9c17/beautifulsoup4-4.15.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8b/69/1acef0ae723f28ec0554cfad06fac1004b6d75ef2540ef29ff8e46688d58/pydantic_ai_slim-2.44.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/8b/bf/3a33719519efe72d6ee61d12dcad9b8e698713c567062b6743493ce7abcf/exa_py-2.22.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/8e/09/c46e566dd9f8dbc09c376c9c273e27da61d89e4e7e7d03b5be35720ecfb3/deno-2.9.6-py3-none-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/8f/a7/b470f672e6fc5fee0a01d9e75005a0e617e162381974213a945fcd274843/pytokens-0.4.1-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/91/25/489751806bf5c95e4007f8e17409199c54d31e49ffbea07c5729b1286c8e/types_toml-0.10.8.20260518-py3-none-any.whl
@@ -819,7 +820,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/ba/19/797e2aaac9df6a66f1550f49979dc1b1e39ecd2077501c30efa81e8d5d67/cryptography-50.0.1-cp311-abi3-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/be/95/129ea37efd6cd6ed00f62baae6543345c677810b8a3bf0026756e1d3cf3c/youtube_transcript_api-1.2.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/c2/5a/b3aa02a11a33de08e7771579154af3193decfb9d923b30b14c17b4e8bbce/replicate-1.0.7-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/c6/05/bfe1da94bd79fb2ef50f82b391ee495f363995e465bc3c2fbafafa030381/exa_py-2.21.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/c8/95/411ba65569158e862368917aaf56597f3e5fa3b91b0502919638465a08f3/httpx2-2.12.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ca/6f/a04e900f465ff3221ccc395522503e2d10e79fa21f2723c8e177aae1e0d1/opentelemetry_api-1.44.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl
@@ -2353,7 +2353,7 @@ packages:
   requires_dist:
   - beautifulsoup4==4.15.0
   - curl-cffi==0.16.3
-  - exa-py==2.21.0
+  - exa-py==2.22.0
   - google-genai==2.24.0
   - langfuse==4.15.4
   - limits==5.8.0
@@ -3080,6 +3080,19 @@ packages:
   - xai-sdk>=1.16.0 ; extra == 'xai-realtime'
   - openai>=3.8.0 ; extra == 'zai'
   requires_python: '>=3.10'
+- pypi: https://files.pythonhosted.org/packages/8b/bf/3a33719519efe72d6ee61d12dcad9b8e698713c567062b6743493ce7abcf/exa_py-2.22.0-py3-none-any.whl
+  name: exa-py
+  version: 2.22.0
+  sha256: c8ff2932ff524e12381d5a5a6c1a228ec8461d43b2413cad61d517d8b5e4e0fb
+  requires_dist:
+  - httpcore>=1.0.9
+  - httpx>=0.28.1
+  - openai>=1.48
+  - pydantic>=2.10.6
+  - python-dotenv>=1.0.1
+  - requests>=2.32.3
+  - typing-extensions>=4.12.2
+  requires_python: '>=3.9'
 - pypi: https://files.pythonhosted.org/packages/8e/09/c46e566dd9f8dbc09c376c9c273e27da61d89e4e7e7d03b5be35720ecfb3/deno-2.9.6-py3-none-macosx_11_0_arm64.whl
   name: deno
   version: 2.9.6
@@ -3359,19 +3372,6 @@ packages:
   - pydantic>1.10.7
   - typing-extensions>=4.5.0
   requires_python: '>=3.8'
-- pypi: https://files.pythonhosted.org/packages/c6/05/bfe1da94bd79fb2ef50f82b391ee495f363995e465bc3c2fbafafa030381/exa_py-2.21.0-py3-none-any.whl
-  name: exa-py
-  version: 2.21.0
-  sha256: bb4fb97c812251ef2f359323d25bdd01e0ec57d7c71f0c7f7041e64db6ba7123
-  requires_dist:
-  - httpcore>=1.0.9
-  - httpx>=0.28.1
-  - openai>=1.48
-  - pydantic>=2.10.6
-  - python-dotenv>=1.0.1
-  - requests>=2.32.3
-  - typing-extensions>=4.12.2
-  requires_python: '>=3.9'
 - pypi: https://files.pythonhosted.org/packages/c8/95/411ba65569158e862368917aaf56597f3e5fa3b91b0502919638465a08f3/httpx2-2.12.0-py3-none-any.whl
   name: httpx2
   version: 2.12.0
