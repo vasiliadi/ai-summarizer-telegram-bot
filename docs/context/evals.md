@@ -331,50 +331,58 @@ generating, reviewing and writing.
   language. Translating the checklist at build time would bake a translation error into the
   reference everything downstream is measured against, and the judge is already told that
   wording and language need not match.
-- **The count is capped at 12 and the cap needs stating twice.** Asked for "between 5 and 12"
-  once, at the end, the model returned 14 on the first real source and joined two assertions
-  with "and" in five of them. A fact carrying two claims cannot be answered entailed-or-not, so
-  the prompt now leads with the cap, calls it hard, and says to spend two of the twelve or drop
-  one. `checklists.py` re-checks the bound and the markers locally, because the prompt asking is
-  not the same as the model obeying.
-- **The cap is fixed because the denominator is anchored to the summary, not to the source.**
-  The obvious objection is that a conference transcript genuinely holds more than twelve facts
-  worth keeping, and it does. It is still the wrong thing to size the checklist by, because
-  **summary length barely follows source length**: measured across the 25 duel items, the source
-  grows **7×** between the shortest and longest eight (median 6,340 → 44,164 characters) while the
-  summaries grow **1.54×** and **1.24×** (correlation +0.54 and +0.31). The bot writes a Telegram
-  message, not a report.
-
-  Scale the checklist with the source and a 70k-character conference earns roughly 130 facts
-  against a summary half again as long as usual: every candidate scores about 0.1 and
-  `t2_coverage` measures source length rather than summary quality. **A metric needs an attainable
-  ceiling** — a 2,600–3,400-character summary carries on the order of 12–20 distinct assertions,
-  so twelve sits under that capacity and a perfect summary can reach 12/12. At thirty the maximum
-  is unreachable and every difference between candidates is compressed into the bottom of the
-  scale. The question the score asks is "of the twelve that mattered most, how many arrived", and
-  that is equally meaningful for a conference and for a short article.
-
-  Two costs come with it, and both are real. **Coverage saturates on short sources**: the shortest
-  item is 3,043 characters against summaries of 1,554 and 1,659, barely 2× compression, so
-  everything fits and every candidate scores near 12/12 with nothing to separate them. And the
-  fixed cap makes the *ranking* of facts carry all the weight — which the generating model does
-  not actually do. Source length spans **23×** across the set, so a single mean `t2_coverage`
-  mixes saturated short items with coarse long ones; read it banded by `chars` or `stratum` before
-  concluding anything from it.
-- **The cap is read as a quota, and that is worse than the overshoots.** Measured over a full
-  50-item generation on Opus: **39 lists came back at exactly 12, 49 of 50 at twelve or more**,
-  and one list in five broke the cap outright (13–15 facts). Only a single source produced fewer
-  than twelve. A model told "at most 12, this is a hard cap, not a target" fills the quota
-  anyway.
-
-  The overshoots are cosmetic — trim to twelve. The quota is not. A checklist is meant to be a
-  test of what must survive summarisation, not an index of the source, and a list padded to
-  length turns `t2_coverage` into "did you cover twelve arbitrary things", with its tail
-  penalising every candidate equally for material that never mattered. **This is what the
-  hand-review step is really for**: cutting the tail, not fixing the count. Read the last few
-  facts of each list first — they are where the padding is.
-- **Generation costs about $0.06 per item, not the cents a short prompt suggests.** 48 items came
-  to **$2.79** on Opus. The output is a dozen short sentences; the bill is the *source*, up to
+- **A checklist item is a key point — an idea — not an atomic fact, and the list has no cap.**
+  The first generation (`key_facts@dc7a8a2c22ec`) asked for "one event, one figure, one named
+  actor" under a hard cap of 12. Both halves failed, and a blind check measured it: Opus, given
+  the full source and the generated list under that same criterion with no quota, decided
+  KEEP/DROP per fact for the five lists the user had hand-reviewed. **Of 17 distinct drop
+  decisions the two agreed on 2**, both obvious logistics (how to enable a module, a demo QR
+  code). The 79% raw agreement (55/70) is base rate: both keep nearly everything. Opus itself
+  kept 11–14 of 14 without a quota, kept all 14 on one list, and named 1–3 *missing* points on
+  every list — the criterion "a reader would be misinformed to miss" admits almost any true
+  statement, so neither reader can cut to a cap consistently. That is not a review defect.
+  - **The granularity was wrong for the product.** `key_points_for_transcript` asks for bullets
+    that each "capture a distinct, significant idea"; the checklist asked for facts, and
+    atomicity pulls toward whatever atomises easily — figures and names. Opus tagged **39 of 82
+    facts (48%) as supporting detail**. The worst list (`271deb99e66d`, a panel discussion) was
+    9 details of 12, nearly all survey percentages, while the points Opus listed as missing were
+    the panel's closing consensus and its one worked example. A good key-points summary of it
+    would score badly for doing what the product asks.
+  - **The cap was set by what summaries do now, not by what they are for.** The earlier case
+    for 12: summary length barely follows source length — across the 25 duel items the source
+    grows **7×** between the shortest and longest eight (median 6,340 → 44,164 characters) while
+    summaries grow **1.54×** and **1.24×** — so a checklist scaled with the source gives an
+    unattainable ceiling. That describes the candidates, not a constraint: the bot splits long
+    replies across messages (`split_entities` in `src/services.py`), and the product prompt
+    says to use "as many bullets as needed to cover it faithfully". The bot's use is deciding
+    whether a 40-minute or three-hour source is worth the time, which needs completeness that
+    grows with the source. **Low coverage on long sources is therefore a finding about the
+    candidates, not a flaw in the metric**, and it is the one this metric exists to surface.
+  - **The criterion is relative to the source, not to the reader.** "Would I learn anything
+    new?" is how the bot is used, but it depends on what the reader already knows, which no
+    model can see. The prompt asks for everything a reader would need to have learned what the
+    source has to say.
+  - **The prompt now asks for ideas, one per line, ordered most important first**, admits a
+    detail only when it *is* the point (a deal's price in a story about the deal), merges
+    restatements, and states there is no target count. Order is kept so coverage of the top N
+    stays computable without reintroducing a cap. `checklists.py` keeps only the lower bound
+    of 5, as a warning, since the product prompt also asks for at least five bullets.
+  - **The pilot** (`key_facts@e08331f46483`, the same six sources): **33–49 points** on
+    21k–71k-character sources, $0.47 for six. Density follows content, not length — 38 points
+    on a 21k practical guide, 36 on a 71k webinar. Enumerations (fraud types, warning signs)
+    come out as one point each, and some lines still join an idea to its figure ("… with about
+    70% saying so"); whether coverage can answer those cleanly is unmeasured.
+  - **Two consequences.** A mean `t2_coverage` across items now mixes very different
+    denominators, so read it banded by `chars` or `stratum`, as before. And the review surface
+    grows from ~12 to ~40 lines a list, so the review asks per line "is this an idea the source
+    puts forward?" and per list "is anything central missing?" — not what to cut, which is the
+    judgement measured above to be unshared.
+  - **The first 50-list generation and the five reviews made on it are void**, kept as
+    `temp/key_facts.v1-capped.json` and `temp/checklist-review.v1-capped.md`. `generate` refuses
+    to mix lists built under two prompt versions, so the old file had to move aside.
+- **Generation costs about $0.06–0.08 per item, not the cents a short prompt suggests.** 48 items
+  came to **$2.79** on Opus under the capped prompt, and the uncapped pilot to **$0.47** for six.
+  The output is a few dozen short sentences; the bill is mostly the *source*, up to
   120k characters of it at input rates. Anything priced per item here scales with source length,
   so estimate from the corpus rather than from the reply. `generate` discards the usage `ask`
   returns, so the number came from the credit balance either side of the run — the same gap the
@@ -618,6 +626,24 @@ not the number to record.
 OpenRouter prices every call and `ask` returns that alongside the verdict; `run_judge` totals it
 and prints what the round actually cost. Do not reconstruct a bill from a price table written
 down here — vendor prices move, and one of them is on a dated introductory rate.
+
+#### JEV is a candidate for `t2_coverage` only, and it is not reachable yet
+
+`typesafe/jev-1.13` (TypeSafe's "System One" model) is not an LLM: it returns typed decisions —
+a choice among at most 255 options, a yes/no, a rubric score — each with a calibrated probability,
+and generates no free text. On OpenRouter: 32k-token context, **$0.042 per M input tokens, output
+free**. It **cannot be called on `chat/completions`**; that route returns 400 *"is a decisions
+model … Use the /api/alpha/decisions endpoint"*. The maintained client for that protocol is
+pydantic-ai's `TypeSafeModel` (added in 2.45.0; `DecisionModel` base in 2.50.0), so using it means
+the pydantic-ai bump — a production dependency shared with the harness, since the harness imports
+`src/`. That bump is left to Renovate on `main` rather than done on an evaluation branch.
+
+Where it fits: **coverage** is one yes/no per checklist point against a summary, with no source in
+the prompt, so it fits the context and the model's shape, and an uncapped checklist of 40–50 points
+makes per-point Opus calls the expensive path. It cannot generate checklists or summaries (no
+text), and faithfulness does not fit (long sources exceed 32k tokens). Coverage has never been
+calibrated on any judge, so JEV enters as one arm of that calibration — against Opus and hand
+labels on the same point/summary pairs — not as a replacement for it.
 
 ### Three details of the judge are load-bearing
 
