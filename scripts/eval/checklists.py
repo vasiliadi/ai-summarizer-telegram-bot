@@ -2,13 +2,13 @@
 
 Coverage is the hard part of reference-free summarization, and this is what
 converts it into a reference-based one without anyone writing a gold summary:
-a strong model extracts the atomic facts a summary must not omit, a human edits
+a strong model extracts the key points of the source, a human edits
 the list, and it is stored as the dataset item's `expected_output`. Every
 experiment afterwards scores recall against it. The cost is paid once per
 *item*, not once per run.
 
     uv run python scripts/eval/checklists.py status            # free
-    uv run python scripts/eval/checklists.py generate [limit]  # COSTS MONEY: one call per item
+    uv run python scripts/eval/checklists.py generate [limit | digest...]  # COSTS MONEY: one call per item
     uv run python scripts/eval/checklists.py show <digest> [--full]  # free: source + facts, to review
     uv run python scripts/eval/checklists.py review            # free: one markdown file to edit
     uv run python scripts/eval/checklists.py apply             # free: reads that file back
@@ -42,6 +42,7 @@ against.
 from __future__ import annotations
 
 import json
+import re
 import sys
 
 import _bootstrap
@@ -54,7 +55,7 @@ import judge
 COMPARE, SCREEN = judge.COMPARE_DATASET, judge.SCREEN_DATASET
 WORKING_FILE = REPO / "temp" / "key_facts.json"
 
-MIN_FACTS, MAX_FACTS = 5, 12
+MIN_FACTS = 5
 SOURCE_LIMIT = 120000
 
 
@@ -103,8 +104,8 @@ def _seed(state, items):
 def _check(facts):
     """Complaints about one generated list, as plain sentences."""
     out = []
-    if not MIN_FACTS <= len(facts) <= MAX_FACTS:
-        out.append(f"{len(facts)} facts, expected {MIN_FACTS}-{MAX_FACTS}")
+    if len(facts) < MIN_FACTS:
+        out.append(f"{len(facts)} facts, expected at least {MIN_FACTS}")
     if any(not f.strip() for f in facts):
         out.append("contains a blank fact")
     # The prompt asks for flat statements; a model that numbers or bullets them
@@ -119,7 +120,9 @@ def _is_marked(fact):
     head = fact.lstrip()
     if not head:
         return False
-    return head[0] in "-*•–—" or head[:2].rstrip(".)").isdigit()
+    # A number is a marker only when punctuation and a space follow it: "3. X"
+    # is numbering, "100% of X" and "2.5 million X" are the fact itself.
+    return head[0] in "-*•–—" or re.match(r"\d+[.)]\s", head) is not None
 
 
 def status():
@@ -154,8 +157,8 @@ def status():
             print(f"  {key}: {'; '.join(complaints)}")
 
 
-def generate(limit=0):
-    """Extract a checklist for every compare item that has none yet."""
+def generate(limit=0, keys=()):
+    """Extract a checklist for every compare item that has none yet, or for `keys`."""
     client = Langfuse()
     compare = _items(client, COMPARE)
     state = _load()
@@ -175,6 +178,8 @@ def generate(limit=0):
     state["generated_with"] = version
 
     todo = [i for i in compare if _digest(i.id) not in state["items"]]
+    if keys:
+        todo = [i for i in todo if _digest(i.id) in keys]
     todo = todo[: limit or None]
     print(f"{len(todo)} item(s) to generate, {judge.JUDGE_MODEL}, {version}\n")
     for index, item in enumerate(todo, 1):
@@ -257,7 +262,6 @@ def _upsert(client, item, facts):
 
 REVIEW_FILE = REPO / "temp" / "checklist-review.md"
 EXCERPT = 700
-TAIL = 3
 
 # The parser keys on these exact lines rather than on markdown structure. Facts
 # are model-written prose and sources are raw transcripts, so any heading- or
@@ -272,8 +276,6 @@ REVIEWED_NO, REVIEWED_YES = "<!-- reviewed: no -->", "<!-- reviewed: yes -->"
 def _flags(facts):
     """Why this checklist needs attention before the padding question."""
     out = []
-    if len(facts) > MAX_FACTS:
-        out.append(f"{len(facts)} facts over the cap of {MAX_FACTS} — cut it down")
     if len(facts) < MIN_FACTS:
         out.append(f"{len(facts)} facts, minimum is {MIN_FACTS}")
     marked = sum(1 for f in facts if _is_marked(f))
@@ -290,10 +292,10 @@ def review(client=None):
     would be buried. A short excerpt orients, `show` prints the whole thing for
     the few that need it.
 
-    Flagged checklists come first. The cap is read as a quota rather than a
-    limit, so nearly every list arrives at exactly twelve and the real work is
-    cutting the tail, not fixing the count; the last few facts are marked for
-    that reason.
+    Flagged checklists come first. The review asks two questions per list —
+    is each line an idea the source puts forward, and is anything central
+    missing — rather than what to cut: cutting to a cap was measured to be a
+    judgement two readers do not share.
     """
     state = _load()
     if not state["items"]:
@@ -316,14 +318,14 @@ def review(client=None):
         "",
         f"{len(ordered)} lists, {flagged} flagged and listed first.",
         "",
-        "Delete a fact's line to drop it; edit in place to reword it. Only lines",
-        f"between `{FACTS_OPEN}` and `{FACTS_CLOSE}` are facts.",
+        "Delete a line to drop it, edit in place to reword it, add a `- ` line for",
+        f"a missing point. Only lines between `{FACTS_OPEN}` and `{FACTS_CLOSE}` count.",
         "",
         f"Change `{REVIEWED_NO}` to `{REVIEWED_YES}` when a list is done — `apply`",
         "takes only those, so stopping part-way is safe.",
         "",
-        f"`TAIL` marks the last {TAIL} facts. {MAX_FACTS} is a cap, not a target, and it",
-        "is read as one: that is where the padding is.",
+        "Per line: is it an idea the source puts forward, not a detail that only",
+        "supports one? Per list: is any idea the source builds on missing?",
         "",
         "Then: `uv run python scripts/eval/checklists.py apply`",
         "",
@@ -361,9 +363,7 @@ def review(client=None):
             "",
             FACTS_OPEN,
         ]
-        for index, fact in enumerate(facts):
-            tail = "  <!-- TAIL -->" if index >= len(facts) - TAIL else ""
-            out.append(f"- {fact}{tail}")
+        out += [f"- {fact}" for fact in facts]
         out += [FACTS_CLOSE, ""]
 
     REVIEW_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -403,7 +403,7 @@ def apply_review():  # noqa: C901, PLR0912
         elif line == FACTS_CLOSE:
             in_facts = False
         elif in_facts and line.startswith("- "):
-            fact = line[2:].split("<!-- TAIL -->")[0].strip()
+            fact = line[2:].strip()
             if fact:
                 facts.append(fact)
     close()
@@ -496,7 +496,11 @@ if __name__ == "__main__":
     if command == "status":
         status()
     elif command == "generate":
-        generate(int(args[1]) if len(args) > 1 else 0)
+        rest = args[1:]
+        if rest and rest[0].isdigit():
+            generate(int(rest[0]))
+        else:
+            generate(keys=set(rest))
     elif command == "show":
         show(args[1], full="--full" in args)
     elif command == "review":

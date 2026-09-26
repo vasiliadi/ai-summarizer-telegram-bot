@@ -253,35 +253,39 @@ does not help a reader understand.
 Answer A, B, or TIE. Use TIE only when neither is meaningfully better, not to
 avoid a hard call. Keep the reasoning under 60 words."""
 
-KEY_FACTS = """Extract the facts a summary of this source must not omit.
-
-Write at least 5 and **at most 12**. This is a hard cap, not a target. Most
-sources support more than 12 candidates; when yours does, keep the 12 that
-matter most and drop the rest. A checklist is a test of what must survive
-summarisation, not an index of the source.
+KEY_FACTS = """Extract the key points of this source: everything a reader would need to know
+to decide they have learned what it has to say, without reading or watching it.
 
 SOURCE:
 {source}
 
-A key fact is **one** assertion: one event, one figure, one named actor and what
-it did, one causal link, or one conclusion the source draws. If a sentence needs
-"and" to join two assertions, it is two facts — write the more important one and
-drop the other, or spend two of your twelve on it. Each fact is judged entailed
-or not entailed with no partial credit, so a fact carrying two claims cannot be
-answered.
+A key point is an idea the source puts forward: a claim, an argument, a
+conclusion, a recommendation, a finding, or an event the source is about.
+Supporting detail — a figure, a name, a date, an example, an anecdote — is not a
+key point on its own. Include it only when it *is* the point (a deal's price in
+a story about the deal), and otherwise let the idea it supports stand for it.
 
-Include only what the source states. Do not add background a reader might want,
-do not infer past the text, and do not include your own assessment of the
-material.
+Write each key point as **one** idea. If it needs "and" to join two ideas, it is
+two key points. Each will be checked as covered or not covered with no partial
+credit, so a point carrying two ideas cannot be answered.
 
-Choose the facts a reader would be misinformed to miss, not everything the
-source mentions. Rank by what the source itself treats as important: what it
-leads with, returns to, or builds its conclusion on. Passing mentions, examples
-that only illustrate a point already listed, and scene-setting detail do not
-belong.
+There is no target count. Write as many as the source actually contains: a short
+article may have five, a three-hour discussion may have fifty. Do not pad a thin
+source and do not compress a rich one. Merge restatements: an idea the source
+returns to three times is one key point.
 
-Write one sentence per fact, in the language of the source, as flat statements:
-no numbering, no bullet markers, no commentary."""
+Leave out what carries no idea: introductions of the host or guests, scene-
+setting, logistics, sponsor reads, passing mentions, and examples that only
+illustrate a point already listed.
+
+Include only what the source states. Do not add background, do not infer past
+the text, and do not include your own assessment.
+
+Order the key points from most to least important, judged by what the source
+itself leads with, returns to, or builds its conclusion on.
+
+Write one sentence per key point, in the language of the source, as flat
+statements: no numbering, no bullet markers, no commentary."""
 
 # The verdict field comes before `reasoning` in every schema. Models emit in
 # declared order and it is the long reasoning string that runs into `max_tokens`,
