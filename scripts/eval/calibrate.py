@@ -7,7 +7,8 @@ rather than after.
     uv run python scripts/eval/calibrate.py sample      # free: show the fixed sample
     uv run python scripts/eval/calibrate.py setup       # free: score configs and the queue
     uv run python scripts/eval/calibrate.py judge [<model>]   # COSTS MONEY
-    uv run python scripts/eval/calibrate.py agreement   # free: accuracy + kappa
+    uv run python scripts/eval/calibrate.py agreement [<file>]  # free: accuracy + kappa
+    uv run python scripts/eval/calibrate.py export [<file>]     # free: labels to disk
 
 Only faithfulness is calibrated here. Tier 3 pairwise was removed: readability
 is judged by the user reading the survivors, not by a model.
@@ -39,13 +40,20 @@ matters because agreement is only comparable across prompt revisions when the
 items stay fixed.
 
 **Hand labels live in Langfuse for 30 days, then are deleted with every other
-score.** The 25 `h_faithful` labels behind the recorded calibration are gone;
-export any new round before the month is out.
+score.** The 25 `h_faithful` labels behind the recorded calibration are gone.
+`export` writes the sample, the hand labels and every judge's verdicts to a
+local file, and `agreement <file>` reports from that file once Langfuse has
+deleted the originals — run `export` as soon as a round is labelled. The file
+holds summaries of the user's own content, so it goes under the gitignored
+`temp/` and never into this public repository.
 """
 
 from __future__ import annotations
 
+import json
 import sys
+from datetime import UTC, datetime
+from pathlib import Path
 
 import _bootstrap
 import requests
@@ -67,6 +75,7 @@ H_FAITHFUL, C_FAITHFUL = "h_faithful", "cal_faithful"
 # The Hobby plan allows exactly one annotation queue, and there is no API route
 # to update a queue's score configs after creation.
 QUEUE_NAME = "calibration-faithful-v1"
+EXPORT_DIR = REPO / "temp"
 
 
 def _runs():
@@ -474,23 +483,59 @@ def _human_scores(name, by_observation):
     return out
 
 
-def agreement():
-    """Report judge-vs-human agreement and every disagreement."""
+def _live_round():
+    """The sample, the hand labels and the judges' verdicts, read from Langfuse."""
     faithful, _ = sample()
-    scores = _scores_by_name([C_FAITHFUL])
-
     runs = _runs()
     from_time = min(r["startTime"] for r in runs.values())
     roots = _root_observations([r["trace"] for r in faithful], from_time)
-    human_faithful = _human_scores(
+    human = _human_scores(
         H_FAITHFUL,
         {roots[r["trace"]]: r["item"] for r in faithful if r["trace"] in roots},
     )
+    return faithful, human, _scores_by_name([C_FAITHFUL])[C_FAITHFUL]
+
+
+def export(path=None):
+    """Write the current round to a local file before Langfuse deletes it."""
+    faithful, human, by_pin = _live_round()
+    stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
+    path = Path(path) if path else EXPORT_DIR / f"calibration-{stamp}.json"
+    payload = {
+        "exported_at": stamp,
+        "sample": faithful,
+        "human": human,
+        # JSON keys are strings, so the (model, prompt) pin is joined here and
+        # split again on the way back in.
+        "judged": {f"{m}|{p}": v for (m, p), v in by_pin.items()},
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(
+        f"{len(human)} hand label(s), {len(by_pin)} judge pin(s), "
+        f"{len(faithful)} sample item(s) -> {path}",
+    )
+    if not human:
+        print("  WARNING: no hand labels in Langfuse — nothing worth keeping yet")
+
+
+def _file_round(path):
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    judged = {
+        tuple(key.split("|", 1)): verdicts
+        for key, verdicts in payload["judged"].items()
+    }
+    print(f"from {path} (exported {payload['exported_at']})")
+    return payload["sample"], payload["human"], judged
+
+
+def agreement(path=None):
+    """Report judge-vs-human agreement and every disagreement."""
+    faithful, human_faithful, by_pin = _file_round(path) if path else _live_round()
 
     # Two counts, not one. "Nothing to compare" with 25 hand labels banked and
     # no judge run is a completely different state from nobody having labelled
     # anything, and one number cannot tell them apart — it reads as lost work.
-    by_pin = scores[C_FAITHFUL]
     print(
         f"\n=== faithfulness: {len(human_faithful)} hand-labelled of {len(faithful)} ===",
     )
@@ -538,6 +583,8 @@ if __name__ == "__main__":
     elif command == "judge":
         run_judge(args[1] if len(args) > 1 else None)
     elif command == "agreement":
-        agreement()
+        agreement(args[1] if len(args) > 1 else None)
+    elif command == "export":
+        export(args[1] if len(args) > 1 else None)
     else:
         sys.exit(f"unknown command: {command}")

@@ -137,6 +137,7 @@ uv run python scripts/eval/install_tier1.py     # after every edit to tier1_eval
 uv run python scripts/eval/stage1.py report     # free, read-only
 uv run python scripts/eval/stage1.py failures   # free — which items failed, and why
 uv run python scripts/eval/stage2.py report     # free, read-only
+uv run python scripts/eval/calibrate.py export  # free — hand labels to temp/, before Langfuse deletes them
 uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each
@@ -188,7 +189,11 @@ Nothing warned. So "banked in Langfuse" means banked for a month: anything that 
 that — hand labels above all, since they cost days rather than dollars — has to be exported to a
 local file or written into a dataset item's fields. The calibration numbers recorded below are
 the only surviving record of those rounds, and `calibrate.py agreement` can no longer reproduce
-them.
+them. **For hand labels that is now `calibrate.py export`**: it writes the sample, the labels and
+every judge's verdicts to `temp/calibration-<timestamp>.json`, and `calibrate.py agreement <file>`
+reports from that file after Langfuse has deleted the originals. Run it the day a round is
+labelled. The file holds summaries of the user's own content, so it stays in the gitignored
+`temp/` — this repository is public.
 
 The part that surprises people: `tier1_evaluator.py` **never runs on your machine**. Langfuse
 stores the source and executes it on its own infrastructure when an experiment item arrives.
