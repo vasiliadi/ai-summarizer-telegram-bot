@@ -718,6 +718,23 @@ repeated pair of bullets, one dropped piece of usage advice — against 0 for th
 negatives on 17 sources is not a ranking. hy3 cost $0.094 for 32 summaries, JEV $0.0095, and Opus
 $1.17, with 7 of 24 replies malformed again.
 
+**The calibrated faithfulness judge on the same three arms** (pin `8f66738fe8e7`, unchanged since
+calibration, 24 sources, 72 verdicts, $3.08 by the credit balance against $3.52 the calls reported):
+
+| arm | pass | material | minor | borderline |
+|---|---|---|---|---|
+| traces (mostly `gpt-5.6-luna`) | 22/24 | 2 | 24 | 51 |
+| `openai/gpt-6-luna` | 23/24 | 1 | 18 | 29 |
+| `tencent/hy3` | 23/24 | 1 | 39 | 39 |
+
+No arm separates on the gated score: paired, each pair of arms splits 1–2 or 1–1 on the items
+only one of them passes. The one visible difference is below the gate — hy3 draws the most
+`minor` findings while writing the shortest summaries — and `minor` was never calibrated, so it
+is a lead, not a result. Read together with the binary rounds: on sources under ~45k characters
+the three are indistinguishable on everything measured, which makes price and readability the
+remaining axes. Per M tokens at the time: `gpt-6-luna` $0.10/$0.50, `hy3` $0.13/$0.53,
+`gpt-5.6-luna` $0.20/$1.20.
+
 ### Three details of the judge are load-bearing
 
 The judge never returns a verdict already reduced to one number — faithfulness enumerates and the
