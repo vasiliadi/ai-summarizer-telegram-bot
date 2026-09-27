@@ -793,6 +793,19 @@ the three are indistinguishable on everything measured, which makes price and re
 remaining axes. Per M tokens at the time: `gpt-6-luna` $0.10/$0.50, `hy3` $0.13/$0.53,
 `gpt-5.6-luna` $0.20/$1.20.
 
+**JEV as the faithfulness judge: rejected on the same 72 summaries.** One yes/no question
+restating the calibrated judge's gate (only a *material* misstatement counts; omission,
+rewording and translation do not), $0.0195 for all 72. Against the calibrated Opus verdicts it
+ranks barely better than chance — **AUC 0.64** — and no threshold works: at 0.7 it catches 1 of
+Opus's 4 material failures with 4 false alarms among 68 passes; at 0.8 it catches 3 of 4 with 30
+false alarms. Its probabilities on Opus's failures (0.68–0.87) sit inside the range it gives
+clean summaries (median 0.80). Two caveats, both small against that gap: 4 negatives is a thin
+sample, and Opus is itself 88% against hand labels rather than ground truth. The failure matches
+the model's design — a material error is a single claim checked against one sentence somewhere
+in a long source, which is search, not a fast decision. **JEV also cannot stand in for hand
+labels**: `h_faithful` is what makes a judge trustworthy, and labels written by one model would
+only measure agreement between two.
+
 ### Three details of the judge are load-bearing
 
 The judge never returns a verdict already reduced to one number — faithfulness enumerates and the
