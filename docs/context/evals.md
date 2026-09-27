@@ -687,8 +687,12 @@ hand labels, so this measures agreement between two judges, not either one's acc
 **Round 2, same day: the revised questions do not separate models.** Five questions (`worth_time`
 dropped for never varying, `no_unsupported` dropped because faithfulness stays with the calibrated
 enumerating judge; sponsor reads, ads and promotion excluded explicitly) on 24 production sources
-of 1k–44k characters, each summarised twice: by the production model (the trace's own output) and
-by `openai/gpt-6-luna` through `eval_client.summarize`. **Opus answered true on all five questions
+of 1k–44k characters, each summarised twice: by whichever model the user had selected in the bot
+when the trace was recorded (the trace's own output), and by `openai/gpt-6-luna` through
+`eval_client.summarize`. **"Production" is not one model**: the bot lets the user switch, and the
+traces' GENERATION observations show `openai/gpt-5.6-luna` on 24 of the 32 sampled sources,
+`meta/muse-spark-1.2` on 7 and `thinkingmachines/inkling` on 1. The trace itself carries no model
+id; it sits on the observation. **Opus answered true on all five questions
 for all 48 summaries** — zero negatives, so no paired difference between the two models on any
 question — even though luna's summaries are ~23% shorter (median 2,188 against 2,844 characters).
 JEV's mean probabilities were within 0.06 between the two models on every question. Excluding
@@ -703,6 +707,13 @@ plausible real omissions were on 35k and 53k sources), and the 8 sources dropped
 Opus replies may not be random. Cost: luna $0.027 for 32 summaries, JEV $0.017 for 62 calls, Opus
 $3.35 for 55 usable verdicts — **Opus returned malformed tool calls on roughly one call in four**,
 often the same summary on retry.
+
+A third arm, `tencent/hy3`, on the same sources: its summaries are the shortest of the three
+(median 1,708 characters against luna's 2,188 and the traces' 2,844), and on the 17 sources where
+Opus returned valid verdicts for all three models it drew **2 negatives in 85 answers** — one
+repeated pair of bullets, one dropped piece of usage advice — against 0 for the other two. Two
+negatives on 17 sources is not a ranking. hy3 cost $0.094 for 32 summaries, JEV $0.0095, and Opus
+$1.17, with 7 of 24 replies malformed again.
 
 ### Three details of the judge are load-bearing
 
