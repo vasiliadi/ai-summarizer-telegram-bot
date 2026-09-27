@@ -37,10 +37,9 @@ import stage1
 COMPARE = judge.COMPARE_DATASET
 RUN_PREFIX = judge.RUN_PREFIX
 
-TIER2 = ("t2_faithfulness", "t2_no_filler")
+TIER2 = ("t2_faithfulness",)
 
-# The paired Tier 2 test runs on this one. Faithfulness is the metric with a
-# value on every item — no_filler is binary, so per-item deltas are almost all zero.
+# The paired Tier 2 test runs on this one.
 PAIRED_METRIC = "t2_faithfulness"
 
 
@@ -110,7 +109,7 @@ def _tier2_table(rows_by_candidate):
     """Per-candidate means, with the caveat that they do not rank anything."""
     header = (
         f"{'model':28s} {'strategy':12s} {'n':>3s} "
-        f"{'faithful':>9s} {'no_filler':>9s} "
+        f"{'faithful':>9s} "
         f"{'t1_pass':>8s} {'compress':>9s} {'latency':>8s}"
     )
     print("\nTier 2 means - context only; the paired tests below are what rank")

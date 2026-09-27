@@ -330,8 +330,8 @@ sat at 27% on its most common character and slipped a 30% threshold, while both 
 
 **Retired on 2026-09-26: `scripts/eval/checklists.py` and the `KEY_FACTS` prompt were deleted.**
 No checklist ever reached a dataset, so `t2_coverage` never produced a value, and the coverage
-judge (`COVERAGE`, `eval_coverage`) was removed the same day. **Tier 2 is now faithfulness and
-no-filler only**; every later mention of `t2_coverage` in this file is history. Two binary-question
+judge (`COVERAGE`, `eval_coverage`) was removed the same day. **Tier 2 is now faithfulness
+only** (no-filler was removed the same day, see *Tier 2 and Tier 3*); every later mention of `t2_coverage` in this file is history. Two binary-question
 rounds (under *JEV* below) found that coarse omission questions do not separate candidates either,
 so omission currently has no metric. The history below is kept so the approach is not rebuilt
 without its lessons — the recoverable code is in git history.
@@ -561,6 +561,11 @@ Only Tier 2/3 spend money on a re-score.
 
 ## Tier 2 and Tier 3: the judges
 
+**Tier 2 is faithfulness alone since 2026-09-26.** `t2_no_filler` was removed: it was never
+calibrated, so in a filter it would drop models on a judgement nobody had checked, and padding
+is visible the moment the user reads a survivor. The harness keeps only checks that are either
+deterministic (Tier 1) or calibrated (faithfulness).
+
 **Tier 3 pairwise was removed on 2026-09-26**, along with `stage2.py duels` and the pairwise half
 of `calibrate.py`. It never calibrated (best round 78% / κ 0.23), its hand labels were deleted
 with everything else older than 30 days, and readability is a judgement the user makes by
@@ -585,8 +590,8 @@ conflating them is a mistake worth not repeating:
   and metadata; there is no mapping source for a second run's output. So **Tier 3 pairwise cannot
   be an evaluator of either kind**, whatever the judge model. This constraint is structural and
   is the one that genuinely forces a local runner.
-- **Tier 2 stays local by choice, not by constraint.** Faithfulness and no-filler are
-  per-item single-observation judgements, so they would fit a managed evaluator. Two
+- **Tier 2 stays local by choice, not by constraint.** Faithfulness is a per-item
+  single-observation judgement, so it would fit a managed evaluator. Two
   things are given up by moving them, and both are load-bearing rather than stylistic: the
   **judge reports and the runner decides** (a managed evaluator's output definition is one numeric
   `score` plus reasoning, so asking the model for `0.71` directly is exactly the arithmetic slip
@@ -1170,7 +1175,8 @@ which is what re-running it means.
 
 ### Two things the report does not print, and both change how its table reads
 
-- **Only `t2_faithfulness` gets a paired test.** `t2_no_filler` means are printed with nothing
+- **Only `t2_faithfulness` gets a paired test** (historical: the report no longer has a
+  `t2_no_filler` column). `t2_no_filler` means were printed with nothing
   behind them, so they cannot rank anything and a reader of the table will not guess that from
   looking at it. Two further reasons not to read that column as a ranking: `t2_no_filler` has
   never been calibrated against hand labels the way faithfulness has, so it is a signal rather

@@ -140,29 +140,12 @@ misled about what is true.
 Return one entry per finding, and an empty list when there is nothing to
 report."""
 
-NO_FILLER = """The summary below was written under a prompt requiring at least five bullets
-that explicitly forbids padding to reach that number: every bullet must carry a
-distinct, significant idea, with no overlap and no filler.
 
-SUMMARY:
-{summary}
-
-Decide one thing: does any bullet exist only to reach the count?
-
-A bullet is padding when it restates another bullet in different words, when it
-says something vacuous that would be true of almost any content ("the speaker
-shares useful insights", "several topics are covered"), or when it comments on
-the material rather than summarising it.
-
-A bullet is not padding merely for being short, minor, or less interesting than
-the others. A genuine but small point is still a distinct idea."""
-
-
-# The verdict field comes before `reasoning` in every schema. Models emit in
+# A schema with a verdict field declares it before `reasoning`: models emit in
 # declared order and it is the long reasoning string that runs into `max_tokens`,
-# so putting the number first means a truncated call still carries the answer.
+# so the number first means a truncated call still carries the answer.
 #
-# Faithfulness is the exception, and calibration is why. Declaring a count ahead
+# Faithfulness declares no verdict field at all, and calibration is why. Declaring a count ahead
 # of the reasoning makes the model commit to a number before it has thought:
 # measured against 25 hand labels, one verdict's own reasoning ended "retracting
 # to 0 unsupported" while the emitted count stayed 1, and another talked itself
@@ -211,20 +194,10 @@ SCHEMAS = {
         "required": ["findings"],
         "additionalProperties": False,
     },
-    "no_filler": {
-        "type": "object",
-        "properties": {
-            "has_padding": {"type": "boolean"},
-            "reasoning": {"type": "string"},
-        },
-        "required": ["has_padding", "reasoning"],
-        "additionalProperties": False,
-    },
 }
 
 TEMPLATES = {
     "faithfulness": FAITHFULNESS,
-    "no_filler": NO_FILLER,
 }
 
 
@@ -376,28 +349,7 @@ def eval_faithfulness(*, input, output, expected_output=None, metadata=None, **k
     )
 
 
-def eval_no_filler(*, input, output, expected_output=None, metadata=None, **kw):  # noqa: A002, ARG001
-    """Whether any bullet exists only to reach the five-bullet minimum.
-
-    Skips non-bulleted output: `basic_prompt_for_transcript` never asked for
-    bullets, and scoring it here would penalise it for obeying its own prompt.
-    """
-    summary = _text(output)
-    lines = [ln.strip() for ln in summary.splitlines() if ln.strip()]
-    bullets = [ln for ln in lines if ln.startswith(("-", "*", "•", "–", "—"))]
-    if len(bullets) < 2:
-        return None
-    verdict, _ = ask("no_filler", summary=summary)
-    return Evaluation(
-        name="t2_no_filler",
-        value=not verdict["has_padding"],
-        data_type="BOOLEAN",
-        comment=verdict["reasoning"][:900],
-        metadata=judge_meta("no_filler"),
-    )
-
-
-TIER2 = [eval_faithfulness, eval_no_filler]
+TIER2 = [eval_faithfulness]
 
 
 # --- the task under evaluation ----------------------------------------------
@@ -494,11 +446,8 @@ def smoke(limit):
         if not (source and summary):
             continue
         faith = eval_faithfulness(input={"content": source}, output=summary)
-        filler = eval_no_filler(input={"content": source}, output=summary)
         print(f"{row['id']}  src={len(source):6d}ch sum={len(summary):5d}ch")
         print(f"   t2_faithfulness = {faith.value:.3f} | {faith.comment[:100]}")
-        if filler:
-            print(f"   t2_no_filler    = {filler.value} | {filler.comment[:100]}")
         print()
 
 
