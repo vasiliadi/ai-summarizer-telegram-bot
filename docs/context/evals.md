@@ -170,6 +170,16 @@ State is split across three places, and only one of them is the repository.
 | Prompts, datasets, score configs, evaluators, rules, runs, scores | Langfuse (server) |
 | Raw trace harvest (`obs.json`), ad-hoc probes | untracked, local only |
 
+**Langfuse keeps traces, observations and scores for 30 days on this plan, then deletes them —
+hand labels included.** Checked on 2026-09-26: the oldest surviving trace was from 2026-08-28,
+and every screening and compare experiment, every judge verdict (`cal_*`), every Tier 1 score and
+all 50 hand labels (`h_faithful`, `h_pairwise`) were gone. Datasets and their items survived.
+Nothing warned. So "banked in Langfuse" means banked for a month: anything that must outlive
+that — hand labels above all, since they cost days rather than dollars — has to be exported to a
+local file or written into a dataset item's fields. The calibration numbers recorded below are
+the only surviving record of those rounds, and `calibrate.py agreement` can no longer reproduce
+them.
+
 The part that surprises people: `tier1_evaluator.py` **never runs on your machine**. Langfuse
 stores the source and executes it on its own infrastructure when an experiment item arrives.
 The local file is only the source uploaded by `install_tier1.py`.
