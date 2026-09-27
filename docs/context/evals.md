@@ -142,6 +142,12 @@ uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each
 ```
 
+**Wait a minute after a run before reading its report.** Langfuse ingests experiment items
+asynchronously, and the report's incomplete-run warning compares scored items against the items
+that have *arrived* — so a report read straight after `stage1.py run` showed `n = 22` of 25 with
+100% everywhere and no warning at all, and the same report a minute later showed 25. Check that
+`n` equals the dataset size before trusting a row.
+
 Anything that only reads is free. A full screening sweep is 25 items × every model swept,
 roughly **$1**; judge calls are the expensive part. Re-scoring Tier 1 never costs anything —
 the summaries already exist as trace outputs, so a broken scorer is repaired by reinstalling it
