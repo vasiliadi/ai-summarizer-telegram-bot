@@ -414,7 +414,7 @@ generating, reviewing and writing.
 Every rule in `prompts.py` is stated as an absolute — "Respond in {language}" has no
 60%-credit reading — so a weighted composite would invent numbers and hide *which* rule broke,
 which is the only thing the screening stage needs to know. The Langfuse code evaluator
-`tier1-deterministic` emits `t1_language_match` and `t1_bullet_count` (BOOLEAN),
+`tier1-on-experiments` emits `t1_language_match`, `t1_script_clean` and `t1_bullet_count` (BOOLEAN),
 `t1_compression` (NUMERIC) and the derived `t1_pass`, which ANDs the applicable binary checks.
 Screening drops a model scoring `t1_pass` on under 70% of items. Three judgements are
 deliberate:
@@ -422,6 +422,12 @@ deliberate:
 - The language check passes at **70%** Cyrillic letters, not 95%. Correct output still carries
   Latin proper nouns, so a stricter floor rejects good summaries while adding nothing against a
   model that answered in the wrong language outright.
+- **`t1_script_clean` catches what the ratio cannot: a stray foreign-script letter inside Russian
+  prose.** It fails on any letter outside Latin (with its extensions), Greek and Cyrillic. Added
+  2026-09-26 after `tencent/hy3` wrote `近` and `复杂` into two of 32 summaries that the ratio passed
+  at 0.973 and 0.928. On the local sample it fired 3 times in 326 summaries, all real: those two,
+  and one production summary (a `ל` in "видео о ל watermelon", not in the source). Latin stays
+  allowed by decision — names and terms are legitimate — and Greek for symbols such as μ or Δ.
 - `t1_compression` is a **diagnostic with no threshold**. Judges reward length, so the length
   column belongs beside every quality score; gating on it would let a model win by truncating.
 - `t1_bullet_count` is emitted **only** for `key_points_for_transcript`, the one strategy that
@@ -479,9 +485,9 @@ failing line. Nothing surfaces this: the rule still reports `status: "active"`, 
 completes, and the only symptom is that no score appears. This cost a full session to find, so
 **coerce every metadata value before using it as a number**.
 
-The one place the failure is visible is `POST /unstable/evaluators`, whose preflight executes
-the source against sample data and returns `422 evaluator_preflight_failed` with the exception
-and line number — which makes reinstalling the evaluator the cheapest way to test it, and means
+The one place the failure is visible is the evaluator update (`PATCH /v2/evaluators/{id}`, run
+by `install_tier1.py`), whose preflight executes the source against sample data and reports the
+exception and line number — which makes reinstalling the evaluator the cheapest way to test it, and means
 a rule that went active earlier is **not** evidence the code still runs, since preflight only
 sees whatever sample it was given.
 
@@ -500,13 +506,17 @@ Two consequences for scoring runs:
   different places, so a misnamed key overrides nothing and simply leaves the fallback to
   decide. The symptom is a `t1_bullet_count` that looks perfectly plausible and was computed
   against the wrong strategy.
-- Re-POSTing an evaluator under the same name creates a new **version** and every rule bound to
-  that name follows it automatically — the rule's stored evaluator `id` changes to the new
-  version's id. There is no separate update route, and no need to touch the rule.
+- **Evaluators moved from `unstable/evaluators` to `v2/evaluators`, and the old route now returns
+  404** (found 2026-09-26). Semantics changed with it: `POST /v2/evaluators` always creates a
+  *new* evaluator at version 1, bound to no rule, so re-posting the name — which used to add a
+  version — would now upload the code and score nothing. A new version is a `PATCH` of the
+  existing evaluator with `type` and every definition field; rules always use the latest
+  version, so the rule needs no edit. The live evaluator is named `tier1-on-experiments`, not the
+  `tier1-deterministic` the old script posted, and `install_tier1.py` finds it by that name.
 
 ### One evaluator, not one per score
 
-Splitting `tier1-deterministic` into one evaluator per score was considered and **deferred**,
+Splitting `tier1-on-experiments` into one evaluator per score was considered and **deferred**,
 not overlooked. The argument for splitting is real (the `char_length` crash destroyed the
 already-computed scores along with the one that failed), but the price is higher than it looks:
 
@@ -1180,7 +1190,8 @@ The ranking is **not** final: Tier 3 cannot contribute until pairwise calibrates
 
 ## API shapes that cost real time to rediscover
 
-Installing a code evaluator through the unstable API has a shape trap worth keeping: on
+Installing a code evaluator through the (now removed) unstable API had a shape trap, kept here
+in case the v2 routes repeat it: on
 `POST /unstable/evaluators` the `prompt` and `outputDefinition` fields are llm-as-judge-only and
 are rejected outright for `type=code`, while on `POST /unstable/evaluation-rules` the evaluator
 reference needs `type: "code"` and `mapping` must be **omitted entirely** — an empty array is

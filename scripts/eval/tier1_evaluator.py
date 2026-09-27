@@ -1,7 +1,7 @@
 """Tier 1 deterministic scorers. Runs inside Langfuse as a code evaluator.
 
-Screens for outright breakage only — wrong language, no list where a list was
-asked for. Every check restates a rule `src/prompts.py` states as an absolute,
+Screens for outright breakage only — wrong language, letters from a foreign
+script, no list where a list was asked for. Every check restates a rule `src/prompts.py` states as an absolute,
 so each is binary; compression is a diagnostic that never gates.
 
 Two constraints on editing this file, both invisible at runtime:
@@ -23,6 +23,17 @@ also hide a typo'd local name.
 CYRILLIC_FLOOR = 0.70
 MIN_BULLETS = 5
 BULLET_MARKERS = ("-", "*", "•", "–", "—")
+# Letters a Russian summary may legitimately carry: Latin for names and terms
+# (with its extensions, for diacritics), Greek for symbols such as μ or Δ, and
+# Cyrillic. Anything else — a stray 近 or 复杂 inside Russian prose — is a
+# model leaking its training language. The Cyrillic share cannot see it: two
+# CJK characters in a 2,000-letter summary move that ratio by 0.1%.
+ALLOWED_LETTERS = (
+    (0x0041, 0x024F),  # Latin, Latin-1, Extended-A/B
+    (0x0370, 0x03FF),  # Greek
+    (0x0400, 0x052F),  # Cyrillic and its supplement
+    (0x1E00, 0x1EFF),  # Latin Extended Additional
+)
 
 
 def _text(value):
@@ -79,6 +90,14 @@ def _cyrillic_ratio(text):
     return cyrillic / len(letters)
 
 
+def _foreign_letters(text):
+    return [
+        c
+        for c in text
+        if c.isalpha() and not any(lo <= ord(c) <= hi for lo, hi in ALLOWED_LETTERS)
+    ]
+
+
 def evaluate(ctx):
     """Return every applicable Tier 1 score for one generated summary."""
     output = _text(ctx.observation.output)
@@ -112,6 +131,18 @@ def evaluate(ctx):
         "t1_language_match",
         ratio >= CYRILLIC_FLOOR,
         f"Cyrillic share of letters: {ratio:.2f} (floor {CYRILLIC_FLOOR}).",
+    )
+
+    foreign = _foreign_letters(output)
+    add(
+        "t1_script_clean",
+        not foreign,
+        (
+            f"{len(foreign)} letter(s) outside Latin/Greek/Cyrillic: "
+            f"{''.join(foreign[:20])}"
+            if foreign
+            else "No letters outside Latin, Greek and Cyrillic."
+        ),
     )
 
     # The bullet guidelines belong to one strategy; scoring the other 0 would
