@@ -140,7 +140,7 @@ uv run python scripts/eval/stage2.py report     # free, read-only
 uv run python scripts/eval/calibrate.py export  # free — hand labels to temp/, before they leave the API window
 uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
-uv run python scripts/eval/calibrate.py versus <openrouter-id> # COSTS MONEY: a cheaper judge against Opus's banked verdicts
+uv run python scripts/eval/calibrate.py versus <openrouter-id> [--labels temp/human-labels-*.json] # COSTS MONEY: another judge vs Opus and the hand labels
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each
 ```
 
@@ -630,6 +630,12 @@ conflating them is a mistake worth not repeating:
   so nothing on that account stops a Langfuse-managed Tier 2 judge. `judge.py` uses a forced
   tool call (`tools` + `tool_choice`) instead, because that is what the banked scores were
   produced with — not because the alternative is broken.
+  **Opus 5.5 rejects the forced tool call** (checked 2026-09-27): every provider OpenRouter
+  routes it to answers 400, *"tool_choice: type "tool" and "any" are not supported for this
+  model"*, and `urllib` surfaces only `HTTP Error 400: Bad Request` — read the body. It accepts
+  the same schema as `response_format: json_schema`, so `judge.SCHEMA_OUTPUT_MODELS` lists the
+  models `ask` asks that way. Moving Opus 5 over too would change nothing it is asked, but it
+  would change the transport its banked scores were produced with, so it stays on the tool call.
   When a provider *appears* to silently ignore a documented parameter, check its status page
   before writing the behaviour down: from the client side an incident and a missing feature
   look identical, and this bullet once carried a constraint that was really an outage.
@@ -741,7 +747,16 @@ have **dropped `gpt-5.6-luna`** (35/49, 71%, against Opus's 90%) and kept `gpt-6
 88%). Luna also flagged the older model's summaries twice as often as its own, which is what
 family self-preference would look like; with this few negatives it cannot be told apart from a
 real quality gap. Cost **$0.145 for 98 calls**, $0.0015 each — the saving was real this time; the
-instrument was not. The verdicts are in `temp/versus-openai_gpt-6-luna-*.json`, untracked.
+instrument was not.
+
+**Opus 5.5 is not cheaper and not better (2026-09-27).** Its card is $4/$20 per M against Opus 5's
+$5/$25, so it was measured on the 22 hand-labelled summaries (see *JEV* below for the labels):
+**$1.31, $0.060 per call** (median $0.056), against the $0.058 Opus 5 averaged on the calibration
+round — the third time a lower card price bought no saving, though the two figures come from
+different items. Against the user it is a more lenient Opus 5: 1 of 3 errors caught (missing the
+revenue figure Opus 5 caught), 4 false alarms against 5, the same 73% agreement. It raised no
+flag Opus 5 did not, and dropped 2 of Opus 5's 7. It also needs the `response_format` route
+(below). No reason to move the pin. The verdicts are in `temp/versus-openai_gpt-6-luna-*.json`, untracked.
 
 **Quote the banked round, not a probe.** Probing the same items ahead of the round gave 92% /
 0.78, and the round gave 88% / 0.65 — one item (`scr-11e822219c80`) graded `material` in the probe
@@ -896,7 +911,11 @@ untracked.
 - **Batching changes nothing.** Per bullet, batched and single differ by a median of **0.000**
   (95th percentile 0.02, max 0.19, over 1,197 bullets), so JEV answers each question
   independently and one-per-call only multiplies the bill by about 9.5, since every call pays
-  for the source again.
+  for the source again. **Near the threshold it is not quite nothing**: `minimal` batched
+  (`--variant minimal-batched`, $0.009 for the 22 labelled summaries) caught 1 of the 3
+  hand-labelled errors against single's 2, because one landed between 0.5 and 0.6. A per-bullet
+  drift of up to 0.19 is enough to cross a fixed threshold, so compare variants on AUC and the
+  sweep, not on the single 0.5 cut.
 - **Stripping the exclusions and error types moves every probability up**, not the bad ones
   down: fewer false alarms at every threshold and no extra catch, AUC unchanged within noise.
 - **All three catch the same two summaries** (`cmp-179d3a312217`, `cmp-24e03e64dc2e`). What
