@@ -54,6 +54,7 @@ from __future__ import annotations
 
 import json
 import sys
+import urllib.error
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
@@ -77,6 +78,25 @@ SCREEN = stage1.SCREEN
 # passes models that invent facts, so the catch rate is the number that decides.
 VERSUS_MIN_CATCH = 0.75
 VERSUS_MAX_FALSE_ALARMS = 5
+
+JEV_MODEL = "typesafe/jev-1.13"
+# Fixed before the first per-bullet run, not tuned on it: a bullet below even
+# odds of being supported fails its summary.
+JEV_THRESHOLD = 0.5
+JEV_INSTRUCTIONS = (
+    "A summary of the source makes this claim: «{claim}». The summary may be in "
+    "another language than the source; a faithful translation of a supported claim "
+    "is supported. Compression, rewording, generalisation, merging related points "
+    "and leaving details out are not errors. The claim fails only if it contradicts "
+    "the source, adds a fact the source neither states nor implies, changes a status "
+    "(proposed to done, can to does, planned to released), distorts a number, date or "
+    "scale, asserts a causal link the source never draws, or attributes something to "
+    "the wrong person or company — so that a reader acting on it would be misled."
+)
+JEV_CRITERIA = {
+    "true": "The source supports the claim.",
+    "false": "The claim materially misstates or invents something relative to the source.",
+}
 
 # Human channels vs judge channels. Distinct names, one score table — which is
 # what keeps the comparison a query instead of a spreadsheet.
@@ -603,11 +623,14 @@ def versus(model, limit=0):
     Nothing is posted to Langfuse: the verdicts go to `temp/` beside the source
     text they were judged on, which is the user's own content.
     """
-    stage1._resolve([model])  # noqa: SLF001
+    if model != JEV_MODEL:  # a decisions model is absent from the chat catalog
+        stage1._resolve([model])  # noqa: SLF001
     rows = _compare_rows(limit)
     print(f"judge {model} vs {judge.JUDGE_MODEL}: {len(rows)} summaries")
 
     def one(row):
+        if model == JEV_MODEL:
+            return _ask_jev(row)
         try:
             verdict, usage = judge.ask(
                 "faithfulness",
@@ -636,6 +659,67 @@ def versus(model, limit=0):
     print(f"\nverdicts -> {path}")
 
 
+def _ask_jev(row):
+    """One JEV decision call per summary: the source as state, a question per bullet.
+
+    JEV returns a probability per yes/no question and writes no text, and asked
+    once whether a whole summary is faithful it ranked barely above chance
+    (AUC 0.64). Finding one wrong claim among a dozen in a long source is a
+    search, so each bullet becomes its own local decision and the runner takes
+    the weakest one — the same split as the enumerating judge, where the model
+    reports and the runner decides.
+
+    The source is never truncated to fit JEV's context: a cut source would make
+    every claim from its missing half look unsupported.
+    """
+    bullets = [
+        line.lstrip("-*• ").strip()
+        for line in row["summary"].splitlines()
+        if line.strip()
+    ]
+    questions = {
+        f"b{i:02d}": {
+            "type": "noul",
+            "instructions": JEV_INSTRUCTIONS.format(claim=bullet),
+            "criteria": JEV_CRITERIA,
+        }
+        for i, bullet in enumerate(bullets)
+    }
+    body = {
+        "model": JEV_MODEL,
+        "state": {"source": row["source"]},
+        "questions": questions,
+    }
+    try:
+        payload = judge._post(f"{judge.BASE}/alpha/decisions", body, timeout=120)  # noqa: SLF001
+    except urllib.error.HTTPError as exc:
+        return {
+            **row,
+            "error": f"{exc.code}: {exc.read()[:300].decode(errors='replace')}",
+        }
+    except OSError as exc:
+        return {**row, "error": str(exc)[:300]}
+    probabilities = [payload["answers"][k]["noul"] for k in questions]
+    weakest = min(range(len(bullets)), key=probabilities.__getitem__)
+    return {
+        **row,
+        "clean": probabilities[weakest] >= JEV_THRESHOLD,
+        "probabilities": probabilities,
+        "comment": f"weakest {probabilities[weakest]:.2f}: {bullets[weakest][:200]}",
+        "cost": (payload.get("usage") or {}).get("cost") or 0,
+    }
+
+
+def _auc(done):
+    """Probability that a summary Opus passed scores above one it failed."""
+    clean = [min(r["probabilities"]) for r in done if r["reference"]]
+    flagged = [min(r["probabilities"]) for r in done if not r["reference"]]
+    if not clean or not flagged:
+        return float("nan")
+    pairs = [(c > f) + 0.5 * (c == f) for c in clean for f in flagged]
+    return sum(pairs) / len(pairs)
+
+
 def _report_versus(model, results):
     """Misses and false alarms against the pinned judge, split by summary author.
 
@@ -644,6 +728,18 @@ def _report_versus(model, results):
     """
     failed = [r for r in results if "error" in r]
     done = [r for r in results if "error" not in r]
+    if done and "probabilities" in done[0]:
+        # The bar is judged at the threshold fixed before the run; the others
+        # are shown for diagnosis and pick their best on the very data scored.
+        print(f"\nAUC {_auc(done):.2f}; weakest-bullet threshold sweep:")
+        for t in (0.5, 0.6, 0.7, 0.8, 0.9):
+            caught = sum(
+                1 for r in done if not r["reference"] and min(r["probabilities"]) < t
+            )
+            alarms = sum(
+                1 for r in done if r["reference"] and min(r["probabilities"]) < t
+            )
+            print(f"  < {t:.1f}  caught {caught}  false alarms {alarms}")
     cost = sum(r["cost"] for r in done)
     print(f"\n{len(done)} judged, {len(failed)} failed, ${cost:.4f}")
     header = f"  {'author':24s} {'n':>3s} {'ref flags':>9s} {'caught':>7s} {'false alarm':>12s}"
