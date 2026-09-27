@@ -24,6 +24,7 @@ gated on. Editing a judge prompt or schema moves its `judge_version` hash, which
 unpins it from every score already banked.
 
     uv run python scripts/eval/judge.py run <vendor/model> 2
+    uv run python scripts/eval/judge.py run <vendor/model> 0 summarization-compare-v1 --no-judge
     uv run python scripts/eval/judge.py smoke 3
 """
 
@@ -62,6 +63,10 @@ CHAT_URL = f"{BASE}/v1/chat/completions"
 # inherits this.
 JUDGE_MODEL = "anthropic/claude-opus-5"
 JUDGE_EFFORT = "medium"  # pins depth; Sonnet 5 rejects temperature outright
+
+# Models that reject a forced tool call (`tool_choice` of type tool or any) with
+# a 400, and are asked for the same schema through `response_format` instead.
+SCHEMA_OUTPUT_MODELS = {"anthropic/claude-opus-5.5"}
 
 COMPARE_DATASET = "summarization-compare-v1"
 SCREEN_DATASET = "summarization-screen-v1"
@@ -271,9 +276,24 @@ def _unpack(name, choice):
 
 def ask(name, *, model=None, **fields):
     """One synchronous judge call, against `model` or the pinned judge."""
-    body = {"model": model or JUDGE_MODEL, **_call_body(name, **fields)}
+    model = model or JUDGE_MODEL
+    body = {"model": model, **_call_body(name, **fields)}
+    if model in SCHEMA_OUTPUT_MODELS:
+        del body["tools"], body["tool_choice"]
+        body["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {"name": "verdict", "strict": True, "schema": SCHEMAS[name]},
+        }
     payload = _post(CHAT_URL, body)
-    return _unpack(name, payload["choices"][0]), payload.get("usage", {})
+    choice = payload["choices"][0]
+    if model in SCHEMA_OUTPUT_MODELS:
+        # Same shape as a tool call's arguments, so `_unpack` checks it the same way.
+        content = choice["message"].get("content") or "{}"
+        choice = {
+            **choice,
+            "message": {"tool_calls": [{"function": {"arguments": content}}]},
+        }
+    return _unpack(name, choice), payload.get("usage", {})
 
 
 def _text(value):
@@ -379,7 +399,13 @@ def make_task(model_id, prompt_key):
 # --- commands ---------------------------------------------------------------
 
 
-def cmd_run(model_id, limit, dataset_name, prompt_key):
+def cmd_run(model_id, limit, dataset_name, prompt_key, *, judged=True):
+    """One compare run; `judged=False` generates without the Tier 2 judge.
+
+    An unjudged run still gets the free Tier 1 scores from the Langfuse rule,
+    and exists so that a cheaper judge can be measured on fresh summaries
+    without paying Opus for them first.
+    """
     client = Langfuse()
     dataset = client.get_dataset(dataset_name)
     items = list(dataset.items)[: limit or None]
@@ -392,7 +418,7 @@ def cmd_run(model_id, limit, dataset_name, prompt_key):
         name=f"{RUN_PREFIX}{model_id} / {prompt_key}",
         data=items,
         task=make_task(model_id, prompt_key),
-        evaluators=TIER2,
+        evaluators=TIER2 if judged else [],
         max_concurrency=4,
         metadata={
             "stage": "compare",
@@ -458,11 +484,14 @@ if __name__ == "__main__":
     if command == "smoke":
         smoke(int(args[1]) if len(args) > 1 else 2)
     elif command == "run":
+        judged = "--no-judge" not in args
+        args = [a for a in args if a != "--no-judge"]
         cmd_run(
             args[1],
             int(args[2]) if len(args) > 2 else 0,
             args[3] if len(args) > 3 else SCREEN_DATASET,
             args[4] if len(args) > 4 else PROMPT_KEY,
+            judged=judged,
         )
     else:
         print(f"unknown command: {command}")
