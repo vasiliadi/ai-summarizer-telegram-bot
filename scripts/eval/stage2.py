@@ -46,12 +46,11 @@ import stage1
 COMPARE = judge.COMPARE_DATASET
 RUN_PREFIX = judge.RUN_PREFIX
 
-TIER2 = ("t2_faithfulness", "t2_coverage", "t2_no_filler")
+TIER2 = ("t2_faithfulness", "t2_no_filler")
 PAIRWISE_SCORE = "t3_pairwise_win"
 
 # The paired Tier 2 test runs on this one. Faithfulness is the metric with a
-# value on every item — coverage is `None` until the key-facts checklists exist,
-# and no_filler is binary, so per-item deltas are almost all zero.
+# value on every item — no_filler is binary, so per-item deltas are almost all zero.
 PAIRED_METRIC = "t2_faithfulness"
 
 BOOTSTRAP_SAMPLES = 2000
@@ -164,7 +163,7 @@ def _tier2_table(rows_by_candidate):
     """Per-candidate means, with the caveat that they do not rank anything."""
     header = (
         f"{'model':28s} {'strategy':12s} {'n':>3s} "
-        f"{'faithful':>9s} {'coverage':>9s} {'no_filler':>9s} "
+        f"{'faithful':>9s} {'no_filler':>9s} "
         f"{'t1_pass':>8s} {'compress':>9s} {'latency':>8s}"
     )
     print("\nTier 2 means - context only; the paired tests below are what rank")
@@ -309,18 +308,6 @@ def report(dataset_name=COMPARE):
         for line in incomplete:
             print(f"  {line}")
         print("      Rows above average only the items that carry it.")
-
-    scored_coverage = any(
-        s.get("t2_coverage") is not None
-        for rows in rows_by_candidate.values()
-        for s, _ in rows.values()
-    )
-    if not scored_coverage:
-        print(
-            "\nNOTE: t2_coverage is empty on every item. The dataset carries no "
-            "key-facts checklists in `expected_output`, so `eval_coverage` "
-            "returns nothing rather than inventing one.",
-        )
 
 
 def sweep(model_ids, dataset_name=COMPARE, prompt_key=None):

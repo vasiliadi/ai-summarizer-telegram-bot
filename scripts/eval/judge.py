@@ -21,12 +21,11 @@ the model being ranked.
 The judge is synchronous and returns structured output through a forced tool
 call; its model is the `JUDGE_MODEL` constant below, chosen so that no
 candidate shares its family. It never returns a verdict already reduced to one
-number: coverage **counts** entailed facts and faithfulness **enumerates** its
-findings, and the ratio, the severity gate and the pass/fail are all applied
-here. A model asked directly for `0.71` makes arithmetic slips no prompt wording
-fixes, and one asked for a gated verdict hides what it gated on. Editing a judge
-prompt or schema moves its `judge_version` hash, which unpins it from every score
-already banked.
+number: faithfulness **enumerates** its findings, and the severity gate and the
+pass/fail are applied here. A model asked directly for `0.71` makes arithmetic
+slips no prompt wording fixes, and one asked for a gated verdict hides what it
+gated on. Editing a judge prompt or schema moves its `judge_version` hash, which
+unpins it from every score already banked.
 
     uv run python scripts/eval/judge.py run <vendor/model> 2
     uv run python scripts/eval/judge.py pairwise <run-a> <run-b>
@@ -145,29 +144,6 @@ misled about what is true.
 
 Return one entry per finding, and an empty list when there is nothing to
 report."""
-
-COVERAGE = """You are measuring how much of a checklist a summary covers.
-
-KEY FACTS:
-{key_facts}
-
-SUMMARY:
-{summary}
-
-For each fact, decide whether the summary entails it — whether someone who read
-only the summary would come away knowing that fact.
-
-A fact is ENTAILED when the summary states it, or states something that
-necessarily includes it. Wording need not match, and the two may be in different
-languages. A fact is NOT ENTAILED when the summary omits it or is so vague that a
-reader could not recover it.
-
-Each fact is entailed or not; there is no partial credit. Do not penalise the
-summary for covering material outside the checklist — that is not what this
-measures.
-
-Report how many facts are entailed out of the total. Keep the reasoning under
-60 words: name the facts that were missed, and nothing else."""
 
 NO_FILLER = """The summary below was written under a prompt requiring at least five bullets
 that explicitly forbids padding to reach that number: every bullet must carry a
@@ -307,16 +283,6 @@ SCHEMAS = {
         "required": ["findings"],
         "additionalProperties": False,
     },
-    "coverage": {
-        "type": "object",
-        "properties": {
-            "total_facts": {"type": "integer"},
-            "entailed_facts": {"type": "integer"},
-            "reasoning": {"type": "string"},
-        },
-        "required": ["total_facts", "entailed_facts", "reasoning"],
-        "additionalProperties": False,
-    },
     "no_filler": {
         "type": "object",
         "properties": {
@@ -339,7 +305,6 @@ SCHEMAS = {
 
 TEMPLATES = {
     "faithfulness": FAITHFULNESS,
-    "coverage": COVERAGE,
     "no_filler": NO_FILLER,
     "pairwise": PAIRWISE,
 }
@@ -441,16 +406,6 @@ def _source_of(item_input):
     return _text(item_input)
 
 
-def _facts_of(expected_output):
-    if not expected_output:
-        return []
-    if isinstance(expected_output, dict):
-        return expected_output.get("key_facts") or []
-    if isinstance(expected_output, list):
-        return expected_output
-    return []
-
-
 def faithfulness_verdict(verdict):
     """The material findings and the comment to store.
 
@@ -503,30 +458,6 @@ def eval_faithfulness(*, input, output, expected_output=None, metadata=None, **k
     )
 
 
-def eval_coverage(*, input, output, expected_output=None, metadata=None, **kw):  # noqa: A002, ARG001
-    """Share of the key-facts checklist the summary entails.
-
-    Returns nothing when the item carries no checklist — the dataset items are
-    seeded with an empty `expected_output`, and a fabricated checklist would
-    corrupt this score for every model at once.
-    """
-    facts = _facts_of(expected_output)
-    summary = _text(output)
-    if not facts or not summary:
-        return None
-    listed = "\n".join(f"- {f}" for f in facts)
-    verdict, _ = ask("coverage", key_facts=listed, summary=summary)
-    total = max(verdict["total_facts"], 1)
-    entailed = min(verdict["entailed_facts"], total)
-    return Evaluation(
-        name="t2_coverage",
-        value=entailed / total,
-        data_type="NUMERIC",
-        comment=f"{entailed}/{total} entailed. {verdict['reasoning']}"[:900],
-        metadata=judge_meta("coverage"),
-    )
-
-
 def eval_no_filler(*, input, output, expected_output=None, metadata=None, **kw):  # noqa: A002, ARG001
     """Whether any bullet exists only to reach the five-bullet minimum.
 
@@ -548,7 +479,7 @@ def eval_no_filler(*, input, output, expected_output=None, metadata=None, **kw):
     )
 
 
-TIER2 = [eval_faithfulness, eval_coverage, eval_no_filler]
+TIER2 = [eval_faithfulness, eval_no_filler]
 
 
 # --- the task under evaluation ----------------------------------------------

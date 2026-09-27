@@ -313,9 +313,12 @@ sat at 27% on its most common character and slipped a 30% threshold, while both 
 ### The key-facts checklist: the reference `t2_coverage` was meant to score against, now retired
 
 **Retired on 2026-09-26: `scripts/eval/checklists.py` and the `KEY_FACTS` prompt were deleted.**
-No checklist ever reached a dataset, so `t2_coverage` has never produced a value; `COVERAGE` and
-`eval_coverage` remain in `judge.py` and return `None` for every item. The history below is kept
-so the approach is not rebuilt without its lessons — the recoverable code is in git history.
+No checklist ever reached a dataset, so `t2_coverage` never produced a value, and the coverage
+judge (`COVERAGE`, `eval_coverage`) was removed the same day. **Tier 2 is now faithfulness and
+no-filler only**; every later mention of `t2_coverage` in this file is history. Two binary-question
+rounds (under *JEV* below) found that coarse omission questions do not separate candidates either,
+so omission currently has no metric. The history below is kept so the approach is not rebuilt
+without its lessons — the recoverable code is in git history.
 
 Coverage is the hard part of reference-free summarization, and the checklist is what converts
 it into a reference-based problem without anyone writing a gold summary: a strong model extracts
@@ -549,9 +552,8 @@ conflating them is a mistake worth not repeating:
   and metadata; there is no mapping source for a second run's output. So **Tier 3 pairwise cannot
   be an evaluator of either kind**, whatever the judge model. This constraint is structural and
   is the one that genuinely forces a local runner.
-- **Tier 2 stays local by choice, not by constraint.** Faithfulness, coverage and no-filler are
-  per-item single-observation judgements, so they would fit a managed evaluator, and on an
-  `experiment` target it can read `expected_output` — the key-facts checklist coverage needs. Two
+- **Tier 2 stays local by choice, not by constraint.** Faithfulness and no-filler are
+  per-item single-observation judgements, so they would fit a managed evaluator. Two
   things are given up by moving them, and both are load-bearing rather than stylistic: the
   **judge reports and the runner decides** (a managed evaluator's output definition is one numeric
   `score` plus reasoning, so asking the model for `0.71` directly is exactly the arithmetic slip
@@ -718,9 +720,9 @@ $1.17, with 7 of 24 replies malformed again.
 
 ### Three details of the judge are load-bearing
 
-The judge never returns a verdict already reduced to one number: coverage **counts** entailed
-facts and the runner computes the ratio, because a model asked directly for `0.71` makes
-arithmetic slips no prompt wording fixes. Those schemas declare their **verdict field before
+The judge never returns a verdict already reduced to one number — faithfulness enumerates and the
+runner gates — because a model asked directly for `0.71` makes arithmetic slips no prompt wording
+fixes (the retired coverage judge counted entailed facts for the same reason). Those schemas declare their **verdict field before
 `reasoning`**, since models emit in declared order and it is the long reasoning string that runs
 into `max_tokens` — a truncated call then still carries the answer. And OpenRouter does not
 enforce `required` on this route, so a missing field has to be caught explicitly rather than
@@ -893,7 +895,7 @@ Three consequences follow, and the second is easy to miss:
   source is *not* for, or the judge starts checking claims against it again by default.
 - **`t3_pairwise_win` no longer means "better summary".** It means "better to read", so it cannot
   by itself rank candidates the way the compare stage was originally written to expect. A ranking
-  now has to combine it with `t2_faithfulness` and `t2_coverage` rather than read Tier 3 as the
+  now has to combine it with `t2_faithfulness` rather than read Tier 3 as the
   verdict. The score name predates this and is now misleading; renaming it would orphan any
   banked score from its history, so it is left alone deliberately — read this paragraph, not the
   name.
@@ -918,6 +920,13 @@ prompt actually lists. Retained substance is `t2_coverage`'s question, measured 
 against a fixed checklist, so weighing it here is the double-count again — and the prompt did not
 forbid it, having forbidden only claim-checking. It now forbids both, and says the source is not
 an inventory to score omissions against.
+
+`PAIRWISE` still tells the judge that coverage "is measured separately, per summary, against a
+fixed checklist", which stopped being true when the coverage judge was removed. It is left as is
+on purpose: the instruction it supports — do not weigh how much each summary retained — is still
+the right one, and editing the sentence would move the pairwise pin (`ccc8bc85092a`) for no
+change in what the judge is asked to do. Reword it the next time the prompt changes for a real
+reason.
 
 The direction of the disagreement is the part worth keeping, because a prohibition alone would
 not have fixed it. In all six the judge named the *denser* summary as the one that retained more
@@ -1008,7 +1017,7 @@ newest criterion did not make the labeller split evenly on it.
 **A better round on this duel cannot fix this.** The next move for Tier 3 is a duel the labeller
 splits closer to evenly, which costs 25 fresh hand labels and about $2.80 of judge time — not
 another prompt revision. Until then Tier 3 stays uncalibrated and a ranking rests on
-`t2_faithfulness` and `t2_coverage`.
+`t2_faithfulness`.
 
 #### Do not read that table's kappa column across rows
 
@@ -1150,8 +1159,7 @@ Two findings the table does not carry on its face:
   cheaper on output than inkling, which is the whole decision between two candidates the paired
   test calls indistinguishable — and it is precisely the column the report cannot print.
 
-The ranking is **not** final: `t2_coverage` is empty on every item until the checklists exist, and
-Tier 3 cannot contribute until pairwise calibrates.
+The ranking is **not** final: Tier 3 cannot contribute until pairwise calibrates.
 
 ## API shapes that cost real time to rediscover
 
