@@ -930,6 +930,19 @@ passed but luna or JEV flagged — with verbatim source quotes beside each claim
   settles is narrower: agreement with Opus is not a valid proxy for correctness on this corpus,
   so the rejections above rest on the wrong reference and JEV is **not** ruled out.
 
+**Ask JEV whether a claim is supported, never whether it is invented.** The labels led the user
+to narrow Tier 2 to one question — does the summary state a fact the source does not contain —
+since everything they confirmed as an error was an invented or distorted fact and Opus's
+wording-level flags were not. Put to JEV per bullet as *"Does this claim state a fact that is not
+in the source?"*, with criteria written so `true` stayed the clean answer ("No: every fact … is in
+the source"), it flagged all 98 summaries: AUC **0.28**. JEV answered the question and ignored
+the criteria's polarity. Read the other way round it is still near chance — AUC 0.63 against
+Opus and **0.56 against the hand labels** — and every probability sat between 0.13 and 0.71
+around a median of 0.42, so the negative framing leaves the model unsure rather than merely
+inverted. The same idea in positive form is the `minimal` variant above (*"Is this claim
+supported by the source?"*), which gives 2 of 3 human errors caught with 1 false alarm. $0.042 for
+the run (`versus typesafe/jev-1.13 0 invented`).
+
 ### Three details of the judge are load-bearing
 
 The judge never returns a verdict already reduced to one number — faithfulness enumerates and the
