@@ -98,10 +98,15 @@ of it decides nothing, so the work is staged and each stage narrows the next:
 
 1. **Screen** — the candidates over the 25 screening items at one fixed thinking level, Tier 1
    only, no judge calls. Drops any model failing outright.
-2. **Compare** — the survivors over the 50-item set with the full scorer suite: Tier 2 per
-   dimension and Tier 3 pairwise with order swap. Candidates that cleared screening go in
-   here alongside the incumbents; this is where the ranking is actually decided.
-3. **Sweep thinking levels** on the winner only, and expect to decide it on cost and latency
+2. **Compare** — the survivors over the 50-item set on the calibrated faithfulness judge.
+   Candidates that cleared screening go in here alongside the incumbents.
+3. **Read the survivors live.** The harness is a **filter, not a ranking** (settled
+   2026-09-26): it removes models that are certainly unfit — broken language or script, no
+   list, invented facts — and the user judges readability and overall quality by using the
+   survivors. Measured on three strong models, every automated axis tried so far (faithfulness,
+   coarse omission questions) passed all three alike, so no automated number was going to pick
+   between good models anyway.
+4. **Sweep thinking levels** on the chosen model only, and expect to decide it on cost and latency
    rather than quality, because adjacent levels rarely separate.
 
 Track cost and latency beside quality throughout; quality alone always picks the most
@@ -118,9 +123,9 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 | `tier1_evaluator.py` | Tier 1 deterministic scorers. Uploaded to Langfuse, **executed there** |
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
 | `stage1.py` | The screening stage — sweep, report, and per-item failures |
-| `judge.py` | The Tier 2/3 LLM judge; runs outside Langfuse. One run, one duel per invocation |
-| `stage2.py` | The compare stage — the sweep, the report over `t2_*`/`t3_*`, and the round-robin driver |
-| `calibrate.py` | Judge-vs-human agreement. Gates the compare stage |
+| `judge.py` | The Tier 2 LLM judge; runs outside Langfuse. One compare run per invocation |
+| `stage2.py` | The compare stage — the sweep and the report over `t2_*` |
+| `calibrate.py` | Faithfulness judge-vs-human agreement. Gates the compare stage |
 | `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
 
 ```bash
@@ -131,7 +136,6 @@ uv run python scripts/eval/stage2.py report     # free, read-only
 uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each
-uv run python scripts/eval/stage2.py duels [<model> ...]       # COSTS MONEY: every unduelled pair
 ```
 
 Anything that only reads is free. A full screening sweep is 25 items × every model swept,
@@ -545,7 +549,14 @@ Only Tier 2/3 spend money on a re-score.
 
 ## Tier 2 and Tier 3: the judges
 
-Both live in `scripts/eval/judge.py`, a local runner that posts scores back through the API into
+**Tier 3 pairwise was removed on 2026-09-26**, along with `stage2.py duels` and the pairwise half
+of `calibrate.py`. It never calibrated (best round 78% / κ 0.23), its hand labels were deleted
+with everything else older than 30 days, and readability is a judgement the user makes by
+reading the survivors — with candidate models changing constantly, a judge would need
+recalibrating as often as the field moves. The Tier 3 sections below are history, kept so the
+approach is not rebuilt without its lessons.
+
+Both lived in `scripts/eval/judge.py`, a local runner that posts scores back through the API into
 the same score table as the `t1_*` scores and any human annotations — which is what keeps the
 calibration comparison a query rather than a spreadsheet. The reasons differ per tier, and
 conflating them is a mistake worth not repeating:
@@ -895,7 +906,7 @@ contradicted each other, so there is no opinion to compare. Those are excluded f
 and kappa and reported as a discard rate, exactly as the compare stage discards them. Counting
 them against the judge would understate agreement and quietly merge position bias with error.
 
-### Tier 3 ranks readability, not overall quality
+### Tier 3 ranked readability, not overall quality (removed)
 
 **Pairwise must not weigh factual accuracy, and the prompt used to open by demanding
 it.** That single line — *"Weigh faithfulness to the source first"* — is what made Tier 3
@@ -1104,11 +1115,11 @@ so a parser keyed on a `## ` prefix alone reattributes verdicts to headings the 
 `labels` accepts a heading only when it names a known sample item. The failure mode is a
 dropped label that reads as an unlabelled item, not as an error.
 
-### The compare stage's report is where the ranking is read
+### The compare stage's report
 
-`scripts/eval/stage2.py` holds the three things built on top of `judge.py`: the sweep across
-models, the aggregation the API does not provide, and the round-robin driver. `judge.py` stays
-one run and one duel per invocation. `sweep` validates every model id against the OpenRouter
+`scripts/eval/stage2.py` holds what is built on top of `judge.py`: the sweep across models and
+the aggregation the API does not provide. (It also held the Tier 3 round-robin driver until
+pairwise was removed; mentions of duels below are history.) `sweep` validates every model id against the OpenRouter
 catalog before spending anything, exactly as the screening sweep does — otherwise a typo in the
 sixth id surfaces only after the first five runs are paid for.
 

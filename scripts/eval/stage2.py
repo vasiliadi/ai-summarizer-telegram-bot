@@ -1,41 +1,32 @@
-"""Compare stage: rank the screening survivors, and say how sure the ranking is.
+"""Compare stage: the screening survivors on the calibrated faithfulness judge.
 
-Screening only proves a model is not broken. This is where the ranking is
-decided, over the 50-item set with the full scorer suite: Tier 2 per dimension
-and Tier 3 pairwise with the order swapped.
+Screening only proves a model is not broken. This runs the survivors over the
+50-item set with Tier 2 and reports who to keep for the user to read live. The
+harness is a filter, not a ranking: readability is the user's call, so Tier 3
+pairwise was removed.
 
     uv run python scripts/eval/stage2.py report                    # free
     uv run python scripts/eval/stage2.py sweep <model> ...         # COSTS MONEY
-    uv run python scripts/eval/stage2.py duels [<model> ...]       # COSTS MONEY
-
-`judge.py` holds the judge itself and runs one duel per invocation; this holds
-the two things built on top of it — the aggregation `GET /experiments` does not
-provide, and the driver that turns 15 manual duels into one command.
 
 **Means do not rank models.** With 25-50 items a few points of difference
-between two means is noise, so every mean printed here is paired with a test
-over per-item deltas: the sign test on Tier 3 verdicts, and the same test on
-per-item Tier 2 deltas between two candidates. Controlling for item difficulty
-this way is worth roughly 3-4x the sample size, which is why every candidate
-runs over the *same* items. Read the paired tables, not the first one.
+between two means is noise, so the means are paired with a sign test over
+per-item faithfulness deltas between two candidates, on the *same* items.
 
 A candidate is a model **and** a strategy, because `t1_pass` and the Tier 2
-means rank models only within one strategy — comparing two strategies is Tier
-3's job. So runs are keyed by `<model> / <prompt_key>` throughout, and a model
-swept under both strategies appears as two candidates that can duel each other.
+means compare models only within one strategy. So runs are keyed by
+`<model> / <prompt_key>` throughout.
 """
 
 from __future__ import annotations
 
 import math
-import random
 import statistics
 import sys
 from datetime import datetime
 from itertools import combinations
 
 import _bootstrap
-from langfuse_api import LangfuseAPI, score_value
+from langfuse_api import LangfuseAPI
 
 REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
@@ -47,19 +38,10 @@ COMPARE = judge.COMPARE_DATASET
 RUN_PREFIX = judge.RUN_PREFIX
 
 TIER2 = ("t2_faithfulness", "t2_no_filler")
-PAIRWISE_SCORE = "t3_pairwise_win"
 
 # The paired Tier 2 test runs on this one. Faithfulness is the metric with a
 # value on every item — no_filler is binary, so per-item deltas are almost all zero.
 PAIRED_METRIC = "t2_faithfulness"
-
-BOOTSTRAP_SAMPLES = 2000
-# Fixed, so re-reading the same banked verdicts prints the same interval. An
-# unseeded bootstrap moves on every read, and the movement is indistinguishable
-# from the data having changed.
-BOOTSTRAP_SEED = 20260818
-
-WIN_VALUE = {"A": 1.0, "TIE": 0.5, "B": 0.0}
 
 
 def discover_runs(dataset_name):
@@ -105,46 +87,11 @@ def _item_rows(experiment):
     }
 
 
-def _duels():
-    """(run A name, run B name) -> {dataset item id: 'A' | 'B' | 'TIE'}.
-
-    Read from the score table, not from the experiment: a pairwise score is
-    anchored to run A's trace and carries the pair in its metadata, so filtering
-    scores by experiment id returns nothing for it.
-    """
-    out = {}
-    for row in API.paginate(
-        "v3/scores",
-        {"limit": 100, "fields": "core,details", "name": PAIRWISE_SCORE},
-    ):
-        meta = row.get("metadata") or {}
-        pair, item = (meta.get("run_a"), meta.get("run_b")), meta.get("dataset_item_id")
-        if all(pair) and item:
-            out.setdefault(pair, {})[item] = score_value(row)
-    return out
-
-
-def _bootstrap_ci(values, confidence=0.95):
-    """Percentile bootstrap interval for the mean of `values`."""
-    if len(values) < 2:
-        return None
-    rng = random.Random(BOOTSTRAP_SEED)  # noqa: S311
-    n = len(values)
-    means = sorted(
-        sum(rng.choice(values) for _ in range(n)) / n for _ in range(BOOTSTRAP_SAMPLES)
-    )
-    tail = (1 - confidence) / 2
-    return means[int(tail * BOOTSTRAP_SAMPLES)], means[
-        int((1 - tail) * BOOTSTRAP_SAMPLES) - 1
-    ]
-
-
 def _sign_test(wins, losses):
     """Two-sided exact binomial p for `wins` against `losses` under a fair coin.
 
     Ties are dropped before this is called; that is what makes it a sign test
-    over per-item deltas rather than a comparison of two means, and it is the
-    guard the plan asks for at this sample size.
+    over per-item deltas rather than a comparison of two means.
     """
     n = wins + losses
     if n == 0:
@@ -186,49 +133,12 @@ def _tier2_table(rows_by_candidate):
         )
 
 
-def _duel_table(duels, rows_by_candidate):
-    """Tier 3 win rates with a bootstrap CI and a sign test."""
-    header = (
-        f"{'duel (win rate is the left model)':52s} "
-        f"{'n':>3s} {'unres':>6s} {'win':>6s} {'95% CI':>16s} {'p':>7s}"
-    )
-    print(
-        "\nTier 3 duels - win rate for the left candidate, both orders, "
-        "consistent verdicts only",
-    )
-    print(header)
-    print("-" * len(header))
-    if not duels:
-        print("  no duels banked yet - run `stage2.py duels`")
-        return
-    for (run_a, run_b), verdicts in sorted(duels.items()):
-        left, right = _candidate(run_a), _candidate(run_b)
-        values = [WIN_VALUE[v] for v in verdicts.values() if v in WIN_VALUE]
-        wins = sum(1 for v in verdicts.values() if v == "A")
-        losses = sum(1 for v in verdicts.values() if v == "B")
-        # Everything the two runs shared that produced no banked verdict. That
-        # merges the judge abstaining (the two orders contradicted each other)
-        # with a call that never returned; `judge.py pairwise` prints the true
-        # split at run time, and only the abstentions are a judge-quality signal.
-        shared = _shared_items(rows_by_candidate, left, right)
-        unresolved = max(len(shared) - len(values), 0) if shared else 0
-        ci = _bootstrap_ci(values)
-        interval = f"[{ci[0]:.2f}, {ci[1]:.2f}]" if ci else "-"
-        rate = f"{sum(values) / len(values):6.2f}" if values else f"{'-':>6s}"
-        pair = f"{_short(left)} vs {_short(right)}"
-        print(
-            f"{pair:52s} {len(values):3d} {unresolved:6d} {rate} "
-            f"{interval:>16s} {_sign_test(wins, losses):7.3f}",
-        )
-
-
 def _paired_tier2_table(rows_by_candidate):
     """Sign test on per-item Tier 2 deltas, for every pair sharing items.
 
-    This is the cheap half of the ranking: it needs no judge call beyond the
-    Tier 2 scores each run already banked, and it answers the question the means
-    table cannot — whether one candidate beats another on the *same* item more
-    often than not.
+    It needs no judge call beyond the Tier 2 scores each run already banked,
+    and it answers the question the means table cannot — whether one candidate
+    beats another on the *same* item more often than not.
     """
     header = (
         f"{'pair (better/worse is for the left candidate)':52s} "
@@ -290,7 +200,6 @@ def report(dataset_name=COMPARE):
 
     rows_by_candidate = {c: _item_rows(e) for c, e in runs.items()}
     _tier2_table(rows_by_candidate)
-    _duel_table(_duels(), rows_by_candidate)
     _paired_tier2_table(rows_by_candidate)
 
     # The `n` column counts a run's items, while a mean covers only the items
@@ -330,63 +239,7 @@ def sweep(model_ids, dataset_name=COMPARE, prompt_key=None):
         print(f"[{index}/{len(model_ids)}] {model_id}")
         judge.cmd_run(model_id, 0, dataset_name, prompt_key)
         print()
-    print("done - `stage2.py duels` next, then `stage2.py report`")
-
-
-def _resolve(runs, wanted):
-    """Match each argument against a candidate label by prefix.
-
-    A candidate is `<model> / <strategy>`, but the useful thing to type is the
-    model. Ambiguity is refused rather than guessed: picking one of two
-    strategies silently would bank a duel that answers a different question
-    than the one asked.
-    """
-    if not wanted:
-        return sorted(runs)
-    out = []
-    for name in wanted:
-        matches = [c for c in sorted(runs) if c == name or c.startswith(f"{name} /")]
-        if not matches:
-            sys.exit(f"no compare run for {name!r}; have: {', '.join(sorted(runs))}")
-        if len(matches) > 1:
-            sys.exit(f"{name!r} matches {len(matches)}: {', '.join(matches)}")
-        out.append(matches[0])
-    return out
-
-
-def duels(wanted=(), dataset_name=COMPARE):
-    """Duel every pair of candidates that has not been duelled yet.
-
-    `judge.py pairwise` takes one pair per invocation, and a six-candidate
-    round-robin is fifteen of them. Pairs already banked are skipped on the
-    exact run names their scores carry, so re-running a candidate produces a new
-    run name and the pair is duelled again — which is what re-running it means.
-    """
-    runs = discover_runs(dataset_name)
-    if not runs:
-        sys.exit(f"no runs found with prefix {RUN_PREFIX!r} on {dataset_name!r}")
-    candidates = _resolve(runs, wanted)
-    done = set(_duels())
-    pending = [
-        (a, b)
-        for a, b in combinations(candidates, 2)
-        if (runs[a]["name"], runs[b]["name"]) not in done
-        and (runs[b]["name"], runs[a]["name"]) not in done
-    ]
-    total = len(list(combinations(candidates, 2)))
-    print(
-        f"{len(candidates)} candidates, {total} pairs, "
-        f"{total - len(pending)} already banked, {len(pending)} to run",
-    )
-    if not pending:
-        return
-    items = min(runs[c]["itemCount"] for c in candidates)
-    print(f"~{len(pending) * items * 2} judge calls over ~{items} shared items\n")
-    for index, (left, right) in enumerate(pending, 1):
-        print(f"[{index}/{len(pending)}] {_short(left)} vs {_short(right)}")
-        judge.cmd_pairwise(dataset_name, runs[left]["name"], runs[right]["name"])
-        print()
-    print("done - `stage2.py report` now has these duels")
+    print("done - `stage2.py report` next")
 
 
 if __name__ == "__main__":
@@ -396,7 +249,5 @@ if __name__ == "__main__":
         report(args[1] if len(args) > 1 else COMPARE)
     elif command == "sweep":
         sweep(args[1:])
-    elif command == "duels":
-        duels(args[1:])
     else:
         sys.exit(f"unknown command: {command}")

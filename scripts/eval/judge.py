@@ -1,13 +1,9 @@
-"""Tier 2 / Tier 3 LLM judge.
+"""Tier 2 LLM judge.
 
-Runs outside Langfuse. Tier 3 has to: an evaluator sees one item and has no
-mapping source for a second run's output, so pairwise comparison cannot be an
-evaluator at all. Tier 2 could move but stays here — see `docs/context/evals.md`
-for what moving it would cost.
-
-Tier 2 plugs into `Langfuse.run_experiment` as evaluator functions, so scores
-attach to the run automatically. Tier 3 compares two runs and posts its own
-scores.
+Runs outside Langfuse, though it could move — see `docs/context/evals.md` for
+what moving it would cost. It plugs into `Langfuse.run_experiment` as evaluator
+functions, so scores attach to the run automatically. Tier 3 pairwise was
+removed: readability is judged by the user reading the survivors.
 
 Two model callers live here and only one of them is the bot's. The **candidate**
 summarises through `eval_client.LLM`, the same path screening takes, so a
@@ -28,7 +24,6 @@ gated on. Editing a judge prompt or schema moves its `judge_version` hash, which
 unpins it from every score already banked.
 
     uv run python scripts/eval/judge.py run <vendor/model> 2
-    uv run python scripts/eval/judge.py pairwise <run-a> <run-b>
     uv run python scripts/eval/judge.py smoke 3
 """
 
@@ -162,73 +157,6 @@ the material rather than summarising it.
 A bullet is not padding merely for being short, minor, or less interesting than
 the others. A genuine but small point is still a distinct idea."""
 
-PAIRWISE = """Two summaries of the same source are shown below. Decide which one is better to
-read.
-
-SOURCE:
-{source}
-
-SUMMARY A:
-{summary_a}
-
-SUMMARY B:
-{summary_b}
-
-**Do not weigh factual accuracy, and do not let an error you notice decide this.**
-Whether the source supports a claim is measured separately, per summary, by
-another judge. Treat both summaries as equally faithful even where one plainly is
-not. Ranking them on accuracy here would count the same defect twice and would
-bury the one property this comparison exists to measure.
-
-**Do not weigh how much of the source each summary retained.** Which one kept
-more facts, dropped more detail, or omitted a point the other covered is not a
-question you are being asked. Coverage is measured separately, per summary,
-against a fixed checklist. A summary is not better here for being fuller, and
-being fuller never earns a summary anything it did not earn as prose.
-
-The source is given so that you can tell dense from disconnected — a summary can
-only be judged readable against what it was condensing. It is not given so that
-you can check the claims, and it is not an inventory to score omissions against.
-
-**A summary written in an unexpected language is not disqualified here**, and it
-does not lose for that reason alone. Whether the output language was the one
-asked for is a separate binary check on each summary; deciding this comparison
-on it would count that defect twice and would end the comparison before the
-readability question is reached. Judge each summary on how well it reads in the
-language it is actually written in, and compare those.
-
-Weigh, in order:
-
-- **Coherence.** Do the points follow one another, or must the reader
-  reconstruct the thread between them? Bullets that have been compressed into
-  bare stacks of noun phrases read as fragments however much they contain, and
-  that is work moved onto the reader rather than done for them.
-- **Comprehensibility.** Language a reader has to fight — clumsy translation,
-  mangled syntax, phrasing that leaves the meaning in doubt — is the defect this
-  is most meant to catch. A point the reader cannot extract has not been
-  delivered.
-- **Economy.** Whether each sentence earns its place, and whether anything is
-  merely restated. Economy is not the same as density: cutting the words that
-  carried the connection between two points is not economical, it is damage.
-
-**Density is a cost, not a virtue.** A summary that packs more into less is
-harder to read, not better, and the reader pays for every specific that was
-dropped into a line without being connected to anything. So do not credit a
-summary for how much it managed to fit in, and do not treat a rival as padded
-merely for being longer than it. The question is always what reaches the reader,
-never what was fitted into the text.
-
-Length decides nothing in either direction. A longer summary is not better for
-being longer, and a shorter one is not better for being shorter; judges drift
-toward length, so correct for that deliberately — but do not overcorrect into
-rewarding terseness that costs the reader the thread.
-
-Ignore which summary sounds more confident, and give no credit for polish that
-does not help a reader understand.
-
-Answer A, B, or TIE. Use TIE only when neither is meaningfully better, not to
-avoid a hard call. Keep the reasoning under 60 words."""
-
 
 # The verdict field comes before `reasoning` in every schema. Models emit in
 # declared order and it is the long reasoning string that runs into `max_tokens`,
@@ -292,21 +220,11 @@ SCHEMAS = {
         "required": ["has_padding", "reasoning"],
         "additionalProperties": False,
     },
-    "pairwise": {
-        "type": "object",
-        "properties": {
-            "winner": {"type": "string", "enum": ["A", "B", "TIE"]},
-            "reasoning": {"type": "string"},
-        },
-        "required": ["winner", "reasoning"],
-        "additionalProperties": False,
-    },
 }
 
 TEMPLATES = {
     "faithfulness": FAITHFULNESS,
     "no_filler": NO_FILLER,
-    "pairwise": PAIRWISE,
 }
 
 
@@ -494,8 +412,7 @@ def make_task(model_id, prompt_key):
 
     Nothing is caught here, unlike the screening task. An empty summary is a
     verdict in screening — Tier 1 books it as a language failure — but in the
-    compare stage it would be handed to a judge as if the model had answered,
-    and a pairwise duel against a blank is a win that means nothing.
+    compare stage it would be handed to a judge as if the model had answered.
     """
     prompt = dedent(PROMPTS[prompt_key]).strip()
 
@@ -562,108 +479,6 @@ def cmd_run(model_id, limit, dataset_name, prompt_key):
     return result
 
 
-def _run_outputs(dataset_name, run_name):
-    """Map dataset item id -> (that run's output text, its trace id).
-
-    Reads the experiment's items directly. The v3 shape this replaced fetched
-    the dataset run and then one trace per item for its output, and both halves
-    are deprecated: `GET /datasets/{name}/runs/{runName}` is superseded by
-    `GET /experiments` plus `GET /experiment-items`, and trace-level
-    input/output is deprecated product-wide. `fields=io` returns the root
-    observation's output, which is the value the judge should compare anyway,
-    and it costs one request per page instead of one per item.
-    """
-    experiment = API.find_experiment(API.dataset_id(dataset_name), run_name)
-    if experiment is None:
-        msg = f"no experiment named {run_name!r} on dataset {dataset_name!r}"
-        raise RuntimeError(msg)
-    out = {}
-    for item in API.experiment_items(experiment["id"], fields="core,io"):
-        # The trace id travels with the output: a pairwise score has to hang off
-        # something, and the natural anchor is run A's trace for that item.
-        out[item["experimentItemId"]] = (_text(item.get("output")), item["traceId"])
-    return out
-
-
-def cmd_pairwise(dataset_name, run_a, run_b):
-    """Duel two runs over their shared items, both orders, consistent only.
-
-    Returns the win counts, how many verdicts were discarded as inconsistent,
-    and how many items the two runs shared, so a driver running many duels can
-    report progress without re-reading the scores it just wrote.
-    """
-    client = Langfuse()
-    dataset = client.get_dataset(dataset_name)
-    sources = {i.id: (_source_of(i.input), i) for i in dataset.items}
-    outputs_a, outputs_b = (
-        _run_outputs(dataset_name, run_a),
-        _run_outputs(
-            dataset_name,
-            run_b,
-        ),
-    )
-    shared = [k for k in outputs_a if k in outputs_b and k in sources]
-    print(f"{len(shared)} shared items between {run_a} and {run_b}")
-
-    calls = []
-    for item_id in shared:
-        source = sources[item_id][0][:120000]
-        text_a, text_b = outputs_a[item_id][0], outputs_b[item_id][0]
-        calls.append(
-            (
-                f"{item_id}|ab",
-                "pairwise",
-                {"source": source, "summary_a": text_a, "summary_b": text_b},
-            ),
-        )
-        calls.append(
-            (
-                f"{item_id}|ba",
-                "pairwise",
-                {"source": source, "summary_a": text_b, "summary_b": text_a},
-            ),
-        )
-
-    verdicts = {}
-    for key, name, fields in calls:
-        verdicts[key], _ = ask(name, **fields)
-
-    flip = {"A": "B", "B": "A", "TIE": "TIE"}
-    wins = {run_a: 0, run_b: 0, "TIE": 0}
-    inconsistent = 0
-    for item_id in shared:
-        ab, ba = verdicts.get(f"{item_id}|ab"), verdicts.get(f"{item_id}|ba")
-        if not ab or not ba:
-            continue
-        # The second call saw them swapped, so flip its answer back before comparing.
-        if ab["winner"] != flip[ba["winner"]]:
-            inconsistent += 1
-            continue
-        winner = {"A": run_a, "B": run_b, "TIE": "TIE"}[ab["winner"]]
-        wins[winner] += 1
-        client.create_score(
-            name="t3_pairwise_win",
-            value=ab["winner"],
-            data_type="CATEGORICAL",
-            comment=ab["reasoning"][:900],
-            trace_id=outputs_a[item_id][1],
-            metadata={
-                **judge_meta("pairwise"),
-                "run_a": run_a,
-                "run_b": run_b,
-                "dataset_item_id": item_id,
-                "winner": winner,
-            },
-        )
-    client.flush()
-    counted = sum(wins.values())
-    print(f"\nconsistent {counted}/{len(shared)}  (dropped {inconsistent})")
-    for k, v in wins.items():
-        share = f"{v / counted:.0%}" if counted else "-"
-        print(f"  {k:45s} {v:3d}  {share}")
-    return wins, inconsistent, len(shared)
-
-
 def smoke(limit):
     """Judge real traced summaries end to end without posting anything."""
     for name in TEMPLATES:
@@ -700,8 +515,6 @@ if __name__ == "__main__":
             args[3] if len(args) > 3 else SCREEN_DATASET,
             args[4] if len(args) > 4 else PROMPT_KEY,
         )
-    elif command == "pairwise":
-        cmd_pairwise(args[1] if len(args) > 1 else COMPARE_DATASET, args[2], args[3])
     else:
         print(f"unknown command: {command}")
         raise SystemExit(2)

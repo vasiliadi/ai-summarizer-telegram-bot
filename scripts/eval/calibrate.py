@@ -1,18 +1,16 @@
 """Judge calibration: measure the judge against hand labels before trusting it.
 
-A judge is worth nothing until it agrees with a human. Nothing in a Tier 2/3
+A judge is worth nothing until it agrees with a human. Nothing in a Tier 2
 ranking means anything until this passes, so it runs *before* the compare stage
 rather than after.
 
     uv run python scripts/eval/calibrate.py sample      # free: show the fixed sample
-    uv run python scripts/eval/calibrate.py setup       # free: configs, queues, traces
-    uv run python scripts/eval/calibrate.py judge [<model>] [<dimension>]  # COSTS MONEY
+    uv run python scripts/eval/calibrate.py setup       # free: score configs and the queue
+    uv run python scripts/eval/calibrate.py judge [<model>]   # COSTS MONEY
     uv run python scripts/eval/calibrate.py agreement   # free: accuracy + kappa
 
-`judge` takes both arguments in either order; `<dimension>` is `faithfulness` or
-`pairwise` and restricts the round to it. Prompts move one dimension at a time,
-so naming one is the normal invocation — re-scoring the other pays to replace a
-banked result whose prompt has not changed.
+Only faithfulness is calibrated here. Tier 3 pairwise was removed: readability
+is judged by the user reading the survivors, not by a model.
 
 Calibration decides the judge model rather than assuming it. Run `judge` once
 per candidate judge — the model id is an optional argument, defaulting to the
@@ -25,7 +23,7 @@ The judge prompts and schemas are imported from `judge.py` and never restated.
 Calibration has to measure the prompt production actually uses; a copy here
 would drift and the agreement number would describe nothing.
 
-Both dimensions are hand-labelled in Langfuse annotation queues, and one detail
+Faithfulness is hand-labelled in a Langfuse annotation queue, and one detail
 decides whether that measurement means anything: **queue items point at the root
 span, never at the GENERATION inside it.** A screening trace holds four
 observations. The root span's output is the clean summary, byte-identical to
@@ -35,28 +33,24 @@ parts*, and a reasoning model puts a `thinking` part in front of the `text` one
 and sees reasoning the judge never sees. Both sit in the same trace, so picking
 the wrong one is easy and nothing complains.
 
-Pairwise has no existing object to point at: a queue item is one object and the
-comparison needs two summaries side by side, the same constraint that stopped
-Tier 3 being an evaluator. `setup` therefore writes one purpose-built span per
-pair, source as input and both summaries as output, blinded and carrying the
-blinding in its metadata. They are free, named `calibration pair`, and hold the
-only record of which model the labeller saw as A.
-
 The sample is derived, not stored: items are sorted by id and dealt round-robin
 across the screening runs, so re-running `sample` reproduces it exactly. That
 matters because agreement is only comparable across prompt revisions when the
 items stay fixed.
+
+**Hand labels live in Langfuse for 30 days, then are deleted with every other
+score.** The 25 `h_faithful` labels behind the recorded calibration are gone;
+export any new round before the month is out.
 """
 
 from __future__ import annotations
 
 import sys
-from hashlib import sha256
 
 import _bootstrap
 import requests
 from langfuse import Langfuse
-from langfuse_api import EPOCH, LangfuseAPI, score_value
+from langfuse_api import LangfuseAPI, score_value
 
 REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
@@ -66,36 +60,13 @@ import stage1
 
 SCREEN = stage1.SCREEN
 
-# The duel worth calibrating on is the one that varies along the axis the spec
-# is least sure of. These two sit close on length (compression 0.199 vs 0.176),
-# so length — the part the pairwise prompt already handles explicitly — is held
-# roughly fixed, and what separates them is how readable the Russian is. That is
-# the criterion the prompt gained last and has never been measured on. Two
-# models a reader rates equally would mostly produce TIE, which inflates chance
-# agreement and collapses kappa.
-PAIR_A = "minimax/minimax-m3"
-PAIR_B = "thinkingmachines/inkling"
-
 # Human channels vs judge channels. Distinct names, one score table — which is
 # what keeps the comparison a query instead of a spreadsheet.
 H_FAITHFUL, C_FAITHFUL = "h_faithful", "cal_faithful"
-H_PAIRWISE, C_PAIRWISE = "h_pairwise", "cal_pairwise"
 
-# Judge-prompt name -> the score name its verdicts are banked under.
-SCORE_NAMES = {"faithfulness": C_FAITHFUL, "pairwise": C_PAIRWISE}
-
-PAIRWISE_CATEGORIES = ("A", "B", "TIE")
-
-# `judge` takes its arguments in either order: a token naming a dimension
-# restricts the round to it, anything else is a candidate judge model.
-DIMENSIONS = ("faithfulness", "pairwise")
-
-# One queue holds both dimensions: the Hobby plan allows exactly one, and
-# there is no API route to update a queue's score configs after creation.
+# The Hobby plan allows exactly one annotation queue, and there is no API route
+# to update a queue's score configs after creation.
 QUEUE_NAME = "calibration-faithful-v1"
-# Name given to the purpose-built pairwise annotation traces, and the only way
-# to find them again — they carry the item id and the blinding in metadata.
-PAIR_TRACE_NAME = "calibration pair"
 
 
 def _runs():
@@ -128,30 +99,23 @@ def _sources():
     return {i.id: judge._source_of(i.input) for i in client.get_dataset(SCREEN).items}  # noqa: SLF001
 
 
-def _flipped(item_id):
-    """Whether this item shows `PAIR_B` in the left column.
-
-    Which model sits in which column is randomised per item so the labeller
-    cannot track a vendor across the file, and derived from the item id rather
-    than drawn, so the layout reproduces exactly without a stored manifest — the
-    same property the rest of the sample relies on.
-    """
-    return sha256(item_id.encode()).digest()[0] % 2 == 1
-
-
 def sample():
     """Build the fixed calibration sample from the existing screening runs.
 
-    Every dataset item appears exactly once for faithfulness, dealt round-robin
-    across the models, so the set is stratified by model without any model
-    dominating it. Pairwise uses the same items for one fixed model duel.
+    Every dataset item appears exactly once, dealt round-robin across the
+    models, so the set is stratified by model without any model dominating it.
     """
     runs = _runs()
+    if not runs:
+        sys.exit(
+            "no screening runs in Langfuse — they are deleted after 30 days; "
+            "run `stage1.py run <model>` first",
+        )
     models = sorted(runs)
     outputs = {m: _outputs(runs[m]["id"]) for m in models}
     sources = _sources()
 
-    faithful, pairwise = [], []
+    faithful = []
     for index, item_id in enumerate(sorted(sources)):
         model = models[index % len(models)]
         text, trace = outputs.get(model, {}).get(item_id, ("", None))
@@ -159,30 +123,17 @@ def sample():
             faithful.append(
                 {"item": item_id, "model": model, "summary": text, "trace": trace},
             )
-        a = outputs.get(PAIR_A, {}).get(item_id)
-        b = outputs.get(PAIR_B, {}).get(item_id)
-        if a and b and a[0] and b[0]:
-            pairwise.append(
-                {
-                    "item": item_id,
-                    "a": a[0],
-                    "b": b[0],
-                    "trace": a[1],
-                    "flipped": _flipped(item_id),
-                },
-            )
-    return faithful, pairwise, sources
+    return faithful, sources
 
 
 def cmd_sample():
-    faithful, pairwise, _ = sample()
+    faithful, _ = sample()
     print(f"faithfulness: {len(faithful)} items")
     counts: dict[str, int] = {}
     for row in faithful:
         counts[row["model"]] = counts.get(row["model"], 0) + 1
     for model, n in sorted(counts.items()):
         print(f"  {model:28s} {n}")
-    print(f"\npairwise: {len(pairwise)} pairs — A={PAIR_A}  B={PAIR_B}")
 
 
 def _post(path, body):
@@ -220,32 +171,13 @@ def _root_observations(trace_ids, from_time):
     return found
 
 
-def _pair_observations():
-    """Observation id -> its pairwise annotation trace's metadata.
-
-    The purpose-built traces are found by name; each carries the dataset item
-    and the blinding it was rendered with, which is the only record of which
-    model the labeller saw as A.
-    """
-    found = {}
-    for row in API.paginate(
-        "v2/observations",
-        {"fields": "core,metadata", "fromStartTime": EPOCH, "limit": 100},
-    ):
-        meta = row.get("metadata") or {}
-        if meta.get("calibration") == PAIR_TRACE_NAME:
-            found[row["id"]] = meta
-    return found
-
-
 def _queue(score_config_ids):
     """Find or create the single annotation queue.
 
     The Hobby plan caps annotation queues at one, and no route updates a
-    queue's score configs after creation — so both dimensions share this queue
-    and it has to be created with both configs attached. A queue that predates
-    that carries only one, and the missing channel simply will not be offered
-    in the UI; this says so rather than letting the labeller discover it.
+    queue's score configs after creation. A config missing from an existing
+    queue is simply not offered in the UI; this says so rather than letting the
+    labeller discover it.
     """
     queues = {q["name"]: q for q in API.paginate("annotation-queues", {"limit": 100})}
     if QUEUE_NAME in queues:
@@ -272,13 +204,8 @@ def _queue(score_config_ids):
         {
             "name": QUEUE_NAME,
             "description": (
-                "Judge calibration. Two kinds of item share this queue, and "
-                "they ask deliberately different questions. If Output holds one "
-                "summary, answer h_faithful: does it assert anything the source "
-                "does not support? If Output holds two under A and B, answer "
-                "h_pairwise: which is better to READ — style, coherence, "
-                "comprehensibility — ignoring factual errors, which h_faithful "
-                "already covers. Leave the other channel empty."
+                "Judge calibration. Answer h_faithful: does the summary assert "
+                "anything the source does not support?"
             ),
             "scoreConfigIds": score_config_ids,
         },
@@ -296,29 +223,21 @@ def _enqueue(queue_id, observation_ids):
     return len(observation_ids)
 
 
-def setup():  # noqa: C901, PLR0915
-    """Create the score configs, the queue, and the pairwise annotation traces.
+def setup():
+    """Create the score configs and the queue, and queue the sample.
 
     Faithfulness annotates observations that already exist — the root span of
-    each screening run item. Pairwise has nothing to point at: a queue item is
-    one object and the comparison needs two summaries side by side, the same
-    constraint that stopped Tier 3 being an evaluator. So one span per pair is
-    written purpose-built, carrying the source as input and both summaries as
-    output. They cost nothing and are named so they never read as bot traffic.
+    each screening run item.
     """
     existing = {c["name"]: c for c in API.paginate("score-configs", {"limit": 100})}
     ids = {}
 
-    def config(name, data_type, description, categories=None):
+    def config(name, data_type, description):
         if name in existing:
             print(f"  score config exists: {name}")
             ids[name] = existing[name]["id"]
             return
         body = {"name": name, "dataType": data_type, "description": description}
-        if categories:
-            body["categories"] = [
-                {"label": c, "value": i} for i, c in enumerate(categories)
-            ]
         ids[name] = _post("score-configs", body)["id"]
         print(f"  created score config: {name}")
 
@@ -335,28 +254,13 @@ def setup():  # noqa: C901, PLR0915
         "Judge's binarised faithfulness verdict, for comparison against "
         f"{H_FAITHFUL}. Written by calibrate.py, not by hand.",
     )
-    config(
-        H_PAIRWISE,
-        "CATEGORICAL",
-        "Human: which summary is better to READ, A or B as shown? Judge style, "
-        "coherence and comprehensibility only. Ignore factual errors entirely — "
-        f"accuracy is {H_FAITHFUL}'s question, and weighing it here counts the "
-        "same defect twice. Blind — which model is which is randomised per item.",
-        PAIRWISE_CATEGORIES,
-    )
-    config(
-        C_PAIRWISE,
-        "CATEGORICAL",
-        f"Judge's pairwise verdict, for comparison against {H_PAIRWISE}.",
-        PAIRWISE_CATEGORIES,
-    )
 
-    faithful, pairwise, sources = sample()
+    faithful, _ = sample()
     runs = _runs()
     from_time = min(r["startTime"] for r in runs.values())
 
     print()
-    queue_id = _queue([ids[H_FAITHFUL], ids[H_PAIRWISE]])
+    queue_id = _queue([ids[H_FAITHFUL]])
     queued = {
         i.get("objectId")
         for i in API.paginate(
@@ -378,88 +282,13 @@ def setup():  # noqa: C901, PLR0915
         f"  faithfulness: {_enqueue(queue_id, fresh)} queued, {len(faithful) - len(fresh)} already there",
     )
 
-    pair_meta = _pair_observations()
-    already = {
-        m.get("dataset_item_id")
-        for m in pair_meta.values()
-        if m.get("run_a") == PAIR_A and m.get("run_b") == PAIR_B
-    }
-    # A trace built from a different duel answers a different question. Its
-    # observation cannot be deleted, but it must leave the queue or it gets
-    # labelled as though it belonged to this calibration.
-    stale = {
-        obs
-        for obs, m in pair_meta.items()
-        if m.get("run_a") != PAIR_A or m.get("run_b") != PAIR_B
-    }
-    if stale:
-        removed = 0
-        for item in API.paginate(
-            f"annotation-queues/{queue_id}/items",
-            {"limit": 100},
-        ):
-            if item.get("objectId") in stale:
-                response = requests.delete(
-                    f"{API.base}/api/public/annotation-queues/"
-                    f"{queue_id}/items/{item['id']}",
-                    auth=API.auth,
-                    timeout=120,
-                )
-                removed += response.status_code in (200, 202, 204)
-        print(f"  removed {removed} queue item(s) from a previous duel")
-    client = Langfuse()
-    created = []
-    for row in pairwise:
-        if row["item"] in already:
-            continue
-        left = row["b"] if row["flipped"] else row["a"]
-        right = row["a"] if row["flipped"] else row["b"]
-        span = client.start_observation(
-            name=PAIR_TRACE_NAME,
-            input={
-                "content": sources.get(row["item"], ""),
-                "target_language": "Russian",
-            },
-            output=f"## A\n\n{left}\n\n---\n\n## B\n\n{right}",
-            metadata={
-                # `calibration` is what `_pair_observations` matches on; the
-                # rest is the only record of which model was shown as A.
-                "calibration": PAIR_TRACE_NAME,
-                "dataset_item_id": row["item"],
-                "columns_flipped": row["flipped"],
-                "run_a": PAIR_A,
-                "run_b": PAIR_B,
-            },
-        )
-        span.end()
-        created.append(span.id)
-    client.flush()
-    # Enqueue every span for this duel that is not in the queue, not only the
-    # ones just created. The two sets come apart exactly when the queue is
-    # rebuilt to fix its score configs: the spans still exist, so nothing is
-    # created, and queueing only `created` would leave the new queue with 25
-    # faithfulness items and no pairwise ones — the very problem the rebuild
-    # was meant to fix.
-    existing_pairs = [
-        obs
-        for obs, m in pair_meta.items()
-        if m.get("run_a") == PAIR_A and m.get("run_b") == PAIR_B and obs not in queued
-    ]
-    if created or existing_pairs:
-        _enqueue(queue_id, created + existing_pairs)
-    print(
-        f"  pairwise: {len(created)} created, "
-        f"{len(created) + len(existing_pairs)} queued, "
-        f"{len(already) - len(existing_pairs)} already there",
-    )
-
-    print(f"\nLabel both at {API.base} -> Human Annotation")
+    print(f"\nLabel at {API.base} -> Human Annotation")
 
 
-def _resume(name, model, rows):
+def _resume(model, rows):
     """Drop the sample items this pin has already banked a verdict for.
 
-    A round is 50 calls and any one of them can fail outright, mid-round.
+    A round is 25 calls and any one of them can fail outright, mid-round.
     OpenRouter reserves the *maximum possible* cost of a call against the
     remaining credit, so a balance that comfortably covers a whole round still
     refuses a single item carrying a full-size source — a 402 that says nothing
@@ -468,37 +297,29 @@ def _resume(name, model, rows):
     whole would pay for them a second time and leave two scores per item under
     one pin, which `agreement` resolves to whichever page arrived last.
 
-    Pairwise is filtered on the duel as well as the pin. A previous duel's
-    scores carry the same `dataset_item_id` and would otherwise read as work
-    already done, for two entirely different models.
-
     Editing the judge prompt moves the pin, which is what makes a genuine
     re-measurement possible: nothing is skipped when the pin is new.
     """
     if not rows:
         return rows
-    pin = f"{name}@{judge.judge_version(name)}"
+    pin = f"faithfulness@{judge.judge_version('faithfulness')}"
     done = set()
     for row in API.paginate(
         "v3/scores",
-        {"limit": 100, "fields": "core,details", "name": SCORE_NAMES[name]},
+        {"limit": 100, "fields": "core,details", "name": C_FAITHFUL},
     ):
         meta = row.get("metadata") or {}
         if (meta.get("judge_model"), meta.get("judge_prompt")) != (model, pin):
-            continue
-        if name == "pairwise" and (
-            meta.get("run_a") != PAIR_A or meta.get("run_b") != PAIR_B
-        ):
             continue
         if item := meta.get("dataset_item_id"):
             done.add(item)
     remaining = [r for r in rows if r["item"] not in done]
     if skipped := len(rows) - len(remaining):
-        print(f"{name}: {skipped} already banked under {pin}, skipping")
+        print(f"{skipped} already banked under {pin}, skipping")
     return remaining
 
 
-def run_judge(model=None, only=None):  # noqa: C901, PLR0915
+def run_judge(model=None):
     """Score the calibration sample with one judge. COSTS MONEY.
 
     `model` names a candidate judge to measure instead of the pinned one. The
@@ -507,30 +328,18 @@ def run_judge(model=None, only=None):  # noqa: C901, PLR0915
     the cheaper one clears the bar, spend the difference on dataset items
     instead. Both judges write the same score names and stay separable by the
     pin in their metadata, so running a second one never disturbs the first.
-
-    `only` restricts the round to one dimension. Prompts move one dimension at a
-    time, so this is the normal case rather than an optimisation: the other
-    dimension's banked round is still pinned to a prompt that has not changed,
-    and re-running it would spend money replacing a measured result with a fresh
-    sample of itself — severity near the boundary is unstable per run, so the
-    replacement would not even be the same number.
     """
-    faithful, pairwise, sources = sample()
-    if only == "pairwise":
-        faithful = []
-    elif only == "faithfulness":
-        pairwise = []
+    faithful, sources = sample()
     client = Langfuse()
     model = model or judge.JUDGE_MODEL
-    faithful = _resume("faithfulness", model, faithful)
-    pairwise = _resume("pairwise", model, pairwise)
+    faithful = _resume(model, faithful)
     spent = []
     refused = []
 
     def attempt(**fields):
         """One judge call, or `None` when the provider refused to answer.
 
-        A round is 75 calls and the scores are only flushed at the end, so
+        A round is 25 calls and the scores are only flushed at the end, so
         letting one refusal propagate discards every verdict bought before it.
         Opus returned `content_filter` on an ordinary summary about the Go
         language — nothing about the item predicts it, and a retry is not free —
@@ -579,47 +388,6 @@ def run_judge(model=None, only=None):  # noqa: C901, PLR0915
         )
         print(f"  {row['item']}  {'clean' if clean else 'UNSUPPORTED'}")
 
-    print(f"\npairwise: {len(pairwise)} pairs x 2 orders")
-    flip = {"A": "B", "B": "A", "TIE": "TIE"}
-    for row in pairwise:
-        source = sources.get(row["item"], "")[:120000]
-        forward = attempt(
-            name="pairwise",
-            source=source,
-            summary_a=row["a"],
-            summary_b=row["b"],
-        )
-        backward = attempt(
-            name="pairwise",
-            source=source,
-            summary_a=row["b"],
-            summary_b=row["a"],
-        )
-        if forward is None or backward is None:
-            print(f"  {row['item']}  refused")
-            continue
-        (ab, usage_ab), (ba, usage_ba) = forward, backward
-        spent.extend([usage_ab.get("cost") or 0, usage_ba.get("cost") or 0])
-        # Order-swap disagreement is position bias, not a verdict. Recording it
-        # as INCONSISTENT keeps the discard rate visible instead of hiding it.
-        consistent = ab["winner"] == flip[ba["winner"]]
-        value = ab["winner"] if consistent else "INCONSISTENT"
-        client.create_score(
-            name=C_PAIRWISE,
-            value=value,
-            data_type="CATEGORICAL",
-            comment=ab["reasoning"][:900],
-            trace_id=row["trace"],
-            metadata={
-                **judge.judge_meta("pairwise", model),
-                "run_a": PAIR_A,
-                "run_b": PAIR_B,
-                "dataset_item_id": row["item"],
-                "order_ab": ab["winner"],
-                "order_ba": ba["winner"],
-            },
-        )
-        print(f"  {row['item']}  {value}")
     client.flush()
     # OpenRouter prices each call, so this is what was actually charged rather
     # than an estimate against a price table that goes stale.
@@ -708,8 +476,8 @@ def _human_scores(name, by_observation):
 
 def agreement():
     """Report judge-vs-human agreement and every disagreement."""
-    faithful, pairwise, _ = sample()
-    scores = _scores_by_name([C_FAITHFUL, C_PAIRWISE])
+    faithful, _ = sample()
+    scores = _scores_by_name([C_FAITHFUL])
 
     runs = _runs()
     from_time = min(r["startTime"] for r in runs.values())
@@ -719,50 +487,22 @@ def agreement():
         {roots[r["trace"]]: r["item"] for r in faithful if r["trace"] in roots},
     )
 
-    # Only this duel's spans. A previous duel's spans survive forever — nothing
-    # in v4 deletes an observation — and they carry the same `dataset_item_id`,
-    # so an unfiltered read maps a label about two *other* models onto this
-    # comparison. `setup` already filters on `run_a`/`run_b` when it enqueues;
-    # this is the same filter on the way back out.
-    pair_meta = {
-        obs: m
-        for obs, m in _pair_observations().items()
-        if m.get("run_a") == PAIR_A and m.get("run_b") == PAIR_B
-    }
-    flipped = {
-        m["dataset_item_id"]: m.get("columns_flipped") for m in pair_meta.values()
-    }
-    shown = _human_scores(
-        H_PAIRWISE,
-        {obs: m["dataset_item_id"] for obs, m in pair_meta.items()},
+    # Two counts, not one. "Nothing to compare" with 25 hand labels banked and
+    # no judge run is a completely different state from nobody having labelled
+    # anything, and one number cannot tell them apart — it reads as lost work.
+    by_pin = scores[C_FAITHFUL]
+    print(
+        f"\n=== faithfulness: {len(human_faithful)} hand-labelled of {len(faithful)} ===",
     )
-    # The queue is blind: its A is whichever model `_flipped` put first. Store
-    # the comparison canonically, A always meaning PAIR_A, so a human label and
-    # a judge label are the same kind of statement.
-    unflip = {"A": "B", "B": "A", "TIE": "TIE"}
-    human_pairwise = {
-        item: (unflip[v] if flipped.get(item) and v in unflip else v)
-        for item, v in shown.items()
-    }
-
-    for title, human, by_pin, rows in (
-        ("faithfulness", human_faithful, scores[C_FAITHFUL], faithful),
-        ("pairwise", human_pairwise, scores[C_PAIRWISE], pairwise),
-    ):
-        # Two counts, not one. "Nothing to compare" with 25 hand labels banked
-        # and no judge run is a completely different state from nobody having
-        # labelled anything, and one number cannot tell them apart — it reads
-        # as lost work.
-        print(f"\n=== {title}: {len(human)} hand-labelled of {len(rows)} ===")
-        if not by_pin:
-            print(
-                "  no judge scores yet — run `calibrate.py judge [<model>]`"
-                if human
-                else "  neither side has run",
-            )
-            continue
-        for pin in sorted(by_pin):
-            _report_judge(pin, human, by_pin[pin], rows)
+    if not by_pin:
+        print(
+            "  no judge scores yet — run `calibrate.py judge [<model>]`"
+            if human_faithful
+            else "  neither side has run",
+        )
+        return
+    for pin in sorted(by_pin):
+        _report_judge(pin, human_faithful, by_pin[pin], faithful)
 
 
 def _report_judge(pin, human, judged, rows):
@@ -777,22 +517,6 @@ def _report_judge(pin, human, judged, rows):
     print(f"    {len(shared)} comparable ({len(judged)} judged)")
     if not shared:
         print("    nothing to compare — label the queue in Langfuse")
-        return
-    # An INCONSISTENT pairwise verdict is the judge abstaining, not
-    # disagreeing: the two orders contradicted each other, so it has no
-    # opinion to compare. Production discards those, and counting them
-    # against the judge here would understate agreement while conflating
-    # position bias with error. The discard rate is reported instead — it is
-    # its own signal about judge quality.
-    abstained = [(i, h) for i, h, j in shared if j == "INCONSISTENT"]
-    if abstained:
-        print(
-            f"    {len(abstained)} inconsistent "
-            f"({len(abstained) / len(shared):.0%}) — excluded",
-        )
-    shared = [(i, h, j) for i, h, j in shared if j != "INCONSISTENT"]
-    if not shared:
-        print("    every verdict was inconsistent; nothing to compare")
         return
     pairs_seen = [(h, j) for _, h, j in shared]
     accuracy = sum(1 for h, j in pairs_seen if h == j) / len(pairs_seen)
@@ -812,9 +536,7 @@ if __name__ == "__main__":
     elif command == "setup":
         setup()
     elif command == "judge":
-        rest = args[1:]
-        dimension = next((a for a in rest if a in DIMENSIONS), None)
-        run_judge(next((a for a in rest if a not in DIMENSIONS), None), dimension)
+        run_judge(args[1] if len(args) > 1 else None)
     elif command == "agreement":
         agreement()
     else:
