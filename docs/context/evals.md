@@ -129,7 +129,7 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 | `stage1.py` | The screening stage — sweep, report, and per-item failures |
 | `judge.py` | The Tier 2 LLM judge; runs outside Langfuse. One compare run per invocation |
 | `stage2.py` | The compare stage — the sweep and the report over `t2_*` |
-| `calibrate.py` | Faithfulness judge-vs-human agreement. Gates the compare stage |
+| `calibrate.py` | Faithfulness judge-vs-human agreement, and judge-vs-judge on compare runs (`versus`). Gates the compare stage |
 | `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
 
 ```bash
@@ -140,6 +140,7 @@ uv run python scripts/eval/stage2.py report     # free, read-only
 uv run python scripts/eval/calibrate.py export  # free — hand labels to temp/, before they leave the API window
 uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
+uv run python scripts/eval/calibrate.py versus <openrouter-id> # COSTS MONEY: a cheaper judge against Opus's banked verdicts
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each
 ```
 
@@ -718,6 +719,29 @@ A useful consequence: the candidate pool keeps `openai/gpt-5.6-luna`. Adopting a
 would have forced it out under the family rule, and that trade — a permanent per-request saving on
 a candidate, for a one-off saving on judging — was only ever worth making if the judging saving was
 real. It was not.
+
+**A fourth was measured on cost grounds and rejected: `openai/gpt-6-luna`, 2026-09-27.** The
+motive is recorded because it will recur: a compare run on Opus costs about $2.90 per candidate,
+more than the bot's own monthly token spend, so a judge ~20× cheaper would change how often the
+filter can run. There were no hand labels to calibrate against (they had left the API window
+unexported), so `calibrate.py versus` re-judged the 98 summaries of the 2026-09-26 compare runs
+on the same prompt pin and compared against Opus's banked `t2_faithfulness`. The bar was agreed
+before the run: catch at least 75% of Opus's material failures with at most 5 false alarms.
+
+| summaries by | n | Opus flags | luna caught | luna false alarms |
+|---|---|---|---|---|
+| `gpt-5.6-luna` | 49 | 5 | 3 | 11 |
+| `gpt-6-luna` | 49 | 3 | 1 | 5 |
+| all | 98 | 8 | **4** | **16** |
+
+It fails both halves, and in the sol-pro direction rather than Sonnet's: it invents faults. Most of
+its 16 material findings are ones Opus graded `minor` or `borderline` on the same claim, so the
+two disagree on the severity boundary, and luna draws it far lower. Under luna the filter would
+have **dropped `gpt-5.6-luna`** (35/49, 71%, against Opus's 90%) and kept `gpt-6-luna` (43/49,
+88%). Luna also flagged the older model's summaries twice as often as its own, which is what
+family self-preference would look like; with this few negatives it cannot be told apart from a
+real quality gap. Cost **$0.145 for 98 calls**, $0.0015 each — the saving was real this time; the
+instrument was not. The verdicts are in `temp/versus-openai_gpt-6-luna-*.json`, untracked.
 
 **Quote the banked round, not a probe.** Probing the same items ahead of the round gave 92% /
 0.78, and the round gave 88% / 0.65 — one item (`scr-11e822219c80`) graded `material` in the probe
