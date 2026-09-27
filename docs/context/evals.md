@@ -137,7 +137,7 @@ uv run python scripts/eval/install_tier1.py     # after every edit to tier1_eval
 uv run python scripts/eval/stage1.py report     # free, read-only
 uv run python scripts/eval/stage1.py failures   # free — which items failed, and why
 uv run python scripts/eval/stage2.py report     # free, read-only
-uv run python scripts/eval/calibrate.py export  # free — hand labels to temp/, before Langfuse deletes them
+uv run python scripts/eval/calibrate.py export  # free — hand labels to temp/, before they leave the API window
 uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each
@@ -181,17 +181,24 @@ State is split across three places, and only one of them is the repository.
 | Prompts, datasets, score configs, evaluators, rules, runs, scores | Langfuse (server) |
 | Raw trace harvest (`obs.json`), ad-hoc probes | untracked, local only |
 
-**Langfuse keeps traces, observations and scores for 30 days on this plan, then deletes them —
-hand labels included.** Checked on 2026-09-26: the oldest surviving trace was from 2026-08-28,
-and every screening and compare experiment, every judge verdict (`cal_*`), every Tier 1 score and
-all 50 hand labels (`h_faithful`, `h_pairwise`) were gone. Datasets and their items survived.
-Nothing warned. So "banked in Langfuse" means banked for a month: anything that must outlive
+**The public API sees only the last 30 days on this plan — hand labels included.** The Hobby
+plan's limit is "30 days data access", and it is an access window, not deletion. Checked on
+2026-09-26: the oldest trace the API returned was from 2026-08-28; every screening and compare
+experiment, every judge verdict (`cal_*`), every Tier 1 score and all 50 hand labels
+(`h_faithful`, `h_pairwise`) came back empty — from `v3/scores` by name, by queue id and with an
+explicit August window, and from the deprecated `v1 /scores` too. Yet the annotation queue's 50
+items are still listed as `COMPLETED`, and **the queue item page in the UI still shows the old
+labels and verdicts**. So the data exists, the harness cannot read it, and nothing warns. This was
+first recorded here as deletion; that was wrong. Datasets and their items are unaffected. The
+paid Core tier raises the window to 90 days.
+
+So "banked in Langfuse" means readable by the scripts for a month: anything that must outlive
 that — hand labels above all, since they cost days rather than dollars — has to be exported to a
 local file or written into a dataset item's fields. The calibration numbers recorded below are
-the only surviving record of those rounds, and `calibrate.py agreement` can no longer reproduce
-them. **For hand labels that is now `calibrate.py export`**: it writes the sample, the labels and
+the only record the harness can still read, and `calibrate.py agreement` can no longer reproduce
+them (the labels can still be read one by one on the queue items in the UI). **For hand labels that is now `calibrate.py export`**: it writes the sample, the labels and
 every judge's verdicts to `temp/calibration-<timestamp>.json`, and `calibrate.py agreement <file>`
-reports from that file after Langfuse has deleted the originals. Run it the day a round is
+reports from that file after the originals have left the API window. Run it the day a round is
 labelled. The file holds summaries of the user's own content, so it stays in the gitignored
 `temp/` — this repository is public.
 
@@ -587,8 +594,8 @@ is visible the moment the user reads a survivor. The harness keeps only checks t
 deterministic (Tier 1) or calibrated (faithfulness).
 
 **Tier 3 pairwise was removed on 2026-09-26**, along with `stage2.py duels` and the pairwise half
-of `calibrate.py`. It never calibrated (best round 78% / κ 0.23), its hand labels were deleted
-with everything else older than 30 days, and readability is a judgement the user makes by
+of `calibrate.py`. It never calibrated (best round 78% / κ 0.23), its hand labels left the API's
+30-day window with everything else, and readability is a judgement the user makes by
 reading the survivors — with candidate models changing constantly, a judge would need
 recalibrating as often as the field moves. The Tier 3 sections below are history, kept so the
 approach is not rebuilt without its lessons.

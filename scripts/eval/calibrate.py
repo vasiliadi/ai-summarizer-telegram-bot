@@ -39,13 +39,14 @@ across the screening runs, so re-running `sample` reproduces it exactly. That
 matters because agreement is only comparable across prompt revisions when the
 items stay fixed.
 
-**Hand labels live in Langfuse for 30 days, then are deleted with every other
-score.** The 25 `h_faithful` labels behind the recorded calibration are gone.
+**The public API reads only the last 30 days on this plan, hand labels
+included.** The 25 `h_faithful` labels behind the recorded calibration still
+show on their queue items in the UI, but no API call returns them.
 `export` writes the sample, the hand labels and every judge's verdicts to a
 local file, and `agreement <file>` reports from that file once Langfuse has
-deleted the originals — run `export` as soon as a round is labelled. The file
-holds summaries of the user's own content, so it goes under the gitignored
-`temp/` and never into this public repository.
+stopped returning the originals — run `export` as soon as a round is
+labelled. The file holds summaries of the user's own content, so it goes under
+the gitignored `temp/` and never into this public repository.
 """
 
 from __future__ import annotations
@@ -117,7 +118,7 @@ def sample():
     runs = _runs()
     if not runs:
         sys.exit(
-            "no screening runs in Langfuse — they are deleted after 30 days; "
+            "no screening runs in Langfuse's API window, which is the last 30 days; "
             "run `stage1.py run <model>` first",
         )
     models = sorted(runs)
@@ -497,7 +498,7 @@ def _live_round():
 
 
 def export(path=None):
-    """Write the current round to a local file before Langfuse deletes it."""
+    """Write the current round to a local file before it leaves the API window."""
     faithful, human, by_pin = _live_round()
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
     path = Path(path) if path else EXPORT_DIR / f"calibration-{stamp}.json"
