@@ -9,7 +9,7 @@ rather than after.
     uv run python scripts/eval/calibrate.py judge [<model>]   # COSTS MONEY
     uv run python scripts/eval/calibrate.py agreement [<file>]  # free: accuracy + kappa
     uv run python scripts/eval/calibrate.py export [<file>]     # free: labels to disk
-    uv run python scripts/eval/calibrate.py versus <model> [n]  # COSTS MONEY: judge vs judge
+    uv run python scripts/eval/calibrate.py versus <model> [n] [jev-variant]  # COSTS MONEY
 
 Only faithfulness is calibrated here. Tier 3 pairwise was removed: readability
 is judged by the user reading the survivors, not by a model.
@@ -96,6 +96,23 @@ JEV_INSTRUCTIONS = (
 JEV_CRITERIA = {
     "true": "The source supports the claim.",
     "false": "The claim materially misstates or invents something relative to the source.",
+}
+# The question with every exclusion and error type stripped, keeping only the
+# note on translation: summaries are Russian and most sources are not.
+JEV_MINIMAL = (
+    "Is this claim supported by the source? The claim may be a translation. "
+    "Claim: «{claim}»"
+)
+JEV_MINIMAL_CRITERIA = {
+    "true": "The source states or clearly implies the claim.",
+    "false": "The source contradicts the claim or does not contain it.",
+}
+# Variant -> (instructions, criteria, all bullets in one call). Separating the
+# call shape from the wording tells which of the two moves the result.
+JEV_VARIANTS = {
+    "batched": (JEV_INSTRUCTIONS, JEV_CRITERIA, True),
+    "single": (JEV_INSTRUCTIONS, JEV_CRITERIA, False),
+    "minimal": (JEV_MINIMAL, JEV_MINIMAL_CRITERIA, False),
 }
 
 # Human channels vs judge channels. Distinct names, one score table — which is
@@ -611,7 +628,7 @@ def _compare_rows(limit):
     return rows
 
 
-def versus(model, limit=0):
+def versus(model, limit=0, variant="batched"):
     """Re-judge the compare runs with another judge, against the pinned one. COSTS MONEY.
 
     Calibration proper needs hand labels, and the ones behind the recorded round
@@ -626,11 +643,12 @@ def versus(model, limit=0):
     if model != JEV_MODEL:  # a decisions model is absent from the chat catalog
         stage1._resolve([model])  # noqa: SLF001
     rows = _compare_rows(limit)
-    print(f"judge {model} vs {judge.JUDGE_MODEL}: {len(rows)} summaries")
+    label = f"{model} ({variant})" if model == JEV_MODEL else model
+    print(f"judge {label} vs {judge.JUDGE_MODEL}: {len(rows)} summaries")
 
     def one(row):
         if model == JEV_MODEL:
-            return _ask_jev(row)
+            return _ask_jev(row, variant)
         try:
             verdict, usage = judge.ask(
                 "faithfulness",
@@ -652,15 +670,17 @@ def versus(model, limit=0):
         results = list(pool.map(one, rows))
 
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
-    path = EXPORT_DIR / f"versus-{model.replace('/', '_')}-{stamp}.json"
+    path = (
+        EXPORT_DIR / f"versus-{label.replace('/', '_').replace(' ', '')}-{stamp}.json"
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8")
     _report_versus(model, results)
     print(f"\nverdicts -> {path}")
 
 
-def _ask_jev(row):
-    """One JEV decision call per summary: the source as state, a question per bullet.
+def _ask_jev(row, variant):
+    """JEV on one summary: the source as state, a question per bullet.
 
     JEV returns a probability per yes/no question and writes no text, and asked
     once whether a whole summary is faithful it ranked barely above chance
@@ -677,36 +697,44 @@ def _ask_jev(row):
         for line in row["summary"].splitlines()
         if line.strip()
     ]
+    instructions, criteria, batched = JEV_VARIANTS[variant]
     questions = {
         f"b{i:02d}": {
             "type": "noul",
-            "instructions": JEV_INSTRUCTIONS.format(claim=bullet),
-            "criteria": JEV_CRITERIA,
+            "instructions": instructions.format(claim=bullet),
+            "criteria": criteria,
         }
         for i, bullet in enumerate(bullets)
     }
-    body = {
-        "model": JEV_MODEL,
-        "state": {"source": row["source"]},
-        "questions": questions,
-    }
-    try:
-        payload = judge._post(f"{judge.BASE}/alpha/decisions", body, timeout=120)  # noqa: SLF001
-    except urllib.error.HTTPError as exc:
-        return {
-            **row,
-            "error": f"{exc.code}: {exc.read()[:300].decode(errors='replace')}",
+    # Batched sends every bullet in one call; otherwise each bullet pays for
+    # the whole source again, about twelve times the batched cost.
+    calls = [questions] if batched else [{k: q} for k, q in questions.items()]
+    answers, cost = {}, 0
+    for batch in calls:
+        body = {
+            "model": JEV_MODEL,
+            "state": {"source": row["source"]},
+            "questions": batch,
         }
-    except OSError as exc:
-        return {**row, "error": str(exc)[:300]}
-    probabilities = [payload["answers"][k]["noul"] for k in questions]
+        try:
+            payload = judge._post(f"{judge.BASE}/alpha/decisions", body, timeout=120)  # noqa: SLF001
+        except urllib.error.HTTPError as exc:
+            return {
+                **row,
+                "error": f"{exc.code}: {exc.read()[:300].decode(errors='replace')}",
+            }
+        except OSError as exc:
+            return {**row, "error": str(exc)[:300]}
+        answers |= {k: a["noul"] for k, a in payload["answers"].items()}
+        cost += (payload.get("usage") or {}).get("cost") or 0
+    probabilities = [answers[k] for k in questions]
     weakest = min(range(len(bullets)), key=probabilities.__getitem__)
     return {
         **row,
         "clean": probabilities[weakest] >= JEV_THRESHOLD,
         "probabilities": probabilities,
         "comment": f"weakest {probabilities[weakest]:.2f}: {bullets[weakest][:200]}",
-        "cost": (payload.get("usage") or {}).get("cost") or 0,
+        "cost": cost,
     }
 
 
@@ -816,6 +844,10 @@ if __name__ == "__main__":
     elif command == "versus":
         if len(args) < 2:
             sys.exit("usage: calibrate.py versus <openrouter-model-id> [limit]")
-        versus(args[1], int(args[2]) if len(args) > 2 else 0)
+        versus(
+            args[1],
+            int(args[2]) if len(args) > 2 else 0,
+            args[3] if len(args) > 3 else "batched",
+        )
     else:
         sys.exit(f"unknown command: {command}")
