@@ -9,7 +9,7 @@ rather than after.
     uv run python scripts/eval/calibrate.py judge [<model>]   # COSTS MONEY
     uv run python scripts/eval/calibrate.py agreement [<file>]  # free: accuracy + kappa
     uv run python scripts/eval/calibrate.py export [<file>]     # free: labels to disk
-    uv run python scripts/eval/calibrate.py versus <model> [n] [jev-variant]  # COSTS MONEY
+    uv run python scripts/eval/calibrate.py versus <model> [--labels f] [--author m] [--variant v]  # COSTS MONEY
 
 Only faithfulness is calibrated here. Tier 3 pairwise was removed: readability
 is judged by the user reading the survivors, not by a model.
@@ -52,6 +52,7 @@ the gitignored `temp/` and never into this public repository.
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import urllib.error
@@ -125,6 +126,8 @@ JEV_VARIANTS = {
     "single": (JEV_INSTRUCTIONS, JEV_CRITERIA, False),
     "minimal": (JEV_MINIMAL, JEV_MINIMAL_CRITERIA, False),
     "invented": (JEV_INVENTED, JEV_INVENTED_CRITERIA, True),
+    # `minimal` in one call: batching was measured to change nothing.
+    "minimal-batched": (JEV_MINIMAL, JEV_MINIMAL_CRITERIA, True),
 }
 
 # Human channels vs judge channels. Distinct names, one score table — which is
@@ -609,14 +612,19 @@ def agreement(path=None):
         _report_judge(pin, human_faithful, by_pin[pin], faithful)
 
 
-def _compare_rows(limit):
-    """Every judged summary in the newest compare run per candidate.
+def _compare_rows(limit, author=None):
+    """Every summary in the newest compare run per candidate, judged or not.
 
-    Each row carries the pinned judge's verdict (`t2_faithfulness`) and the
-    score id, so its comment can be fetched for the items the two judges split.
+    A row carries the pinned judge's verdict (`t2_faithfulness`) and the score
+    id, so its comment can be fetched for the items the two judges split. A run
+    made with `judge.py run --no-judge` has neither, and its rows carry
+    `reference: None` — they are there for hand labels, not for the pinned judge.
     """
     rows = []
     for candidate, run in sorted(stage2.discover_runs(stage2.COMPARE).items()):
+        model = stage2._split(candidate)[0]  # noqa: SLF001
+        if author and model != author:
+            continue
         items = API.experiment_items(run["id"], fields="core,io,scores")
         for item in sorted(items, key=lambda i: i["experimentItemId"])[: limit or None]:
             score = next(
@@ -624,15 +632,15 @@ def _compare_rows(limit):
                 None,
             )
             summary = judge._text(item.get("output"))  # noqa: SLF001
-            if score is None or not summary:
+            if not summary or summary.startswith("Error:"):
                 continue
             source = json.loads(item["input"]).get("content", "")
             rows.append(
                 {
                     "item": item["experimentItemId"],
-                    "author": stage2._split(candidate)[0],  # noqa: SLF001
-                    "reference": score["value"] == 1,
-                    "reference_score": score["id"],
+                    "author": model,
+                    "reference": None if score is None else score["value"] == 1,
+                    "reference_score": score and score["id"],
                     "source": source,
                     "summary": summary,
                 },
@@ -640,7 +648,15 @@ def _compare_rows(limit):
     return rows
 
 
-def versus(model, limit=0, variant="batched"):
+def _load_labels(path):
+    """(item, author) -> the user's verdict, True for clean; unsure ones dropped."""
+    rows = json.loads(Path(path).read_text(encoding="utf-8"))
+    return {
+        (r["item"], r["author"]): r["clean"] for r in rows if r["clean"] is not None
+    }
+
+
+def versus(model, limit=0, variant="batched", labels=None, author=None):
     """Re-judge the compare runs with another judge, against the pinned one. COSTS MONEY.
 
     Calibration proper needs hand labels, and the ones behind the recorded round
@@ -649,12 +665,19 @@ def versus(model, limit=0, variant="batched"):
     already scored — at no cost beyond the candidate's own calls. The reference
     is 88% against hand labels, not ground truth.
 
+    `labels` names a file of the user's own verdicts: only those summaries are
+    judged, and the report adds agreement with the user beside agreement with
+    the pinned judge — which on 2026-09-27 turned out to be the one that counts.
+
     Nothing is posted to Langfuse: the verdicts go to `temp/` beside the source
     text they were judged on, which is the user's own content.
     """
     if model != JEV_MODEL:  # a decisions model is absent from the chat catalog
         stage1._resolve([model])  # noqa: SLF001
-    rows = _compare_rows(limit)
+    human = _load_labels(labels) if labels else None
+    rows = _compare_rows(limit, author)
+    if human is not None:
+        rows = [r for r in rows if (r["item"], r["author"]) in human]
     label = f"{model} ({variant})" if model == JEV_MODEL else model
     print(f"judge {label} vs {judge.JUDGE_MODEL}: {len(rows)} summaries")
 
@@ -687,7 +710,7 @@ def versus(model, limit=0, variant="batched"):
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8")
-    _report_versus(model, results)
+    _report_versus(model, results, human)
     print(f"\nverdicts -> {path}")
 
 
@@ -760,15 +783,49 @@ def _auc(done):
     return sum(pairs) / len(pairs)
 
 
-def _report_versus(model, results):
-    """Misses and false alarms against the pinned judge, split by summary author.
+def _report_versus(model, results, human=None):
+    """Misses and false alarms against the pinned judge and the user's labels.
 
     Split by author because the candidate judge may share a family with the
     models it is judging; leniency towards its own family shows up there first.
     """
     failed = [r for r in results if "error" in r]
     done = [r for r in results if "error" not in r]
-    if done and "probabilities" in done[0]:
+    cost = sum(r["cost"] for r in done)
+    print(f"\n{len(done)} judged, {len(failed)} failed, ${cost:.4f}")
+    for r in failed:
+        print(f"  FAILED  {r['item']}  ({r['author']}): {r['error']}")
+    if human is not None:
+        _report_human(model, done, human)
+    scored = [r for r in done if r["reference"] is not None]
+    if not scored:
+        print(f"\nno {judge.JUDGE_MODEL} verdicts on these summaries (an unjudged run)")
+        return
+    print(f"\n--- against {judge.JUDGE_MODEL} ---")
+    _report_reference(model, scored)
+
+
+def _report_human(model, done, human):
+    """Errors caught and false alarms against the user's labels, for both judges."""
+    print("\n--- against the user's labels ---")
+    judges = {model: lambda r: r["clean"], judge.JUDGE_MODEL: lambda r: r["reference"]}
+    for name, clean in judges.items():
+        rows = [r for r in done if clean(r) is not None]
+        if not rows:
+            continue
+        errors = [r for r in rows if not human[r["item"], r["author"]]]
+        caught = sum(1 for r in errors if not clean(r))
+        alarms = sum(1 for r in rows if human[r["item"], r["author"]] and not clean(r))
+        agree = sum(1 for r in rows if clean(r) == human[r["item"], r["author"]])
+        print(
+            f"  {name:28s} n={len(rows):3d}  caught {caught}/{len(errors)}  "
+            f"false alarms {alarms}  agreement {agree / len(rows):.0%}",
+        )
+
+
+def _report_reference(model, done):
+    """The comparison with the pinned judge, over rows it has scored."""
+    if "probabilities" in done[0]:
         # The bar is judged at the threshold fixed before the run; the others
         # are shown for diagnosis and pick their best on the very data scored.
         print(f"\nAUC {_auc(done):.2f}; weakest-bullet threshold sweep:")
@@ -780,8 +837,6 @@ def _report_versus(model, results):
                 1 for r in done if r["reference"] and min(r["probabilities"]) < t
             )
             print(f"  < {t:.1f}  caught {caught}  false alarms {alarms}")
-    cost = sum(r["cost"] for r in done)
-    print(f"\n{len(done)} judged, {len(failed)} failed, ${cost:.4f}")
     header = f"  {'author':24s} {'n':>3s} {'ref flags':>9s} {'caught':>7s} {'false alarm':>12s}"
     print(header)
     for author in [*sorted({r["author"] for r in done}), "all"]:
@@ -813,8 +868,6 @@ def _report_versus(model, results):
             f"    {judge.JUDGE_MODEL}: {reference_comments.get(r['reference_score'], '?')}",
         )
         print(f"    {model}: {r['comment']}")
-    for r in failed:
-        print(f"\n  FAILED  {r['item']}  ({r['author']}): {r['error']}")
 
 
 def _report_judge(pin, human, judged, rows):
@@ -854,12 +907,13 @@ if __name__ == "__main__":
     elif command == "export":
         export(args[1] if len(args) > 1 else None)
     elif command == "versus":
-        if len(args) < 2:
-            sys.exit("usage: calibrate.py versus <openrouter-model-id> [limit]")
-        versus(
-            args[1],
-            int(args[2]) if len(args) > 2 else 0,
-            args[3] if len(args) > 3 else "batched",
-        )
+        parser = argparse.ArgumentParser(prog="calibrate.py versus")
+        parser.add_argument("model")
+        parser.add_argument("--limit", type=int, default=0)
+        parser.add_argument("--variant", default="batched", choices=JEV_VARIANTS)
+        parser.add_argument("--labels", help="the user's verdicts; judge only those")
+        parser.add_argument("--author", help="only summaries by this model")
+        opts = parser.parse_args(args[1:])
+        versus(opts.model, opts.limit, opts.variant, opts.labels, opts.author)
     else:
         sys.exit(f"unknown command: {command}")
