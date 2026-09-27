@@ -9,6 +9,7 @@ rather than after.
     uv run python scripts/eval/calibrate.py judge [<model>]   # COSTS MONEY
     uv run python scripts/eval/calibrate.py agreement [<file>]  # free: accuracy + kappa
     uv run python scripts/eval/calibrate.py export [<file>]     # free: labels to disk
+    uv run python scripts/eval/calibrate.py versus <model> [n]  # COSTS MONEY: judge vs judge
 
 Only faithfulness is calibrated here. Tier 3 pairwise was removed: readability
 is judged by the user reading the survivors, not by a model.
@@ -53,6 +54,7 @@ from __future__ import annotations
 
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -66,8 +68,15 @@ API = LangfuseAPI(*_bootstrap.langfuse_rest())
 
 import judge
 import stage1
+import stage2
 
 SCREEN = stage1.SCREEN
+
+# The bar a cheaper judge must clear against the pinned one in `versus`, agreed
+# before the first run on 2026-09-27: a filter judge that misses real errors
+# passes models that invent facts, so the catch rate is the number that decides.
+VERSUS_MIN_CATCH = 0.75
+VERSUS_MAX_FALSE_ALARMS = 5
 
 # Human channels vs judge channels. Distinct names, one score table — which is
 # what keeps the comparison a query instead of a spreadsheet.
@@ -551,6 +560,127 @@ def agreement(path=None):
         _report_judge(pin, human_faithful, by_pin[pin], faithful)
 
 
+def _compare_rows(limit):
+    """Every judged summary in the newest compare run per candidate.
+
+    Each row carries the pinned judge's verdict (`t2_faithfulness`) and the
+    score id, so its comment can be fetched for the items the two judges split.
+    """
+    rows = []
+    for candidate, run in sorted(stage2.discover_runs(stage2.COMPARE).items()):
+        items = API.experiment_items(run["id"], fields="core,io,scores")
+        for item in sorted(items, key=lambda i: i["experimentItemId"])[: limit or None]:
+            score = next(
+                (s for s in item.get("scores") or [] if s["name"] == "t2_faithfulness"),
+                None,
+            )
+            summary = judge._text(item.get("output"))  # noqa: SLF001
+            if score is None or not summary:
+                continue
+            source = json.loads(item["input"]).get("content", "")
+            rows.append(
+                {
+                    "item": item["experimentItemId"],
+                    "author": stage2._split(candidate)[0],  # noqa: SLF001
+                    "reference": score["value"] == 1,
+                    "reference_score": score["id"],
+                    "source": source,
+                    "summary": summary,
+                },
+            )
+    return rows
+
+
+def versus(model, limit=0):
+    """Re-judge the compare runs with another judge, against the pinned one. COSTS MONEY.
+
+    Calibration proper needs hand labels, and the ones behind the recorded round
+    have left the API window. This measures the cheaper question — does a
+    candidate judge reach the pinned judge's verdicts on summaries that judge has
+    already scored — at no cost beyond the candidate's own calls. The reference
+    is 88% against hand labels, not ground truth.
+
+    Nothing is posted to Langfuse: the verdicts go to `temp/` beside the source
+    text they were judged on, which is the user's own content.
+    """
+    stage1._resolve([model])  # noqa: SLF001
+    rows = _compare_rows(limit)
+    print(f"judge {model} vs {judge.JUDGE_MODEL}: {len(rows)} summaries")
+
+    def one(row):
+        try:
+            verdict, usage = judge.ask(
+                "faithfulness",
+                model=model,
+                source=row["source"][:120000],
+                summary=row["summary"],
+            )
+        except (RuntimeError, OSError, json.JSONDecodeError, KeyError) as exc:
+            return {**row, "error": str(exc)[:300]}
+        material, comment = judge.faithfulness_verdict(verdict)
+        return {
+            **row,
+            "clean": not material,
+            "comment": comment,
+            "cost": usage.get("cost") or 0,
+        }
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(one, rows))
+
+    stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
+    path = EXPORT_DIR / f"versus-{model.replace('/', '_')}-{stamp}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8")
+    _report_versus(model, results)
+    print(f"\nverdicts -> {path}")
+
+
+def _report_versus(model, results):
+    """Misses and false alarms against the pinned judge, split by summary author.
+
+    Split by author because the candidate judge may share a family with the
+    models it is judging; leniency towards its own family shows up there first.
+    """
+    failed = [r for r in results if "error" in r]
+    done = [r for r in results if "error" not in r]
+    cost = sum(r["cost"] for r in done)
+    print(f"\n{len(done)} judged, {len(failed)} failed, ${cost:.4f}")
+    header = f"  {'author':24s} {'n':>3s} {'ref flags':>9s} {'caught':>7s} {'false alarm':>12s}"
+    print(header)
+    for author in [*sorted({r["author"] for r in done}), "all"]:
+        mine = [r for r in done if author in ("all", r["author"])]
+        flagged = [r for r in mine if not r["reference"]]
+        caught = sum(1 for r in flagged if not r["clean"])
+        alarms = sum(1 for r in mine if r["reference"] and not r["clean"])
+        print(
+            f"  {author:24s} {len(mine):3d} {len(flagged):9d} {caught:7d} {alarms:12d}",
+        )
+
+    flagged = [r for r in done if not r["reference"]]
+    caught = sum(1 for r in flagged if not r["clean"])
+    alarms = sum(1 for r in done if r["reference"] and not r["clean"])
+    rate = caught / len(flagged) if flagged else 0.0
+    ok = rate >= VERSUS_MIN_CATCH and alarms <= VERSUS_MAX_FALSE_ALARMS
+    print(
+        f"\n  catches {caught}/{len(flagged)} ({rate:.0%}), {alarms} false alarm(s): "
+        f"{'MEETS' if ok else 'FAILS'} the bar "
+        f"(>= {VERSUS_MIN_CATCH:.0%}, <= {VERSUS_MAX_FALSE_ALARMS})",
+    )
+
+    split = [r for r in done if r["reference"] != r["clean"]]
+    reference_comments = API.score_comments([r["reference_score"] for r in split])
+    for r in split:
+        kind = "MISS" if r["reference"] is False else "FALSE ALARM"
+        print(f"\n  {kind}  {r['item']}  ({r['author']})")
+        print(
+            f"    {judge.JUDGE_MODEL}: {reference_comments.get(r['reference_score'], '?')}",
+        )
+        print(f"    {model}: {r['comment']}")
+    for r in failed:
+        print(f"\n  FAILED  {r['item']}  ({r['author']}): {r['error']}")
+
+
 def _report_judge(pin, human, judged, rows):
     """Agreement for one judge pin against the hand labels, and its misses."""
     model, prompt = pin
@@ -587,5 +717,9 @@ if __name__ == "__main__":
         agreement(args[1] if len(args) > 1 else None)
     elif command == "export":
         export(args[1] if len(args) > 1 else None)
+    elif command == "versus":
+        if len(args) < 2:
+            sys.exit("usage: calibrate.py versus <openrouter-model-id> [limit]")
+        versus(args[1], int(args[2]) if len(args) > 2 else 0)
     else:
         sys.exit(f"unknown command: {command}")
