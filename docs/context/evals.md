@@ -1302,6 +1302,11 @@ A few more:
   which is indistinguishable from nobody having labelled anything. This cost real confusion with
   25 hand labels already saved. Note the shape differs by route: scores returned *inline* by
   `fields=core,scores` on `GET /experiment-items` carry `subject` without being asked.
+- **Score configs are archived, not deleted: `PATCH /score-configs/{id}` with `isArchived: true`.**
+  On 2026-09-26 the eight for retired scores were archived (`h_pairwise`, `cal_pairwise`,
+  `t3_pairwise_win`, `t2_no_filler`, `t2_coverage`, `t1_bullet_purity`, `t1_no_artifacts`,
+  `t1_no_preamble`); the scores themselves are untouched. A score needs no config to be written —
+  `t1_script_clean` has none — so a config is only worth creating for a score a human labels.
 - **No route updates or deletes an annotation queue.** `/annotation-queues` has GET and POST,
   `/annotation-queues/{queueId}` has **GET only** — no PATCH, no PUT, no DELETE. Only its
   *items* can be changed (`POST`, `PATCH`, `DELETE` on the items routes). So a queue created
