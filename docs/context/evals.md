@@ -884,6 +884,25 @@ graded `minor` on both summaries. **Omission-free local claims are the form this
 it still cannot gate a filter.** The verdicts are in `temp/versus-typesafe_jev-1.13-*.json`,
 untracked.
 
+**Neither the call shape nor the wording is the bottleneck.** Two follow-up variants on the same
+98 summaries, one bullet per call each (`versus typesafe/jev-1.13 0 single|minimal`):
+
+| variant | AUC | caught / false alarms at 0.5 | at 0.8 | median weakest bullet, clean | cost |
+|---|---|---|---|---|---|
+| batched: all bullets in one call | 0.75 | 2 / 2 | 4 / 21 | 0.87 | $0.047 |
+| single: one bullet per call, same wording | 0.75 | 2 / 2 | 5 / 21 | 0.87 | $0.445 |
+| minimal: one per call, "is this claim supported?" plus a translation note | 0.73 | 2 / 1 | 2 / 6 | 0.94 | $0.439 |
+
+- **Batching changes nothing.** Per bullet, batched and single differ by a median of **0.000**
+  (95th percentile 0.02, max 0.19, over 1,197 bullets), so JEV answers each question
+  independently and one-per-call only multiplies the bill by about 9.5, since every call pays
+  for the source again.
+- **Stripping the exclusions and error types moves every probability up**, not the bad ones
+  down: fewer false alarms at every threshold and no extra catch, AUC unchanged within noise.
+- **All three catch the same two summaries** (`cmp-179d3a312217`, `cmp-24e03e64dc2e`). What
+  limits JEV here is the model's own discrimination between a supported and a materially
+  distorted claim, not how the question is put, so a further prompt variant is not worth a run.
+
 ### Three details of the judge are load-bearing
 
 The judge never returns a verdict already reduced to one number — faithfulness enumerates and the
