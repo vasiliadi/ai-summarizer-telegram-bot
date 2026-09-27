@@ -1239,6 +1239,18 @@ The round-robin driver skips pairs already banked, matching on the **exact run n
 scores carry. Re-running a candidate produces a new run name, so its pairs are duelled again —
 which is what re-running it means.
 
+### The first run of the filter, 2026-09-26
+
+`openai/gpt-6-luna` (candidate) against `openai/gpt-5.6-luna` (the bot's usual model), end to end.
+Screening: `gpt-6-luna` 25/25 on every Tier 1 check. Compare, 50 items: faithfulness **0.939**
+against **0.898**, both `KEEP` above the 85% floor; paired on 48 shared items gpt-6-luna was
+better on 3 and worse on 1, **p = 0.625** — no measurable difference. Compression 0.171 against
+0.220 (gpt-6-luna writes shorter), median latency 19.5 s against 20.7 s. Each run lost one item
+to the hang described under *The harness*, and **the killed item is written with an empty output**,
+so it fails every Tier 1 check and shows as `t1_pass` 98% — read a run's `t1_pass` against its
+`INCOMPLETE COVERAGE` lines before believing a Tier 1 failure. Both go on to live reading; at the
+time `gpt-6-luna` was not in `config.MODEL_SPECS`, so reading it in the bot needs it added there.
+
 ### Two things the report does not print, and both change how its table reads
 
 - **Only `t2_faithfulness` gets a paired test** (historical: the report no longer has a
