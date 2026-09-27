@@ -120,7 +120,6 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 | `stage1.py` | The screening stage — sweep, report, and per-item failures |
 | `judge.py` | The Tier 2/3 LLM judge; runs outside Langfuse. One run, one duel per invocation |
 | `stage2.py` | The compare stage — the sweep, the report over `t2_*`/`t3_*`, and the round-robin driver |
-| `checklists.py` | Builds the key-facts checklists `t2_coverage` scores against |
 | `calibrate.py` | Judge-vs-human agreement. Gates the compare stage |
 | `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
 
@@ -129,11 +128,8 @@ uv run python scripts/eval/install_tier1.py     # after every edit to tier1_eval
 uv run python scripts/eval/stage1.py report     # free, read-only
 uv run python scripts/eval/stage1.py failures   # free — which items failed, and why
 uv run python scripts/eval/stage2.py report     # free, read-only
-uv run python scripts/eval/checklists.py status # free — what has a checklist, what does not
-uv run python scripts/eval/checklists.py push   # free — writes reviewed checklists to both datasets
 uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
-uv run python scripts/eval/checklists.py generate [limit]      # COSTS MONEY: one call per item
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each
 uv run python scripts/eval/stage2.py duels [<model> ...]       # COSTS MONEY: every unduelled pair
 ```
@@ -314,13 +310,18 @@ character's share: the observed failures repeat a multi-character sequence, so o
 sat at 27% on its most common character and slipped a 30% threshold, while both compress to
 ~0.03 of their size against ~0.14 for the densest real item.
 
-### The key-facts checklist is the reference `t2_coverage` scores against
+### The key-facts checklist: the reference `t2_coverage` was meant to score against, now retired
+
+**Retired on 2026-09-26: `scripts/eval/checklists.py` and the `KEY_FACTS` prompt were deleted.**
+No checklist ever reached a dataset, so `t2_coverage` has never produced a value; `COVERAGE` and
+`eval_coverage` remain in `judge.py` and return `None` for every item. The history below is kept
+so the approach is not rebuilt without its lessons — the recoverable code is in git history.
 
 Coverage is the hard part of reference-free summarization, and the checklist is what converts
 it into a reference-based problem without anyone writing a gold summary: a strong model extracts
 the atomic facts a summary must not omit, a human edits the list, and it is stored as the item's
 `expected_output`. Per-fact entailment is an easy judgement; "is this summary complete?" is not.
-The cost is paid once per **item**, not once per run. `scripts/eval/checklists.py` does the
+The cost is paid once per **item**, not once per run. `scripts/eval/checklists.py` did the
 generating, reviewing and writing.
 
 - **The hand-review step is load-bearing, not decoration.** `eval_coverage` returns `None` while
@@ -375,7 +376,7 @@ generating, reviewing and writing.
   - **The prompt now asks for ideas, one per line, ordered most important first**, admits a
     detail only when it *is* the point (a deal's price in a story about the deal), merges
     restatements, and states there is no target count. Order is kept so coverage of the top N
-    stays computable without reintroducing a cap. `checklists.py` keeps only the lower bound
+    stays computable without reintroducing a cap. `checklists.py` kept only the lower bound
     of 5, as a warning, since the product prompt also asks for at least five bullets.
   - **The pilot** (`key_facts@e08331f46483`, the same six sources): **33–49 points** on
     21k–71k-character sources, $0.47 for six. Density follows content, not length — 38 points
@@ -395,8 +396,8 @@ generating, reviewing and writing.
     useless to someone deciding whether to watch. The user's framing, which ends the checklist
     line of work: the stage evaluates the *chosen model* under the existing product prompt, so
     labels belong on the summaries it generated, not on a reference that amounts to a second,
-    competing summary. `KEY_FACTS` and `checklists.py` remain in the tree at the uncapped
-    revision; nothing has been pushed to the datasets.
+    competing summary. `KEY_FACTS` and `checklists.py` were deleted afterwards; nothing
+    was ever pushed to the datasets.
 - **Generation costs about $0.06–0.08 per item, not the cents a short prompt suggests.** 48 items
   came to **$2.79** on Opus under the capped prompt, and the uncapped pilot to **$0.47** for six.
   The output is a few dozen short sentences; the bill is mostly the *source*, up to

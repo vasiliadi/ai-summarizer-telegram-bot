@@ -253,39 +253,6 @@ does not help a reader understand.
 Answer A, B, or TIE. Use TIE only when neither is meaningfully better, not to
 avoid a hard call. Keep the reasoning under 60 words."""
 
-KEY_FACTS = """Extract the key points of this source: everything a reader would need to know
-to decide they have learned what it has to say, without reading or watching it.
-
-SOURCE:
-{source}
-
-A key point is an idea the source puts forward: a claim, an argument, a
-conclusion, a recommendation, a finding, or an event the source is about.
-Supporting detail — a figure, a name, a date, an example, an anecdote — is not a
-key point on its own. Include it only when it *is* the point (a deal's price in
-a story about the deal), and otherwise let the idea it supports stand for it.
-
-Write each key point as **one** idea. If it needs "and" to join two ideas, it is
-two key points. Each will be checked as covered or not covered with no partial
-credit, so a point carrying two ideas cannot be answered.
-
-There is no target count. Write as many as the source actually contains: a short
-article may have five, a three-hour discussion may have fifty. Do not pad a thin
-source and do not compress a rich one. Merge restatements: an idea the source
-returns to three times is one key point.
-
-Leave out what carries no idea: introductions of the host or guests, scene-
-setting, logistics, sponsor reads, passing mentions, and examples that only
-illustrate a point already listed.
-
-Include only what the source states. Do not add background, do not infer past
-the text, and do not include your own assessment.
-
-Order the key points from most to least important, judged by what the source
-itself leads with, returns to, or builds its conclusion on.
-
-Write one sentence per key point, in the language of the source, as flat
-statements: no numbering, no bullet markers, no commentary."""
 
 # The verdict field comes before `reasoning` in every schema. Models emit in
 # declared order and it is the long reasoning string that runs into `max_tokens`,
@@ -368,17 +335,6 @@ SCHEMAS = {
         "required": ["winner", "reasoning"],
         "additionalProperties": False,
     },
-    # No `reasoning` here, unlike the four above: the list *is* the answer, and
-    # there is no count for the runner to divide, so a reasoning string would
-    # only spend tokens ahead of the field that matters.
-    "key_facts": {
-        "type": "object",
-        "properties": {
-            "key_facts": {"type": "array", "items": {"type": "string"}},
-        },
-        "required": ["key_facts"],
-        "additionalProperties": False,
-    },
 }
 
 TEMPLATES = {
@@ -386,10 +342,6 @@ TEMPLATES = {
     "coverage": COVERAGE,
     "no_filler": NO_FILLER,
     "pairwise": PAIRWISE,
-    # Not a verdict but built the same way, and it lives here for the reason
-    # every other prompt does: `judge_version` pins it, and `checklists.py`
-    # imports it rather than restating it.
-    "key_facts": KEY_FACTS,
 }
 
 
