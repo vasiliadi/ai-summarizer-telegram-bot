@@ -16,7 +16,7 @@ dependencies = [
     "opentelemetry-api==1.44.0",
     "psycopg2-binary==2.9.13",
     "pydantic-ai-slim[google,openrouter]==2.48.0",
-    "pytelegrambotapi==4.36.1",
+    "pytelegrambotapi==4.37.0",
     "redis==8.1.0",
     "replicate==1.0.7",
     "sentry-sdk==2.69.2",
