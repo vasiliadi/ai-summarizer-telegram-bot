@@ -107,12 +107,24 @@ JEV_MINIMAL_CRITERIA = {
     "true": "The source states or clearly implies the claim.",
     "false": "The source contradicts the claim or does not contain it.",
 }
+# The user's question after labelling the judges' disagreements, where only
+# invented facts counted as errors. The question asks about invention, but
+# `true` stays the clean answer so every variant is read the same way.
+JEV_INVENTED = (
+    "Does this claim state a fact that is not in the source? The claim may be a "
+    "translation. Claim: «{claim}»"
+)
+JEV_INVENTED_CRITERIA = {
+    "true": "No: every fact the claim states is in the source.",
+    "false": "Yes: the claim states a fact the source does not contain.",
+}
 # Variant -> (instructions, criteria, all bullets in one call). Separating the
 # call shape from the wording tells which of the two moves the result.
 JEV_VARIANTS = {
     "batched": (JEV_INSTRUCTIONS, JEV_CRITERIA, True),
     "single": (JEV_INSTRUCTIONS, JEV_CRITERIA, False),
     "minimal": (JEV_MINIMAL, JEV_MINIMAL_CRITERIA, False),
+    "invented": (JEV_INVENTED, JEV_INVENTED_CRITERIA, True),
 }
 
 # Human channels vs judge channels. Distinct names, one score table — which is
