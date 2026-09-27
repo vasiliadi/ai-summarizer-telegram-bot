@@ -62,6 +62,7 @@ CATALOG_URL = "https://openrouter.ai/api/v1/models"
 # still carry them, so the report simply stops showing columns nothing emits.
 CHECKS = (
     "t1_language_match",
+    "t1_script_clean",
     "t1_bullet_count",
 )
 
@@ -198,7 +199,7 @@ def report():  # noqa: C901
     print(f"Elimination threshold: t1_pass < {PASS_THRESHOLD:.0%}\n")
     header = (
         f"{'model':28s} {'n':>3s} {'t1_pass':>8s} "
-        + " ".join(f"{c.replace('t1_', ''):>10s}" for c in CHECKS)
+        + " ".join(f"{c.replace('t1_', ''):>14s}" for c in CHECKS)
         + f" {'compress':>9s}"
     )
     print(header)
@@ -235,9 +236,9 @@ def report():  # noqa: C901
         for check in CHECKS:
             vals = [s[check] for s in scored if check in s]
             cells.append(
-                f"{sum(1 for v in vals if v) / len(vals):10.0%}"
+                f"{sum(1 for v in vals if v) / len(vals):14.0%}"
                 if vals
-                else f"{'-':>10s}",
+                else f"{'-':>14s}",
             )
         comp_cell = f"{sum(comp) / len(comp):9.4f}" if comp else f"{'-':>9s}"
         print(
