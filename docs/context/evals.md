@@ -684,6 +684,26 @@ hand labels, so this measures agreement between two judges, not either one's acc
   six answers nested as XML text inside the first field, once a single field only — and one of
   three re-runs failed again. OpenRouter does not enforce `required`; validate before scoring.
 
+**Round 2, same day: the revised questions do not separate models.** Five questions (`worth_time`
+dropped for never varying, `no_unsupported` dropped because faithfulness stays with the calibrated
+enumerating judge; sponsor reads, ads and promotion excluded explicitly) on 24 production sources
+of 1k–44k characters, each summarised twice: by the production model (the trace's own output) and
+by `openai/gpt-6-luna` through `eval_client.summarize`. **Opus answered true on all five questions
+for all 48 summaries** — zero negatives, so no paired difference between the two models on any
+question — even though luna's summaries are ~23% shorter (median 2,188 against 2,844 characters).
+JEV's mean probabilities were within 0.06 between the two models on every question. Excluding
+promotion removed round 1's false negatives and left nothing behind them.
+
+What that settles: on sources under ~45k characters, "does the summary keep the main takeaway, the
+major topics, the ending, the advice, without repeating itself" is passed by any competent
+key-points summary, so it cannot rank candidates. Where models differ is finer — which points,
+how accurately, how readably — which is what faithfulness and pairwise measure. Two gaps remain
+untested and both bias toward passing: sources over 45k characters were excluded (round 1's only
+plausible real omissions were on 35k and 53k sources), and the 8 sources dropped for malformed
+Opus replies may not be random. Cost: luna $0.027 for 32 summaries, JEV $0.017 for 62 calls, Opus
+$3.35 for 55 usable verdicts — **Opus returned malformed tool calls on roughly one call in four**,
+often the same summary on retry.
+
 ### Three details of the judge are load-bearing
 
 The judge never returns a verdict already reduced to one number: coverage **counts** entailed
