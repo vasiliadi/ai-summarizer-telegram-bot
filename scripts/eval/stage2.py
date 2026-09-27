@@ -42,6 +42,12 @@ TIER2 = ("t2_faithfulness",)
 # The paired Tier 2 test runs on this one.
 PAIRED_METRIC = "t2_faithfulness"
 
+# A candidate whose summaries carry a material faithfulness error on more than
+# 15% of items is dropped before the user reads any of it. Strong models scored
+# 92-96% on 24 production sources (evals.md), so this removes models that invent
+# facts without separating good ones — which is all a filter should do.
+FAITHFULNESS_FLOOR = 0.85
+
 
 def discover_runs(dataset_name):
     """Candidate label -> newest compare experiment for it, from Langfuse itself.
@@ -180,6 +186,29 @@ def _deltas(rows_by_candidate, left, right):
     return out
 
 
+def _filter(rows_by_candidate):
+    """Who goes on to be read live, and who the faithfulness floor removes."""
+    keep, drop, unscored = [], [], []
+    for candidate, rows in sorted(rows_by_candidate.items()):
+        values = [
+            s[PAIRED_METRIC]
+            for s, _ in rows.values()
+            if s.get(PAIRED_METRIC) is not None
+        ]
+        if not values:
+            unscored.append(_short(candidate))
+            continue
+        rate = sum(values) / len(values)
+        (keep if rate >= FAITHFULNESS_FLOOR else drop).append(
+            f"{_short(candidate)} {rate:.0%}",
+        )
+    print(f"\nFilter: {PAIRED_METRIC} below {FAITHFULNESS_FLOOR:.0%} is dropped")
+    print(f"KEEP     ({len(keep)}): {', '.join(keep) or 'none'}")
+    print(f"DROP     ({len(drop)}): {', '.join(drop) or 'none'}")
+    if unscored:
+        print(f"UNSCORED ({len(unscored)}): {', '.join(unscored)}")
+
+
 def _short(candidate):
     """Drop the strategy when it is the one every candidate is swept under."""
     model, strategy = _split(candidate)
@@ -187,7 +216,7 @@ def _short(candidate):
 
 
 def report(dataset_name=COMPARE):
-    """Aggregate every compare run on one dataset and rank what it can."""
+    """Aggregate every compare run on one dataset and apply the faithfulness floor."""
     runs = discover_runs(dataset_name)
     if not runs:
         sys.exit(
@@ -200,6 +229,7 @@ def report(dataset_name=COMPARE):
     rows_by_candidate = {c: _item_rows(e) for c, e in runs.items()}
     _tier2_table(rows_by_candidate)
     _paired_tier2_table(rows_by_candidate)
+    _filter(rows_by_candidate)
 
     # The `n` column counts a run's items, while a mean covers only the items
     # that carry the score — a judge call that failed attaches nothing. Say so

@@ -1136,9 +1136,16 @@ dropped label that reads as an unlabelled item, not as an error.
 
 `scripts/eval/stage2.py` holds what is built on top of `judge.py`: the sweep across models and
 the aggregation the API does not provide. (It also held the Tier 3 round-robin driver until
-pairwise was removed; mentions of duels below are history.) `sweep` validates every model id against the OpenRouter
-catalog before spending anything, exactly as the screening sweep does — otherwise a typo in the
-sixth id surfaces only after the first five runs are paid for.
+pairwise was removed; mentions of duels below are history.) `sweep` validates every model id
+against the OpenRouter catalog before spending anything, exactly as the screening sweep does —
+otherwise a typo in the sixth id surfaces only after the first five runs are paid for.
+
+**The report ends in a filter: `KEEP` / `DROP` on a `t2_faithfulness` floor of 85%**
+(`FAITHFULNESS_FLOOR`), mirroring screening's 70% on `t1_pass`. The number is a judgement, not a
+measurement: strong models scored 92–96% on 24 production sources, so 85% — a material error on
+more than one summary in seven — removes a model that invents facts without trying to separate
+good ones. Revisit it after the first sweep of several models on the 50-item set; a candidate
+with no faithfulness score at all is listed as `UNSCORED` rather than dropped.
 
 **A mean never ranks a model here.** With 25–50 items a few points between two means is noise,
 so every mean the report prints is paired with a test over *per-item* deltas — the sign test on
