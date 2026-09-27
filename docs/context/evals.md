@@ -390,6 +390,13 @@ generating, reviewing and writing.
   - **The first 50-list generation and the five reviews made on it are void**, kept as
     `temp/key_facts.v1-capped.json` and `temp/checklist-review.v1-capped.md`. `generate` refuses
     to mix lists built under two prompt versions, so the old file had to move aside.
+  - **The uncapped key-points list was rejected on reading it.** The pilot read as a table of
+    contents — every enumerated item and segment of a source as its own line — with much of it
+    useless to someone deciding whether to watch. The user's framing, which ends the checklist
+    line of work: the stage evaluates the *chosen model* under the existing product prompt, so
+    labels belong on the summaries it generated, not on a reference that amounts to a second,
+    competing summary. `KEY_FACTS` and `checklists.py` remain in the tree at the uncapped
+    revision; nothing has been pushed to the datasets.
 - **Generation costs about $0.06–0.08 per item, not the cents a short prompt suggests.** 48 items
   came to **$2.79** on Opus under the capped prompt, and the uncapped pilot to **$0.47** for six.
   The output is a few dozen short sentences; the bill is mostly the *source*, up to
@@ -637,23 +644,45 @@ OpenRouter prices every call and `ask` returns that alongside the verdict; `run_
 and prints what the round actually cost. Do not reconstruct a bill from a price table written
 down here — vendor prices move, and one of them is on a dated introductory rate.
 
-#### JEV is a candidate for `t2_coverage` only, and it is not reachable yet
+#### JEV: reachable without pydantic-ai, and what one round of binary questions showed
 
 `typesafe/jev-1.13` (TypeSafe's "System One" model) is not an LLM: it returns typed decisions —
-a choice among at most 255 options, a yes/no, a rubric score — each with a calibrated probability,
-and generates no free text. On OpenRouter: 32k-token context, **$0.042 per M input tokens, output
-free**. It **cannot be called on `chat/completions`**; that route returns 400 *"is a decisions
-model … Use the /api/alpha/decisions endpoint"*. The maintained client for that protocol is
-pydantic-ai's `TypeSafeModel` (added in 2.45.0; `DecisionModel` base in 2.50.0), so using it means
-the pydantic-ai bump — a production dependency shared with the harness, since the harness imports
-`src/`. That bump is left to Renovate on `main` rather than done on an evaluation branch.
+a choice among at most 255 options, a yes/no, a rubric score — each with a probability, and
+generates no free text. **$0.042 per M input tokens, output free.** It cannot be called on
+`chat/completions` (400: *"is a decisions model … Use the /api/alpha/decisions endpoint"*), but
+**OpenRouter accepts TypeSafe's own protocol on `POST /api/alpha/decisions`** with the ordinary
+OpenRouter key, so the harness reaches it with the same `urllib` it uses for Opus and needs no
+pydantic-ai bump. The body is `{model, state, questions}`, where `state` is any JSON (here
+`{source, summary}`) and each question is `{type: "noul", instructions, criteria: {true, false}}`;
+the reply is `answers[name].noul`, the probability of true. Several questions go in one call.
+Three identical calls returned identical probabilities. (pydantic-ai's `TypeSafeModel` wraps the
+same protocol through `typesafe-sdk`, which posts to `/v1/systemone` on `api.typesafe.ai`.)
 
-Where it fits: **coverage** is one yes/no per checklist point against a summary, with no source in
-the prompt, so it fits the context and the model's shape, and an uncapped checklist of 40–50 points
-makes per-point Opus calls the expensive path. It cannot generate checklists or summaries (no
-text), and faithfulness does not fit (long sources exceed 32k tokens). Coverage has never been
-calibrated on any judge, so JEV enters as one arm of that calibration — against Opus and hand
-labels on the same point/summary pairs — not as a replacement for it.
+**The context limit is real and falls inside this corpus.** A 48k-character source plus summary
+was 20,797 input tokens and fit; sources of 53k, 79k and 157k characters returned
+`max_tokens_exceeded`. So anything given the whole source covers roughly the shorter 85–90% of
+production items and nothing past ~50k characters.
+
+**One round, 2026-09-26: seven binary questions on 25 production summaries**, JEV against Opus
+(`key_points_for_transcript` traces, one per distinct source, spread 1k–157k characters). Cost
+**$0.0076** for JEV's 22 calls against **$2.15** for Opus's 25 plus three re-runs. There were no
+hand labels, so this measures agreement between two judges, not either one's accuracy.
+- **The omission questions barely vary on the production model.** Opus answered true on 22–24 of
+  24 for `main_takeaway`, `major_topics`, `ending_covered`, `advice_kept` and `worth_time`, and the
+  few falses were partly the question's fault: a skipped sponsor segment was reported as a missing
+  major topic and a promoted course as dropped advice. A question with no negatives cannot rank
+  models; `worth_time` and `ending_covered` had none.
+- **A bare yes/no reintroduces the faithfulness failure.** Opus called 8 of 24 summaries
+  unsupported, and several of its reasons argue themselves out of the flag ("… is consistent",
+  "slight distortion but largely supported"). This is the count-before-reasoning problem the
+  enumerating faithfulness prompt fixed; a binary question has no severity gate to put back.
+- **JEV ranks in Opus's direction but is not calibrated to it.** AUC against Opus's verdicts was
+  0.79 (`no_unsupported`, 7 negatives), 0.84 (`distinct_bullets`, 3) and 0.75–1.00 on questions with
+  a single negative; at the 0.5 threshold it said true on 20 of 21 for `no_unsupported`. Negatives
+  this few make every one of those numbers soft.
+- **Opus returned malformed tool calls on 5 of 25** with a seven-object schema — once the other
+  six answers nested as XML text inside the first field, once a single field only — and one of
+  three re-runs failed again. OpenRouter does not enforce `required`; validate before scoring.
 
 ### Three details of the judge are load-bearing
 
