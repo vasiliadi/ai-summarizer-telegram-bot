@@ -15,6 +15,11 @@ ones change constantly, so the question this answers is *should this model be in
 also re-checks models already registered, and gates prompt edits against regression, but
 candidate screening is the primary use.
 
+**It is a filter, not a ranking** (settled 2026-09-26). The harness removes models that are
+certainly unfit — Tier 1's deterministic checks, then the calibrated faithfulness judge — and the
+user decides between the survivors by reading them. Every check kept is either deterministic or
+calibrated against hand labels; nothing uncalibrated is allowed to drop a model.
+
 ### Everything runs over OpenRouter, and models are named by their OpenRouter id
 
 The harness never consults `config.MODEL_SPECS`. Model ids are passed as arguments, always,
@@ -51,11 +56,10 @@ the end:
    `eval_client.EvalLLMClient` subclasses `LLMClient` and overrides only `build_model`, so the
    run still goes through the instrumented path and records cost and thinking level, while the
    base class's registry lookup (which would raise `KeyError` for a candidate) is bypassed.
-2. **Promote a survivor to Tier 2/3.** `judge.py` never touches the registry either, so
-   `judge.py run <candidate-id>` produces its outputs and attaches the Tier 2 evaluators, and
-   `judge.py pairwise <run-a> <run-b>` duels it against an incumbent. A model that clears
-   screening belongs here — screening only proves it is not broken, and the ranking is Tier
-   2/3's job.
+2. **Promote a survivor to Tier 2.** `judge.py` never touches the registry either, so
+   `judge.py run <candidate-id>` produces its outputs and attaches the faithfulness evaluator.
+   A model that clears screening belongs here — screening only proves it is not broken — and a
+   model that clears the faithfulness floor goes to the user to read.
 3. **Then decide, and only then edit `config.py`.** Adding an id needs no migration; removing
    or renaming one does — see the registry bullet in `architecture.md`. A model registered
    under the `google` provider keeps its native id there, and `REGISTRY_ID` gains a row.
@@ -1222,7 +1226,8 @@ Two findings the table does not carry on its face:
   cheaper on output than inkling, which is the whole decision between two candidates the paired
   test calls indistinguishable — and it is precisely the column the report cannot print.
 
-The ranking is **not** final: Tier 3 cannot contribute until pairwise calibrates.
+That round's ranking was never finished, and no longer will be: Tier 3 was removed, and the
+harness now ends in a keep/drop filter rather than a ranking.
 
 ## API shapes that cost real time to rediscover
 
