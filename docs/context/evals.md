@@ -143,6 +143,18 @@ uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each
 ```
 
+**A sweep can hang forever on one item, and nothing times it out.** On 2026-09-26 a compare
+sweep of `openai/gpt-6-luna` stopped at 49 of 50 items (all 49 scored; the stuck one,
+`cmp-337cf2f05806`, an ordinary 8.5k-character source) and sat for 25+ minutes with **no
+established connection** — every socket in `CLOSE_WAIT`, CPU at zero — so it was not waiting on a
+slow model. Neither `LLMClient.run` nor the harness sets a timeout. Unconfirmed hypothesis: the
+harness runs pydantic-ai's `run_sync` in worker threads, each with its own event loop, over the
+one process-wide `OpenRouterProvider` HTTP client, and an async client shared across event loops
+can deadlock on its pool; the bot calls `run_sync` in a similar way, so if this is the cause it is
+not harness-only. Confirming it needs a stack from a live hung process (`py-spy dump --pid`, which
+may need `sudo` on macOS). Meanwhile: Ctrl+C, then sweep the remaining models on their own — the
+finished items are already in Langfuse, and the report marks the run incomplete.
+
 **Wait a minute after a run before reading its report.** Langfuse ingests experiment items
 asynchronously, and the report's incomplete-run warning compares scored items against the items
 that have *arrived* — so a report read straight after `stage1.py run` showed `n = 22` of 25 with
