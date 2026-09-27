@@ -903,6 +903,33 @@ untracked.
   limits JEV here is the model's own discrimination between a supported and a materially
   distorted claim, not how the question is put, so a further prompt variant is not worth a run.
 
+**Then the user labelled the disagreements, and against hand labels the verdict reverses.** Every
+luna, JEV and Opus comparison above measured agreement with Opus. On 2026-09-27 the user read
+the 26 summaries where the judges split — Opus's 8 material flags and the 18 summaries Opus
+passed but luna or JEV flagged — with verbatim source quotes beside each claim, and labelled 22
+(four skipped: one unsure, one not read, two second copies of an item). Labels are in
+`temp/human-labels-2026-09-27.json`, untracked.
+
+| judge | human errors caught (of 3) | false alarms (of 19) | agreement |
+|---|---|---|---|
+| Opus (the pinned judge) | 2 | **5** | 73% |
+| `gpt-6-luna` | 1 | 16 | 18% |
+| JEV, any of the three variants | 2 | **1** | 91% |
+
+- **Five of Opus's eight material flags were not errors to the user** — the same false-alarm
+  direction that rejected sol-pro and luna, in the judge those were measured against. Most of
+  JEV's "misses" above were therefore Opus's false alarms, and JEV catches the same two real
+  errors Opus does (`cmp-179d3a312217`, a revenue figure; `cmp-24e03e64dc2e` on the older model).
+  The third (`cmp-be9afb262b65`, an overstated retention figure and an expansion stated as done)
+  only luna caught. Luna's standing does not change.
+- **Opus's 88% calibration came from a different sample and still stands as recorded**; this
+  review sampled *disagreements*, which is where a judge's errors concentrate, so 73% here is not
+  a revised overall figure.
+- **Three real errors cannot certify anything.** JEV at 2 of 3 is below the 75% bar and within one
+  item of anything; the 72 summaries where all three judges agreed were not read. What this
+  settles is narrower: agreement with Opus is not a valid proxy for correctness on this corpus,
+  so the rejections above rest on the wrong reference and JEV is **not** ruled out.
+
 ### Three details of the judge are load-bearing
 
 The judge never returns a verdict already reduced to one number — faithfulness enumerates and the
