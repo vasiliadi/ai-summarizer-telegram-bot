@@ -856,6 +856,34 @@ in a long source, which is search, not a fast decision. **JEV also cannot stand 
 labels**: `h_faithful` is what makes a judge trustworthy, and labels written by one model would
 only measure agreement between two.
 
+**JEV one bullet at a time: better, still rejected (2026-09-27).** The whole-summary question asks
+JEV to search, so the retry made every decision local: `state` is `{source}` alone and each bullet
+of the summary is its own `noul` question (the claim, the same material-only rule, criteria "the
+source supports the claim" / "materially misstates or invents"), all in one call; the runner
+takes the lowest probability as the summary's verdict and fails it below **0.5**, a threshold
+fixed before the run. `calibrate.py versus typesafe/jev-1.13` does this over the same 98
+compare-run summaries as the luna measurement above, against Opus's banked verdicts. **$0.047 for
+all 98.** Without the summary in `state` the context limit did not bite: all 98 fit, the longest
+source 74k characters, where the whole-summary form had failed from 53k.
+
+| threshold on the weakest bullet | caught (of 8) | false alarms (of 90) |
+|---|---|---|
+| **< 0.5 (the bar)** | **2** | **2** |
+| < 0.7 | 2 | 8 |
+| < 0.8 | 4 | 21 |
+| < 0.9 | 8 | 51 |
+
+AUC **0.75**, up from 0.64, and no threshold meets the bar (≥75% caught with ≤5 false alarms). This
+is the Sonnet failure again, not luna's: JEV rarely invents a fault but **under-rates real
+ones**. Its probabilities sit in a narrow band — the median summary's weakest bullet is 0.87 —
+and Opus's material claims mostly land inside it: matching Opus's flagged claim to its bullet
+(approximately, by the comment text), JEV put that bullet lowest on 3 of 9 claims but below 0.5 on
+one only (0.17). One of its two catches was on a different bullet than the one Opus flagged. Both
+false alarms are the same source (`cmp-1296a1f2292e`, an application window's dates), which Opus
+graded `minor` on both summaries. **Omission-free local claims are the form this model suits, and
+it still cannot gate a filter.** The verdicts are in `temp/versus-typesafe_jev-1.13-*.json`,
+untracked.
+
 ### Three details of the judge are load-bearing
 
 The judge never returns a verdict already reduced to one number — faithfulness enumerates and the
