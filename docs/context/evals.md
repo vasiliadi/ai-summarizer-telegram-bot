@@ -442,7 +442,12 @@ Every rule in `prompts.py` is stated as an absolute — "Respond in {language}" 
 which is the only thing the screening stage needs to know. The Langfuse code evaluator
 `tier1-on-experiments` emits `t1_language_match`, `t1_script_clean` and `t1_bullet_count` (BOOLEAN),
 `t1_compression` (NUMERIC) and the derived `t1_pass`, which ANDs the applicable binary checks.
-Screening drops a model scoring `t1_pass` on under 70% of items. Three judgements are
+Screening drops a model scoring `t1_pass` on under **95%** of items — at most one failure in 25.
+The floor was 70% until 2026-09-26, which suited checks that only caught outright breakage; once
+`t1_script_clean` could fail an item on one stray character, 70% would have passed `tencent/hy3`,
+which leaked CJK into ~6% of its summaries and which the user rejects outright. Strong models
+score 100%. At 25 items the floor is noisy for a model near 5% failures — hy3 could land either
+side of it — so a borderline pass is worth a `stage1.py failures` look. Three judgements are
 deliberate:
 
 - The language check passes at **70%** Cyrillic letters, not 95%. Correct output still carries
@@ -1151,7 +1156,7 @@ against the OpenRouter catalog before spending anything, exactly as the screenin
 otherwise a typo in the sixth id surfaces only after the first five runs are paid for.
 
 **The report ends in a filter: `KEEP` / `DROP` on a `t2_faithfulness` floor of 85%**
-(`FAITHFULNESS_FLOOR`), mirroring screening's 70% on `t1_pass`. The number is a judgement, not a
+(`FAITHFULNESS_FLOOR`), mirroring screening's floor on `t1_pass`. The number is a judgement, not a
 measurement: strong models scored 92–96% on 24 production sources, so 85% — a material error on
 more than one summary in seven — removes a model that invents facts without trying to separate
 good ones. Revisit it after the first sweep of several models on the 50-item set; a candidate

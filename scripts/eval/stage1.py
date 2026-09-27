@@ -54,7 +54,11 @@ from prompts import PROMPTS, prompt_version
 SCREEN = "summarization-screen-v1"
 PROMPT_KEY = "key_points_for_transcript"
 RUN_PREFIX = "stage1 / "
-PASS_THRESHOLD = 0.70
+# One failure in 25 is forgiven; a systematic defect is not. 70% suited checks
+# that only caught outright breakage, but `t1_script_clean` fails an item on a
+# single stray character, and hy3 leaked CJK into ~6% of summaries — enough to
+# be unusable, and well inside a 70% floor. Strong models score 100%.
+PASS_THRESHOLD = 0.95
 CATALOG_URL = "https://openrouter.ai/api/v1/models"
 
 # The binary checks `t1_pass` ANDs. `t1_no_preamble`, `t1_no_artifacts` and
