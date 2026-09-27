@@ -151,8 +151,15 @@ slow model. Neither `LLMClient.run` nor the harness sets a timeout. Unconfirmed 
 harness runs pydantic-ai's `run_sync` in worker threads, each with its own event loop, over the
 one process-wide `OpenRouterProvider` HTTP client, and an async client shared across event loops
 can deadlock on its pool; the bot calls `run_sync` in a similar way, so if this is the cause it is
-not harness-only. Confirming it needs a stack from a live hung process (`py-spy dump --pid`, which
-may need `sudo` on macOS). Meanwhile: Ctrl+C, then sweep the remaining models on their own — the
+not harness-only. The same day the `gpt-5.6-luna` sweep hung the same way on a
+different item (`cmp-3a19de8d1d5b`, 54k characters), so it is not the source. A `py-spy dump` of
+that live process (`sudo "$(which uvx)" py-spy dump --pid <pid>`; macOS needs `sudo`) showed the
+main thread waiting in `run_experiment` and one worker thread in `LLM.run` → `agent.run_sync` →
+pydantic-ai's own event loop, idle in `select()` — the **candidate generation**, not the judge
+(which is synchronous `urllib`). That fits the hypothesis: `run_experiment(max_concurrency=4)`
+puts each task on a thread, `run_sync` builds a new loop there, and all of them share
+`config.openrouter_provider` and its one async HTTP pool. `py-spy` shows threads, not asyncio
+tasks, so it cannot name the awaited line; strong evidence, not proof. Meanwhile: Ctrl+C, then sweep the remaining models on their own — the
 finished items are already in Langfuse, and the report marks the run incomplete.
 
 **Wait a minute after a run before reading its report.** Langfuse ingests experiment items
