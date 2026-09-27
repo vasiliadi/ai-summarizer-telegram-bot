@@ -3,7 +3,7 @@
 Sweeps `summarization-screen-v1` at one fixed thinking level with no judge
 calls, then tabulates the Tier 1 scores that Langfuse's `tier1-on-experiments`
 rule attaches to each run. Screening only proves a model is not broken; the
-ranking is Tier 2/3's job.
+faithfulness judge in stage 2 is the next filter.
 
     uv run python scripts/eval/stage1.py run <vendor/model> [<vendor/model> ...]
     uv run python scripts/eval/stage1.py report
