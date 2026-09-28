@@ -32,7 +32,7 @@ from itertools import combinations
 
 import _bootstrap
 from langfuse import Langfuse
-from langfuse_api import LangfuseAPI
+from langfuse_api import LangfuseAPI, score_value
 
 REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
@@ -85,11 +85,35 @@ def _seconds(item):
     return (datetime.fromisoformat(end) - datetime.fromisoformat(start)).total_seconds()
 
 
-def _item_rows(experiment):
+def _tier2_scores():
+    """Observation id -> {Tier 2 score name: value}, read from the score table.
+
+    **The experiment-items read returns at most seven scores per item.** An item
+    carrying five Tier 1 scores, the old `t2_faithfulness`, JEV and then
+    `t2_fabricated` came back with seven and the eighth silently missing, so the
+    report showed "-" for a judge that had scored every item (found 2026-09-28).
+    Tier 2 scores are therefore read by name from `v3/scores` and merged in; the
+    inline scores still serve Tier 1.
+    """
+    out: dict[str, dict] = {}
+    for name in PAIRED_METRICS:
+        rows = API.paginate(
+            "v3/scores",
+            {"name": name, "limit": 100, "fields": "core,subject"},
+        )
+        for row in rows:
+            subject = row.get("subject") or {}
+            if subject.get("kind") == "observation":
+                out.setdefault(subject["id"], {})[name] = score_value(row)
+    return out
+
+
+def _item_rows(experiment, tier2):
     """Dataset item id -> ({score name: value}, latency seconds)."""
     return {
         item["experimentItemId"]: (
-            {s["name"]: s.get("value") for s in (item.get("scores") or [])},
+            {s["name"]: s.get("value") for s in (item.get("scores") or [])}
+            | tier2.get(item["id"], {}),
             _seconds(item),
         )
         for item in API.experiment_items(experiment["id"], fields="core,scores")
@@ -294,7 +318,8 @@ def report(dataset_name=COMPARE):
         f"{len(runs)} candidate(s); Tier 2: {judge.JEV_MODEL}, or {judge.JUDGE_MODEL} where run",
     )
 
-    rows_by_candidate = {c: _item_rows(e) for c, e in runs.items()}
+    tier2 = _tier2_scores()
+    rows_by_candidate = {c: _item_rows(e, tier2) for c, e in runs.items()}
     costs = {c: _run_cost(e) for c, e in runs.items()}
     _tier2_table(rows_by_candidate, costs)
     print(
