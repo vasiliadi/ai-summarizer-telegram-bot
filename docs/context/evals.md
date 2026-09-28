@@ -626,7 +626,9 @@ them.
   within one strategy, so runs are keyed `<model> / <prompt_key>` throughout.
 - **Compare runs carry a `stage2 / ` prefix.** `GET /experiments` returns seven fields and none of
   them is metadata, so which candidate produced a run is readable *only* from its name. Anything
-  that discovers runs parses names, and renaming a run orphans it from the report. Langfuse
+  that discovers runs parses names, and renaming a run orphans it from the report. That is also
+  why `stage2.py` and its prefix keep the old stage number though only one stage is left: a new
+  prefix would hide every banked run, and experiments cannot be renamed. Langfuse
   appends a timestamp, and the newest run per candidate wins, so a botched run is superseded by
   re-running the candidate rather than deleted (nothing deletes an experiment).
 - **A mean never ranks a model.** With 50 items a few points between two means is noise, so every
