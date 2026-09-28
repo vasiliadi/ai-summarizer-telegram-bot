@@ -1,16 +1,16 @@
 """The bot's `LLMClient`, unbound from the model registry.
 
-Both stages summarise with a candidate model and both need exactly what the bot
+A compare run summarises with a candidate model and needs exactly what the bot
 gets — the instrumented agent, the system instruction, the thinking level and
 the OpenRouter cost wrapper — for a model that is not in `config.MODEL_SPECS`
 and should not be until evaluation says so. That is the only difference:
 `build_model` is overridden and nothing else, so a run measures the path the bot
 takes rather than a hand-built HTTP call standing next to it.
 
-The judge in `judge.py` deliberately does **not** come through here. It needs a
-forced tool call against a JSON schema, which is not a request the bot ever
-makes, and its spend is a cost of running the evaluation rather than a property
-of the model under evaluation.
+The judges in `judge.py` deliberately do **not** come through here. Opus needs
+structured output against a JSON schema, which is not a request the bot ever
+makes, JEV is not a chat model at all, and a judge's spend is a cost of running
+the evaluation rather than a property of the model under evaluation.
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ from pydantic_ai.models.openrouter import OpenRouterModel, OpenRouterModelSettin
 import config
 from llm import LLMClient, OpenRouterCostReporter
 
-# Shared by screening and compare on purpose. The two stages have to hold this
-# axis fixed at the same value or their numbers stop being about the model.
+# One level for every run on purpose: candidates have to hold this axis fixed at
+# the same value or their numbers stop being about the model.
 THINKING_LEVEL = config.DEFAULT_THINKING_LEVEL
 
 # Seconds one summary may take before the item is given up. Median generation
