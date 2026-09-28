@@ -246,8 +246,8 @@ fabrication signal beside the rest, and you choose between the survivors by read
 Each candidate gets three kinds of score:
 
 - **Tier 1**: deterministic checks that Langfuse runs on every run for free. The summary has
-  to be in the target language, contain no letters from a foreign script, and be a list
-  where a list was asked for. A model passing under 95% of items is dropped.
+  to be in Russian, contain no letters from a foreign script, and be a list where a list was
+  asked for. The harness evaluates Russian summaries only. A model passing under 95% of items is dropped.
 - **JEV** (`typesafe/jev-1.13`): asks, bullet by bullet, whether the source supports the
   claim. It costs about $0.02 a run and is read against the other candidates, never
   against a threshold.

@@ -71,7 +71,9 @@ def pool(rows):
     seen, out, openings = set(), [], set()
     for row in rows:
         text = content_of(row)
-        if not text:
+        # Tier 1 and the Opus prompt both assume a Russian summary, and a trace
+        # without the field would store `target_language: None`.
+        if not text or (row.get("metadata") or {}).get("target_language") != "Russian":
             continue
         digest = hashlib.sha256(text.encode()).hexdigest()[:12]
         if digest in seen:
@@ -107,19 +109,25 @@ def select(candidates, quota):
 
 
 def wipe(dataset_name):
-    got = requests.get(
-        f"{BASE}/api/public/dataset-items",
-        params={"datasetName": dataset_name, "limit": 100},
-        auth=AUTH,
-        timeout=30,
-    ).json()
-    for item in got["data"]:
-        requests.delete(
-            f"{BASE}/api/public/dataset-items/{item['id']}",
+    wiped = 0
+    while True:
+        response = requests.get(
+            f"{BASE}/api/public/dataset-items",
+            params={"datasetName": dataset_name, "limit": 100},
             auth=AUTH,
             timeout=30,
         )
-    return len(got["data"])
+        response.raise_for_status()
+        items = response.json()["data"]
+        if not items:
+            return wiped
+        for item in items:
+            requests.delete(
+                f"{BASE}/api/public/dataset-items/{item['id']}",
+                auth=AUTH,
+                timeout=30,
+            ).raise_for_status()
+        wiped += len(items)
 
 
 def push(client, dataset_name, picked, prefix):

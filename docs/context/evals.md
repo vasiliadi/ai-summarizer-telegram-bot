@@ -282,6 +282,9 @@ from; nothing else records it.
 nothing else — those are the two prompt variables, and an `inputSchema` rejects an item missing
 either. `prompt_key` rides in `metadata`, not `input`: an experiment picks one prompt and runs it
 over every item, so the originating trace's strategy fills no variable.
+**Only traces whose `target_language` is Russian are harvested**: `t1_language_match` measures
+the Cyrillic share and the `FABRICATED` prompt says the summary is in Russian, so an item in
+another language would fail Tier 1 on a correct summary. A trace missing the field is skipped too.
 
 **The Tier 1 rule fires only on the datasets its filter names.** `tier1-on-experiments` filters
 on `datasetId any of` — the compare dataset's id — plus `isExperimentItemRootSpan`. A new
