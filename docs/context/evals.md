@@ -52,14 +52,19 @@ without anyone having to know the mapping.
 Nothing below needs the model to be in `config.MODEL_SPECS`, and it should not be added until
 the end:
 
-1. **Screen it.** `stage1.py run <openrouter-id>` — no registry entry needed.
-   `eval_client.EvalLLMClient` subclasses `LLMClient` and overrides only `build_model`, so the
-   run still goes through the instrumented path and records cost and thinking level, while the
-   base class's registry lookup (which would raise `KeyError` for a candidate) is bypassed.
-2. **Promote a survivor to Tier 2.** `judge.py` never touches the registry either, so
-   `judge.py run <candidate-id>` produces its outputs and attaches the faithfulness evaluator.
-   A model that clears screening belongs here — screening only proves it is not broken — and a
-   model that clears the faithfulness floor goes to the user to read.
+1. **One compare run.** `stage2.py sweep <openrouter-id> ...` (since 2026-09-28) — no registry
+   entry needed. `eval_client.EvalLLMClient` subclasses `LLMClient` and overrides only
+   `build_model`, so the run still goes through the instrumented path and records cost and
+   thinking level, while the base class's registry lookup (which would raise `KeyError` for a
+   candidate) is bypassed. The run gets the Tier 1 scores from the Langfuse rule for free and
+   JEV's `t2_jev_weakest` from the default Tier 2 evaluator, about two cents. The 25 screening
+   items are a subset of these 50, so a separate `stage1.py run` is no longer part of the route;
+   it stays for a cheap first look at an expensive model. Estimated from the catalog, a run cost
+   $0.07–$1.40 per model for the queue of 2026-09-28, against about $3 more for Opus as judge.
+2. **Read `stage2.py report`.** `t1_pass` below 95% drops the model. JEV sets no floor: its
+   median weakest-bullet probability and the share of summaries below `JEV_FLAG_BELOW` are read
+   against the other candidates, the production model above all, with a paired sign test per
+   item. A model that survives goes to the user to read live.
 3. **Then decide, and only then edit `config.py`.** Adding an id needs no migration; removing
    or renaming one does — see the registry bullet in `architecture.md`. A model registered
    under the `google` provider keeps its native id there, and `REGISTRY_ID` gains a row.
@@ -78,8 +83,9 @@ while `LLMClient.run` ends in pydantic-ai's `run_sync`, which drives a loop itse
 from there raises `RuntimeError: This event loop is already running` on *every* item, before a
 single request leaves the machine. `summarize` hands the call to a worker thread, which has no
 running loop, so `run_sync` builds its own and the bot's synchronous path is reused as the bot
-runs it rather than reimplemented asynchronously beside it. `to_thread` copies the context, so
-the generation span still nests under the experiment item and the cost wrapper still finds it.
+runs it rather than reimplemented asynchronously beside it. The context is copied into the
+thread, so the generation span still nests under the experiment item and the cost wrapper still
+finds it.
 
 The failure is cheap and looks expensive-to-diagnose: 150 items fail in about 15 seconds, each
 recorded as an empty output, which is indistinguishable from a model that answered nothing.
@@ -100,10 +106,13 @@ there is unbuilt, not rejected.
 Do not run the full grid. Model × thinking level × prompt strategy is a large space and most
 of it decides nothing, so the work is staged and each stage narrows the next:
 
-1. **Screen** — the candidates over the 25 screening items at one fixed thinking level, Tier 1
-   only, no judge calls. Drops any model failing outright.
-2. **Compare** — the survivors over the 50-item set on the calibrated faithfulness judge.
-   Candidates that cleared screening go in here alongside the incumbents.
+1. **Screen and compare in one run** — each candidate over the 50-item set at one fixed thinking
+   level: Tier 1 (the only gate) and JEV as a fabrication signal. Until 2026-09-28 these were two
+   runs, screening on 25 items and then Opus-judged faithfulness on 50; Opus left the default
+   route on cost (see *JEV* under Tier 2), and screening folded into the compare run because
+   the Tier 1 rule scores that run anyway.
+2. **Compare against the production model** — the same report holds the incumbents, so a
+   candidate's JEV and Tier 1 numbers sit beside the model the bot uses now.
 3. **Read the survivors live.** The harness is a **filter, not a ranking** (settled
    2026-09-26): it removes models that are certainly unfit — broken language or script, no
    list, invented facts — and the user judges readability and overall quality by using the
@@ -127,8 +136,8 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 | `tier1_evaluator.py` | Tier 1 deterministic scorers. Uploaded to Langfuse, **executed there** |
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
 | `stage1.py` | The screening stage — sweep, report, and per-item failures |
-| `judge.py` | The Tier 2 LLM judge; runs outside Langfuse. One compare run per invocation |
-| `stage2.py` | The compare stage — the sweep and the report over `t2_*` |
+| `judge.py` | The Tier 2 judges, run outside Langfuse: JEV by default, Opus prompts by name. One compare run per invocation |
+| `stage2.py` | The compare stage — the sweep, the report over Tier 1 and `t2_*`, and the JEV backfill |
 | `calibrate.py` | Faithfulness judge-vs-human agreement, and judge-vs-judge on compare runs (`versus`). Gates the compare stage |
 | `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
 
@@ -141,10 +150,12 @@ uv run python scripts/eval/calibrate.py export  # free — hand labels to temp/,
 uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
 uv run python scripts/eval/calibrate.py versus <openrouter-id> [--labels temp/human-labels-*.json] # COSTS MONEY: another judge vs Opus and the hand labels
-uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each
+uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each, JEV as Tier 2
+uv run python scripts/eval/stage2.py sweep <openrouter-id> --judge=opus  # COSTS ~$3 more a model
+uv run python scripts/eval/stage2.py jev        # ~2 cents a run: JEV on compare runs that lack it
 ```
 
-**A sweep can hang forever on one item, and nothing times it out.** On 2026-09-26 a compare
+**A sweep could hang forever on one item; generation now times out after 10 minutes.** On 2026-09-26 a compare
 sweep of `openai/gpt-6-luna` stopped at 49 of 50 items (all 49 scored; the stuck one,
 `cmp-337cf2f05806`, an ordinary 8.5k-character source) and sat for 25+ minutes with **no
 established connection** — every socket in `CLOSE_WAIT`, CPU at zero — so it was not waiting on a
@@ -160,8 +171,14 @@ pydantic-ai's own event loop, idle in `select()` — the **candidate generation*
 (which is synchronous `urllib`). That fits the hypothesis: `run_experiment(max_concurrency=4)`
 puts each task on a thread, `run_sync` builds a new loop there, and all of them share
 `config.openrouter_provider` and its one async HTTP pool. `py-spy` shows threads, not asyncio
-tasks, so it cannot name the awaited line; strong evidence, not proof. Meanwhile: Ctrl+C, then sweep the remaining models on their own — the
-finished items are already in Langfuse, and the report marks the run incomplete.
+tasks, so it cannot name the awaited line; strong evidence, not proof. The cause is still open
+and a fix, if it is shared, belongs in `src/llm.py`. The harness side is handled:
+`eval_client.summarize` runs each generation on a **daemon** thread and waits
+`GENERATION_TIMEOUT` (600 s) for it, so a stuck item is stored as `Error: TimeoutError` and the
+run finishes. It had to be a daemon thread: `asyncio.to_thread` uses the default executor, whose
+threads are joined at interpreter exit, so a timeout around it would only move the hang to
+shutdown. The abandoned thread is left to die with the process. A timed-out item shows in
+`judge.py run`'s failed-items warning and fails Tier 1, like any other failed item.
 
 **Wait a minute after a run before reading its report.** Langfuse ingests experiment items
 asynchronously, and the report's incomplete-run warning compares scored items against the items
@@ -1017,6 +1034,25 @@ month, so it stays out of the default route; the user chose JEV (`minimal`) as t
 plain fabrication, read comparatively across models rather than against a floor. `FABRICATED` on
 Opus 5.5 remains the best-specified instrument available, and is the one to reach for if a single
 final decision between two survivors ever needs an arbiter.
+
+**JEV as the pipeline's Tier 2, first read (2026-09-28).** `judge.eval_jev` scores each compare
+item `t2_jev_weakest` — P(supported) of its weakest bullet under the `minimal` question, all
+bullets in one call — and `stage2.py jev` backfilled the three runs that existed (148 items,
+$0.062). The report, with no hand labels involved:
+
+| candidate | JEV median | share < 0.6 | t1_pass |
+|---|---|---|---|
+| `openai/gpt-5.6-luna` (production) | 0.92 | 6% | 98% |
+| `openai/gpt-6-luna` | 0.94 | 2% | 98% |
+| `stepfun/step-3.7-flash` | 0.89 | 12% | 96% |
+
+Paired sign tests on per-item deltas put stepfun below both: 32 better / 14 worse for
+`gpt-5.6-luna`, **p = 0.011**; 35 / 7 for `gpt-6-luna`, **p < 0.001**; the two luna models do not
+separate (17 / 26, p = 0.22). That is the ordering the hand labels and Opus both pointed to, so
+JEV read comparatively does what the filter needs from it — it tells a model that fabricates
+more from one that does not — even though no threshold on it could be certified per summary.
+Each luna run is one item short on both judges: the item lost to the sweep hang, stored with an
+empty output.
 
 ### Three details of the judge are load-bearing
 
