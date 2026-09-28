@@ -1532,6 +1532,22 @@ $0.85, the fourth time the card has been off, this time in the cheap direction.
   mimo-v2.6-pro, solar-pro4 and glm-5.3-flash do not separate from the production model; stepfun
   sits below most of them, as before. Differences inside the upper group are within noise, so
   what separates it is cost, latency and the user's reading.
+- **The last four, same day** (`sweep4`; `run $` from the report):
+
+  | candidate | JEV median | JEV < 0.6 | t1_pass | compression | latency | run $ |
+  |---|---|---|---|---|---|---|
+  | `x-ai/grok-4.7` | 0.93 | 0% | **100%** | 0.200 | 23.4 s | 0.75 |
+  | `meta/muse-spark-1.3` | 0.92 | 4% | 96% | 0.197 | 18.8 s | 0.76 |
+  | `tencent/hy4-preview` — **DROP** | 0.93 | 2% | 92% | 0.261 | 105.6 s | 1.11 |
+  | `inception/mercury-2.5` — **DROP** | 0.91 | 2% | 92% | **0.071** | 5.3 s | 0.02 |
+
+  hy4-preview failed `t1_script_clean` on 8% of items — the foreign-script leak its predecessor
+  hy3 was rejected for — and was also the slowest and dearest run. mercury-2.5's failures are
+  **four items whose generation errored**, not bad summaries; on the 46 it answered it passes
+  every check, so its drop is the provider's. It writes a third the length of anyone else,
+  though, which counts against it for a user who values detail. muse-spark-1.3's 96% is likewise
+  one errored item. Against the production model on JEV, grok-4.7 leans better (29 / 16,
+  p = 0.072); muse-spark and hy4 do not separate (p = 0.88, 1.0).
 - **deepseek's 96% is its runner, not the model.** One item hit the 10-minute generation timeout
   and was stored as an error, which fails every Tier 1 check; on the 49 it answered it is 100%.
   The timeout did what it was added for — the sweep carried on — but the stored message was
