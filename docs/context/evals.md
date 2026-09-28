@@ -137,7 +137,7 @@ Keep the dataset afterwards as a regression gate for prompt edits, not only for 
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
 | `stage1.py` | The screening stage — sweep, report, and per-item failures |
 | `judge.py` | The Tier 2 judges, run outside Langfuse: JEV by default, Opus prompts by name. One compare run per invocation |
-| `stage2.py` | The compare stage — the sweep, the report over Tier 1 and `t2_*`, and the JEV backfill |
+| `stage2.py` | The compare stage — the sweep, the report over Tier 1 and `t2_*`, and `judge`, which adds a Tier 2 judge to existing runs |
 | `calibrate.py` | Faithfulness judge-vs-human agreement, and judge-vs-judge on compare runs (`versus`). Gates the compare stage |
 | `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
 
@@ -151,8 +151,8 @@ uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
 uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
 uv run python scripts/eval/calibrate.py versus <openrouter-id> [--labels temp/human-labels-*.json] # COSTS MONEY: another judge vs Opus and the hand labels
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each, JEV as Tier 2
-uv run python scripts/eval/stage2.py sweep <openrouter-id> --judge=opus  # COSTS ~$3 more a model
-uv run python scripts/eval/stage2.py jev        # ~2 cents a run: JEV on compare runs that lack it
+uv run python scripts/eval/stage2.py judge jev [<openrouter-id> ...]    # ~2 cents a run: JEV where missing
+uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # ~$3 a run: Opus FABRICATED on finalists
 ```
 
 **A sweep could hang forever on one item; generation now times out after 10 minutes.** On 2026-09-26 a compare
@@ -1044,15 +1044,28 @@ not the guest, leaving for a daughter's birthday; 100k read as 200k; Cohere's ac
 attributed to Anthropic (which the user had already confirmed). The labels are what is stale, and
 nobody will relabel them.
 
+**Then the user read the `FABRICATED` findings, and agreed with Opus (2026-09-28).** Going
+through the file of all 102 findings, they checked most of the 30 *invented* ones against the full
+sources and agreed with every one they checked — including several on summaries they had labelled
+clean (`cmp-07b12243a1ea`, for one, where they had seen the error and not counted it as critical).
+What they had been rejecting in earlier Opus verdicts was what `FABRICATED` now sorts as
+*compression*. So on the question the filter asks — does the model plainly make things up — Opus
+with `FABRICATED` agrees with the user, and it replaced the old `FAITHFULNESS` prompt as the
+pipeline's Opus option (`judge.eval_fabricated`, score `t2_fabricated`, 1 clean / 0 invented, on
+`judge.FABRICATED_MODEL` = Opus 5.5). It is not certified in the calibration sense — no fresh
+blind sample, and "most" rather than all of 30 were checked — but it is the judge the user trusts.
+The old prompt's 85% floor (`FAITHFULNESS_FLOOR`) was removed with it; no judge sets a floor now.
+
 **Where that leaves the judge (2026-09-28).** No judge is certified against the user, and none will
 be: the reference would take more labelling than the decision is worth. Opus costs ~$3 a
 candidate on the 50-item set, against a bot that costs the user about $10–15 a month to run: one
 model is a fraction of a month, but a queue of ten — the size that builds up in a month or two
 of releases — is $30, two to three months of running the bot. So it stays out of the default
-route; the user chose JEV (`minimal`) as the cheap signal for
-plain fabrication, read comparatively across models rather than against a floor. `FABRICATED` on
-Opus 5.5 remains the best-specified instrument available, and is the one to reach for if a single
-final decision between two survivors ever needs an arbiter.
+route: JEV (`minimal`) is the cheap signal for plain fabrication on every candidate, read
+comparatively rather than against a floor, and `FABRICATED` on Opus 5.5 is run on the finalists
+only (`stage2.py judge opus <model> ...`, over their existing compare runs, no regeneration). The
+final choice weighs the invented share against `run $` and compression — the user counts a longer
+summary that keeps more detail in its favour.
 
 **JEV as the pipeline's Tier 2, first read (2026-09-28).** `judge.eval_jev` scores each compare
 item `t2_jev_weakest` — P(supported) of its weakest bullet under the `minimal` question, all
