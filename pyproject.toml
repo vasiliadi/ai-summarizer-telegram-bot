@@ -139,8 +139,8 @@ ignore = ["S603", "S607", "D100", "D401", "PLR0913", "PLR0917", "FBT001", "FBT00
 # Operational scripts, run by hand and never imported by the bot: stdout is
 # their interface (T20), they take no annotations (ANN), and `tier1_evaluator.py`
 # is uploaded to Langfuse and executed there against globals it does not define.
-# RUF001: the bullet-marker and preamble tables must contain the real EN DASH and
-# EM DASH characters models emit. PLC0415: deferred imports keep `_bootstrap.load()`
+# RUF001: the bullet-marker table must contain the real EN DASH and EM DASH
+# characters models emit. PLC0415: deferred imports keep `_bootstrap.load()`
 # ordered before anything that reads the environment it sets up. E501: the judge
 # prompts are hashed into their `judge_prompt` pin, so reflowing their wording to
 # fit the line length would repin the judge and invalidate every banked comparison.
