@@ -64,6 +64,13 @@ CHAT_URL = f"{BASE}/v1/chat/completions"
 JUDGE_MODEL = "anthropic/claude-opus-5"
 JUDGE_EFFORT = "medium"  # pins depth; Sonnet 5 rejects temperature outright
 
+# The judge for the pipeline's Opus option since 2026-09-28: FABRICATED on Opus
+# 5.5. The user checked most of its 30 "invented" findings on 29 summaries
+# against the full sources and agreed with every one they checked; what they
+# had rejected in earlier Opus verdicts had been compression. JUDGE_MODEL above stays the
+# pin of the old FAITHFULNESS prompt, whose banked scores it describes.
+FABRICATED_MODEL = "anthropic/claude-opus-5.5"
+
 # Models that reject a forced tool call (`tool_choice` of type tool or any) with
 # a 400, and are asked for the same schema through `response_format` instead.
 SCHEMA_OUTPUT_MODELS = {"anthropic/claude-opus-5.5"}
@@ -578,14 +585,46 @@ def eval_jev(*, input, output, expected_output=None, metadata=None, **kw):  # no
     bullets = bullets_of(summary)
     if not source or not bullets:
         return None
-    probabilities, _ = jev_probabilities(source, bullets)
+    probabilities, cost = jev_probabilities(source, bullets)
     weakest = min(range(len(bullets)), key=probabilities.__getitem__)
     return Evaluation(
         name="t2_jev_weakest",
         value=probabilities[weakest],
         data_type="NUMERIC",
         comment=f"bullet {weakest + 1}: {bullets[weakest]}"[:900],
-        metadata=jev_meta(),
+        metadata={**jev_meta(), "cost": cost},
+    )
+
+
+def eval_fabricated(*, input, output, expected_output=None, metadata=None, **kw):  # noqa: A002, ARG001
+    """1 when Opus finds nothing invented in the summary, 0 when it finds any.
+
+    Compression findings are recorded in the comment and move nothing: they
+    are what squeezing a long source into a few bullets does, and the user
+    rejected them as errors while accepting every invented one they checked.
+    ~$0.06 a call.
+    """
+    source, summary = _source_of(input), _text(output)
+    if not source or not summary:
+        return None
+    verdict, usage = ask(
+        "fabricated",
+        model=FABRICATED_MODEL,
+        source=source[:120000],
+        summary=summary,
+    )
+    invented, comment = verdict_of("fabricated", verdict)
+    return Evaluation(
+        name="t2_fabricated",
+        value=0.0 if invented else 1.0,
+        data_type="NUMERIC",
+        comment=comment,
+        metadata={
+            **judge_meta("fabricated", FABRICATED_MODEL),
+            "invented": len(invented),
+            "compression": len(verdict["findings"]) - len(invented),
+            "cost": usage.get("cost") or 0,
+        },
     )
 
 
@@ -594,9 +633,10 @@ def jev_meta():
     return {"judge_model": JEV_MODEL, "judge_prompt": f"jev-supported@{jev_version()}"}
 
 
-# Tier 2 judges selectable per run. JEV is the default; Opus's calibrated
-# faithfulness prompt stays available by name for a decision worth ~$3.
-JUDGES = {"jev": [eval_jev], "opus": [eval_faithfulness], "none": []}
+# Tier 2 judges selectable per run. JEV is the default and costs cents; Opus
+# with FABRICATED is for finalists, at ~$3 a 50-item run. The old FAITHFULNESS
+# evaluator is kept for its banked scores but is no longer offered here.
+JUDGES = {"jev": [eval_jev], "opus": [eval_fabricated], "none": []}
 
 
 # --- the task under evaluation ----------------------------------------------

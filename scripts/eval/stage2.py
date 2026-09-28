@@ -9,7 +9,8 @@ harness is a filter, not a ranking: the user reads the survivors.
 
     uv run python scripts/eval/stage2.py report                         # free
     uv run python scripts/eval/stage2.py sweep <model> ... [--judge=jev|opus|none]  # COSTS MONEY
-    uv run python scripts/eval/stage2.py jev                            # ~2 cents a run: backfill JEV
+    uv run python scripts/eval/stage2.py judge jev [<model> ...]        # ~2 cents a run: add JEV to runs
+    uv run python scripts/eval/stage2.py judge opus <model> ...         # ~$3 a run: Opus FABRICATED on finalists
 
 **Means do not rank models.** With 25-50 items a few points of difference
 between two means is noise, so the means are paired with a sign test over
@@ -42,18 +43,14 @@ import stage1
 COMPARE = judge.COMPARE_DATASET
 RUN_PREFIX = judge.RUN_PREFIX
 
-TIER2 = ("t2_faithfulness", "t2_jev_weakest")
 JEV = "t2_jev_weakest"
+FABRICATED = "t2_fabricated"
 
 # The paired Tier 2 tests run on these, whichever a run carries.
-PAIRED_METRICS = ("t2_faithfulness", "t2_jev_weakest")
-PAIRED_METRIC = "t2_faithfulness"  # the Opus floor below applies to this one
-
-# A candidate whose summaries carry a material faithfulness error on more than
-# 15% of items is dropped before the user reads any of it. Strong models scored
-# 92-96% on 24 production sources (evals.md), so this removes models that invent
-# facts without separating good ones — which is all a filter should do.
-FAITHFULNESS_FLOOR = 0.85
+PAIRED_METRICS = ("t2_faithfulness", JEV, FABRICATED)
+# `t2_faithfulness` (the old Opus prompt) is still paired where old runs carry
+# it; its 85% floor went with it on 2026-09-28, when no judge was left to set
+# a floor and the decision moved to cost against honesty.
 
 
 def discover_runs(dataset_name):
@@ -172,7 +169,7 @@ def _tier2_table(rows_by_candidate, costs):
     """Per-candidate means, with the caveat that they do not rank anything."""
     header = (
         f"{'model':28s} {'strategy':12s} {'n':>3s} "
-        f"{'faithful':>9s} {'jev med':>8s} {f'jev<{judge.JEV_FLAG_BELOW}':>9s} "
+        f"{'invented':>9s} {'jev med':>8s} {f'jev<{judge.JEV_FLAG_BELOW}':>9s} "
         f"{'t1_pass':>8s} {'compress':>9s} {'latency':>8s} {'run $':>7s}"
     )
     print("\nTier 2 means - context only; the paired tests below are what rank")
@@ -182,10 +179,10 @@ def _tier2_table(rows_by_candidate, costs):
         model, strategy = _split(candidate)
         scores = [s for s, _ in rows.values()]
         latencies = [s for _, s in rows.values() if s is not None]
+        fabricated = [s[FABRICATED] for s in scores if s.get(FABRICATED) is not None]
         cells = [
-            _mean_cell(
-                [s[PAIRED_METRIC] for s in scores if s.get(PAIRED_METRIC) is not None],
-            ),
+            # The share of summaries Opus found something invented in.
+            _mean_cell([1 - v for v in fabricated], 9, ".0%"),
             _jev_cells(scores),
         ]
         passes = [s["t1_pass"] for s in scores if "t1_pass" in s]
@@ -248,23 +245,20 @@ def _deltas(rows_by_candidate, left, right, metric):
 
 
 def _filter(rows_by_candidate):
-    """Who goes on to be read live: Tier 1 is the gate, JEV is shown beside it.
+    """Who goes on to be read live: Tier 1 is the gate, the judges are signals.
 
     `t1_pass` below screening's floor drops a candidate — the only check here
-    that is deterministic. A `t2_faithfulness` mean below its floor drops one
-    too, where a run was judged by Opus. JEV sets no floor: its share of
-    flagged summaries is printed for the user to weigh against the others.
+    that is deterministic. Neither judge sets a floor: JEV's flagged share and,
+    for finalists, Opus's invented share are printed for the user to weigh
+    against cost, compression and the other candidates.
     """
     keep, drop = [], []
     for candidate, rows in sorted(rows_by_candidate.items()):
         scores = [s for s, _ in rows.values()]
         passes = [s["t1_pass"] for s in scores if "t1_pass" in s]
-        faith = [s[PAIRED_METRIC] for s in scores if s.get(PAIRED_METRIC) is not None]
         reasons = []
         if passes and sum(passes) / len(passes) < stage1.PASS_THRESHOLD:
             reasons.append(f"t1_pass {sum(passes) / len(passes):.0%}")
-        if faith and sum(faith) / len(faith) < FAITHFULNESS_FLOOR:
-            reasons.append(f"faithful {sum(faith) / len(faith):.0%}")
         jev = [s[JEV] for s in scores if s.get(JEV) is not None]
         signal = (
             f"jev<{judge.JEV_FLAG_BELOW} {sum(v < judge.JEV_FLAG_BELOW for v in jev) / len(jev):.0%}"
@@ -275,8 +269,7 @@ def _filter(rows_by_candidate):
             f"{_short(candidate)} ({', '.join(reasons) or signal})",
         )
     print(
-        f"\nFilter: t1_pass below {stage1.PASS_THRESHOLD:.0%} or {PAIRED_METRIC} below "
-        f"{FAITHFULNESS_FLOOR:.0%} (Opus runs only) is dropped; JEV is a signal",
+        f"\nFilter: t1_pass below {stage1.PASS_THRESHOLD:.0%} is dropped; the judges are signals",
     )
     print(f"KEEP ({len(keep)}): {', '.join(keep) or 'none'}")
     print(f"DROP ({len(drop)}): {', '.join(drop) or 'none'}")
@@ -328,57 +321,69 @@ def report(dataset_name=COMPARE):
         print("      Rows above average only the items that carry it.")
 
 
-def backfill_jev(dataset_name=COMPARE):
-    """Score JEV on every item of the newest compare runs that lacks it. ~2 cents a run.
+def backfill(tier2, models=(), dataset_name=COMPARE):
+    """Score a Tier 2 judge on compare items that lack it, without regenerating.
 
-    A backfilled score is attached exactly as `run_experiment` attaches an
-    evaluator's: to the experiment item's observation, whose id is the item's
-    `id`. Anything else — the trace alone, say — would be missing from the
-    experiment-items read the report is built on, and look like JEV never ran.
+    `tier2` names an entry of `judge.JUDGES` — `jev` at about two cents a run,
+    `opus` at about $3 — and `models` limits it to those candidates, which is
+    how Opus is spent on finalists only. The score is attached exactly as
+    `run_experiment` attaches an evaluator's: to the experiment item's
+    observation, whose id is the item's `id`. Anything else — the trace alone,
+    say — would be missing from the experiment-items read the report is built
+    on, and look like the judge never ran.
     """
+    (evaluator,) = judge.JUDGES[tier2]
     client = Langfuse()
     sources = {
-        i.id: judge._source_of(i.input)  # noqa: SLF001
+        i.id: i.input  # the evaluator reads `content` off the item input
         for i in client.get_dataset(dataset_name).items
     }
     todo = []
     for candidate, run in sorted(discover_runs(dataset_name).items()):
+        if models and _split(candidate)[0] not in models:
+            continue
         for item in API.experiment_items(run["id"], fields="core,io,scores"):
-            if any(s["name"] == JEV for s in item.get("scores") or []):
-                continue
+            names = {s["name"] for s in item.get("scores") or []}
             summary = judge._text(item.get("output"))  # noqa: SLF001
-            if summary and not summary.startswith("Error:"):
-                todo.append((candidate, item, summary))
-    print(f"{len(todo)} item(s) without {JEV}")
+            if not summary or summary.startswith("Error:"):
+                continue
+            todo.append((candidate, item, summary, names))
+    # The score name is only known from an evaluation, so skip on a probe.
+    probe = evaluator.__name__.removeprefix("eval_")
+    name = {"jev": JEV, "fabricated": FABRICATED}[probe]
+    todo = [(c, i, s) for c, i, s, names in todo if name not in names]
+    print(f"{len(todo)} item(s) without {name}")
 
     def one(job):
         candidate, item, summary = job
-        bullets = judge.bullets_of(summary)
         try:
-            probabilities, cost = judge.jev_probabilities(
-                sources[item["experimentItemId"]],
-                bullets,
-            )
-        except OSError as exc:
-            return candidate, item["experimentItemId"], None, 0, str(exc)[:200]
-        weakest = min(range(len(bullets)), key=probabilities.__getitem__)
+            result = evaluator(input=sources[item["experimentItemId"]], output=summary)
+        except (OSError, RuntimeError, KeyError, ValueError) as exc:
+            return candidate, item["experimentItemId"], 0, str(exc)[:200]
+        if result is None:
+            return candidate, item["experimentItemId"], 0, "evaluator returned nothing"
         client.create_score(
-            name=JEV,
-            value=probabilities[weakest],
-            data_type="NUMERIC",
-            comment=f"bullet {weakest + 1}: {bullets[weakest]}"[:900],
+            name=result.name,
+            value=result.value,
+            data_type=result.data_type,
+            comment=result.comment,
             trace_id=item["traceId"],
             observation_id=item["id"],
-            metadata=judge.jev_meta(),
+            metadata=result.metadata,
         )
-        return candidate, item["experimentItemId"], probabilities[weakest], cost, None
+        return (
+            candidate,
+            item["experimentItemId"],
+            (result.metadata or {}).get("cost") or 0,
+            None,
+        )
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(one, todo))
     client.flush()
-    failed = [r for r in results if r[4]]
-    print(f"{len(results) - len(failed)} scored, ${sum(r[3] for r in results):.4f}")
-    for candidate, item, _, _, error in failed:
+    failed = [r for r in results if r[3]]
+    print(f"{len(results) - len(failed)} scored, ${sum(r[2] for r in results):.4f}")
+    for candidate, item, _, error in failed:
         print(f"  FAILED {candidate} {item}: {error}")
     print("wait a minute for ingestion, then `stage2.py report`")
 
@@ -417,7 +422,9 @@ if __name__ == "__main__":
             "jev",
         )
         sweep([a for a in args[1:] if not a.startswith("--judge=")], tier2=tier2)
-    elif command == "jev":
-        backfill_jev(args[1] if len(args) > 1 else COMPARE)
+    elif command == "judge":
+        if len(args) < 2 or args[1] not in judge.JUDGES or args[1] == "none":
+            sys.exit("usage: stage2.py judge jev|opus [<openrouter-model-id> ...]")
+        backfill(args[1], tuple(args[2:]))
     else:
         sys.exit(f"unknown command: {command}")
