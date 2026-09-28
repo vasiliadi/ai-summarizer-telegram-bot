@@ -16,6 +16,8 @@ of the model under evaluation.
 from __future__ import annotations
 
 import asyncio
+import contextvars
+import threading
 
 import _bootstrap
 
@@ -29,6 +31,10 @@ from llm import LLMClient, OpenRouterCostReporter
 # Shared by screening and compare on purpose. The two stages have to hold this
 # axis fixed at the same value or their numbers stop being about the model.
 THINKING_LEVEL = config.DEFAULT_THINKING_LEVEL
+
+# Seconds one summary may take before the item is given up. Median generation
+# is ~20 s and the slowest seen a few minutes, so this only ends a hang.
+GENERATION_TIMEOUT = 600
 
 
 class EvalLLMClient(LLMClient):
@@ -75,17 +81,39 @@ async def summarize(model_id, prompt, text, language):
 
     A worker thread has no running loop, so `run_sync` builds its own there and
     the bot's synchronous path is reused exactly as the bot runs it rather than
-    reimplemented asynchronously beside it. `to_thread` copies the context, so
-    the generation span still nests under the experiment item and
+    reimplemented asynchronously beside it. The context is copied into the
+    thread, so the generation span still nests under the experiment item and
     `OpenRouterCostReporter` still finds it.
     """
     # Mirrors summarize_text: prompt and content as two parts, and a blank text
     # drops its part rather than sending an empty one.
     content = [prompt, text] if text.strip() else [prompt]
-    return await asyncio.to_thread(
-        LLM.run,
-        content=content,
-        model_id=model_id,
-        target_language=language,
-        thinking_level=THINKING_LEVEL,
-    )
+    loop = asyncio.get_running_loop()
+    future = loop.create_future()
+    context = contextvars.copy_context()
+
+    def settle(result, error):
+        if not future.done():  # already cancelled by the timeout
+            future.set_exception(error) if error else future.set_result(result)
+
+    def work():
+        try:
+            result = context.run(
+                LLM.run,
+                content=content,
+                model_id=model_id,
+                target_language=language,
+                thinking_level=THINKING_LEVEL,
+            )
+        except Exception as exc:
+            loop.call_soon_threadsafe(settle, None, exc)
+        else:
+            loop.call_soon_threadsafe(settle, result, None)
+
+    # A daemon thread rather than `asyncio.to_thread`: a sweep has hung forever
+    # on one item with its sockets in CLOSE_WAIT (evals.md, *The harness*), and
+    # the default executor's threads are joined at interpreter exit, so a
+    # timeout around `to_thread` would move the hang to shutdown instead of
+    # ending it. The stuck thread is abandoned; the item is stored as an error.
+    threading.Thread(target=work, daemon=True).start()
+    return await asyncio.wait_for(future, GENERATION_TIMEOUT)
