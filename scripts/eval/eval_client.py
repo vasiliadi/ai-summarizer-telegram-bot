@@ -116,4 +116,9 @@ async def summarize(model_id, prompt, text, language):
     # timeout around `to_thread` would move the hang to shutdown instead of
     # ending it. The stuck thread is abandoned; the item is stored as an error.
     threading.Thread(target=work, daemon=True).start()
-    return await asyncio.wait_for(future, GENERATION_TIMEOUT)
+    try:
+        return await asyncio.wait_for(future, GENERATION_TIMEOUT)
+    except TimeoutError:
+        # A bare TimeoutError has no message, so the stored item read "Error: ".
+        msg = f"generation gave no answer in {GENERATION_TIMEOUT} s"
+        raise TimeoutError(msg) from None
