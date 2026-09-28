@@ -113,6 +113,19 @@ JEV_INVENTED_CRITERIA = {
     "true": "No: every fact the claim states is in the source.",
     "false": "Yes: the claim states a fact the source does not contain.",
 }
+# The fact definition from Opus's INVENTED prompt, in JEV's positive framing:
+# the question stays "is it supported?", because asked "is it invented?" JEV
+# answered the question and ignored the criteria's polarity.
+JEV_FACTS = (
+    "Is every fact in this claim — a name, number, date, event, who did or said "
+    "what, what caused what, whether something happened or is only planned — "
+    "contained in the source? The claim may be a translation. Compression, "
+    "generalisation and wording are not errors. Claim: «{claim}»"
+)
+JEV_FACTS_CRITERIA = {
+    "true": "Every fact the claim states is in the source.",
+    "false": "The claim states a fact the source does not contain or contradicts.",
+}
 # Variant -> (instructions, criteria, all bullets in one call). Separating the
 # call shape from the wording tells which of the two moves the result.
 JEV_VARIANTS = {
@@ -122,6 +135,7 @@ JEV_VARIANTS = {
     "invented": (JEV_INVENTED, JEV_INVENTED_CRITERIA, True),
     # `minimal` in one call: batching was measured to change nothing.
     "minimal-batched": (JEV_MINIMAL, JEV_MINIMAL_CRITERIA, True),
+    "facts": (JEV_FACTS, JEV_FACTS_CRITERIA, True),
 }
 
 # Human channels vs judge channels. Distinct names, one score table — which is

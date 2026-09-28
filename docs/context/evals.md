@@ -979,6 +979,23 @@ inverted. The same idea in positive form is the `minimal` variant above (*"Is th
 supported by the source?"*), which gives 2 of 3 human errors caught with 1 false alarm. $0.042 for
 the run (`versus typesafe/jev-1.13 0 invented`).
 
+**Opus's definition of a fact, put to JEV positively, is worse too (2026-09-28).** The `facts`
+variant (`calibrate.py`, `--variant facts`) keeps JEV's "is it supported?" framing but spells out
+what a fact is, as `INVENTED` does for Opus — a name, number, date, event, who did what, a cause,
+done versus planned — and says compression and wording are not errors. On the 42 hand-labelled
+summaries ($0.019), against the pipeline's `minimal` question on the same items:
+
+| question | AUC vs the user | median weakest, clean | at < 0.6: caught / false alarms |
+|---|---|---|---|
+| `minimal` (the pipeline's) | **0.80** | 0.91 | 4 of 6 / **3 of 36** |
+| `facts` | 0.72 | 0.76 | 3 of 6 / 12 of 36 |
+
+The longer definition makes JEV doubt every bullet more — clean summaries fall from a median of
+0.91 to 0.76 — without catching more errors, the same pattern as the long `batched` instruction.
+Four wordings have now been measured, and the shortest positive question is the best of them;
+JEV is not steered by being told more. Both rows are against the same, partly stale labels, so
+the comparison between them stands even where each absolute number does not.
+
 #### Hand labels made from a model's chosen quote inherit the model's choice
 
 **The hand labels above are not ground truth, and the reason is how they were gathered.** To make
