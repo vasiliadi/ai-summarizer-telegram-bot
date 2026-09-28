@@ -962,6 +962,39 @@ inverted. The same idea in positive form is the `minimal` variant above (*"Is th
 supported by the source?"*), which gives 2 of 3 human errors caught with 1 false alarm. $0.042 for
 the run (`versus typesafe/jev-1.13 0 invented`).
 
+#### Hand labels made from a model's chosen quote inherit the model's choice
+
+**The hand labels above are not ground truth, and the reason is how they were gathered.** To make
+labelling tractable, each summary claim was shown beside a verbatim passage that `gpt-6-luna`
+picked from the source (checked to occur verbatim). That guarantees the passage is real, not that
+it is the passage that decides the claim. Two cases found on 2026-09-27:
+
+- **A mention outside the passage.** A stepfun summary said a business serves "Amazon and Walmart"
+  sellers; the passage around the anchor named only Amazon (31 mentions), so the user marked it
+  invented. Walmart occurs once, elsewhere.
+- **A passage that points the wrong way.** A gpt-6-luna summary said the team went through
+  *Anthropic's* accelerator. The passage looked supportive, so it was labelled clean; the source
+  says the accelerator was Cohere's, in a Ukrainian transcript that spells both names in Cyrillic
+  (*Антропік*, *Кохія*). Opus found it; the user confirmed it on the full text.
+
+So a labeller reading only the quote errs in both directions, and a "false alarm" against such
+labels may be a judge being right. Two things follow. **Judge-vs-labeller disagreements must be
+adjudicated before they are counted** — the labeller re-checks each against the full source.
+And **a review aid should find deciding passages by plain search**, not by a model: the dispute
+file for the one-question prompt lists every sentence containing a name or number from the
+finding, matching Cyrillic names on a five-letter stem so inflected forms still match. The
+review files, per-summary full texts and the label files are under `temp/`, untracked.
+
+**The one-question prompt (`judge.py` `INVENTED`, pin `3a6bf3cc1d96`), first run.** It asks only
+whether the summary states a fact the source does not contain or contradicts, with no types and
+no severity, and any finding fails the summary. It was run on Opus 5.5 over the 42 labelled
+summaries (22 luna, 20 stepfun; `versus anthropic/claude-opus-5.5 --prompt invented --labels
+temp/human-labels-all.json`), $2.34, $0.056 a call. Against the labels as they stood it caught
+**all 6** errors with **23 false alarms of 36** (the old prompt on Opus 5: 3 of 6, 12 false
+alarms); counting only summaries with two or more findings gives 4 of 6 and 9. Because of the
+section above, those 23 are being adjudicated rather than read as false alarms — **OPEN** until
+the user has checked them.
+
 ### Three details of the judge are load-bearing
 
 The judge never returns a verdict already reduced to one number — faithfulness enumerates and the
