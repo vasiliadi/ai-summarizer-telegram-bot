@@ -282,12 +282,12 @@ from; nothing else records it.
 nothing else — those are the two prompt variables, and an `inputSchema` rejects an item missing
 either. `prompt_key` rides in `metadata`, not `input`: an experiment picks one prompt and runs it
 over every item, so the originating trace's strategy fills no variable.
-**Only traces with a Cyrillic `target_language` are harvested**: `t1_language_match` measures
-the Cyrillic share and the `FABRICATED` prompt fixes the summary's language, so an item in
-another language would fail Tier 1 on a correct summary. A trace missing the field is skipped too.
-`rebuild_datasets.py` compares against the exact language name the bot stores in trace metadata
-(an entry of `config.SUPPORTED_LANGUAGES`), so that literal must match the config, not a script
-name.
+**Only traces whose own summary is in Cyrillic are harvested**: `t1_language_match` measures
+the Cyrillic share, so an item in another language would fail Tier 1 on a correct summary.
+`rebuild_datasets.py` applies Tier 1's own test (`_cyrillic_ratio` against `CYRILLIC_FLOOR`) to
+the `text` parts of the trace's output — the `thinking` parts are skipped, since they are often
+in English — and skips a trace with no `target_language`. No language is named, so any
+Cyrillic-script target qualifies, while the `FABRICATED` prompt still states one fixed language.
 
 **The Tier 1 rule fires only on the datasets its filter names.** `tier1-on-experiments` filters
 on `datasetId any of` — the compare dataset's id — plus `isExperimentItemRootSpan`. A new

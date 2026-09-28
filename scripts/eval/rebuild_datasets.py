@@ -25,6 +25,7 @@ from pathlib import Path
 import _bootstrap
 import requests
 from langfuse import Langfuse
+from tier1_evaluator import CYRILLIC_FLOOR, _cyrillic_ratio
 
 REPO = _bootstrap.load()
 BASE, AUTH = _bootstrap.langfuse_rest()
@@ -45,6 +46,15 @@ def content_of(row):
     except Exception:
         return None
     return parts[1]["content"] if len(parts) > 1 else ""
+
+
+def summary_of(row):
+    """The summary the traced generation produced, without its thinking parts."""
+    try:
+        parts = json.loads(row["output"])[0]["parts"]
+    except Exception:
+        return ""
+    return "\n".join(p["content"] for p in parts if p.get("type") == "text")
 
 
 def stratum_of(text):
@@ -71,10 +81,13 @@ def pool(rows):
     seen, out, openings = set(), [], set()
     for row in rows:
         text = content_of(row)
-        # Tier 1 and the Opus prompt both assume a Cyrillic summary, and a trace
-        # without the field would store `target_language: None`. The literal is
-        # the language name the bot stores in trace metadata, not a script name.
-        if not text or (row.get("metadata") or {}).get("target_language") != "Russian":
+        # Tier 1 scores the Cyrillic share, so keep only traces whose own summary
+        # passed that check; a trace without the field would store None.
+        if (
+            not text
+            or not (row.get("metadata") or {}).get("target_language")
+            or _cyrillic_ratio(summary_of(row)) < CYRILLIC_FLOOR
+        ):
             continue
         digest = hashlib.sha256(text.encode()).hexdigest()[:12]
         if digest in seen:
