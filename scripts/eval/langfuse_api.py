@@ -122,58 +122,6 @@ class LangfuseAPI:
             rows = [r for r in rows if (r.get("name") or "").startswith(name_prefix)]
         return sorted(rows, key=lambda r: r["startTime"], reverse=True)
 
-    def find_experiment(self, dataset_id: str, run_name: str) -> dict | None:
-        """Find one experiment by its exact run name."""
-        for row in self.experiments(dataset_id):
-            if row.get("name") == run_name:
-                return row
-        return None
-
-    def score_comments(self, score_ids: list[str]) -> dict[str, str]:
-        """Map score id -> its comment.
-
-        Scores returned inline by `fields=scores` on an experiment item carry
-        the value but not the comment, and the comment is where a Tier 1 score
-        records *why* it failed. `fields=core,details` on `GET /v3/scores`
-        carries it; the `id` filter takes a comma-separated list.
-        """
-        out: dict[str, str] = {}
-        # Chunked to keep each URL short and each request inside the rate limit.
-        for start in range(0, len(score_ids), 50):
-            chunk = score_ids[start : start + 50]
-            body = self.get(
-                "v3/scores",
-                {"id": ",".join(chunk), "limit": 100, "fields": "core,details"},
-            )
-            for row in body.get("data", []):
-                out[row["id"]] = row.get("comment") or ""
-        return out
-
-    def observations(
-        self,
-        limit: int = 10,
-        obs_type: str = "GENERATION",
-        fields: str = "core,io",
-        from_start_time: str = EPOCH,
-        to_start_time: str | None = None,
-    ) -> list[dict]:
-        """List observations through the v2 API.
-
-        `GET /observations` (v1) is deprecated in favour of this. Two semantic
-        differences bite: v2 returns `input`/`output` as **raw strings** rather
-        than parsed JSON, and only the requested `fields` groups are present at
-        all — an omitted group is absent, not null.
-        """
-        params = {
-            "type": obs_type,
-            "limit": limit,
-            "fields": fields,
-            "fromStartTime": from_start_time,
-        }
-        if to_start_time:
-            params["toStartTime"] = to_start_time
-        return self.get("v2/observations", params).get("data", [])
-
     def experiment_items(self, experiment_id: str, fields: str) -> list[dict]:
         """List an experiment's items.
 
