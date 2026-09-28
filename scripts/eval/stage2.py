@@ -1,8 +1,7 @@
 """Compare stage: a candidate over the 50-item set, with Tier 1 and JEV.
 
-One run per candidate does both jobs: the Tier 1 rule scores every compare run
-for free, and the 25 screening items are a subset of these 50, so screening no
-longer needs a run of its own. Tier 1 is the only hard gate. JEV's weakest-
+One run per candidate: the Langfuse rule scores Tier 1 on every compare run for
+free, and JEV is the default Tier 2 judge. Tier 1 is the only hard gate. JEV's weakest-
 bullet probability is a signal of plain fabrication, read against the other
 candidates — above all the production model — and never against a floor. The
 harness is a filter, not a ranking: the user reads the survivors.
@@ -12,9 +11,13 @@ harness is a filter, not a ranking: the user reads the survivors.
     uv run python scripts/eval/stage2.py judge jev [<model> ...]        # ~2 cents a run: add JEV to runs
     uv run python scripts/eval/stage2.py judge opus <model> ...         # ~$3 a run: Opus FABRICATED on finalists
 
+Models are named by their OpenRouter id and passed as arguments; there is no
+default list and the registry is not consulted, because the point is to decide
+whether a model belongs in `config.MODEL_SPECS` at all.
+
 **Means do not rank models.** With 25-50 items a few points of difference
 between two means is noise, so the means are paired with a sign test over
-per-item faithfulness deltas between two candidates, on the *same* items.
+per-item Tier 2 deltas between two candidates, on the *same* items.
 
 A candidate is a model **and** a strategy, because `t1_pass` and the Tier 2
 means compare models only within one strategy. So runs are keyed by
@@ -31,6 +34,7 @@ from datetime import datetime
 from itertools import combinations
 
 import _bootstrap
+import requests
 from langfuse import Langfuse
 from langfuse_api import LangfuseAPI, score_value
 
@@ -38,19 +42,22 @@ REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
 
 import judge
-import stage1
 
 COMPARE = judge.COMPARE_DATASET
 RUN_PREFIX = judge.RUN_PREFIX
+CATALOG_URL = "https://openrouter.ai/api/v1/models"
+
+# Two failures in 50 are forgiven; a systematic defect is not. 70% suited checks
+# that only caught outright breakage, but `t1_script_clean` fails an item on a
+# single stray character, and hy3 leaked CJK into ~6% of summaries — enough to
+# be unusable, and well inside a 70% floor. Strong models score 100%.
+PASS_THRESHOLD = 0.95
 
 JEV = "t2_jev_weakest"
 FABRICATED = "t2_fabricated"
 
 # The paired Tier 2 tests run on these, whichever a run carries.
-PAIRED_METRICS = ("t2_faithfulness", JEV, FABRICATED)
-# `t2_faithfulness` (the old Opus prompt) is still paired where old runs carry
-# it; its 85% floor went with it on 2026-09-28, when no judge was left to set
-# a floor and the decision moved to cost against honesty.
+PAIRED_METRICS = (JEV, FABRICATED)
 
 
 def discover_runs(dataset_name):
@@ -58,7 +65,7 @@ def discover_runs(dataset_name):
 
     `GET /experiments` returns seven fields and none of them is metadata, so the
     candidate has to be read back out of the run name — which is the whole
-    reason `judge.cmd_run` writes the name it does.
+    reason `judge.run` writes the name it does.
     """
     runs = {}
     # experiments() returns newest first, so the first hit per candidate wins.
@@ -89,7 +96,7 @@ def _tier2_scores():
     """Observation id -> {Tier 2 score name: value}, read from the score table.
 
     **The experiment-items read returns at most seven scores per item.** An item
-    carrying five Tier 1 scores, the old `t2_faithfulness`, JEV and then
+    carrying five Tier 1 scores, a retired Tier 2 score, JEV and then
     `t2_fabricated` came back with seven and the eighth silently missing, so the
     report showed "-" for a judge that had scored every item (found 2026-09-28).
     Tier 2 scores are therefore read by name from `v3/scores` and merged in; the
@@ -271,7 +278,7 @@ def _deltas(rows_by_candidate, left, right, metric):
 def _filter(rows_by_candidate):
     """Who goes on to be read live: Tier 1 is the gate, the judges are signals.
 
-    `t1_pass` below screening's floor drops a candidate — the only check here
+    `t1_pass` below `PASS_THRESHOLD` drops a candidate — the only check here
     that is deterministic. Neither judge sets a floor: JEV's flagged share and,
     for finalists, Opus's invented share are printed for the user to weigh
     against cost, compression and the other candidates.
@@ -281,7 +288,7 @@ def _filter(rows_by_candidate):
         scores = [s for s, _ in rows.values()]
         passes = [s["t1_pass"] for s in scores if "t1_pass" in s]
         reasons = []
-        if passes and sum(passes) / len(passes) < stage1.PASS_THRESHOLD:
+        if passes and sum(passes) / len(passes) < PASS_THRESHOLD:
             reasons.append(f"t1_pass {sum(passes) / len(passes):.0%}")
         jev = [s[JEV] for s in scores if s.get(JEV) is not None]
         signal = (
@@ -293,7 +300,7 @@ def _filter(rows_by_candidate):
             f"{_short(candidate)} ({', '.join(reasons) or signal})",
         )
     print(
-        f"\nFilter: t1_pass below {stage1.PASS_THRESHOLD:.0%} is dropped; the judges are signals",
+        f"\nFilter: t1_pass below {PASS_THRESHOLD:.0%} is dropped; the judges are signals",
     )
     print(f"KEEP ({len(keep)}): {', '.join(keep) or 'none'}")
     print(f"DROP ({len(drop)}): {', '.join(drop) or 'none'}")
@@ -306,16 +313,17 @@ def _short(candidate):
 
 
 def report(dataset_name=COMPARE):
-    """Aggregate every compare run on one dataset and apply the faithfulness floor."""
+    """Aggregate every compare run on one dataset and apply the Tier 1 gate."""
     runs = discover_runs(dataset_name)
     if not runs:
         sys.exit(
             f"no runs found with prefix {RUN_PREFIX!r} on {dataset_name!r}; "
-            f"run `judge.py run <model> 0 {dataset_name}` first",
+            "run `stage2.py sweep <model>` first",
         )
     print(f"\nStage 2 - {dataset_name}, thinking={judge.THINKING_LEVEL}")
     print(
-        f"{len(runs)} candidate(s); Tier 2: {judge.JEV_MODEL}, or {judge.JUDGE_MODEL} where run",
+        f"{len(runs)} candidate(s); Tier 2: {judge.JEV_MODEL}, "
+        f"and {judge.FABRICATED_MODEL} where run",
     )
 
     tier2 = _tier2_scores()
@@ -413,13 +421,32 @@ def backfill(tier2, models=(), dataset_name=COMPARE):
     print("wait a minute for ingestion, then `stage2.py report`")
 
 
+def _resolve(model_ids):
+    """Check every id against OpenRouter's catalog before anything is spent.
+
+    A typo or a wrongly guessed id would otherwise surface as a per-item error
+    partway through a paid sweep. Never *derive* an id by prefixing a vendor
+    name: the catalog carries `:free` and `:batch` siblings of the plain id, so
+    a computed id can silently select the wrong one. Exits naming the
+    near-misses.
+    """
+    catalog = requests.get(CATALOG_URL, timeout=60).json()["data"]
+    names = {m["id"] for m in catalog}
+    unknown = [m for m in model_ids if m not in names]
+    for bad in unknown:
+        stem = bad.split(":")[0]
+        near = sorted(i for i in names if i.startswith(stem))
+        hint = f" — did you mean {', '.join(near)}?" if near else ""
+        print(f"unknown OpenRouter model: {bad}{hint}")
+    if unknown:
+        sys.exit("nothing run")
+
+
 def sweep(model_ids, dataset_name=COMPARE, prompt_key=None, tier2="jev"):
     """Produce a compare run for each model, over the whole dataset.
 
-    `judge.py run` takes one model, which is six invocations for a six-model
-    field and no check that the sixth id is real until the first five are paid
-    for. Ids are validated against the OpenRouter catalog up front, exactly as
-    the screening sweep does and for the same reason.
+    Ids are validated against the OpenRouter catalog up front, so the sixth
+    id's typo is not found after the first five are paid for.
     """
     if not model_ids:
         sys.exit(
@@ -427,11 +454,11 @@ def sweep(model_ids, dataset_name=COMPARE, prompt_key=None, tier2="jev"):
             "  ids are OpenRouter ids, e.g. vendor/model",
         )
     prompt_key = prompt_key or judge.PROMPT_KEY
-    stage1._resolve(model_ids)  # noqa: SLF001
+    _resolve(model_ids)
     print(f"{len(model_ids)} model(s) over {dataset_name}, {prompt_key}\n")
     for index, model_id in enumerate(model_ids, 1):
         print(f"[{index}/{len(model_ids)}] {model_id}")
-        judge.cmd_run(model_id, 0, dataset_name, prompt_key, tier2=tier2)
+        judge.run(model_id, dataset_name, prompt_key, tier2=tier2)
         print()
     print("done - `stage2.py report` next")
 
