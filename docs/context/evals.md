@@ -1549,21 +1549,22 @@ $0.85, the fourth time the card has been off, this time in the cheap direction.
   one errored item. Against the production model on JEV, grok-4.7 leans better (29 / 16,
   p = 0.072); muse-spark and hy4 do not separate (p = 0.88, 1.0).
 - **Opus `FABRICATED` on six finalists** (`stage2.py judge opus ...`, over the existing runs,
-  **$15.99** — $2.60–2.79 a model, grok stopped early): share of the 50 summaries with at least
+  **$16.33** — $2.60–2.79 a model): share of the 50 summaries with at least
   one *invented* finding, beside the numbers the choice is weighed on.
 
   | candidate | invented | vs production (paired) | compression | run $ |
   |---|---|---|---|---|
-  | `x-ai/grok-4.7` (43 of 50 judged) | **9%** | 9 / 2, p = 0.065 | 0.200 | 0.75 |
+  | `x-ai/grok-4.7` | **8%** | 11 / 2, **p = 0.022** | 0.200 | 0.75 |
   | `deepseek/deepseek-v4.1-flash` | **10%** | 9 / 1, **p = 0.021** | **0.229** | 0.16 |
   | `openai/gpt-6-luna` | 14% | 8 / 2, p = 0.109 | 0.171 | **0.04** |
   | `xiaomi/mimo-v2.6-pro` | 18% | 10 / 6, p = 0.454 | 0.187 | 0.17 |
   | `openai/gpt-5.6-luna` (production) | 27% | — | 0.220 | 0.12 |
   | `z-ai/glm-5.3-flash` | 28% | 9 / 9, p = 1.000 | 0.166 | 0.05 |
 
-  The production model invents something in more than a quarter of its summaries, and
-  deepseek-v4.1-flash is the one candidate measurably better on it while also writing the
-  longest summaries. JEV agreed on the order at the top (deepseek and gpt-6-luna best) but missed
+  The production model invents something in more than a quarter of its summaries. Two candidates
+  are measurably better on it, grok-4.7 and deepseek-v4.1-flash, and they do not separate from
+  each other (2 / 3, p = 1.0); deepseek writes the longest summaries and costs a fifth of grok's
+  run. JEV agreed on the order at the top (deepseek and gpt-6-luna best) but missed
   glm-5.3-flash and mimo-v2.6-pro entirely — 4% and 0% flagged against Opus's 28% and 18% — so it
   is a coarse screen, and Opus on the finalists is what separated them.
 - **Two traps this round hit.** The experiment-items read returns **at most seven scores per
@@ -1572,7 +1573,8 @@ $0.85, the fourth time the card has been off, this time in the cheap direction.
   existed. `stage2.py` now reads Tier 2 scores by name from `v3/scores` and merges them in. And
   grok's last seven calls returned **402 with $11 on the balance**: the key's own monthly limit
   ($50, `usage_monthly` $49.81), the `openrouter_key_limit` case recorded under *API shapes*, not
-  the balance. `stage2.py judge opus x-ai/grok-4.7` resumes it once the limit resets or is raised.
+  the balance. The user raised the limit to $60 and `stage2.py judge opus x-ai/grok-4.7` resumed the last seven
+  items ($0.33), skipping the 43 already scored.
 - **deepseek's 96% is its runner, not the model.** One item hit the 10-minute generation timeout
   and was stored as an error, which fails every Tier 1 check; on the 49 it answered it is 100%.
   The timeout did what it was added for — the sweep carried on — but the stored message was
