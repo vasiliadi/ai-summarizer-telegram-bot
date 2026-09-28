@@ -1475,6 +1475,38 @@ so it fails every Tier 1 check and shows as `t1_pass` 98% — read a run's `t1_p
 `INCOMPLETE COVERAGE` lines before believing a Tier 1 failure. Both go on to live reading; at the
 time `gpt-6-luna` was not in `config.MODEL_SPECS`, so reading it in the bot needs it added there.
 
+### The second run of the filter: six cheap candidates on Tier 1 and JEV, 2026-09-28
+
+The first sweep on the one-run route (`stage2.py sweep`, JEV as Tier 2), all 50 items each,
+beside the three runs already there. `run $` is what OpenRouter charged for the summaries; the six
+new runs came to **$0.56** together, plus about $0.12 of JEV — against a catalog estimate of
+$0.85, the fourth time the card has been off, this time in the cheap direction.
+
+| candidate | JEV median | JEV < 0.6 | t1_pass | compression | latency | run $ |
+|---|---|---|---|---|---|---|
+| `deepseek/deepseek-v4.1-flash` | **0.94** | **0%** | 96% | 0.229 | 15.9 s | 0.16 |
+| `openai/gpt-6-luna` | **0.94** | 2% | 98% | 0.171 | 19.5 s | **0.04** |
+| `xiaomi/mimo-v2.6-pro` | 0.93 | 0% | 98% | 0.190 | 37.1 s | 0.17 |
+| `openai/gpt-5.6-luna` (production) | 0.92 | 6% | 98% | 0.220 | 20.7 s | 0.12 |
+| `upstage/solar-pro4` | 0.92 | 0% | 98% | 0.158 | 35.7 s | 0.09 |
+| `z-ai/glm-5.3-flash` | 0.92 | 4% | 98% | 0.166 | **10.6 s** | 0.05 |
+| `stepfun/step-3.7-flash` | 0.89 | 12% | 96% | 0.202 | 14.1 s | 0.20 |
+| `ibm-granite/granite-4.2-8b` — **DROP** | 0.80 | 26% | **62%** | 0.178 | 20.6 s | 0.03 |
+| `xiaomi/mimo-v2.6-flash` — **DROP** | 0.92 | 2% | **76%** | 0.205 | 25.1 s | 0.06 |
+
+- **Tier 1 dropped two, each for a reason it exists to catch.** granite answered in English on a
+  third of the items (`t1_language_match` 66%); mimo-v2.6-flash leaked foreign-script letters into
+  a fifth of its summaries (`t1_script_clean` 80%). The deterministic gate did what it was kept for.
+- **JEV, paired, splits the survivors into two groups.** deepseek-v4.1-flash beats the production
+  model on 34 items against 8 (p < 0.001) and ties gpt-6-luna (24 / 18, p = 0.44); gpt-6-luna,
+  mimo-v2.6-pro, solar-pro4 and glm-5.3-flash do not separate from the production model; stepfun
+  sits below most of them, as before. Differences inside the upper group are within noise, so
+  what separates it is cost, latency and the user's reading.
+- **deepseek's 96% is its runner, not the model.** One item hit the 10-minute generation timeout
+  and was stored as an error, which fails every Tier 1 check; on the 49 it answered it is 100%.
+  The timeout did what it was added for — the sweep carried on — but the stored message was
+  empty (`Error: `), since a bare `TimeoutError` has none; it now names the timeout.
+
 ### Two things the report does not print, and both change how its table reads
 
 - **Only `t2_faithfulness` gets a paired test** (historical: the report no longer has a
