@@ -698,6 +698,9 @@ def versus(model, limit=0, variant="batched", labels=None, author=None):
             **row,
             "clean": not material,
             "comment": comment,
+            # The comment keeps only material claims; the findings keep what the
+            # source says beside each one, which is what a person checking needs.
+            "findings": verdict["findings"],
             "cost": usage.get("cost") or 0,
         }
 
