@@ -1,12 +1,12 @@
 """Compare stage: a candidate over the 50-item set, with Tier 1 and JEV.
 
 One run per candidate: the Langfuse rule scores Tier 1 on every compare run for
-free, and JEV is the default Tier 2 judge. Tier 1 is the only hard gate. JEV's weakest-
-bullet probability is a signal of plain fabrication, read against the other
-candidates — above all the production model — and never against a floor. The
-harness is a filter, not a ranking: the user reads the survivors.
+free, and JEV is the default Tier 2 judge. Tier 1 is the only hard gate. JEV's
+weakest-bullet probability is a signal of plain fabrication, read against the
+other candidates and never against a floor; Opus is added on finalists. The
+harness is a filter, not a ranking: a person reads the survivors.
 
-    uv run python scripts/eval/stage2.py report                         # free
+    uv run python scripts/eval/stage2.py report [--all-pairs]           # free
     uv run python scripts/eval/stage2.py sweep <model> ... [--judge=jev|opus|none]  # COSTS MONEY
     uv run python scripts/eval/stage2.py judge jev [<model> ...]        # ~2 cents a run: add JEV to runs
     uv run python scripts/eval/stage2.py judge opus <model> ...         # ~$3 a run: Opus FABRICATED on finalists
@@ -15,9 +15,10 @@ Models are named by their OpenRouter id and passed as arguments; there is no
 default list and the registry is not consulted, because the point is to decide
 whether a model belongs in `config.MODEL_SPECS` at all.
 
-**Means do not rank models.** With 25-50 items a few points of difference
-between two means is noise, so the means are paired with a sign test over
-per-item Tier 2 deltas between two candidates, on the *same* items.
+`report` prints one markdown table. **Its means do not rank models**: with 50
+items a few points between two means can be noise, and `--all-pairs` adds a
+sign test over per-item Tier 2 deltas for every pair of candidates, on the
+*same* items.
 
 A candidate is a model **and** a strategy, because `t1_pass` and the Tier 2
 means compare models only within one strategy. So runs are keyed by
@@ -98,7 +99,7 @@ def _tier2_scores():
     **The experiment-items read returns at most seven scores per item.** An item
     carrying five Tier 1 scores, a retired Tier 2 score, JEV and then
     `t2_fabricated` came back with seven and the eighth silently missing, so the
-    report showed "-" for a judge that had scored every item (found 2026-09-28).
+    report showed "-" for a judge that had scored every item.
     Tier 2 scores are therefore read by name from `v3/scores` and merged in; the
     inline scores still serve Tier 1.
     """
@@ -115,15 +116,25 @@ def _tier2_scores():
     return out
 
 
+def _failed(output):
+    """Whether an item's generation failed rather than produced a summary.
+
+    `run_experiment` stores a task that raised as `Error: ...`, and an item
+    killed mid-generation is stored empty.
+    """
+    return not output.strip() or output.startswith("Error:")
+
+
 def _item_rows(experiment, tier2):
-    """Dataset item id -> ({score name: value}, latency seconds)."""
+    """Dataset item id -> ({score name: value}, latency seconds, generation errored)."""
     return {
         item["experimentItemId"]: (
             {s["name"]: s.get("value") for s in (item.get("scores") or [])}
             | tier2.get(item["id"], {}),
             _seconds(item),
+            _failed(judge._text(item.get("output"))),  # noqa: SLF001
         )
-        for item in API.experiment_items(experiment["id"], fields="core,scores")
+        for item in API.experiment_items(experiment["id"], fields="core,io,scores")
     }
 
 
@@ -173,58 +184,108 @@ def _sign_test(wins, losses):
     return min(1.0, 2 * sum(math.comb(n, i) for i in range(tail + 1)) / 2**n)
 
 
-def _mean_cell(values, width=9, spec=".3f"):
-    if not values:
-        return f"{'-':>{width}s}"
-    return f"{sum(values) / len(values):{width}{spec}}"
+def _summary(rows, cost):
+    """One candidate's report row: raw values, `None` where nothing was scored."""
+    scores = [s for s, _, _ in rows.values()]
+    latencies = [t for _, t, _ in rows.values() if t is not None]
+    passes = [s["t1_pass"] for s in scores if "t1_pass" in s]
+    comp = [s["t1_compression"] for s in scores if "t1_compression" in s]
+    jev = [s[JEV] for s in scores if s.get(JEV) is not None]
+    fabricated = [s[FABRICATED] for s in scores if s.get(FABRICATED) is not None]
+    t1_pass = sum(passes) / len(passes) if passes else None
+    dollars, priced = cost or (None, 0)
+    return {
+        "t1_pass": t1_pass,
+        "jev_median": statistics.median(jev) if jev else None,
+        "jev_flagged": (
+            sum(v < judge.JEV_FLAG_BELOW for v in jev) / len(jev) if jev else None
+        ),
+        # The share of summaries Opus found something invented in.
+        "invented": 1 - sum(fabricated) / len(fabricated) if fabricated else None,
+        "compression": sum(comp) / len(comp) if comp else None,
+        "latency": statistics.median(latencies) if latencies else None,
+        "cost": dollars,
+        "drop": t1_pass is not None and t1_pass < PASS_THRESHOLD,
+        "n": len(rows),
+        "errored": sum(e for _, _, e in rows.values()),
+        "unpriced": dollars is not None and priced < len(rows),
+        "scored": {"JEV": len(jev), "Opus": len(fabricated)},
+    }
 
 
-def _jev_cells(scores):
-    """Median weakest-bullet probability, and the share flagged below the line."""
-    values = [s[JEV] for s in scores if s.get(JEV) is not None]
-    if not values:
-        return f"{'-':>8s} {'-':>9s}"
-    flagged = sum(1 for v in values if v < judge.JEV_FLAG_BELOW) / len(values)
-    return f"{statistics.median(values):8.2f} {flagged:9.0%}"
+# Column -> (header, format, which end is best). Best is bolded among the kept
+# candidates: a longer summary (higher compression) counts in a model's favour.
+COLUMNS = {
+    "t1_pass": ("t1_pass", "{:.0%}", max),
+    "jev_median": ("JEV median", "{:.2f}", max),
+    "jev_flagged": (f"JEV < {judge.JEV_FLAG_BELOW}", "{:.0%}", min),
+    "invented": ("invented (Opus)", "{:.0%}", min),
+    "compression": ("compression", "{:.3f}", max),
+    "latency": ("latency", "{:.1f} s", min),
+    "cost": ("run $", "{:.2f}", min),
+}
 
 
-def _cost_cell(cost, n_items):
-    """The run's bill; starred when not every item's generation was priced."""
-    if not cost or cost[0] is None:
-        return f"{'-':>7s}"
-    dollars, priced = cost
-    return f"{dollars:6.2f}{'*' if priced < n_items else ' '}"
+def _notes(row):
+    """Why a row's numbers cover fewer items than the run, if they do."""
+    notes = []
+    if row["errored"]:
+        notes.append(f"{row['errored']} of {row['n']} items failed to generate")
+    for judge_name, scored in row["scored"].items():
+        if 0 < scored < row["n"] - row["errored"]:
+            notes.append(f"{judge_name} scored {scored} of {row['n']} items")
+    if row["unpriced"]:
+        notes.append("some generations unpriced")
+    return notes
 
 
-def _tier2_table(rows_by_candidate, costs):
-    """Per-candidate means, with the caveat that they do not rank anything."""
-    header = (
-        f"{'model':28s} {'strategy':12s} {'n':>3s} "
-        f"{'invented':>9s} {'jev med':>8s} {f'jev<{judge.JEV_FLAG_BELOW}':>9s} "
-        f"{'t1_pass':>8s} {'compress':>9s} {'latency':>8s} {'run $':>7s}"
+def _table(summaries):
+    """The report as a markdown table: kept candidates first, then the dropped.
+
+    Within each group, candidates Opus judged come first by invented share, the
+    rest by JEV median, so the finalists sit at the top of the table.
+    """
+
+    def order(item):
+        _, row = item
+        opus = row["invented"] is None
+        return (row["drop"], opus, row["invented"] or 0, -(row["jev_median"] or 0))
+
+    rows = sorted(summaries.items(), key=order)
+    kept = [row for _, row in rows if not row["drop"]]
+    best = {}
+    for key, (_, spec, pick) in COLUMNS.items():
+        values = [row[key] for row in kept if row[key] is not None]
+        if values:
+            best[key] = spec.format(pick(values))
+
+    footnotes: list[str] = []
+    print("| candidate | " + " | ".join(h for h, _, _ in COLUMNS.values()) + " |")
+    print("|---" * (len(COLUMNS) + 1) + "|")
+    for candidate, row in rows:
+        label = f"`{_short(candidate)}`" + (" — DROP" if row["drop"] else "")
+        marks = []
+        for note in _notes(row):
+            if note not in footnotes:
+                footnotes.append(note)
+            marks.append(footnotes.index(note) + 1)
+        label += "".join(f" [{m}]" for m in sorted(marks))
+        cells = []
+        for key, (_, spec, _) in COLUMNS.items():
+            if row[key] is None:
+                cells.append("—")
+                continue
+            text = spec.format(row[key])
+            bold = not row["drop"] and best.get(key) == text
+            cells.append(f"**{text}**" if bold else text)
+        print(f"| {label} | " + " | ".join(cells) + " |")
+    print()
+    for number, note in enumerate(footnotes, 1):
+        print(f"[{number}] {note}")
+    print(
+        f"DROP: t1_pass below {PASS_THRESHOLD:.0%}. The judges are signals and set no "
+        "floor. run $ is what OpenRouter charged for the summaries; judge calls excluded.",
     )
-    print("\nTier 2 means - context only; the paired tests below are what rank")
-    print(header)
-    print("-" * len(header))
-    for candidate, rows in sorted(rows_by_candidate.items()):
-        model, strategy = _split(candidate)
-        scores = [s for s, _ in rows.values()]
-        latencies = [s for _, s in rows.values() if s is not None]
-        fabricated = [s[FABRICATED] for s in scores if s.get(FABRICATED) is not None]
-        cells = [
-            # The share of summaries Opus found something invented in.
-            _mean_cell([1 - v for v in fabricated], 9, ".0%"),
-            _jev_cells(scores),
-        ]
-        passes = [s["t1_pass"] for s in scores if "t1_pass" in s]
-        comp = [s["t1_compression"] for s in scores if "t1_compression" in s]
-        latency = f"{statistics.median(latencies):7.1f}s" if latencies else f"{'-':>8s}"
-        print(
-            f"{model:28s} {strategy.replace('_for_transcript', ''):12s} "
-            f"{len(rows):3d} " + " ".join(cells) + " "
-            f"{_mean_cell(passes, 8, '.0%')} {_mean_cell(comp, 9, '.4f')} {latency} "
-            f"{_cost_cell(costs.get(candidate), len(rows))}",
-        )
 
 
 def _paired_tier2_table(rows_by_candidate, metric):
@@ -275,83 +336,38 @@ def _deltas(rows_by_candidate, left, right, metric):
     return out
 
 
-def _filter(rows_by_candidate):
-    """Who goes on to be read live: Tier 1 is the gate, the judges are signals.
-
-    `t1_pass` below `PASS_THRESHOLD` drops a candidate — the only check here
-    that is deterministic. Neither judge sets a floor: JEV's flagged share and,
-    for finalists, Opus's invented share are printed for the user to weigh
-    against cost, compression and the other candidates.
-    """
-    keep, drop = [], []
-    for candidate, rows in sorted(rows_by_candidate.items()):
-        scores = [s for s, _ in rows.values()]
-        passes = [s["t1_pass"] for s in scores if "t1_pass" in s]
-        reasons = []
-        if passes and sum(passes) / len(passes) < PASS_THRESHOLD:
-            reasons.append(f"t1_pass {sum(passes) / len(passes):.0%}")
-        jev = [s[JEV] for s in scores if s.get(JEV) is not None]
-        signal = (
-            f"jev<{judge.JEV_FLAG_BELOW} {sum(v < judge.JEV_FLAG_BELOW for v in jev) / len(jev):.0%}"
-            if jev
-            else "no jev"
-        )
-        (drop if reasons else keep).append(
-            f"{_short(candidate)} ({', '.join(reasons) or signal})",
-        )
-    print(
-        f"\nFilter: t1_pass below {PASS_THRESHOLD:.0%} is dropped; the judges are signals",
-    )
-    print(f"KEEP ({len(keep)}): {', '.join(keep) or 'none'}")
-    print(f"DROP ({len(drop)}): {', '.join(drop) or 'none'}")
-
-
 def _short(candidate):
     """Drop the strategy when it is the one every candidate is swept under."""
     model, strategy = _split(candidate)
     return model if strategy == judge.PROMPT_KEY else candidate
 
 
-def report(dataset_name=COMPARE):
-    """Aggregate every compare run on one dataset and apply the Tier 1 gate."""
+def report(dataset_name=COMPARE, *, all_pairs=False):
+    """Print every compare run on one dataset as one table, Tier 1 gate applied.
+
+    `all_pairs` adds a sign test over per-item deltas for every pair of
+    candidates on each Tier 2 score — whether one beats another on the *same*
+    items more often than not, which a gap between two means cannot tell.
+    """
     runs = discover_runs(dataset_name)
     if not runs:
         sys.exit(
             f"no runs found with prefix {RUN_PREFIX!r} on {dataset_name!r}; "
             "run `stage2.py sweep <model>` first",
         )
-    print(f"\nStage 2 - {dataset_name}, thinking={judge.THINKING_LEVEL}")
     print(
-        f"{len(runs)} candidate(s); Tier 2: {judge.JEV_MODEL}, "
-        f"and {judge.FABRICATED_MODEL} where run",
+        f"`{dataset_name}`, thinking `{judge.THINKING_LEVEL}`, {len(runs)} candidate(s); "
+        f"JEV `{judge.JEV_MODEL}`, Opus `{judge.FABRICATED_MODEL}`\n",
     )
-
     tier2 = _tier2_scores()
     rows_by_candidate = {c: _item_rows(e, tier2) for c, e in runs.items()}
-    costs = {c: _run_cost(e) for c, e in runs.items()}
-    _tier2_table(rows_by_candidate, costs)
-    print(
-        "  run $ is what OpenRouter charged for the 50 summaries (* = some unpriced); judge calls excluded",
-    )
-    for metric in PAIRED_METRICS:
-        _paired_tier2_table(rows_by_candidate, metric)
-    _filter(rows_by_candidate)
-
-    # The `n` column counts a run's items, while a mean covers only the items
-    # that carry the score — a judge call that failed attaches nothing. Say so
-    # rather than let a mean over half a run read as that run's verdict. A run
-    # with no score at all under a judge was simply not judged by it.
-    incomplete = []
-    for c, rows in sorted(rows_by_candidate.items()):
+    summaries = {
+        c: _summary(rows, _run_cost(runs[c])) for c, rows in rows_by_candidate.items()
+    }
+    _table(summaries)
+    if all_pairs:
         for metric in PAIRED_METRICS:
-            scored = sum(1 for s, _ in rows.values() if s.get(metric) is not None)
-            if 0 < scored < len(rows):
-                incomplete.append(f"{c}: {metric} on {scored} of {len(rows)} items")
-    if incomplete:
-        print("\nINCOMPLETE COVERAGE - a Tier 2 score is missing on some items:")
-        for line in incomplete:
-            print(f"  {line}")
-        print("      Rows above average only the items that carry it.")
+            _paired_tier2_table(rows_by_candidate, metric)
 
 
 def backfill(tier2, models=(), dataset_name=COMPARE):
@@ -467,7 +483,8 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     command = args[0] if args else "report"
     if command == "report":
-        report(args[1] if len(args) > 1 else COMPARE)
+        rest = [a for a in args[1:] if a != "--all-pairs"]
+        report(rest[0] if rest else COMPARE, all_pairs="--all-pairs" in args)
     elif command == "sweep":
         tier2 = next(
             (a.split("=", 1)[1] for a in args if a.startswith("--judge=")),

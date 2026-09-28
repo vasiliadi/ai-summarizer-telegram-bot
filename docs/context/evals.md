@@ -52,11 +52,11 @@ the end:
    model's price.
 2. **Read `stage2.py report`.** `t1_pass` below 95% drops the model. JEV sets no floor: its
    median weakest-bullet probability and the share of summaries below `JEV_FLAG_BELOW` are read
-   against the other candidates, the production model above all, with a paired sign test per
-   item.
+   against the other candidates, the production model above all; `--all-pairs` adds a paired
+   sign test per item.
 3. **Opus on the finalists only.** `stage2.py judge opus <openrouter-id> ...` adds
    `t2_fabricated` (Opus 5.5, `FABRICATED` prompt) to the existing runs, about $3 a model, no
-   regeneration. The report then prints each finalist's *invented* share with a paired test.
+   regeneration. The report then prints each finalist's *invented* share.
 4. **Read the survivors live**, weighing the invented share against `run $` and compression. A
    longer summary that keeps more detail counts in a model's favour.
 5. **Then decide, and only then edit `config.py`.** Adding an id needs no migration; removing
@@ -107,7 +107,7 @@ property of the model being ranked, so it does not belong on the candidate's tra
 
 ```bash
 uv run python scripts/eval/install_tier1.py     # after every edit to tier1_evaluator.py
-uv run python scripts/eval/stage2.py report     # free, read-only
+uv run python scripts/eval/stage2.py report [--all-pairs]  # free, read-only
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... [--judge=jev|opus|none]  # COSTS MONEY: a compare run each
 uv run python scripts/eval/stage2.py judge jev [<openrouter-id> ...]    # ~2 cents a run: JEV where missing
 uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # ~$3 a run: Opus FABRICATED on finalists
@@ -346,7 +346,7 @@ models score 100%. Four judgements are deliberate:
 a task that raised as `Error: {exc}` and the Tier 1 rule scores that English string as a language
 failure, so one errored item costs a model 2 points of `t1_pass`, and a provider that errors on a
 few items can push a good model under the floor. `judge.run` prints a warning with the count;
-read it, and the report's `INCOMPLETE COVERAGE` lines, before believing a Tier 1 failure.
+read it, and the report's footnotes, before believing a Tier 1 failure.
 
 ### Three checks were removed, deliberately
 
@@ -597,10 +597,31 @@ so none of it is rebuilt without them.
 
 ## The report
 
-`stage2.py report` aggregates every compare run on the dataset — what the API does not provide.
+`stage2.py report` aggregates every compare run on the dataset — what the API does not provide —
+into one markdown table, readable in a terminal and pasteable into a document.
 
+- **Layout.** One row per candidate: `t1_pass`, JEV median and share below `JEV_FLAG_BELOW`,
+  Opus's invented share (`—` where Opus was not run), compression, median latency, `run $`.
+  Kept candidates come first — those Opus judged by invented share, the rest by JEV median —
+  and dropped ones follow, marked `— DROP`. The best value of each column among kept
+  candidates is bold; higher compression counts as better, since a longer summary that keeps
+  more detail is preferred.
+- **Footnotes replace a coverage warning.** A row whose numbers cover fewer items than the run
+  gets a numbered note: items that failed to generate (an `Error:` output, or an empty one from
+  an item killed mid-generation), a judge that scored fewer items than generated, or
+  generations with no price. Read them before believing a Tier 1 failure.
+- **The filter is Tier 1 only.** `DROP` is `t1_pass` below `PASS_THRESHOLD`; the judges set no
+  floor.
+- **A mean never ranks a model, so `--all-pairs` exists.** With 50 items a few points between
+  two means can be noise. The flag adds, per Tier 2 score, a sign test over *per-item* deltas
+  for every pair of candidates on the same items — controlling for item difficulty is worth
+  roughly 3–4× the sample size. Two models 0.02 apart on a mean have split 5 better / 6 worse
+  per item, p = 1.000; and an invented share of 14% against 27% was p = 0.109, while 8% against
+  27% was p = 0.022. Use it before choosing between finalists; it is off by default because the
+  matrix grows with the square of the candidates (78 JEV rows for 13).
 - **A candidate is a model *and* a strategy.** `t1_pass` and the Tier 2 means rank models only
-  within one strategy, so runs are keyed `<model> / <prompt_key>` throughout.
+  within one strategy, so runs are keyed `<model> / <prompt_key>` throughout; the strategy is
+  shown only when it is not the default one.
 - **Compare runs carry a `stage2 / ` prefix.** `GET /experiments` returns seven fields and none of
   them is metadata, so which candidate produced a run is readable *only* from its name. Anything
   that discovers runs parses names, and renaming a run orphans it from the report. That is also
@@ -608,22 +629,14 @@ so none of it is rebuilt without them.
   prefix would hide every banked run, and experiments cannot be renamed. Langfuse appends a
   timestamp, and the newest run per candidate wins, so a botched run is superseded by re-running
   the candidate rather than deleted (nothing deletes an experiment).
-- **A mean never ranks a model.** With 50 items a few points between two means is noise, so every
-  Tier 2 mean is paired with a sign test over *per-item* deltas between two candidates on the same
-  items — controlling for item difficulty is worth roughly 3–4× the sample size. Two models 0.02
-  apart on a mean have split 5 better / 6 worse per item, p = 1.000.
-- **The filter is Tier 1 only.** `KEEP`/`DROP` on `t1_pass` below `PASS_THRESHOLD`; beside each
-  kept model it prints JEV's flagged share as a signal.
 - **`run $` is what OpenRouter charged for the 50 summaries**, summed from each generation's
   `totalCost` — which `v2/observations` returns only when the `usage` field group is requested; it
   is absent, not `null`, otherwise. One paginated read over the run's time window, filtered to the
-  run's own traces so the bot's traffic in the same window is excluded; `*` marks a run with
-  unpriced items (a hung or failed generation). Judge calls are not on these traces. Measured runs
-  have come in well under catalog estimates ($0.12 against $0.28 for one model).
+  run's own traces so the bot's traffic in the same window is excluded. Judge calls are not on
+  these traces. Measured runs have come in well under catalog estimates ($0.12 against $0.28 for
+  one model).
 - **Tier 2 scores are read from `v3/scores` by name**, not from the experiment items — see the
   seven-score cap under *API shapes*.
-- **`INCOMPLETE COVERAGE`** lists a run whose Tier 2 score is missing on some items; its means
-  cover only the items that carry it.
 
 ## API shapes that cost real time to rediscover
 

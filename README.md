@@ -296,14 +296,15 @@ against the OpenRouter catalog before spending anything.
 
 ```bash
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ...          # a run per model, with JEV
-uv run python scripts/eval/stage2.py report                             # free: the comparison table
+uv run python scripts/eval/stage2.py report [--all-pairs]               # free: the comparison table
 uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # Opus on the finalists' runs
 ```
 
 Wait about a minute after a run before reading the report, because Langfuse ingests scores
 asynchronously. Include the model you use now in the sweep, so candidates are compared against
-it. Harness runs import the bot's config, so if Sentry is set up, their errors appear in your
-production stream.
+it. On 50 items a gap between two averages can be noise: `--all-pairs` adds a per-item sign
+test for every pair of models, which shows whether one really beats another. Harness runs
+import the bot's config, so if Sentry is set up, their errors appear in your production stream.
 
 ## Docs
 
