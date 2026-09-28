@@ -196,6 +196,15 @@ def _text(value):
     return str(value)
 
 
+def generation_failed(output):
+    """Whether an item's generation failed rather than produced a summary.
+
+    `run_experiment` stores a task that raised as `Error: ...`, and an item
+    killed mid-generation is stored empty.
+    """
+    return not output.strip() or output.startswith("Error:")
+
+
 def _source_of(item_input):
     if isinstance(item_input, dict):
         return item_input.get("content", "")
@@ -402,7 +411,7 @@ def run(model_id, dataset_name, prompt_key, *, tier2="jev"):
     # evaluators. The Tier 1 rule still fires, and it scores the English error
     # text as a language failure — so a partly failed run reads as a plausible
     # report about a bad model. Say so here, where there is still a sweep to stop.
-    failed = [r for r in result.item_results if _text(r.output).startswith("Error:")]
+    failed = [r for r in result.item_results if generation_failed(_text(r.output))]
     if failed:
         print(
             f"\n  WARNING: {len(failed)}/{len(result.item_results)} items failed to "

@@ -116,29 +116,20 @@ def _tier2_scores():
     return out
 
 
-def _failed(output):
-    """Whether an item's generation failed rather than produced a summary.
-
-    `run_experiment` stores a task that raised as `Error: ...`, and an item
-    killed mid-generation is stored empty.
-    """
-    return not output.strip() or output.startswith("Error:")
-
-
-def _item_rows(experiment, tier2):
+def _item_rows(items, tier2):
     """Dataset item id -> ({score name: value}, latency seconds, generation errored)."""
     return {
         item["experimentItemId"]: (
             {s["name"]: s.get("value") for s in (item.get("scores") or [])}
             | tier2.get(item["id"], {}),
             _seconds(item),
-            _failed(judge._text(item.get("output"))),  # noqa: SLF001
+            judge.generation_failed(judge._text(item.get("output"))),  # noqa: SLF001
         )
-        for item in API.experiment_items(experiment["id"], fields="core,io,scores")
+        for item in items
     }
 
 
-def _run_cost(experiment):
+def _run_cost(items):
     """(dollars, items priced) OpenRouter charged for a run's summaries.
 
     The cost wrapper in `src/llm.py` puts what OpenRouter charged on each
@@ -149,7 +140,6 @@ def _run_cost(experiment):
     traffic in the same window is dropped by the trace filter. Judge calls are
     not on these traces, so this is the candidate's bill alone.
     """
-    items = API.experiment_items(experiment["id"], fields="core")
     traces = {i["traceId"] for i in items}
     starts = [i["startTime"] for i in items if i.get("startTime")]
     ends = [i["endTime"] for i in items if i.get("endTime")]
@@ -360,9 +350,13 @@ def report(dataset_name=COMPARE, *, all_pairs=False):
         f"JEV `{judge.JEV_MODEL}`, Opus `{judge.FABRICATED_MODEL}`\n",
     )
     tier2 = _tier2_scores()
-    rows_by_candidate = {c: _item_rows(e, tier2) for c, e in runs.items()}
+    items = {
+        c: API.experiment_items(e["id"], fields="core,io,scores")
+        for c, e in runs.items()
+    }
+    rows_by_candidate = {c: _item_rows(i, tier2) for c, i in items.items()}
     summaries = {
-        c: _summary(rows, _run_cost(runs[c])) for c, rows in rows_by_candidate.items()
+        c: _summary(rows, _run_cost(items[c])) for c, rows in rows_by_candidate.items()
     }
     _table(summaries)
     if all_pairs:
@@ -394,7 +388,7 @@ def backfill(tier2, models=(), dataset_name=COMPARE):
         for item in API.experiment_items(run["id"], fields="core,io,scores"):
             names = {s["name"] for s in item.get("scores") or []}
             summary = judge._text(item.get("output"))  # noqa: SLF001
-            if not summary or summary.startswith("Error:"):
+            if judge.generation_failed(summary):
                 continue
             todo.append((candidate, item, summary, names))
     # The score name is only known from an evaluation, so skip on a probe.
@@ -490,6 +484,10 @@ if __name__ == "__main__":
             (a.split("=", 1)[1] for a in args if a.startswith("--judge=")),
             "jev",
         )
+        if tier2 not in judge.JUDGES:
+            sys.exit(
+                "usage: stage2.py sweep <openrouter-model-id> ... [--judge=jev|opus|none]",
+            )
         sweep([a for a in args[1:] if not a.startswith("--judge=")], tier2=tier2)
     elif command == "judge":
         if len(args) < 2 or args[1] not in judge.JUDGES or args[1] == "none":
