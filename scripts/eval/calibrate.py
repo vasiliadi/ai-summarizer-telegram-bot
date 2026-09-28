@@ -808,8 +808,13 @@ def _report_versus(model, results, human=None):
 def _report_human(model, done, human):
     """Errors caught and false alarms against the user's labels, for both judges."""
     print("\n--- against the user's labels ---")
-    judges = {model: lambda r: r["clean"], judge.JUDGE_MODEL: lambda r: r["reference"]}
-    for name, clean in judges.items():
+    # A list, not a dict keyed by model: re-judging with the pinned model itself
+    # would otherwise overwrite the candidate row with the banked one.
+    judges = [
+        (model, lambda r: r["clean"]),
+        (f"{judge.JUDGE_MODEL} (banked)", lambda r: r["reference"]),
+    ]
+    for name, clean in judges:
         rows = [r for r in done if clean(r) is not None]
         if not rows:
             continue
