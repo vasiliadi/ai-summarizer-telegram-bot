@@ -71,8 +71,9 @@ def pool(rows):
     seen, out, openings = set(), [], set()
     for row in rows:
         text = content_of(row)
-        # Tier 1 and the Opus prompt both assume a Russian summary, and a trace
-        # without the field would store `target_language: None`.
+        # Tier 1 and the Opus prompt both assume a Cyrillic summary, and a trace
+        # without the field would store `target_language: None`. The literal is
+        # the language name the bot stores in trace metadata, not a script name.
         if not text or (row.get("metadata") or {}).get("target_language") != "Russian":
             continue
         digest = hashlib.sha256(text.encode()).hexdigest()[:12]
