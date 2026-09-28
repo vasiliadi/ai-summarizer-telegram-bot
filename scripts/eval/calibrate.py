@@ -80,7 +80,7 @@ SCREEN = stage1.SCREEN
 VERSUS_MIN_CATCH = 0.75
 VERSUS_MAX_FALSE_ALARMS = 5
 
-JEV_MODEL = "typesafe/jev-1.13"
+JEV_MODEL = judge.JEV_MODEL
 # Fixed before the first per-bullet run, not tuned on it: a bullet below even
 # odds of being supported fails its summary.
 JEV_THRESHOLD = 0.5
@@ -99,15 +99,9 @@ JEV_CRITERIA = {
     "false": "The claim materially misstates or invents something relative to the source.",
 }
 # The question with every exclusion and error type stripped, keeping only the
-# note on translation: summaries are Russian and most sources are not.
-JEV_MINIMAL = (
-    "Is this claim supported by the source? The claim may be a translation. "
-    "Claim: «{claim}»"
-)
-JEV_MINIMAL_CRITERIA = {
-    "true": "The source states or clearly implies the claim.",
-    "false": "The source contradicts the claim or does not contain it.",
-}
+# note on translation. Imported: it is the pipeline's own Tier 2 question.
+JEV_MINIMAL = judge.JEV_SUPPORTED
+JEV_MINIMAL_CRITERIA = judge.JEV_SUPPORTED_CRITERIA
 # The user's question after labelling the judges' disagreements, where only
 # invented facts counted as errors. The question asks about invention, but
 # `true` stays the clean answer so every variant is read the same way.
@@ -737,42 +731,23 @@ def _ask_jev(row, variant):
     The source is never truncated to fit JEV's context: a cut source would make
     every claim from its missing half look unsupported.
     """
-    bullets = [
-        line.lstrip("-*• ").strip()
-        for line in row["summary"].splitlines()
-        if line.strip()
-    ]
+    bullets = judge.bullets_of(row["summary"])
     instructions, criteria, batched = JEV_VARIANTS[variant]
-    questions = {
-        f"b{i:02d}": {
-            "type": "noul",
-            "instructions": instructions.format(claim=bullet),
-            "criteria": criteria,
+    try:
+        probabilities, cost = judge.jev_probabilities(
+            row["source"],
+            bullets,
+            instructions,
+            criteria,
+            batched=batched,
+        )
+    except urllib.error.HTTPError as exc:
+        return {
+            **row,
+            "error": f"{exc.code}: {exc.read()[:300].decode(errors='replace')}",
         }
-        for i, bullet in enumerate(bullets)
-    }
-    # Batched sends every bullet in one call; otherwise each bullet pays for
-    # the whole source again, about twelve times the batched cost.
-    calls = [questions] if batched else [{k: q} for k, q in questions.items()]
-    answers, cost = {}, 0
-    for batch in calls:
-        body = {
-            "model": JEV_MODEL,
-            "state": {"source": row["source"]},
-            "questions": batch,
-        }
-        try:
-            payload = judge._post(f"{judge.BASE}/alpha/decisions", body, timeout=120)  # noqa: SLF001
-        except urllib.error.HTTPError as exc:
-            return {
-                **row,
-                "error": f"{exc.code}: {exc.read()[:300].decode(errors='replace')}",
-            }
-        except OSError as exc:
-            return {**row, "error": str(exc)[:300]}
-        answers |= {k: a["noul"] for k, a in payload["answers"].items()}
-        cost += (payload.get("usage") or {}).get("cost") or 0
-    probabilities = [answers[k] for k in questions]
+    except OSError as exc:
+        return {**row, "error": str(exc)[:300]}
     weakest = min(range(len(bullets)), key=probabilities.__getitem__)
     return {
         **row,
