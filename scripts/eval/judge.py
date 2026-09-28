@@ -24,7 +24,7 @@ gated on. Editing a judge prompt or schema moves its `judge_version` hash, which
 unpins it from every score already banked.
 
     uv run python scripts/eval/judge.py run <vendor/model> 2
-    uv run python scripts/eval/judge.py run <vendor/model> 0 summarization-compare-v1 --no-judge
+    uv run python scripts/eval/judge.py run <vendor/model> 0 summarization-compare-v1 --judge=opus|none
     uv run python scripts/eval/judge.py smoke 3
 """
 
@@ -465,6 +465,83 @@ def faithfulness_verdict(verdict):
     return material, f"{counts}. {detail}"[:900]
 
 
+# --- JEV: the default Tier 2 judge -------------------------------------------
+#
+# TypeSafe's decisions model, reached on OpenRouter's /api/alpha/decisions with
+# the ordinary key. It returns a probability per yes/no question and writes no
+# text. Chosen on 2026-09-28 over Opus on cost, not on a calibration: no judge
+# could be certified against the user's labels (evals.md, *JEV*), and Opus
+# costs about $3 a candidate against JEV's two cents. Its number is read
+# comparatively across candidates, never against a floor.
+
+JEV_MODEL = "typesafe/jev-1.13"
+DECISIONS_URL = f"{BASE}/alpha/decisions"
+# The positive framing. Asked whether a claim is *invented*, JEV answered the
+# question and ignored the criteria's polarity (AUC 0.28), so the question
+# asks whether a claim is supported and `true` is the clean answer.
+JEV_SUPPORTED = (
+    "Is this claim supported by the source? The claim may be a translation. "
+    "Claim: «{claim}»"
+)
+JEV_SUPPORTED_CRITERIA = {
+    "true": "The source states or clearly implies the claim.",
+    "false": "The source contradicts the claim or does not contain it.",
+}
+# A summary whose weakest bullet is below this is counted as possibly
+# fabricated. 0.6 was the best balance on 42 hand-labelled summaries (2 of 3
+# stepfun errors, 2 false alarms of 17); treat it as a reading aid, not a gate.
+JEV_FLAG_BELOW = 0.6
+
+
+def bullets_of(summary):
+    """The summary's bullets, markers stripped; every non-empty line is one."""
+    return [
+        line.lstrip("-*• ").strip() for line in summary.splitlines() if line.strip()
+    ]
+
+
+def jev_version(instructions=JEV_SUPPORTED, criteria=JEV_SUPPORTED_CRITERIA):
+    """Short hash pinning a JEV question and its criteria."""
+    payload = f"{instructions}\0{json.dumps(criteria, sort_keys=True)}"
+    return sha256(payload.encode()).hexdigest()[:12]
+
+
+def jev_probabilities(
+    source,
+    bullets,
+    instructions=JEV_SUPPORTED,
+    criteria=JEV_SUPPORTED_CRITERIA,
+    *,
+    batched=True,
+):
+    """P(supported) per bullet, and what OpenRouter charged. Raises on HTTP errors.
+
+    The source goes whole into `state` and each bullet is its own question:
+    asked once whether a whole summary was faithful, JEV ranked barely above
+    chance, because finding one wrong claim in a long source is a search, not
+    a decision. Batching the bullets into one call changes a bullet's
+    probability by a median of 0.000 and cuts the bill about ten times. The
+    source is never truncated: a cut source makes every claim from its missing
+    half look unsupported.
+    """
+    questions = {
+        f"b{i:02d}": {
+            "type": "noul",
+            "instructions": instructions.format(claim=b),
+            "criteria": criteria,
+        }
+        for i, b in enumerate(bullets)
+    }
+    calls = [questions] if batched else [{k: q} for k, q in questions.items()]
+    answers, cost = {}, 0
+    for batch in calls:
+        body = {"model": JEV_MODEL, "state": {"source": source}, "questions": batch}
+        payload = _post(DECISIONS_URL, body, timeout=120)
+        answers |= {k: a["noul"] for k, a in payload["answers"].items()}
+        cost += (payload.get("usage") or {}).get("cost") or 0
+    return [answers[k] for k in questions], cost
+
+
 # --- Tier 2: evaluator functions for Langfuse.run_experiment -----------------
 
 
@@ -490,7 +567,36 @@ def eval_faithfulness(*, input, output, expected_output=None, metadata=None, **k
     )
 
 
-TIER2 = [eval_faithfulness]
+def eval_jev(*, input, output, expected_output=None, metadata=None, **kw):  # noqa: A002, ARG001
+    """JEV's P(supported) for the summary's weakest bullet.
+
+    One number per summary: a single invented claim is enough to mislead, so
+    the weakest bullet stands for the summary, and an average would let ten
+    sound bullets hide one invented one.
+    """
+    source, summary = _source_of(input), _text(output)
+    bullets = bullets_of(summary)
+    if not source or not bullets:
+        return None
+    probabilities, _ = jev_probabilities(source, bullets)
+    weakest = min(range(len(bullets)), key=probabilities.__getitem__)
+    return Evaluation(
+        name="t2_jev_weakest",
+        value=probabilities[weakest],
+        data_type="NUMERIC",
+        comment=f"bullet {weakest + 1}: {bullets[weakest]}"[:900],
+        metadata=jev_meta(),
+    )
+
+
+def jev_meta():
+    """The pin recorded beside every JEV score."""
+    return {"judge_model": JEV_MODEL, "judge_prompt": f"jev-supported@{jev_version()}"}
+
+
+# Tier 2 judges selectable per run. JEV is the default; Opus's calibrated
+# faithfulness prompt stays available by name for a decision worth ~$3.
+JUDGES = {"jev": [eval_jev], "opus": [eval_faithfulness], "none": []}
 
 
 # --- the task under evaluation ----------------------------------------------
@@ -520,26 +626,25 @@ def make_task(model_id, prompt_key):
 # --- commands ---------------------------------------------------------------
 
 
-def cmd_run(model_id, limit, dataset_name, prompt_key, *, judged=True):
-    """One compare run; `judged=False` generates without the Tier 2 judge.
+def cmd_run(model_id, limit, dataset_name, prompt_key, *, tier2="jev"):
+    """One compare run, with the Tier 2 judge named by `tier2` (see `JUDGES`).
 
-    An unjudged run still gets the free Tier 1 scores from the Langfuse rule,
-    and exists so that a cheaper judge can be measured on fresh summaries
-    without paying Opus for them first.
+    Every run gets the free Tier 1 scores from the Langfuse rule whatever the
+    judge; `none` generates only, so a judge can be added to the run later.
     """
     client = Langfuse()
     dataset = client.get_dataset(dataset_name)
     items = list(dataset.items)[: limit or None]
     print(
         f"{model_id} over {len(items)} items of {dataset_name} "
-        f"({prompt_key}, thinking={THINKING_LEVEL})",
+        f"({prompt_key}, thinking={THINKING_LEVEL}, tier2={tier2})",
     )
 
     result = client.run_experiment(
         name=f"{RUN_PREFIX}{model_id} / {prompt_key}",
         data=items,
         task=make_task(model_id, prompt_key),
-        evaluators=TIER2 if judged else [],
+        evaluators=JUDGES[tier2],
         max_concurrency=4,
         metadata={
             "stage": "compare",
@@ -552,6 +657,7 @@ def cmd_run(model_id, limit, dataset_name, prompt_key, *, judged=True):
             # unnamed silently applied the bullet check to the wrong items.
             "run_prompt_key": prompt_key,
             "prompt_version": prompt_version(prompt_key),
+            "tier2_judge": tier2,
         },
     )
     client.flush()
@@ -605,14 +711,17 @@ if __name__ == "__main__":
     if command == "smoke":
         smoke(int(args[1]) if len(args) > 1 else 2)
     elif command == "run":
-        judged = "--no-judge" not in args
-        args = [a for a in args if a != "--no-judge"]
+        tier2 = next(
+            (a.split("=", 1)[1] for a in args if a.startswith("--judge=")),
+            "jev",
+        )
+        args = [a for a in args if not a.startswith("--judge=")]
         cmd_run(
             args[1],
             int(args[2]) if len(args) > 2 else 0,
             args[3] if len(args) > 3 else SCREEN_DATASET,
             args[4] if len(args) > 4 else PROMPT_KEY,
-            judged=judged,
+            tier2=tier2,
         )
     else:
         print(f"unknown command: {command}")
