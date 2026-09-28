@@ -162,6 +162,26 @@ report."""
 # rather than the grounds for a number already asserted. No claim total survives
 # either; `faithfulness_verdict` records what was wrong with the one it replaced.
 SCHEMAS = {
+    "fabricated": {
+        "type": "object",
+        "properties": {
+            "findings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "claim": {"type": "string"},
+                        "source_says": {"type": "string"},
+                        "kind": {"type": "string", "enum": ["invented", "compression"]},
+                    },
+                    "required": ["claim", "source_says", "kind"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["findings"],
+        "additionalProperties": False,
+    },
     "invented": {
         "type": "object",
         "properties": {
@@ -249,9 +269,42 @@ states or plainly implies is supported however differently it is worded.
 Return one entry per reported claim, with what the source actually says, and an
 empty list when there is nothing to report."""
 
+# INVENTED flagged 23 of the 36 summaries the user had labelled clean, and on
+# reading them the user found a mix they could neither accept nor reject as a
+# set: real fabrications beside artefacts of compressing a long source. What
+# the filter must catch is a model that plainly makes things up, so every
+# finding is sorted into one of those two, and only the first fails.
+FABRICATED = """Check whether the summary makes things up.
+
+SOURCE:
+{source}
+
+SUMMARY:
+{summary}
+
+The summary is in Russian; the source may be in another language, and a faithful
+translation is not an error. Go through the summary claim by claim, from the
+first bullet to the last, and report every claim the source does not support.
+Put each one in exactly one of two kinds:
+
+- invented — the claim has no basis in the source or the source says otherwise:
+  a name, company, person, number, date or event the source does not have; the
+  wrong actor; something stated as done that the source says was not done, or
+  the reverse.
+- compression — the claim comes from squeezing the source into a few bullets:
+  points merged, generalised, re-emphasised, stated a little more or less
+  strongly, an obvious link spelled out, a detail rounded or blurred.
+
+When a claim could be either, it is compression. Do not report omission, style,
+or how fully the summary covers the source.
+
+Return one entry per reported claim, with what the source actually says, and an
+empty list when there is nothing to report."""
+
 TEMPLATES = {
     "faithfulness": FAITHFULNESS,
     "invented": INVENTED,
+    "fabricated": FABRICATED,
 }
 
 
@@ -370,6 +423,16 @@ def verdict_of(name, verdict):
     """The findings that fail the summary, and the comment to store, per prompt."""
     if name == "faithfulness":
         return faithfulness_verdict(verdict)
+    if name == "fabricated":
+        findings = verdict["findings"]
+        invented = [f for f in findings if f["kind"] == "invented"]
+        detail = "; ".join(f["claim"] for f in invented) or "none"
+        return (
+            invented,
+            f"{len(invented)} invented/{len(findings) - len(invented)} compression. {detail}"[
+                :900
+            ],
+        )
     findings = verdict["findings"]
     detail = "; ".join(f["claim"] for f in findings) or "none"
     return findings, f"{len(findings)} invented. {detail}"[:900]
