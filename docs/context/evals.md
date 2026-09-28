@@ -1484,13 +1484,16 @@ time `gpt-6-luna` was not in `config.MODEL_SPECS`, so reading it in the bot need
   never been calibrated against hand labels the way faithfulness has, so it is a signal rather
   than a verdict; and malformed verdicts left it missing on **8 of 149** items, so its
   denominators differ per candidate (47, 46, 48) while the faithfulness column's do not.
-- **There is no cost column, though cost is half the decision.** It is missing because the number
-  is not obtainable from the harness rather than because nobody added it: the observation price
-  fields come back `null` on the list endpoint, and `run_experiment` discards the usage `ask`
-  returns. Judge spend *is* measured — `_call_body` sets `usage: {include: true}` and `run_judge`
-  totals it — so the asymmetry is real: a calibration round reports what it cost and a sweep does
-  not. Price a sweep from the live OpenRouter catalog, and do not write a price table down here;
-  vendor prices move and at least one candidate is on a dated introductory rate.
+- **The cost column exists since 2026-09-28, and "not obtainable" was wrong.** It had been
+  recorded that observation price fields come back `null` on the list endpoint. They come back
+  *absent* unless the `usage` field group is requested: with `fields=core,usage`,
+  `v2/observations` returns each generation's `totalCost`, which is what OpenRouter charged
+  (the cost wrapper in `src/llm.py` puts it on the span). `stage2.py report` sums it per run in
+  `run $` with one paginated read over the run's time window, filtered to the run's own traces
+  so the bot's traffic in the same window is excluded; a `*` marks a run with unpriced items (a
+  hung or failed generation). Judge calls are not on these traces and are not in the column —
+  JEV adds about two cents a run. First readings ran well under the catalog estimates: $0.12
+  for `gpt-5.6-luna`'s 50 summaries against an estimate of $0.28.
 
 ### The first compare round, and what it settled
 

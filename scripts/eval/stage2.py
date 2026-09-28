@@ -99,6 +99,39 @@ def _item_rows(experiment):
     }
 
 
+def _run_cost(experiment):
+    """(dollars, items priced) OpenRouter charged for a run's summaries.
+
+    The cost wrapper in `src/llm.py` puts what OpenRouter charged on each
+    generation as `gen_ai.usage.cost`, which Langfuse returns as `totalCost` —
+    but only when the `usage` field group is requested; without it the field
+    is simply absent. One paginated read over the run's time window, kept to
+    the run's own traces, rather than a request per trace: the bot's own
+    traffic in the same window is dropped by the trace filter. Judge calls are
+    not on these traces, so this is the candidate's bill alone.
+    """
+    items = API.experiment_items(experiment["id"], fields="core")
+    traces = {i["traceId"] for i in items}
+    starts = [i["startTime"] for i in items if i.get("startTime")]
+    ends = [i["endTime"] for i in items if i.get("endTime")]
+    if not traces or not starts:
+        return None, 0
+    params = {
+        "type": "GENERATION",
+        "fields": "core,usage",
+        "limit": 100,
+        "fromStartTime": min(starts),
+    }
+    if ends:
+        params["toStartTime"] = max(ends)
+    cost, priced = 0.0, set()
+    for row in API.paginate("v2/observations", params):
+        if row.get("traceId") in traces and row.get("totalCost") is not None:
+            cost += row["totalCost"]
+            priced.add(row["traceId"])
+    return cost, len(priced)
+
+
 def _sign_test(wins, losses):
     """Two-sided exact binomial p for `wins` against `losses` under a fair coin.
 
@@ -127,12 +160,20 @@ def _jev_cells(scores):
     return f"{statistics.median(values):8.2f} {flagged:9.0%}"
 
 
-def _tier2_table(rows_by_candidate):
+def _cost_cell(cost, n_items):
+    """The run's bill; starred when not every item's generation was priced."""
+    if not cost or cost[0] is None:
+        return f"{'-':>7s}"
+    dollars, priced = cost
+    return f"{dollars:6.2f}{'*' if priced < n_items else ' '}"
+
+
+def _tier2_table(rows_by_candidate, costs):
     """Per-candidate means, with the caveat that they do not rank anything."""
     header = (
         f"{'model':28s} {'strategy':12s} {'n':>3s} "
         f"{'faithful':>9s} {'jev med':>8s} {f'jev<{judge.JEV_FLAG_BELOW}':>9s} "
-        f"{'t1_pass':>8s} {'compress':>9s} {'latency':>8s}"
+        f"{'t1_pass':>8s} {'compress':>9s} {'latency':>8s} {'run $':>7s}"
     )
     print("\nTier 2 means - context only; the paired tests below are what rank")
     print(header)
@@ -153,7 +194,8 @@ def _tier2_table(rows_by_candidate):
         print(
             f"{model:28s} {strategy.replace('_for_transcript', ''):12s} "
             f"{len(rows):3d} " + " ".join(cells) + " "
-            f"{_mean_cell(passes, 8, '.0%')} {_mean_cell(comp, 9, '.4f')} {latency}",
+            f"{_mean_cell(passes, 8, '.0%')} {_mean_cell(comp, 9, '.4f')} {latency} "
+            f"{_cost_cell(costs.get(candidate), len(rows))}",
         )
 
 
@@ -260,7 +302,11 @@ def report(dataset_name=COMPARE):
     )
 
     rows_by_candidate = {c: _item_rows(e) for c, e in runs.items()}
-    _tier2_table(rows_by_candidate)
+    costs = {c: _run_cost(e) for c, e in runs.items()}
+    _tier2_table(rows_by_candidate, costs)
+    print(
+        "  run $ is what OpenRouter charged for the 50 summaries (* = some unpriced); judge calls excluded",
+    )
     for metric in PAIRED_METRICS:
         _paired_tier2_table(rows_by_candidate, metric)
     _filter(rows_by_candidate)
