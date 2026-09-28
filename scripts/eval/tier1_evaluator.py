@@ -23,9 +23,9 @@ also hide a typo'd local name.
 CYRILLIC_FLOOR = 0.70
 MIN_BULLETS = 5
 BULLET_MARKERS = ("-", "*", "•", "–", "—")
-# Letters a Russian summary may legitimately carry: Latin for names and terms
+# Letters a Cyrillic summary may legitimately carry: Latin for names and terms
 # (with its extensions, for diacritics), Greek for symbols such as μ or Δ, and
-# Cyrillic. Anything else — a stray 近 or 复杂 inside Russian prose — is a
+# Cyrillic. Anything else — a stray 近 or 复杂 inside Cyrillic prose — is a
 # model leaking its training language. The Cyrillic share cannot see it: two
 # CJK characters in a 2,000-letter summary move that ratio by 0.1%.
 ALLOWED_LETTERS = (
