@@ -308,7 +308,7 @@ def eval_fabricated(*, input, output, expected_output=None, metadata=None, **kw)
     source, summary = _source_of(input), _text(output)
     if not source or not summary:
         return None
-    verdict, usage = ask_fabricated(source[:120000], summary)
+    verdict, usage = ask_fabricated(source, summary)
     findings = verdict["findings"]
     invented = [f for f in findings if f["kind"] == "invented"]
     detail = "; ".join(f["claim"] for f in invented) or "none"
