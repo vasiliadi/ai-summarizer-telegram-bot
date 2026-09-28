@@ -656,7 +656,14 @@ def _load_labels(path):
     }
 
 
-def versus(model, limit=0, variant="batched", labels=None, author=None):
+def versus(
+    model,
+    limit=0,
+    variant="batched",
+    labels=None,
+    author=None,
+    prompt="faithfulness",
+):
     """Re-judge the compare runs with another judge, against the pinned one. COSTS MONEY.
 
     Calibration proper needs hand labels, and the ones behind the recorded round
@@ -678,7 +685,7 @@ def versus(model, limit=0, variant="batched", labels=None, author=None):
     rows = _compare_rows(limit, author)
     if human is not None:
         rows = [r for r in rows if (r["item"], r["author"]) in human]
-    label = f"{model} ({variant})" if model == JEV_MODEL else model
+    label = f"{model} ({variant if model == JEV_MODEL else prompt})"
     print(f"judge {label} vs {judge.JUDGE_MODEL}: {len(rows)} summaries")
 
     def one(row):
@@ -686,14 +693,14 @@ def versus(model, limit=0, variant="batched", labels=None, author=None):
             return _ask_jev(row, variant)
         try:
             verdict, usage = judge.ask(
-                "faithfulness",
+                prompt,
                 model=model,
                 source=row["source"][:120000],
                 summary=row["summary"],
             )
         except (RuntimeError, OSError, json.JSONDecodeError, KeyError) as exc:
             return {**row, "error": str(exc)[:300]}
-        material, comment = judge.faithfulness_verdict(verdict)
+        material, comment = judge.verdict_of(prompt, verdict)
         return {
             **row,
             "clean": not material,
@@ -921,7 +928,15 @@ if __name__ == "__main__":
         parser.add_argument("--variant", default="batched", choices=JEV_VARIANTS)
         parser.add_argument("--labels", help="the user's verdicts; judge only those")
         parser.add_argument("--author", help="only summaries by this model")
+        parser.add_argument("--prompt", default="faithfulness", choices=judge.TEMPLATES)
         opts = parser.parse_args(args[1:])
-        versus(opts.model, opts.limit, opts.variant, opts.labels, opts.author)
+        versus(
+            opts.model,
+            opts.limit,
+            opts.variant,
+            opts.labels,
+            opts.author,
+            opts.prompt,
+        )
     else:
         sys.exit(f"unknown command: {command}")

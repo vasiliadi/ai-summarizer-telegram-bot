@@ -162,6 +162,25 @@ report."""
 # rather than the grounds for a number already asserted. No claim total survives
 # either; `faithfulness_verdict` records what was wrong with the one it replaced.
 SCHEMAS = {
+    "invented": {
+        "type": "object",
+        "properties": {
+            "findings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "claim": {"type": "string"},
+                        "source_says": {"type": "string"},
+                    },
+                    "required": ["claim", "source_says"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["findings"],
+        "additionalProperties": False,
+    },
     "faithfulness": {
         "type": "object",
         "properties": {
@@ -201,8 +220,38 @@ SCHEMAS = {
     },
 }
 
+# One question, from the user's hand labels on 2026-09-27: every error they
+# confirmed was an invented or distorted fact, and what they rejected in the
+# FAITHFULNESS verdicts was mostly about compression, emphasis and coverage —
+# a judgement of the summary's quality on which two readers need not agree.
+# No types, no severity: any finding fails the summary.
+INVENTED = """Check whether the summary states facts that the source does not contain.
+
+SOURCE:
+{source}
+
+SUMMARY:
+{summary}
+
+The summary is in Russian; the source may be in another language, and a faithful
+translation is not an error. Go through the summary claim by claim, from the
+first bullet to the last.
+
+Report a claim only if it states a fact — a name, a number, a date, an event,
+who did or said what, what caused what, or whether something happened or is only
+planned or possible — that the source does not contain or that the source
+contradicts.
+
+Report nothing else: not omission, compression, emphasis, generalisation,
+wording, style, or how fully the summary covers the source. A claim the source
+states or plainly implies is supported however differently it is worded.
+
+Return one entry per reported claim, with what the source actually says, and an
+empty list when there is nothing to report."""
+
 TEMPLATES = {
     "faithfulness": FAITHFULNESS,
+    "invented": INVENTED,
 }
 
 
@@ -315,6 +364,15 @@ def _source_of(item_input):
     if isinstance(item_input, dict):
         return item_input.get("content", "")
     return _text(item_input)
+
+
+def verdict_of(name, verdict):
+    """The findings that fail the summary, and the comment to store, per prompt."""
+    if name == "faithfulness":
+        return faithfulness_verdict(verdict)
+    findings = verdict["findings"]
+    detail = "; ".join(f["claim"] for f in findings) or "none"
+    return findings, f"{len(findings)} invented. {detail}"[:900]
 
 
 def faithfulness_verdict(verdict):
