@@ -1,10 +1,9 @@
-"""Rebuild both evaluation datasets from a raw trace harvest.
+"""Rebuild the evaluation dataset from a raw trace harvest.
 
 Screens the harvested generations, classifies each by stratum, applies the
-per-stratum quotas, and writes `summarization-compare-v1` plus its strict subset
-`summarization-screen-v1`.
+per-stratum quotas, and writes `summarization-compare-v1`.
 
-**Destructive**: it deletes every existing item in both datasets first, so it
+**Destructive**: it deletes every existing item in the dataset first, so it
 refuses to run without `--yes-wipe`.
 
     uv run python scripts/eval/rebuild_datasets.py --yes-wipe path/to/obs.json
@@ -30,7 +29,7 @@ from langfuse import Langfuse
 REPO = _bootstrap.load()
 BASE, AUTH = _bootstrap.langfuse_rest()
 
-COMPARE, SCREEN = "summarization-compare-v1", "summarization-screen-v1"
+COMPARE = "summarization-compare-v1"
 
 MIN_CHARS = 1500
 # Both known-bad transcripts sit at ~0.03; the next real item is 0.14.
@@ -38,7 +37,6 @@ MIN_ZLIB_RATIO = 0.10
 LONG_CHARS = 8000
 
 COMPARE_QUOTA = {"yt_transcript": 25, "audio_transcript": 20, "web_article": 5}
-SCREEN_QUOTA = {"yt_transcript": 13, "audio_transcript": 10, "web_article": 2}
 
 
 def content_of(row):
@@ -151,39 +149,28 @@ def main():
     parser.add_argument(
         "--yes-wipe",
         action="store_true",
-        help="required: deletes every item in both datasets before rebuilding",
+        help="required: deletes every item in the dataset before rebuilding",
     )
     args = parser.parse_args()
     if not args.yes_wipe:
-        sys.exit("refusing to run: this deletes every item in both datasets")
+        sys.exit("refusing to run: this deletes every item in the dataset")
 
     rows = load_rows(args.observations)
     client = Langfuse()
-    for name in (COMPARE, SCREEN):
-        print("wiped", name, wipe(name))
+    print("wiped", COMPARE, wipe(COMPARE))
 
-    candidates = pool(rows)
-    compare = select(candidates, COMPARE_QUOTA)
-    screen = select(compare, SCREEN_QUOTA)
-    # The screen set must stay a strict subset: the key-facts checklist is then
-    # written once for 50 items rather than twice for 75.
-    if not {e[0] for e in screen} <= {e[0] for e in compare}:
-        msg = "screen set is not a subset of compare"
-        raise RuntimeError(msg)
-
+    compare = select(pool(rows), COMPARE_QUOTA)
     push(client, COMPARE, compare, "cmp")
-    push(client, SCREEN, screen, "scr")
     client.flush()
     client.shutdown()
 
-    for label, picked in (("compare", compare), ("screen", screen)):
-        cells = collections.Counter(
-            (stratum_of(t), "long" if len(t) >= LONG_CHARS else "short")
-            for _, t, _ in picked
-        )
-        print(f"\n{label}: {len(picked)} items")
-        for cell in sorted(cells):
-            print(f"  {cell[0]:18s} {cell[1]:5s} {cells[cell]:3d}")
+    cells = collections.Counter(
+        (stratum_of(t), "long" if len(t) >= LONG_CHARS else "short")
+        for _, t, _ in compare
+    )
+    print(f"\ncompare: {len(compare)} items")
+    for cell in sorted(cells):
+        print(f"  {cell[0]:18s} {cell[1]:5s} {cells[cell]:3d}")
 
 
 if __name__ == "__main__":
