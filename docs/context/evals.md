@@ -286,13 +286,18 @@ version back to the repo revision it was copied from; nothing else records it.
 `rebuild_datasets.py` from a raw harvest. Item `input` is `{content, target_language}` and
 nothing else — those are the two prompt variables, and an `inputSchema` rejects an item missing
 either. `prompt_key` rides in `metadata`, not `input`: an experiment picks one prompt and runs it
-over every item, so the originating trace's strategy fills no variable. A second dataset,
-`summarization-screen-v1` (a 25-item subset), is left in Langfuse from the retired screening
-stage; nothing reads it and the rebuild no longer writes it. **Do not delete it without editing
-the Tier 1 rule first**: `tier1-on-experiments` filters on `datasetId any of` both datasets'
-ids, and what the rule does with the id of a deleted dataset is unknown — a rule that stops
-firing leaves Tier 1 silently unscored. The rule can be edited through
-`PATCH /v2/evaluation-rules/{id}`; a dataset can be deleted only in the UI.
+over every item, so the originating trace's strategy fills no variable. The 25-item subset
+`summarization-screen-v1` went with the screening stage on 2026-09-28: its id was taken out of
+the Tier 1 rule's filter first, then the dataset was deleted in the UI (the API has no dataset
+delete).
+
+**The Tier 1 rule fires only on the datasets its filter names.** `tier1-on-experiments` filters
+on `datasetId any of` — since 2026-09-28 the compare dataset's id alone — plus
+`isExperimentItemRootSpan`. A new dataset gets no Tier 1 scores until its id is added
+(`PATCH /v2/evaluation-rules/{id}` with the whole `filter` array; send only the fields to
+change), and nothing warns: the report simply shows no `t1_*` columns. Take a dataset's id out
+of the filter before deleting the dataset — what the rule does with the id of a deleted dataset
+is unknown.
 
 The trap when harvesting: a trace's tag is the **Telegram** `content_type`, which is `text` for
 a URL as much as for a pasted paragraph. A YouTube transcript, a web article and a
