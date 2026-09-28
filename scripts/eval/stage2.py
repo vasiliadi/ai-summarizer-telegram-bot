@@ -1,12 +1,15 @@
-"""Compare stage: the screening survivors on the calibrated faithfulness judge.
+"""Compare stage: a candidate over the 50-item set, with Tier 1 and JEV.
 
-Screening only proves a model is not broken. This runs the survivors over the
-50-item set with Tier 2 and reports who to keep for the user to read live. The
-harness is a filter, not a ranking: readability is the user's call, so Tier 3
-pairwise was removed.
+One run per candidate does both jobs: the Tier 1 rule scores every compare run
+for free, and the 25 screening items are a subset of these 50, so screening no
+longer needs a run of its own. Tier 1 is the only hard gate. JEV's weakest-
+bullet probability is a signal of plain fabrication, read against the other
+candidates — above all the production model — and never against a floor. The
+harness is a filter, not a ranking: the user reads the survivors.
 
-    uv run python scripts/eval/stage2.py report                    # free
-    uv run python scripts/eval/stage2.py sweep <model> ...         # COSTS MONEY
+    uv run python scripts/eval/stage2.py report                         # free
+    uv run python scripts/eval/stage2.py sweep <model> ... [--judge=jev|opus|none]  # COSTS MONEY
+    uv run python scripts/eval/stage2.py jev                            # ~2 cents a run: backfill JEV
 
 **Means do not rank models.** With 25-50 items a few points of difference
 between two means is noise, so the means are paired with a sign test over
@@ -22,10 +25,12 @@ from __future__ import annotations
 import math
 import statistics
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from itertools import combinations
 
 import _bootstrap
+from langfuse import Langfuse
 from langfuse_api import LangfuseAPI
 
 REPO = _bootstrap.load()
@@ -37,10 +42,12 @@ import stage1
 COMPARE = judge.COMPARE_DATASET
 RUN_PREFIX = judge.RUN_PREFIX
 
-TIER2 = ("t2_faithfulness",)
+TIER2 = ("t2_faithfulness", "t2_jev_weakest")
+JEV = "t2_jev_weakest"
 
-# The paired Tier 2 test runs on this one.
-PAIRED_METRIC = "t2_faithfulness"
+# The paired Tier 2 tests run on these, whichever a run carries.
+PAIRED_METRICS = ("t2_faithfulness", "t2_jev_weakest")
+PAIRED_METRIC = "t2_faithfulness"  # the Opus floor below applies to this one
 
 # A candidate whose summaries carry a material faithfulness error on more than
 # 15% of items is dropped before the user reads any of it. Strong models scored
@@ -111,11 +118,20 @@ def _mean_cell(values, width=9, spec=".3f"):
     return f"{sum(values) / len(values):{width}{spec}}"
 
 
+def _jev_cells(scores):
+    """Median weakest-bullet probability, and the share flagged below the line."""
+    values = [s[JEV] for s in scores if s.get(JEV) is not None]
+    if not values:
+        return f"{'-':>8s} {'-':>9s}"
+    flagged = sum(1 for v in values if v < judge.JEV_FLAG_BELOW) / len(values)
+    return f"{statistics.median(values):8.2f} {flagged:9.0%}"
+
+
 def _tier2_table(rows_by_candidate):
     """Per-candidate means, with the caveat that they do not rank anything."""
     header = (
         f"{'model':28s} {'strategy':12s} {'n':>3s} "
-        f"{'faithful':>9s} "
+        f"{'faithful':>9s} {'jev med':>8s} {f'jev<{judge.JEV_FLAG_BELOW}':>9s} "
         f"{'t1_pass':>8s} {'compress':>9s} {'latency':>8s}"
     )
     print("\nTier 2 means - context only; the paired tests below are what rank")
@@ -126,7 +142,10 @@ def _tier2_table(rows_by_candidate):
         scores = [s for s, _ in rows.values()]
         latencies = [s for _, s in rows.values() if s is not None]
         cells = [
-            _mean_cell([s[m] for s in scores if s.get(m) is not None]) for m in TIER2
+            _mean_cell(
+                [s[PAIRED_METRIC] for s in scores if s.get(PAIRED_METRIC) is not None],
+            ),
+            _jev_cells(scores),
         ]
         passes = [s["t1_pass"] for s in scores if "t1_pass" in s]
         comp = [s["t1_compression"] for s in scores if "t1_compression" in s]
@@ -138,7 +157,7 @@ def _tier2_table(rows_by_candidate):
         )
 
 
-def _paired_tier2_table(rows_by_candidate):
+def _paired_tier2_table(rows_by_candidate, metric):
     """Sign test on per-item Tier 2 deltas, for every pair sharing items.
 
     It needs no judge call beyond the Tier 2 scores each run already banked,
@@ -149,12 +168,12 @@ def _paired_tier2_table(rows_by_candidate):
         f"{'pair (better/worse is for the left candidate)':52s} "
         f"{'n':>3s} {'better':>7s} {'worse':>6s} {'median d':>9s} {'p':>7s}"
     )
-    print(f"\nPaired {PAIRED_METRIC} - per-item deltas, sign test")
+    print(f"\nPaired {metric} - per-item deltas, sign test")
     print(header)
     print("-" * len(header))
     printed = 0
     for left, right in combinations(sorted(rows_by_candidate), 2):
-        deltas = _deltas(rows_by_candidate, left, right)
+        deltas = _deltas(rows_by_candidate, left, right, metric)
         if not deltas:
             continue
         better = sum(1 for d in deltas if d > 0)
@@ -166,7 +185,7 @@ def _paired_tier2_table(rows_by_candidate):
         )
         printed += 1
     if not printed:
-        print(f"  no candidate pair shares an item scored on {PAIRED_METRIC}")
+        print(f"  no candidate pair shares an item scored on {metric}")
 
 
 def _shared_items(rows_by_candidate, left, right):
@@ -175,38 +194,50 @@ def _shared_items(rows_by_candidate, left, right):
     return set(rows_by_candidate[left]) & set(rows_by_candidate[right])
 
 
-def _deltas(rows_by_candidate, left, right):
-    """Per-item `PAIRED_METRIC` difference, left minus right, on shared items."""
+def _deltas(rows_by_candidate, left, right, metric):
+    """Per-item `metric` difference, left minus right, on shared items."""
     out = []
     for item in sorted(_shared_items(rows_by_candidate, left, right)):
-        a = rows_by_candidate[left][item][0].get(PAIRED_METRIC)
-        b = rows_by_candidate[right][item][0].get(PAIRED_METRIC)
+        a = rows_by_candidate[left][item][0].get(metric)
+        b = rows_by_candidate[right][item][0].get(metric)
         if a is not None and b is not None:
             out.append(a - b)
     return out
 
 
 def _filter(rows_by_candidate):
-    """Who goes on to be read live, and who the faithfulness floor removes."""
-    keep, drop, unscored = [], [], []
+    """Who goes on to be read live: Tier 1 is the gate, JEV is shown beside it.
+
+    `t1_pass` below screening's floor drops a candidate — the only check here
+    that is deterministic. A `t2_faithfulness` mean below its floor drops one
+    too, where a run was judged by Opus. JEV sets no floor: its share of
+    flagged summaries is printed for the user to weigh against the others.
+    """
+    keep, drop = [], []
     for candidate, rows in sorted(rows_by_candidate.items()):
-        values = [
-            s[PAIRED_METRIC]
-            for s, _ in rows.values()
-            if s.get(PAIRED_METRIC) is not None
-        ]
-        if not values:
-            unscored.append(_short(candidate))
-            continue
-        rate = sum(values) / len(values)
-        (keep if rate >= FAITHFULNESS_FLOOR else drop).append(
-            f"{_short(candidate)} {rate:.0%}",
+        scores = [s for s, _ in rows.values()]
+        passes = [s["t1_pass"] for s in scores if "t1_pass" in s]
+        faith = [s[PAIRED_METRIC] for s in scores if s.get(PAIRED_METRIC) is not None]
+        reasons = []
+        if passes and sum(passes) / len(passes) < stage1.PASS_THRESHOLD:
+            reasons.append(f"t1_pass {sum(passes) / len(passes):.0%}")
+        if faith and sum(faith) / len(faith) < FAITHFULNESS_FLOOR:
+            reasons.append(f"faithful {sum(faith) / len(faith):.0%}")
+        jev = [s[JEV] for s in scores if s.get(JEV) is not None]
+        signal = (
+            f"jev<{judge.JEV_FLAG_BELOW} {sum(v < judge.JEV_FLAG_BELOW for v in jev) / len(jev):.0%}"
+            if jev
+            else "no jev"
         )
-    print(f"\nFilter: {PAIRED_METRIC} below {FAITHFULNESS_FLOOR:.0%} is dropped")
-    print(f"KEEP     ({len(keep)}): {', '.join(keep) or 'none'}")
-    print(f"DROP     ({len(drop)}): {', '.join(drop) or 'none'}")
-    if unscored:
-        print(f"UNSCORED ({len(unscored)}): {', '.join(unscored)}")
+        (drop if reasons else keep).append(
+            f"{_short(candidate)} ({', '.join(reasons) or signal})",
+        )
+    print(
+        f"\nFilter: t1_pass below {stage1.PASS_THRESHOLD:.0%} or {PAIRED_METRIC} below "
+        f"{FAITHFULNESS_FLOOR:.0%} (Opus runs only) is dropped; JEV is a signal",
+    )
+    print(f"KEEP ({len(keep)}): {', '.join(keep) or 'none'}")
+    print(f"DROP ({len(drop)}): {', '.join(drop) or 'none'}")
 
 
 def _short(candidate):
@@ -224,31 +255,89 @@ def report(dataset_name=COMPARE):
             f"run `judge.py run <model> 0 {dataset_name}` first",
         )
     print(f"\nStage 2 - {dataset_name}, thinking={judge.THINKING_LEVEL}")
-    print(f"{len(runs)} candidate(s), judge {judge.JUDGE_MODEL}")
+    print(
+        f"{len(runs)} candidate(s); Tier 2: {judge.JEV_MODEL}, or {judge.JUDGE_MODEL} where run",
+    )
 
     rows_by_candidate = {c: _item_rows(e) for c, e in runs.items()}
     _tier2_table(rows_by_candidate)
-    _paired_tier2_table(rows_by_candidate)
+    for metric in PAIRED_METRICS:
+        _paired_tier2_table(rows_by_candidate, metric)
     _filter(rows_by_candidate)
 
     # The `n` column counts a run's items, while a mean covers only the items
     # that carry the score — a judge call that failed attaches nothing. Say so
-    # rather than let a mean over half a run read as that run's verdict.
-    incomplete = [
-        f"{c}: {sum(1 for s, _ in rows.values() if s.get(PAIRED_METRIC) is not None)}"
-        f" scored of {len(rows)} items"
-        for c, rows in sorted(rows_by_candidate.items())
-        if sum(1 for s, _ in rows.values() if s.get(PAIRED_METRIC) is not None)
-        != len(rows)
-    ]
+    # rather than let a mean over half a run read as that run's verdict. A run
+    # with no score at all under a judge was simply not judged by it.
+    incomplete = []
+    for c, rows in sorted(rows_by_candidate.items()):
+        for metric in PAIRED_METRICS:
+            scored = sum(1 for s, _ in rows.values() if s.get(metric) is not None)
+            if 0 < scored < len(rows):
+                incomplete.append(f"{c}: {metric} on {scored} of {len(rows)} items")
     if incomplete:
-        print(f"\nINCOMPLETE COVERAGE - {PAIRED_METRIC} is missing on some items:")
+        print("\nINCOMPLETE COVERAGE - a Tier 2 score is missing on some items:")
         for line in incomplete:
             print(f"  {line}")
         print("      Rows above average only the items that carry it.")
 
 
-def sweep(model_ids, dataset_name=COMPARE, prompt_key=None):
+def backfill_jev(dataset_name=COMPARE):
+    """Score JEV on every item of the newest compare runs that lacks it. ~2 cents a run.
+
+    A backfilled score is attached exactly as `run_experiment` attaches an
+    evaluator's: to the experiment item's observation, whose id is the item's
+    `id`. Anything else — the trace alone, say — would be missing from the
+    experiment-items read the report is built on, and look like JEV never ran.
+    """
+    client = Langfuse()
+    sources = {
+        i.id: judge._source_of(i.input)  # noqa: SLF001
+        for i in client.get_dataset(dataset_name).items
+    }
+    todo = []
+    for candidate, run in sorted(discover_runs(dataset_name).items()):
+        for item in API.experiment_items(run["id"], fields="core,io,scores"):
+            if any(s["name"] == JEV for s in item.get("scores") or []):
+                continue
+            summary = judge._text(item.get("output"))  # noqa: SLF001
+            if summary and not summary.startswith("Error:"):
+                todo.append((candidate, item, summary))
+    print(f"{len(todo)} item(s) without {JEV}")
+
+    def one(job):
+        candidate, item, summary = job
+        bullets = judge.bullets_of(summary)
+        try:
+            probabilities, cost = judge.jev_probabilities(
+                sources[item["experimentItemId"]],
+                bullets,
+            )
+        except OSError as exc:
+            return candidate, item["experimentItemId"], None, 0, str(exc)[:200]
+        weakest = min(range(len(bullets)), key=probabilities.__getitem__)
+        client.create_score(
+            name=JEV,
+            value=probabilities[weakest],
+            data_type="NUMERIC",
+            comment=f"bullet {weakest + 1}: {bullets[weakest]}"[:900],
+            trace_id=item["traceId"],
+            observation_id=item["id"],
+            metadata=judge.jev_meta(),
+        )
+        return candidate, item["experimentItemId"], probabilities[weakest], cost, None
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(one, todo))
+    client.flush()
+    failed = [r for r in results if r[4]]
+    print(f"{len(results) - len(failed)} scored, ${sum(r[3] for r in results):.4f}")
+    for candidate, item, _, _, error in failed:
+        print(f"  FAILED {candidate} {item}: {error}")
+    print("wait a minute for ingestion, then `stage2.py report`")
+
+
+def sweep(model_ids, dataset_name=COMPARE, prompt_key=None, tier2="jev"):
     """Produce a compare run for each model, over the whole dataset.
 
     `judge.py run` takes one model, which is six invocations for a six-model
@@ -266,7 +355,7 @@ def sweep(model_ids, dataset_name=COMPARE, prompt_key=None):
     print(f"{len(model_ids)} model(s) over {dataset_name}, {prompt_key}\n")
     for index, model_id in enumerate(model_ids, 1):
         print(f"[{index}/{len(model_ids)}] {model_id}")
-        judge.cmd_run(model_id, 0, dataset_name, prompt_key)
+        judge.cmd_run(model_id, 0, dataset_name, prompt_key, tier2=tier2)
         print()
     print("done - `stage2.py report` next")
 
@@ -277,6 +366,12 @@ if __name__ == "__main__":
     if command == "report":
         report(args[1] if len(args) > 1 else COMPARE)
     elif command == "sweep":
-        sweep(args[1:])
+        tier2 = next(
+            (a.split("=", 1)[1] for a in args if a.startswith("--judge=")),
+            "jev",
+        )
+        sweep([a for a in args[1:] if not a.startswith("--judge=")], tier2=tier2)
+    elif command == "jev":
+        backfill_jev(args[1] if len(args) > 1 else COMPARE)
     else:
         sys.exit(f"unknown command: {command}")
