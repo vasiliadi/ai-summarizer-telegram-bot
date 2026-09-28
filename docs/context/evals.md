@@ -1,7 +1,7 @@
 # Evaluation
 
-How summarization quality is measured: the Langfuse datasets built from real traces, the
-scoring tiers, the judges, and the harness in `scripts/eval/`.
+How summarization quality is measured: the Langfuse dataset built from real traces, the scoring
+tiers, the judges, and the harness in `scripts/eval/`.
 
 Nothing here is imported by the bot — these are operational scripts, run by hand.
 `architecture.md` owns the bot itself, including *how* it emits the traces this is built on;
@@ -11,185 +11,136 @@ read its **Tracing** bullet before changing anything that produces trace data.
 
 **The registry is the output of evaluation, not its input.** New models appear and existing
 ones change constantly, so the question this answers is *should this model be in
-`config.MODEL_SPECS` at all* — screen a candidate first, then decide whether to add it. It
-also re-checks models already registered, and gates prompt edits against regression, but
-candidate screening is the primary use.
+`config.MODEL_SPECS` at all* — run a candidate through the harness first, then decide whether to
+add it. It also re-checks models already registered, and gates prompt edits against regression,
+but candidate screening is the primary use.
 
 **It is a filter, not a ranking** (settled 2026-09-26). The harness removes models that are
-certainly unfit — Tier 1's deterministic checks, then the calibrated faithfulness judge — and the
-user decides between the survivors by reading them. Every check kept is either deterministic or
-calibrated against hand labels; nothing uncalibrated is allowed to drop a model.
+certainly unfit and puts cost, length and a fabrication signal beside the rest; the user decides
+between the survivors by reading them. Only Tier 1 — deterministic — drops a model. No judge sets
+a floor, because no judge could be certified per summary against the user (see *Rejected*).
 
 ### Everything runs over OpenRouter, and models are named by their OpenRouter id
 
 The harness never consults `config.MODEL_SPECS`. Model ids are passed as arguments, always,
-with no default list — requiring a model to be registered before it can be screened would
+with no default list — requiring a model to be registered before it can be evaluated would
 invert the tool.
 
-**Do not add a default list back.** The set worth screening is different every time: today's
-candidates are not tomorrow's, and the current batch is large only because this is the first
-pass over a registry that had never been evaluated. In steady state a new model shows up on
-its own — vendors do not ship on the same day — so the normal invocation is one id, and a
-constant would be stale the week after it was written.
+**Do not add a default list back.** The set worth evaluating is different every time, and in
+steady state a new model shows up on its own — vendors do not ship on the same day — so the
+normal invocation is one id, and a constant would be stale the week after it was written.
 
 One route for every model also keeps results comparable, and the price of that is accepted
-deliberately: a model the bot reaches through its own provider is screened over OpenRouter
+deliberately: a model the bot reaches through its own provider is evaluated over OpenRouter
 instead, so its numbers sit very slightly off the bot's real behaviour. Comparing models to
-each other — which is what screening is for — is unaffected.
+each other is unaffected.
 
 **Never derive an OpenRouter id by prefixing a vendor name.** The catalog carries `:free` and
 `:batch` siblings next to the plain id, so a computed id can silently select a different model
-and bill for it. `stage1.py run` validates every id against the catalog and refuses to start
+and bill for it. `stage2.py sweep` validates every id against the catalog and refuses to start
 otherwise, printing the near-misses.
-
-Where a model's registry id differs from its OpenRouter id — a provider whose native ids carry
-no vendor prefix — `stage1.py`'s `REGISTRY_ID` maps the two and the run records
-`registry_model_id` in its metadata, so a screening result ties back to a production model
-without anyone having to know the mapping.
 
 ### A candidate's route
 
 Nothing below needs the model to be in `config.MODEL_SPECS`, and it should not be added until
 the end:
 
-1. **One compare run.** `stage2.py sweep <openrouter-id> ...` (since 2026-09-28) — no registry
-   entry needed. `eval_client.EvalLLMClient` subclasses `LLMClient` and overrides only
-   `build_model`, so the run still goes through the instrumented path and records cost and
-   thinking level, while the base class's registry lookup (which would raise `KeyError` for a
-   candidate) is bypassed. The run gets the Tier 1 scores from the Langfuse rule for free and
-   JEV's `t2_jev_weakest` from the default Tier 2 evaluator, about two cents. The 25 screening
-   items are a subset of these 50, so a separate `stage1.py run` is no longer part of the route;
-   it stays for a cheap first look at an expensive model. Estimated from the catalog, a run cost
-   $0.07–$1.40 per model for the queue of 2026-09-28, against about $3 more for Opus as judge.
+1. **One compare run.** `stage2.py sweep <openrouter-id> ...` summarises the 50 items of
+   `summarization-compare-v1` through `eval_client.EvalLLMClient`. The run gets the Tier 1 scores
+   from the Langfuse rule for free and JEV's `t2_jev_weakest` from the default Tier 2 evaluator,
+   about two cents. A run cost $0.02–$1.11 per model in the queue of 2026-09-28.
 2. **Read `stage2.py report`.** `t1_pass` below 95% drops the model. JEV sets no floor: its
    median weakest-bullet probability and the share of summaries below `JEV_FLAG_BELOW` are read
    against the other candidates, the production model above all, with a paired sign test per
-   item. A model that survives goes to the user to read live.
-3. **Then decide, and only then edit `config.py`.** Adding an id needs no migration; removing
-   or renaming one does — see the registry bullet in `architecture.md`. A model registered
-   under the `google` provider keeps its native id there, and `REGISTRY_ID` gains a row.
+   item.
+3. **Opus on the finalists only.** `stage2.py judge opus <openrouter-id> ...` adds
+   `t2_fabricated` (Opus 5.5, `FABRICATED` prompt) to the existing runs, about $3 a model, no
+   regeneration. The report then prints each finalist's *invented* share with a paired test.
+4. **The user reads the survivors live**, weighing the invented share against `run $` and
+   compression — the user counts a longer summary that keeps more detail in its favour.
+5. **Then decide, and only then edit `config.py`.** Adding an id needs no migration; removing
+   or renaming one does — see the registry bullet in `architecture.md`. A model registered under
+   the `google` provider keeps its native id there, without the vendor prefix.
+6. **Sweep thinking levels** on the chosen model only, and expect to decide it on cost and
+   latency rather than quality, because adjacent levels rarely separate.
 
-### Both stages summarise through the same client; the judge does not
+Track cost and latency beside quality throughout; quality alone always picks the most expensive
+configuration. Below ~30 items report gross failure rates only, never rankings. Keep the dataset
+afterwards as a regression gate for prompt edits, not only for model launches.
 
-`eval_client.py` holds `EvalLLMClient` and the single `THINKING_LEVEL` both stages read, and
-that sharing is the point rather than tidiness. A candidate's cost and latency are half of the
-question being answered — quality alone always picks the most expensive configuration — so the
-compare stage has to produce them on the same terms screening did. Two stages holding their own
-copy of the thinking level would drift, and the drift would look like a property of the model.
+### The candidate summarises through the bot's client; the judges do not
+
+`eval_client.py` holds `EvalLLMClient` and the one `THINKING_LEVEL` every run uses. It
+subclasses `LLMClient` and overrides only `build_model`, so a run goes through the instrumented
+path and records cost and thinking level while the base class's registry lookup (which would
+raise `KeyError` for a candidate) is bypassed. A candidate's cost and latency are half of the
+question, so they have to be produced on the bot's own terms.
 
 **An experiment task must be `async def` and reach the model through
 `eval_client.summarize`.** `run_experiment` awaits the task inside its own running event loop,
 while `LLMClient.run` ends in pydantic-ai's `run_sync`, which drives a loop itself — calling it
 from there raises `RuntimeError: This event loop is already running` on *every* item, before a
 single request leaves the machine. `summarize` hands the call to a worker thread, which has no
-running loop, so `run_sync` builds its own and the bot's synchronous path is reused as the bot
-runs it rather than reimplemented asynchronously beside it. The context is copied into the
-thread, so the generation span still nests under the experiment item and the cost wrapper still
-finds it.
+running loop, so `run_sync` builds its own and the bot's synchronous path is reused rather than
+reimplemented. The context is copied into the thread, so the generation span still nests under
+the experiment item and the cost wrapper still finds it. The failure is cheap and looks
+expensive to diagnose: every item fails in seconds and is recorded as an error output.
 
-The failure is cheap and looks expensive-to-diagnose: 150 items fail in about 15 seconds, each
-recorded as an empty output, which is indistinguishable from a model that answered nothing.
-`stage1.py report` therefore refuses a verdict for any run whose every item scored
-`t1_compression` 0 — that is the runner failing, not a model, and scoring it 0% eliminated all
-six registered models in one pass before the guard existed.
-
-The **judge** stays on its own HTTP call in `judge.py`, deliberately. It needs a forced tool
-call against a JSON schema, which `LLMClient` does not do and the bot never asks for, so routing
-it through the seam would mean adding structured output to `src/llm.py` for a request production
-never makes. What the judge spends is a cost of running the evaluation, not a property of the
-model being ranked, so it does not belong on the candidate's trace either. `ask` returns
-OpenRouter's `usage` and every caller discards it; totalling the evaluation's own bill from
-there is unbuilt, not rejected.
-
-## Staged execution
-
-Do not run the full grid. Model × thinking level × prompt strategy is a large space and most
-of it decides nothing, so the work is staged and each stage narrows the next:
-
-1. **Screen and compare in one run** — each candidate over the 50-item set at one fixed thinking
-   level: Tier 1 (the only gate) and JEV as a fabrication signal. Until 2026-09-28 these were two
-   runs, screening on 25 items and then Opus-judged faithfulness on 50; Opus left the default
-   route on cost (see *JEV* under Tier 2), and screening folded into the compare run because
-   the Tier 1 rule scores that run anyway.
-2. **Compare against the production model** — the same report holds the incumbents, so a
-   candidate's JEV and Tier 1 numbers sit beside the model the bot uses now.
-3. **Read the survivors live.** The harness is a **filter, not a ranking** (settled
-   2026-09-26): it removes models that are certainly unfit — broken language or script, no
-   list, invented facts — and the user judges readability and overall quality by using the
-   survivors. Measured on three strong models, every automated axis tried so far (faithfulness,
-   coarse omission questions) passed all three alike, so no automated number was going to pick
-   between good models anyway.
-4. **Sweep thinking levels** on the chosen model only, and expect to decide it on cost and latency
-   rather than quality, because adjacent levels rarely separate.
-
-Track cost and latency beside quality throughout; quality alone always picks the most
-expensive configuration. Below ~30 items report gross failure rates only, never rankings.
-Keep the dataset afterwards as a regression gate for prompt edits, not only for model launches.
+The **judges** stay on their own HTTP calls in `judge.py`, deliberately. Opus needs structured
+output against a JSON schema, which `LLMClient` does not do and the bot never asks for, and JEV
+is not a chat model at all. What a judge spends is a cost of running the evaluation, not a
+property of the model being ranked, so it does not belong on the candidate's trace either.
 
 ## The harness
 
 | File | Purpose |
 |---|---|
 | `_bootstrap.py` | Loads `.env`, puts `src/` on the import path, returns Langfuse REST credentials |
-| `eval_client.py` | `EvalLLMClient` and the shared `THINKING_LEVEL`. Both stages summarise through it |
+| `eval_client.py` | `EvalLLMClient`, `summarize` with its generation timeout, and `THINKING_LEVEL` |
 | `langfuse_api.py` | The only place that calls the Langfuse REST API. v4 endpoints, rate-limit aware |
 | `tier1_evaluator.py` | Tier 1 deterministic scorers. Uploaded to Langfuse, **executed there** |
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
-| `stage1.py` | The screening stage — sweep, report, and per-item failures |
-| `judge.py` | The Tier 2 judges, run outside Langfuse: JEV by default, Opus prompts by name. One compare run per invocation |
-| `stage2.py` | The compare stage — the sweep, the report over Tier 1 and `t2_*`, and `judge`, which adds a Tier 2 judge to existing runs |
-| `calibrate.py` | Faithfulness judge-vs-human agreement, and judge-vs-judge on compare runs (`versus`). Gates the compare stage |
-| `rebuild_datasets.py` | Rebuilds both datasets from a raw harvest. Destructive; needs `--yes-wipe` |
+| `judge.py` | The two Tier 2 judges (JEV, Opus `FABRICATED`) and the compare-run task. Imported, not run |
+| `stage2.py` | The command line: `sweep`, `report`, and `judge`, which adds a judge to existing runs |
+| `rebuild_datasets.py` | Rebuilds the dataset from a raw harvest. Destructive; needs `--yes-wipe` |
 
 ```bash
 uv run python scripts/eval/install_tier1.py     # after every edit to tier1_evaluator.py
-uv run python scripts/eval/stage1.py report     # free, read-only
-uv run python scripts/eval/stage1.py failures   # free — which items failed, and why
 uv run python scripts/eval/stage2.py report     # free, read-only
-uv run python scripts/eval/calibrate.py export  # free — hand labels to temp/, before they leave the API window
-uv run python scripts/eval/stage1.py run <openrouter-id> ...   # COSTS MONEY
-uv run python scripts/eval/judge.py smoke 2     # COSTS MONEY: judge calls
-uv run python scripts/eval/calibrate.py versus <openrouter-id> [--labels temp/human-labels-*.json] # COSTS MONEY: another judge vs Opus and the hand labels
-uv run python scripts/eval/stage2.py sweep <openrouter-id> ... # COSTS MONEY: a compare run each, JEV as Tier 2
+uv run python scripts/eval/stage2.py sweep <openrouter-id> ... [--judge=jev|opus|none]  # COSTS MONEY: a compare run each
 uv run python scripts/eval/stage2.py judge jev [<openrouter-id> ...]    # ~2 cents a run: JEV where missing
 uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # ~$3 a run: Opus FABRICATED on finalists
 ```
 
-**A sweep could hang forever on one item; generation now times out after 10 minutes.** On 2026-09-26 a compare
-sweep of `openai/gpt-6-luna` stopped at 49 of 50 items (all 49 scored; the stuck one,
-`cmp-337cf2f05806`, an ordinary 8.5k-character source) and sat for 25+ minutes with **no
-established connection** — every socket in `CLOSE_WAIT`, CPU at zero — so it was not waiting on a
-slow model. Neither `LLMClient.run` nor the harness sets a timeout. Unconfirmed hypothesis: the
-harness runs pydantic-ai's `run_sync` in worker threads, each with its own event loop, over the
-one process-wide `OpenRouterProvider` HTTP client, and an async client shared across event loops
-can deadlock on its pool; the bot calls `run_sync` in a similar way, so if this is the cause it is
-not harness-only. The same day the `gpt-5.6-luna` sweep hung the same way on a
-different item (`cmp-3a19de8d1d5b`, 54k characters), so it is not the source. A `py-spy dump` of
-that live process (`sudo "$(which uvx)" py-spy dump --pid <pid>`; macOS needs `sudo`) showed the
-main thread waiting in `run_experiment` and one worker thread in `LLM.run` → `agent.run_sync` →
-pydantic-ai's own event loop, idle in `select()` — the **candidate generation**, not the judge
-(which is synchronous `urllib`). That fits the hypothesis: `run_experiment(max_concurrency=4)`
-puts each task on a thread, `run_sync` builds a new loop there, and all of them share
-`config.openrouter_provider` and its one async HTTP pool. `py-spy` shows threads, not asyncio
-tasks, so it cannot name the awaited line; strong evidence, not proof. The cause is still open
-and a fix, if it is shared, belongs in `src/llm.py`. The harness side is handled:
-`eval_client.summarize` runs each generation on a **daemon** thread and waits
-`GENERATION_TIMEOUT` (600 s) for it, so a stuck item is stored as `Error: TimeoutError` and the
-run finishes. It had to be a daemon thread: `asyncio.to_thread` uses the default executor, whose
-threads are joined at interpreter exit, so a timeout around it would only move the hang to
-shutdown. The abandoned thread is left to die with the process. A timed-out item shows in
-`judge.py run`'s failed-items warning and fails Tier 1, like any other failed item.
+**A run is always the whole dataset.** The report reads the newest run per candidate, so a short
+probe run made after a full one would replace it there; there is no item limit to pass.
 
-**Wait a minute after a run before reading its report.** Langfuse ingests experiment items
-asynchronously, and the report's incomplete-run warning compares scored items against the items
-that have *arrived* — so a report read straight after `stage1.py run` showed `n = 22` of 25 with
-100% everywhere and no warning at all, and the same report a minute later showed 25. Check that
-`n` equals the dataset size before trusting a row.
+**A sweep could hang forever on one item; generation now times out after 10 minutes.** On
+2026-09-26 two compare sweeps each stopped at 49 of 50 items (`cmp-337cf2f05806`, 8.5k
+characters, and `cmp-3a19de8d1d5b`, 54k — so not the source) with every socket in `CLOSE_WAIT`
+and CPU at zero. A `py-spy dump` of the live process (`sudo "$(which uvx)" py-spy dump --pid
+<pid>`; macOS needs `sudo`) showed one worker thread in `LLM.run` → `agent.run_sync` →
+pydantic-ai's own event loop, idle in `select()` — the **candidate generation**, not the judge.
+Unconfirmed hypothesis: `run_experiment(max_concurrency=4)` puts each task on a thread,
+`run_sync` builds a new loop there, and all of them share `config.openrouter_provider` and its one
+async HTTP pool, which can deadlock across event loops. The bot calls `run_sync` in a similar
+way, so if this is the cause it is not harness-only, and a fix belongs in `src/llm.py` — **OPEN**,
+tracked outside this branch. The harness side is handled: `eval_client.summarize` runs each
+generation on a **daemon** thread and waits `GENERATION_TIMEOUT` (600 s), so a stuck item is
+stored as a named `TimeoutError` and the run finishes. It had to be a daemon thread:
+`asyncio.to_thread` uses the default executor, whose threads are joined at interpreter exit, so a
+timeout around it would only move the hang to shutdown. A timed-out item shows in the run's
+failed-items warning and fails Tier 1, like any other failed item.
 
-Anything that only reads is free. A full screening sweep is 25 items × every model swept,
-roughly **$1**; judge calls are the expensive part. Re-scoring Tier 1 never costs anything —
-the summaries already exist as trace outputs, so a broken scorer is repaired by reinstalling it
-and recomputing, not by re-generating.
+**Wait a minute after a run before reading its report.** Langfuse ingests experiment items and
+scores asynchronously — a posted score was absent six seconds after `flush()` and present twenty
+seconds later — so a report read straight after a run shows fewer items or scores than were
+written, which looks exactly like a judge that silently failed. Check that `n` equals the dataset
+size before trusting a row.
+
+Anything that only reads is free. Re-scoring Tier 1 never costs anything — the summaries already
+exist as trace outputs, so a broken scorer is repaired by reinstalling it and recomputing, not by
+re-generating. Only Tier 2 spends money on a re-score.
 
 ### Harness runs report to Sentry as `production`, and that is left alone deliberately
 
@@ -218,26 +169,16 @@ State is split across three places, and only one of them is the repository.
 | Prompts, datasets, score configs, evaluators, rules, runs, scores | Langfuse (server) |
 | Raw trace harvest (`obs.json`), ad-hoc probes | untracked, local only |
 
-**The public API sees only the last 30 days on this plan — hand labels included.** The Hobby
-plan's limit is "30 days data access", and it is an access window, not deletion. Checked on
-2026-09-26: the oldest trace the API returned was from 2026-08-28; every screening and compare
-experiment, every judge verdict (`cal_*`), every Tier 1 score and all 50 hand labels
-(`h_faithful`, `h_pairwise`) came back empty — from `v3/scores` by name, by queue id and with an
-explicit August window, and from the deprecated `v1 /scores` too. Yet the annotation queue's 50
-items are still listed as `COMPLETED`, and **the queue item page in the UI still shows the old
-labels and verdicts**. So the data exists, the harness cannot read it, and nothing warns. This was
-first recorded here as deletion; that was wrong. Datasets and their items are unaffected. The
-paid Core tier raises the window to 90 days.
-
-So "banked in Langfuse" means readable by the scripts for a month: anything that must outlive
-that — hand labels above all, since they cost days rather than dollars — has to be exported to a
-local file or written into a dataset item's fields. The calibration numbers recorded below are
-the only record the harness can still read, and `calibrate.py agreement` can no longer reproduce
-them (the labels can still be read one by one on the queue items in the UI). **For hand labels that is now `calibrate.py export`**: it writes the sample, the labels and
-every judge's verdicts to `temp/calibration-<timestamp>.json`, and `calibrate.py agreement <file>`
-reports from that file after the originals have left the API window. Run it the day a round is
-labelled. The file holds summaries of the user's own content, so it stays in the gitignored
-`temp/` — this repository is public.
+**The public API sees only the last 30 days on this plan.** The Hobby plan's limit is "30 days
+data access", and it is an access window, not deletion. Checked on 2026-09-26: the oldest trace
+the API returned was from 2026-08-28; every older experiment, judge verdict, Tier 1 score and
+hand label came back empty from every route tried, while the UI still showed them. So the data
+exists, the harness cannot read it, and nothing warns. Datasets and their items are unaffected.
+The paid Core tier raises the window to 90 days. So "banked in Langfuse" means readable by the
+scripts for a month: anything that must outlive that — hand labels above all, since they cost
+days rather than dollars — has to be exported to a local file the day it is made. No hand labels
+are kept now: the last ones (42, file-based) were deleted with the rest of `temp/` on
+2026-09-28, so re-validating a judge starts from fresh labels.
 
 The part that surprises people: `tier1_evaluator.py` **never runs on your machine**. Langfuse
 stores the source and executes it on its own infrastructure when an experiment item arrives.
@@ -252,30 +193,27 @@ would go stale silently.
 
 What belongs here is only what the skill cannot know:
 
-- **`scripts/eval/langfuse_api.py` is the only place that calls the REST API.** Add reads
-  there rather than scattering `requests` through the scripts.
+- **`scripts/eval/langfuse_api.py` is the only place that calls the REST API**, apart from the
+  dataset rebuild. Add reads there rather than scattering `requests` through the scripts.
 - **This project is already on the v4 data model.** Ingestion is OTel via the pinned SDK, the
   one evaluation rule targets `experiment`, and no blob-storage, PostHog or Mixpanel export is
   configured, so the export migration does not apply. Trace-level input/output is deprecated
-  product-wide and nothing in `src/` sets it — see the **Tracing** bullet in
-  `architecture.md` for the constraint that keeps it that way.
+  product-wide and nothing in `src/` sets it — see the **Tracing** bullet in `architecture.md`.
 - **The deprecated routes are switched off on 2026-11-16, and the SDK still calls one of them.**
-  Checked against Langfuse's migration page on 2026-09-26: the REST calls in `scripts/eval/`
-  are already on the replacements (`v2/observations`, `v3/scores`, `experiments` +
-  `experiment-items`, `v2/datasets`, `v2/evaluators`). But `Langfuse.run_experiment` — in the
-  pinned 4.14.4 and in 4.15.6, the latest at the time — links every item to its run through
-  `POST /dataset-run-items`, which is on the list. It catches the failure and only logs
-  *"Failed to create dataset run item"*, so after the cutoff a sweep would complete, write its
-  traces and scores, and **never appear as an experiment**: `stage1.py report` and
-  `stage2.py report` would say no runs exist. Before sweeping after mid-November, check the SDK
-  changelog for a release that moved off the route, bump to it, and confirm a one-item run shows
-  up in `GET /experiments`. `GET /traces` is deprecated too; read traces as
-  `v2/observations` rows grouped by `traceId`.
-- **Read experiment results from the experiment endpoints, never by joining traces.**
-  Evaluator scores attach to the **observation**, so filtering scores by experiment id returns
-  nothing for them and reads exactly like the evaluator never fired. Requesting the score and
-  IO field groups on the experiment's items returns both inline, which is one call per page
-  instead of a run fetch plus a trace fetch per item plus a separate score sweep.
+  Checked against Langfuse's migration page on 2026-09-26: the REST calls in `scripts/eval/` are
+  already on the replacements (`v2/observations`, `v3/scores`, `experiments` +
+  `experiment-items`, `v2/datasets`, `v2/evaluators`). But `Langfuse.run_experiment` — in 4.14.4
+  and 4.15.6 — links every item to its run through `POST /dataset-run-items`, which is on the
+  list. It catches the failure and only logs *"Failed to create dataset run item"*, so after the
+  cutoff a sweep would complete, write its traces and scores, and **never appear as an
+  experiment**: `stage2.py report` would say no runs exist. **Before sweeping after
+  mid-November**, check the SDK changelog for a release that moved off the route, bump to it, and
+  confirm a one-item run shows up in `GET /experiments`. `GET /traces` is deprecated too; read
+  traces as `v2/observations` rows grouped by `traceId`.
+- **Read experiment results from the experiment endpoints, never by joining traces.** Evaluator
+  scores attach to the **observation**, so filtering scores by experiment id returns nothing for
+  them and reads exactly like the evaluator never fired. Requesting the score and IO field groups
+  on the experiment's items returns both inline — but see the seven-score cap under *API shapes*.
 
 Two traps cost a session each and are worth carrying:
 
@@ -293,31 +231,23 @@ Both produce experiments the Tier 1 rule scores, but they measure different thin
 difference that generates all the others: **through the UI, Langfuse calls the model; through
 the script, your code does.**
 
-| | UI Prompt Experiment | `scripts/eval/stage1.py` |
+| | UI Prompt Experiment | `scripts/eval/stage2.py sweep` |
 |---|---|---|
 | Who calls the model | Langfuse, via an LLM Connection | your code, locally |
 | Prompt source | the Langfuse mirror | `src/prompts.py` directly |
 | Code path | Langfuse's request builder | `llm.LLMClient` — the bot's path |
 | Thinking level | not applied | `build_settings` applies it |
 | Cost | Langfuse's own pricing | `OpenRouterCostReporter`, what OpenRouter charged |
-| Gemini | over the OpenRouter connection | native `GoogleModel` |
 | `environment` | `langfuse-prompt-experiment` | `sdk-experiment` |
 | Tier 1 | fires | fires |
-| Tier 2/3 | not possible | `run_experiment(evaluators=[…])` |
+| Tier 2 | not possible | `run_experiment(evaluators=[…])` |
 | In git | no | yes |
 
-The script screens candidates as well as incumbents, so the UI is not needed for that. It
-stays useful for eyeballing prompt wording by hand. If a UI run is compared against a script
-run, check first that the **Langfuse prompt mirror** has not drifted from `src/prompts.py` —
-otherwise the two were asked different questions. The mirror stores `prompt_version` in its
-`config` for exactly this: compare it against `prompts.prompt_version(key)`. Tell the two
-kinds of run apart by `environment` — `langfuse-prompt-experiment` for UI, `sdk-experiment`
-for the script.
-
-A UI run cannot go through `LLMClient`, so it has no cost wrapper, no thinking level, and
-routes Gemini over OpenRouter — it measures a call the bot never makes. Use it to eyeball
-prompt wording; use the script for anything that feeds a decision. Note also that UI runs are
-named `Prompt … on dataset …`, so `stage1.py`'s `stage1 / ` prefix filter skips them.
+A UI run has no cost wrapper and no thinking level — it measures a call the bot never makes. Use
+it to eyeball prompt wording; use the script for anything that feeds a decision. If a UI run is
+compared against a script run, check first that the prompt mirror has not drifted from
+`src/prompts.py`: the mirror stores `prompt_version` in its `config` for exactly this. UI runs are
+named `Prompt … on dataset …`, so the report's `stage2 / ` prefix filter skips them.
 
 ## Prompts: a hand-maintained mirror, for experiments only
 
@@ -350,15 +280,15 @@ cannot mix target languages, and Langfuse then refuses to delete it while any de
 survives. Storing `prompt_version(prompt_key)` in the prompt's `config` is what ties a Langfuse
 version back to the repo revision it was copied from; nothing else records it.
 
-## Datasets are built from traces, and the content type is not one of the fields
+## The dataset is built from traces, and the content type is not one of the fields
 
-Two Langfuse datasets hold screened trace content: `summarization-screen-v1` (25 items) is a
-strict subset of `summarization-compare-v1` (50), so the per-item key-facts checklist that
-serves as `expected_output` is written once rather than twice. Item `input` is
-`{content, target_language}` and nothing else — those are the two prompt variables, and an
-`inputSchema` on both datasets rejects an item missing either. `prompt_key` rides in `metadata`,
-not `input`: an experiment picks one prompt and runs it over every item, so the originating
-trace's strategy fills no variable and would sit in `input` as a dead key.
+`summarization-compare-v1` holds 50 items of screened trace content, built by
+`rebuild_datasets.py` from a raw harvest. Item `input` is `{content, target_language}` and
+nothing else — those are the two prompt variables, and an `inputSchema` rejects an item missing
+either. `prompt_key` rides in `metadata`, not `input`: an experiment picks one prompt and runs it
+over every item, so the originating trace's strategy fills no variable. A second dataset,
+`summarization-screen-v1` (a 25-item subset), is left in Langfuse from the retired screening
+stage; nothing reads it and the rebuild no longer writes it.
 
 The trap when harvesting: a trace's tag is the **Telegram** `content_type`, which is `text` for
 a URL as much as for a pasted paragraph. A YouTube transcript, a web article and a
@@ -371,11 +301,10 @@ with a leading space. Testing only for wrapping silently files every audio trans
 `web_article`, which is a stratum label that looks plausible in the UI and is wrong.
 
 The strata are not balanced and that is **accepted**, not an oversight to fix: nine days of real
-traffic yielded only 5 `web_article` items in total (2 of the 25 screening items), under the
-≥8–10 per cell the plan asks for, and no amount of further harvesting changes it. The
-consequence to keep stating is narrow — a *web-article-specific* claim is anecdote until the
-stratum is seeded — while `yt_transcript` and `audio_transcript` carry enough items to rank
-models. Do not re-raise this as a blocker.
+traffic yielded only 5 `web_article` items in total, under the ≥8–10 per cell the plan asks for.
+A *web-article-specific* claim is anecdote until the stratum is seeded, while `yt_transcript` and
+`audio_transcript` carry enough items to rank models. Do not re-raise this as a blocker. A
+rebuild needs a fresh harvest: traces older than 30 days are outside the API window.
 
 Two screening filters earn their keep on real traffic: content under ~1500 characters, and
 degenerate output from `AudioTranscriber.transcribe` when WhisperX mis-decodes audio — a
@@ -385,118 +314,17 @@ character's share: the observed failures repeat a multi-character sequence, so o
 sat at 27% on its most common character and slipped a 30% threshold, while both compress to
 ~0.03 of their size against ~0.14 for the densest real item.
 
-### The key-facts checklist: the reference `t2_coverage` was meant to score against, now retired
-
-**Retired on 2026-09-26: `scripts/eval/checklists.py` and the `KEY_FACTS` prompt were deleted.**
-No checklist ever reached a dataset, so `t2_coverage` never produced a value, and the coverage
-judge (`COVERAGE`, `eval_coverage`) was removed the same day. **Tier 2 is now faithfulness
-only** (no-filler was removed the same day, see *Tier 2 and Tier 3*); every later mention of `t2_coverage` in this file is history. Two binary-question
-rounds (under *JEV* below) found that coarse omission questions do not separate candidates either,
-so omission currently has no metric. The history below is kept so the approach is not rebuilt
-without its lessons — the recoverable code is in git history.
-
-Coverage is the hard part of reference-free summarization, and the checklist is what converts
-it into a reference-based problem without anyone writing a gold summary: a strong model extracts
-the atomic facts a summary must not omit, a human edits the list, and it is stored as the item's
-`expected_output`. Per-fact entailment is an easy judgement; "is this summary complete?" is not.
-The cost is paid once per **item**, not once per run. `scripts/eval/checklists.py` did the
-generating, reviewing and writing.
-
-- **The hand-review step is load-bearing, not decoration.** `eval_coverage` returns `None` while
-  an item has no checklist, which is visibly missing data. A *wrong* checklist mis-scores every
-  model at once and looks like a result. `push` therefore writes only entries marked
-  `"reviewed": true` unless `--all` overrides it, and generation goes to a working file under
-  `temp/` rather than straight to the dataset.
-- **Checklists are keyed by content digest, not by dataset item id.** The same source is
-  `cmp-<digest>` in the compare set and `scr-<digest>` in the screening subset, so one reviewed
-  list is written to both items and the 25 shared sources are reviewed once. This is what the
-  strict-subset property in `rebuild_datasets.py` is *for*.
-- **A dataset item has no partial update.** `POST /dataset-items` upserts by id, so writing
-  `expected_output` means re-sending `input`, `metadata`, `source_trace_id`,
-  `source_observation_id` and `status` alongside it. Omit one and it is gone, with no error and
-  no way to restore it — which is why `push` reads each item, changes exactly one field, and
-  then reads it back to verify.
-- **Facts are extracted in the language of the source**, which is usually not the summary's
-  language. Translating the checklist at build time would bake a translation error into the
-  reference everything downstream is measured against, and the judge is already told that
-  wording and language need not match.
-- **A checklist item is a key point — an idea — not an atomic fact, and the list has no cap.**
-  The first generation (`key_facts@dc7a8a2c22ec`) asked for "one event, one figure, one named
-  actor" under a hard cap of 12. Both halves failed, and a blind check measured it: Opus, given
-  the full source and the generated list under that same criterion with no quota, decided
-  KEEP/DROP per fact for the five lists the user had hand-reviewed. **Of 17 distinct drop
-  decisions the two agreed on 2**, both obvious logistics (how to enable a module, a demo QR
-  code). The 79% raw agreement (55/70) is base rate: both keep nearly everything. Opus itself
-  kept 11–14 of 14 without a quota, kept all 14 on one list, and named 1–3 *missing* points on
-  every list — the criterion "a reader would be misinformed to miss" admits almost any true
-  statement, so neither reader can cut to a cap consistently. That is not a review defect.
-  - **The granularity was wrong for the product.** `key_points_for_transcript` asks for bullets
-    that each "capture a distinct, significant idea"; the checklist asked for facts, and
-    atomicity pulls toward whatever atomises easily — figures and names. Opus tagged **39 of 82
-    facts (48%) as supporting detail**. The worst list (`271deb99e66d`, a panel discussion) was
-    9 details of 12, nearly all survey percentages, while the points Opus listed as missing were
-    the panel's closing consensus and its one worked example. A good key-points summary of it
-    would score badly for doing what the product asks.
-  - **The cap was set by what summaries do now, not by what they are for.** The earlier case
-    for 12: summary length barely follows source length — across the 25 duel items the source
-    grows **7×** between the shortest and longest eight (median 6,340 → 44,164 characters) while
-    summaries grow **1.54×** and **1.24×** — so a checklist scaled with the source gives an
-    unattainable ceiling. That describes the candidates, not a constraint: the bot splits long
-    replies across messages (`split_entities` in `src/services.py`), and the product prompt
-    says to use "as many bullets as needed to cover it faithfully". The bot's use is deciding
-    whether a 40-minute or three-hour source is worth the time, which needs completeness that
-    grows with the source. **Low coverage on long sources is therefore a finding about the
-    candidates, not a flaw in the metric**, and it is the one this metric exists to surface.
-  - **The criterion is relative to the source, not to the reader.** "Would I learn anything
-    new?" is how the bot is used, but it depends on what the reader already knows, which no
-    model can see. The prompt asks for everything a reader would need to have learned what the
-    source has to say.
-  - **The prompt now asks for ideas, one per line, ordered most important first**, admits a
-    detail only when it *is* the point (a deal's price in a story about the deal), merges
-    restatements, and states there is no target count. Order is kept so coverage of the top N
-    stays computable without reintroducing a cap. `checklists.py` kept only the lower bound
-    of 5, as a warning, since the product prompt also asks for at least five bullets.
-  - **The pilot** (`key_facts@e08331f46483`, the same six sources): **33–49 points** on
-    21k–71k-character sources, $0.47 for six. Density follows content, not length — 38 points
-    on a 21k practical guide, 36 on a 71k webinar. Enumerations (fraud types, warning signs)
-    come out as one point each, and some lines still join an idea to its figure ("… with about
-    70% saying so"); whether coverage can answer those cleanly is unmeasured.
-  - **Two consequences.** A mean `t2_coverage` across items now mixes very different
-    denominators, so read it banded by `chars` or `stratum`, as before. And the review surface
-    grows from ~12 to ~40 lines a list, so the review asks per line "is this an idea the source
-    puts forward?" and per list "is anything central missing?" — not what to cut, which is the
-    judgement measured above to be unshared.
-  - **The first 50-list generation and the five reviews made on it are void**, kept as
-    `temp/key_facts.v1-capped.json` and `temp/checklist-review.v1-capped.md`. `generate` refuses
-    to mix lists built under two prompt versions, so the old file had to move aside.
-  - **The uncapped key-points list was rejected on reading it.** The pilot read as a table of
-    contents — every enumerated item and segment of a source as its own line — with much of it
-    useless to someone deciding whether to watch. The user's framing, which ends the checklist
-    line of work: the stage evaluates the *chosen model* under the existing product prompt, so
-    labels belong on the summaries it generated, not on a reference that amounts to a second,
-    competing summary. `KEY_FACTS` and `checklists.py` were deleted afterwards; nothing
-    was ever pushed to the datasets.
-- **Generation costs about $0.06–0.08 per item, not the cents a short prompt suggests.** 48 items
-  came to **$2.79** on Opus under the capped prompt, and the uncapped pilot to **$0.47** for six.
-  The output is a few dozen short sentences; the bill is mostly the *source*, up to
-  120k characters of it at input rates. Anything priced per item here scales with source length,
-  so estimate from the corpus rather than from the reply. `generate` discards the usage `ask`
-  returns, so the number came from the credit balance either side of the run — the same gap the
-  compare report has.
-
 ## Tier 1: binary sub-checks, never weighted points
 
 Every rule in `prompts.py` is stated as an absolute — "Respond in {language}" has no
-60%-credit reading — so a weighted composite would invent numbers and hide *which* rule broke,
-which is the only thing the screening stage needs to know. The Langfuse code evaluator
-`tier1-on-experiments` emits `t1_language_match`, `t1_script_clean` and `t1_bullet_count` (BOOLEAN),
-`t1_compression` (NUMERIC) and the derived `t1_pass`, which ANDs the applicable binary checks.
-Screening drops a model scoring `t1_pass` on under **95%** of items — at most one failure in 25.
-The floor was 70% until 2026-09-26, which suited checks that only caught outright breakage; once
-`t1_script_clean` could fail an item on one stray character, 70% would have passed `tencent/hy3`,
-which leaked CJK into ~6% of its summaries and which the user rejects outright. Strong models
-score 100%. At 25 items the floor is noisy for a model near 5% failures — hy3 could land either
-side of it — so a borderline pass is worth a `stage1.py failures` look. Three judgements are
+60%-credit reading — so a weighted composite would invent numbers and hide *which* rule broke.
+The Langfuse code evaluator `tier1-on-experiments` emits `t1_language_match`, `t1_script_clean`
+and `t1_bullet_count` (BOOLEAN), `t1_compression` (NUMERIC) and the derived `t1_pass`, which ANDs
+the applicable binary checks. The report drops a model scoring `t1_pass` on under **95%** of
+items (`stage2.PASS_THRESHOLD`) — at most two failures in 50. The floor was 70% until 2026-09-26,
+which suited checks that only caught outright breakage; once `t1_script_clean` could fail an item
+on one stray character, 70% would have passed `tencent/hy3`, which leaked CJK into ~6% of its
+summaries and which the user rejects outright. Strong models score 100%. Four judgements are
 deliberate:
 
 - The language check passes at **70%** Cyrillic letters, not 95%. Correct output still carries
@@ -505,16 +333,21 @@ deliberate:
 - **`t1_script_clean` catches what the ratio cannot: a stray foreign-script letter inside Russian
   prose.** It fails on any letter outside Latin (with its extensions), Greek and Cyrillic. Added
   2026-09-26 after `tencent/hy3` wrote `近` and `复杂` into two of 32 summaries that the ratio passed
-  at 0.973 and 0.928. On the local sample it fired 3 times in 326 summaries, all real: those two,
-  and one production summary (a `ל` in "видео о ל watermelon", not in the source). Latin stays
+  at 0.973 and 0.928. On the local sample it fired 3 times in 326 summaries, all real. Latin stays
   allowed by decision — names and terms are legitimate — and Greek for symbols such as μ or Δ.
 - `t1_compression` is a **diagnostic with no threshold**. Judges reward length, so the length
   column belongs beside every quality score; gating on it would let a model win by truncating.
 - `t1_bullet_count` is emitted **only** for `key_points_for_transcript`, the one strategy that
   asks for bullets. Scoring `basic_prompt_for_transcript` zero there would penalise it for
-  obeying its own prompt. So `t1_pass` ANDs one check for that strategy and two for the other,
-  which means it ranks models **within** a strategy and must never be used to compare the two
-  strategies — that is Tier 3's job.
+  obeying its own prompt. So `t1_pass` ranks models **within** a strategy and must never be used
+  to compare the two strategies.
+
+**A failed generation fails Tier 1, and that is not the model's fault.** `run_experiment` stores
+a task that raised as `Error: {exc}` and the Tier 1 rule scores that English string as a language
+failure, so an errored item shows up as a missing `t1_pass` point. deepseek-v4.1-flash,
+muse-spark-1.3 and mercury-2.5 each lost points this way on 2026-09-28. `judge.run` prints a
+warning with the count; read it, and the report's `INCOMPLETE COVERAGE` lines, before believing a
+Tier 1 failure.
 
 ### Three checks were removed, deliberately
 
@@ -523,18 +356,9 @@ should not be reinstated without new evidence. Across 150 scored items they prod
 hits and none of them changed a decision: a markdown heading before the list, and two
 substring matches on ordinary words. The false positive is the general lesson — a check that
 greps for the word "transcript" fires on any summary whose *subject* is transcription, so a
-Tier 1 check must key on something the content cannot legitimately contain.
-
-The one genuine defect they caught was a model emitting its internal reasoning block into the
-summary, and the settled judgement is that **Tier 2 is the right place to catch that**: a
-judge reading a summary that contains a reasoning block will mark it unfaithful, while a
-coarse screen gains nothing from one item in 25. Tier 1 now screens for
-outright breakage only — wrong language, no list where a list was asked for. Style and
-prompt-obedience belong to the judges.
-
-Scores written before v4 still carry the removed names, so a report must tolerate their presence
-in old runs and their absence in new ones; the score configs are kept for exactly that reason,
-and `stage1.py report` says so when a run's stored `t1_pass` predates the change.
+Tier 1 check must key on something the content cannot legitimately contain. Tier 1 screens for
+outright breakage only — wrong language, wrong script, no list where a list was asked for. Their
+score configs are archived; old runs still carry the scores.
 
 ### Write portable Python in `tier1_evaluator.py`
 
@@ -559,1164 +383,350 @@ invisible at runtime, so the editor is one of only two places it ever shows.
 `ctx.observation.metadata` is a flattened merge of OTel resource attributes, the dataset item's
 metadata and the run's own metadata, and *every* value in it — item metadata included — arrives
 stringified: `char_length` is `"19845"`, not `19845`, even though the dataset item stores a JSON
-number and the dataset-items API returns one. Arithmetic on such a value raises `TypeError`,
-which discards the whole `EvaluationResult` — including the scores already built before the
-failing line. Nothing surfaces this: the rule still reports `status: "active"`, the run
-completes, and the only symptom is that no score appears. This cost a full session to find, so
-**coerce every metadata value before using it as a number**.
+number. Arithmetic on such a value raises `TypeError`, which discards the whole
+`EvaluationResult` — including the scores already built before the failing line. Nothing
+surfaces this: the rule still reports `status: "active"`, the run completes, and the only symptom
+is that no score appears. This cost a full session to find, so **coerce every metadata value
+before using it as a number**.
 
-The one place the failure is visible is the evaluator update (`PATCH /v2/evaluators/{id}`, run
-by `install_tier1.py`), whose preflight executes the source against sample data and reports the
-exception and line number — which makes reinstalling the evaluator the cheapest way to test it, and means
-a rule that went active earlier is **not** evidence the code still runs, since preflight only
-sees whatever sample it was given.
+The one place the failure is visible is the evaluator update (`PATCH /v2/evaluators/{id}`, run by
+`install_tier1.py`), whose preflight executes the source against sample data and reports the
+exception and line number — which makes reinstalling the evaluator the cheapest way to test it,
+and means a rule that went active earlier is **not** evidence the code still runs.
 
 Two consequences for scoring runs:
 
-- Branch on `run_prompt_key` from the run metadata, not the item's `prompt_key`. An experiment
-  applies one strategy to every item, while an item's `prompt_key` records the strategy of the
-  trace it was *harvested* from; on a mixed dataset the two disagree and the bullet check
-  silently applies to the wrong items. `summarization-screen-v1` has 24 items from
-  `key_points_for_transcript` and 1 from `basic_prompt_for_transcript`, so this is live, not
-  hypothetical. The evaluator prefers `run_prompt_key` and falls back to the item.
-  The obligation runs the other way too: the Tier 1 rule fires on **every** experiment, compare
-  runs included, so any runner calling `run_experiment` must put `run_prompt_key` in its run
-  metadata. Spelling it `prompt_key` there does not work and does not fail either — the
-  evaluator reads run metadata off `ctx.observation` and item metadata off `ctx.experiment`, two
-  different places, so a misnamed key overrides nothing and simply leaves the fallback to
-  decide. The symptom is a `t1_bullet_count` that looks perfectly plausible and was computed
-  against the wrong strategy.
+- **Branch on `run_prompt_key` from the run metadata, not the item's `prompt_key`.** An
+  experiment applies one strategy to every item, while an item's `prompt_key` records the
+  strategy of the trace it was *harvested* from; the dataset is mixed (the screening subset held
+  24 `key_points_for_transcript` items and 1 `basic_prompt_for_transcript`), so the two disagree
+  and the bullet check silently applies to the wrong items. The evaluator prefers
+  `run_prompt_key` and falls back to the item. So any runner calling `run_experiment` must put
+  `run_prompt_key` in its run metadata; spelling it `prompt_key` there neither works nor fails —
+  the evaluator reads run metadata off `ctx.observation` and item metadata off `ctx.experiment`,
+  so a misnamed key overrides nothing and leaves a plausible `t1_bullet_count` computed against
+  the wrong strategy.
 - **Evaluators moved from `unstable/evaluators` to `v2/evaluators`, and the old route now returns
-  404** (found 2026-09-26). Semantics changed with it: `POST /v2/evaluators` always creates a
-  *new* evaluator at version 1, bound to no rule, so re-posting the name — which used to add a
-  version — would now upload the code and score nothing. A new version is a `PATCH` of the
-  existing evaluator with `type` and every definition field; rules always use the latest
-  version, so the rule needs no edit. The live evaluator is named `tier1-on-experiments`, not the
-  `tier1-deterministic` the old script posted, and `install_tier1.py` finds it by that name.
+  404** (found 2026-09-26). `POST /v2/evaluators` always creates a *new* evaluator at version 1,
+  bound to no rule, so re-posting the name would upload the code and score nothing. A new
+  version is a `PATCH` of the existing evaluator with `type` and every definition field; rules
+  always use the latest version, so the rule needs no edit. The live evaluator is named
+  `tier1-on-experiments`, and `install_tier1.py` finds it by that name.
 
 ### One evaluator, not one per score
 
-Splitting `tier1-on-experiments` into one evaluator per score was considered and **deferred**,
-not overlooked. The argument for splitting is real (the `char_length` crash destroyed the
-already-computed scores along with the one that failed), but the price is higher than it looks:
+Splitting `tier1-on-experiments` into one evaluator per score was considered and **deferred**.
+The argument for splitting is real (the `char_length` crash destroyed the already-computed
+scores along with the one that failed), but `t1_pass` cannot survive it — an evaluator cannot
+read scores other evaluators wrote, so it would have to recompute every check, restoring the same
+single point of failure — and each evaluator is a self-contained blob, so the shared helpers would
+be copied into each and diverge silently. The cheaper equivalent, if this is revisited: keep one
+evaluator and wrap each check in `try/except`. Whatever is done, `t1_pass` must **not** silently
+become the conjunction of whichever checks survived. Deferring is safe because re-scoring Tier 1
+costs no tokens.
 
-- `t1_pass` cannot survive the split. An evaluator's context is its own observation and
-  experiment item; it cannot read scores other evaluators wrote. A standalone `t1_pass` would
-  have to recompute every check internally — restoring the same monolith and the same single
-  point of failure, just for the aggregate — or stop being a stored score and become a
-  report-time calculation.
-- Each evaluator is a self-contained source blob with no imports between them, so `_text`,
-  `_lines`, `_is_bullet`, `_cyrillic_ratio` and `_number` would be copied into each. One fix
-  becomes many edits and many reinstalls, and divergence between the copies is silent.
-- Splitting only helps when one check's *input* breaks, which is the `char_length` case. A
-  change to the `ctx` shape itself breaks every evaluator identically either way.
+## Tier 2: the judges
 
-The cheaper equivalent, if this is revisited: keep one evaluator and wrap each check in
-`try/except`. Whatever is done, `t1_pass` must **not** silently become the conjunction of
-whichever checks survived — a partial failure has to suppress it or label it, or the score
-quietly changes meaning.
+Two judges, both in `judge.py`, selected per run through `judge.JUDGES` (`jev`, `opus`, `none`):
 
-What makes deferring safe is that **re-scoring Tier 1 costs no tokens**. The summaries are
-already trace outputs, so a broken scorer is repaired by recomputing over existing traces —
-either through Langfuse's backfill (Traces table → `Actions` → `Evaluate`, requires the v4
-preview toggle; documented for observation-level, **unverified** for a code evaluator on an
-experiment target) or by running the same source locally and posting scores through the API.
-Only Tier 2/3 spend money on a re-score.
-
-## Tier 2 and Tier 3: the judges
-
-**Tier 2 is faithfulness alone since 2026-09-26.** `t2_no_filler` was removed: it was never
-calibrated, so in a filter it would drop models on a judgement nobody had checked, and padding
-is visible the moment the user reads a survivor. The harness keeps only checks that are either
-deterministic (Tier 1) or calibrated (faithfulness).
-
-**Tier 3 pairwise was removed on 2026-09-26**, along with `stage2.py duels` and the pairwise half
-of `calibrate.py`. It never calibrated (best round 78% / κ 0.23), its hand labels left the API's
-30-day window with everything else, and readability is a judgement the user makes by
-reading the survivors — with candidate models changing constantly, a judge would need
-recalibrating as often as the field moves. The Tier 3 sections below are history, kept so the
-approach is not rebuilt without its lessons.
-
-Both lived in `scripts/eval/judge.py`, a local runner that posts scores back through the API into
-the same score table as the `t1_*` scores and any human annotations — which is what keeps the
-calibration comparison a query rather than a spreadsheet. The reasons differ per tier, and
-conflating them is a mistake worth not repeating:
-
-- **Structured output works.** `response_format: json_schema` returns clean schema-conforming
-  JSON on Anthropic over OpenRouter, with and without `provider: {require_parameters: true}`,
-  so nothing on that account stops a Langfuse-managed Tier 2 judge. `judge.py` uses a forced
-  tool call (`tools` + `tool_choice`) instead, because that is what the banked scores were
-  produced with — not because the alternative is broken.
-  **Opus 5.5 rejects the forced tool call** (checked 2026-09-27): every provider OpenRouter
-  routes it to answers 400, *"tool_choice: type "tool" and "any" are not supported for this
-  model"*, and `urllib` surfaces only `HTTP Error 400: Bad Request` — read the body. It accepts
-  the same schema as `response_format: json_schema`, so `judge.SCHEMA_OUTPUT_MODELS` lists the
-  models `ask` asks that way. Moving Opus 5 over too would change nothing it is asked, but it
-  would change the transport its banked scores were produced with, so it stays on the tool call.
-  When a provider *appears* to silently ignore a documented parameter, check its status page
-  before writing the behaviour down: from the client side an incident and a missing feature
-  look identical, and this bullet once carried a constraint that was really an outage.
-- **An evaluator sees one item.** Its context is that item's `input`, `output`, `expected_output`
-  and metadata; there is no mapping source for a second run's output. So **Tier 3 pairwise cannot
-  be an evaluator of either kind**, whatever the judge model. This constraint is structural and
-  is the one that genuinely forces a local runner.
-- **Tier 2 stays local by choice, not by constraint.** Faithfulness is a per-item
-  single-observation judgement, so it would fit a managed evaluator. Two
-  things are given up by moving them, and both are load-bearing rather than stylistic: the
-  **judge reports and the runner decides** (a managed evaluator's output definition is one numeric
-  `score` plus reasoning, so asking the model for `0.71` directly is exactly the arithmetic slip
-  that design removed — and it could not carry the faithfulness `findings[]` at all, since that
-  needs a list the runner gates on rather than a number), and `judge_version` **pins the prompt
-  and schema by hash** so banked
-  comparisons stay valid, whereas a managed evaluator is versioned by Langfuse and that version
-  would have to be copied into run metadata by hand. The Ragas library evaluators are not a
-  shortcut here either: their `Faithfulness` takes `context`/`answer` and is RAG-shaped, while
-  this project's definition counts claims, is translation-aware (Russian summary, possibly
-  English source) and explicitly does not penalise omission. Revisit the trade, do not assume it
-  was forced.
-
-### The judge model
-
-The current id is the `JUDGE_MODEL` constant in `judge.py`; what matters is the two
-constraints behind it, which outlive any particular model.
-
-**The judge's family must not appear in the candidate pool.** A judge scoring its own family
-favours it, and with several families competing that bias can decide the ranking outright.
-**And the judge must outrank the candidates** — judging mid-tier output with a mid-tier model
-measures the judge's ceiling, not the candidate. Re-check both whenever a candidate from the
-judge's family is screened; that is the event that invalidates the choice.
-
-The judge is pinned by model id, reasoning effort and judge-prompt hash — **not** by
-temperature, which frontier models increasingly reject outright. Calibration against hand
-labels may still revise the choice — 20–30 labelled outputs, iterate the judge prompt until
-agreement reaches ~80% or Cohen's kappa passes 0.6 — but nothing else should.
-
-**Calibration decides the judge model; it does not assume it.** `calibrate.py judge [<model>]`
-takes a candidate judge as an argument, and running it once per candidate measures each against
-the *same* hand labels. Every score carries the judge pin — model plus prompt hash — in its
-metadata, which is what keeps two judges' verdicts separable: they write the same score names,
-so without that grouping the second run silently overwrites the first and the comparison it was
-run for is unreadable. `agreement` reports each pin as its own block.
-
-Take the higher number, and when the cheaper judge clears the bar, **use it and spend the
-difference on dataset items** — more items buy more statistical power than a better judge does.
-One calibration round is small next to a compare stage, so measuring a second judge is cheap
-relative to the decision it settles. Weigh it against the *whole* Tier 2/3 bill, not against the
-round. Note the second constraint still binds: a judge below the candidates' tier measures its
-own ceiling, so "cheaper" has a floor that a mid-tier model does not clear here.
-
-**That floor was reached, and it decided the current pin.** The banked round has Opus 5 at
-**88% agreement / kappa 0.65 — PASS** on faithfulness over 24 comparable items, against Sonnet 5
-at 64% / 0.32 on the prompt it was run with. Sonnet was also probed on the *current* prompt and
-reached roughly 75% / 0.19, so the redesign did not rescue it. `JUDGE_MODEL` is therefore Opus,
-and the spend-the-difference rule simply does not arise when the cheap judge fails the gate.
-
-The failure was one-directional and worth recognising again elsewhere: both models stayed clean
-on **all 17** summaries the labels call faithful, so neither invents faults. They separated only
-on the 7 the labels reject, where Opus found a material error in 4–5 and Sonnet in 1 — Sonnet
-located the same passages but graded them `minor`. A weaker judge here does not hallucinate
-problems; it **under-rates real ones**, which looks like agreement on the easy majority and
-collapses on the cases that decide a ranking.
-
-**A third judge was screened and rejected: `openai/gpt-5.6-sol-pro`.** On the *same* prompt pin as
-the Opus round it reached **80% / kappa 0.56 — NOT CALIBRATED**, clearing the agreement bar and
-missing the kappa one. It is the closest any alternative has come, and it still should not be used,
-for two reasons that are worth separating.
-
-**Its errors point the wrong way, and it breaks the property the paragraph above records.** Opus's
-three disagreements are all *misses* — a fault the labels record and it did not. sol-pro has one
-miss and **four false alarms**: it called four of the seventeen hand-accepted summaries unfaithful.
-So "neither invents faults" held for the two Anthropic judges and does **not** generalise. Those
-failures are not interchangeable: a judge that misses faults under-detects and punishes nobody, and
-a judge that invents them **penalises good models in the ranking**, which is the thing the score
-exists to produce. Weigh the direction of the errors, not only the agreement number — on agreement
-alone sol-pro at 80% looks like a near-miss, and on error direction it is the worse instrument.
-
-**And it is not cheaper, measured.** The price card says $2/$10 per M against Opus's $5/$25, so
-2.5× — and the round came to **$0.057 per call against Opus's $0.058**. No saving at all: the
-cheaper token price was spent on roughly 2.5× more tokens, almost certainly reasoning. This is the
-second time a price card has misled here (Sonnet promised 5× and gave 2.2×), and the second time
-in the more expensive direction. **Never quote a judge's cost from the catalog — measure a round.**
-
-A useful consequence: the candidate pool keeps `openai/gpt-5.6-luna`. Adopting an OpenAI judge
-would have forced it out under the family rule, and that trade — a permanent per-request saving on
-a candidate, for a one-off saving on judging — was only ever worth making if the judging saving was
-real. It was not.
-
-**A fourth was measured on cost grounds and rejected: `openai/gpt-6-luna`, 2026-09-27.** The
-motive is recorded because it will recur: a compare run on Opus costs about $2.90 per candidate,
-more than the bot's own monthly token spend, so a judge ~20× cheaper would change how often the
-filter can run. There were no hand labels to calibrate against (they had left the API window
-unexported), so `calibrate.py versus` re-judged the 98 summaries of the 2026-09-26 compare runs
-on the same prompt pin and compared against Opus's banked `t2_faithfulness`. The bar was agreed
-before the run: catch at least 75% of Opus's material failures with at most 5 false alarms.
-
-| summaries by | n | Opus flags | luna caught | luna false alarms |
-|---|---|---|---|---|
-| `gpt-5.6-luna` | 49 | 5 | 3 | 11 |
-| `gpt-6-luna` | 49 | 3 | 1 | 5 |
-| all | 98 | 8 | **4** | **16** |
-
-It fails both halves, and in the sol-pro direction rather than Sonnet's: it invents faults. Most of
-its 16 material findings are ones Opus graded `minor` or `borderline` on the same claim, so the
-two disagree on the severity boundary, and luna draws it far lower. Under luna the filter would
-have **dropped `gpt-5.6-luna`** (35/49, 71%, against Opus's 90%) and kept `gpt-6-luna` (43/49,
-88%). Luna also flagged the older model's summaries twice as often as its own, which is what
-family self-preference would look like; with this few negatives it cannot be told apart from a
-real quality gap. Cost **$0.145 for 98 calls**, $0.0015 each — the saving was real this time; the
-instrument was not.
-
-**Opus 5.5 is not cheaper and not better (2026-09-27).** Its card is $4/$20 per M against Opus 5's
-$5/$25, so it was measured on the 22 hand-labelled summaries (see *JEV* below for the labels):
-**$1.31, $0.060 per call** (median $0.056), against the $0.058 Opus 5 averaged on the calibration
-round — the third time a lower card price bought no saving, though the two figures come from
-different items. Against the user it is a more lenient Opus 5: 1 of 3 errors caught (missing the
-revenue figure Opus 5 caught), 4 false alarms against 5, the same 73% agreement. It raised no
-flag Opus 5 did not, and dropped 2 of Opus 5's 7. It also needs the `response_format` route
-(below). No reason to move the pin. The verdicts are in `temp/versus-openai_gpt-6-luna-*.json`, untracked.
-
-**Quote the banked round, not a probe.** Probing the same items ahead of the round gave 92% /
-0.78, and the round gave 88% / 0.65 — one item (`scr-11e822219c80`) graded `material` in the probe
-and `minor` in the round. That item flipped on Sonnet too, so severity near the boundary is
-unstable *per run* on both models, and a single round is a sample rather than a model's ceiling.
-Cheap probes are still the right way to decide whether a round is worth paying for; they are just
-not the number to record.
-
-**Judge spend is measured, not estimated.** `_call_body` sets `usage: {include: true}`, so
-OpenRouter prices every call and `ask` returns that alongside the verdict; `run_judge` totals it
-and prints what the round actually cost. Do not reconstruct a bill from a price table written
-down here — vendor prices move, and one of them is on a dated introductory rate.
-
-#### JEV: reachable without pydantic-ai, and what one round of binary questions showed
-
-`typesafe/jev-1.13` (TypeSafe's "System One" model) is not an LLM: it returns typed decisions —
-a choice among at most 255 options, a yes/no, a rubric score — each with a probability, and
-generates no free text. **$0.042 per M input tokens, output free.** It cannot be called on
-`chat/completions` (400: *"is a decisions model … Use the /api/alpha/decisions endpoint"*), but
-**OpenRouter accepts TypeSafe's own protocol on `POST /api/alpha/decisions`** with the ordinary
-OpenRouter key, so the harness reaches it with the same `urllib` it uses for Opus and needs no
-pydantic-ai bump. The body is `{model, state, questions}`, where `state` is any JSON (here
-`{source, summary}`) and each question is `{type: "noul", instructions, criteria: {true, false}}`;
-the reply is `answers[name].noul`, the probability of true. Several questions go in one call.
-Three identical calls returned identical probabilities. (pydantic-ai's `TypeSafeModel` wraps the
-same protocol through `typesafe-sdk`, which posts to `/v1/systemone` on `api.typesafe.ai`.)
-
-**The context limit is real and falls inside this corpus.** A 48k-character source plus summary
-was 20,797 input tokens and fit; sources of 53k, 79k and 157k characters returned
-`max_tokens_exceeded`. So anything given the whole source covers roughly the shorter 85–90% of
-production items and nothing past ~50k characters.
-
-**One round, 2026-09-26: seven binary questions on 25 production summaries**, JEV against Opus
-(`key_points_for_transcript` traces, one per distinct source, spread 1k–157k characters). Cost
-**$0.0076** for JEV's 22 calls against **$2.15** for Opus's 25 plus three re-runs. There were no
-hand labels, so this measures agreement between two judges, not either one's accuracy.
-- **The omission questions barely vary on the production model.** Opus answered true on 22–24 of
-  24 for `main_takeaway`, `major_topics`, `ending_covered`, `advice_kept` and `worth_time`, and the
-  few falses were partly the question's fault: a skipped sponsor segment was reported as a missing
-  major topic and a promoted course as dropped advice. A question with no negatives cannot rank
-  models; `worth_time` and `ending_covered` had none.
-- **A bare yes/no reintroduces the faithfulness failure.** Opus called 8 of 24 summaries
-  unsupported, and several of its reasons argue themselves out of the flag ("… is consistent",
-  "slight distortion but largely supported"). This is the count-before-reasoning problem the
-  enumerating faithfulness prompt fixed; a binary question has no severity gate to put back.
-- **JEV ranks in Opus's direction but is not calibrated to it.** AUC against Opus's verdicts was
-  0.79 (`no_unsupported`, 7 negatives), 0.84 (`distinct_bullets`, 3) and 0.75–1.00 on questions with
-  a single negative; at the 0.5 threshold it said true on 20 of 21 for `no_unsupported`. Negatives
-  this few make every one of those numbers soft.
-- **Opus returned malformed tool calls on 5 of 25** with a seven-object schema — once the other
-  six answers nested as XML text inside the first field, once a single field only — and one of
-  three re-runs failed again. OpenRouter does not enforce `required`; validate before scoring.
-
-**Round 2, same day: the revised questions do not separate models.** Five questions (`worth_time`
-dropped for never varying, `no_unsupported` dropped because faithfulness stays with the calibrated
-enumerating judge; sponsor reads, ads and promotion excluded explicitly) on 24 production sources
-of 1k–44k characters, each summarised twice: by whichever model the user had selected in the bot
-when the trace was recorded (the trace's own output), and by `openai/gpt-6-luna` through
-`eval_client.summarize`. **"Production" is not one model**: the bot lets the user switch, and the
-traces' GENERATION observations show `openai/gpt-5.6-luna` on 24 of the 32 sampled sources,
-`meta/muse-spark-1.2` on 7 and `thinkingmachines/inkling` on 1. The trace itself carries no model
-id; it sits on the observation. **Opus answered true on all five questions
-for all 48 summaries** — zero negatives, so no paired difference between the two models on any
-question — even though luna's summaries are ~23% shorter (median 2,188 against 2,844 characters).
-JEV's mean probabilities were within 0.06 between the two models on every question. Excluding
-promotion removed round 1's false negatives and left nothing behind them.
-
-What that settles: on sources under ~45k characters, "does the summary keep the main takeaway, the
-major topics, the ending, the advice, without repeating itself" is passed by any competent
-key-points summary, so it cannot rank candidates. Where models differ is finer — which points,
-how accurately, how readably — which is what faithfulness and pairwise measure. Two gaps remain
-untested and both bias toward passing: sources over 45k characters were excluded (round 1's only
-plausible real omissions were on 35k and 53k sources), and the 8 sources dropped for malformed
-Opus replies may not be random. Cost: luna $0.027 for 32 summaries, JEV $0.017 for 62 calls, Opus
-$3.35 for 55 usable verdicts — **Opus returned malformed tool calls on roughly one call in four**,
-often the same summary on retry.
-
-A third arm, `tencent/hy3`, on the same sources: its summaries are the shortest of the three
-(median 1,708 characters against luna's 2,188 and the traces' 2,844), and on the 17 sources where
-Opus returned valid verdicts for all three models it drew **2 negatives in 85 answers** — one
-repeated pair of bullets, one dropped piece of usage advice — against 0 for the other two. Two
-negatives on 17 sources is not a ranking. hy3 cost $0.094 for 32 summaries, JEV $0.0095, and Opus
-$1.17, with 7 of 24 replies malformed again.
-
-**The calibrated faithfulness judge on the same three arms** (pin `8f66738fe8e7`, unchanged since
-calibration, 24 sources, 72 verdicts, $3.08 by the credit balance against $3.52 the calls reported):
-
-| arm | pass | material | minor | borderline |
-|---|---|---|---|---|
-| traces (mostly `gpt-5.6-luna`) | 22/24 | 2 | 24 | 51 |
-| `openai/gpt-6-luna` | 23/24 | 1 | 18 | 29 |
-| `tencent/hy3` | 23/24 | 1 | 39 | 39 |
-
-No arm separates on the gated score: paired, each pair of arms splits 1–2 or 1–1 on the items
-only one of them passes. The one visible difference is below the gate — hy3 draws the most
-`minor` findings while writing the shortest summaries — and `minor` was never calibrated, so it
-is a lead, not a result. Read together with the binary rounds: on sources under ~45k characters
-the three are indistinguishable on everything measured, which makes price and readability the
-remaining axes. Per M tokens at the time: `gpt-6-luna` $0.10/$0.50, `hy3` $0.13/$0.53,
-`gpt-5.6-luna` $0.20/$1.20.
-
-**JEV as the faithfulness judge: rejected on the same 72 summaries.** One yes/no question
-restating the calibrated judge's gate (only a *material* misstatement counts; omission,
-rewording and translation do not), $0.0195 for all 72. Against the calibrated Opus verdicts it
-ranks barely better than chance — **AUC 0.64** — and no threshold works: at 0.7 it catches 1 of
-Opus's 4 material failures with 4 false alarms among 68 passes; at 0.8 it catches 3 of 4 with 30
-false alarms. Its probabilities on Opus's failures (0.68–0.87) sit inside the range it gives
-clean summaries (median 0.80). Two caveats, both small against that gap: 4 negatives is a thin
-sample, and Opus is itself 88% against hand labels rather than ground truth. The failure matches
-the model's design — a material error is a single claim checked against one sentence somewhere
-in a long source, which is search, not a fast decision. **JEV also cannot stand in for hand
-labels**: `h_faithful` is what makes a judge trustworthy, and labels written by one model would
-only measure agreement between two.
-
-**JEV one bullet at a time: better, still rejected (2026-09-27).** The whole-summary question asks
-JEV to search, so the retry made every decision local: `state` is `{source}` alone and each bullet
-of the summary is its own `noul` question (the claim, the same material-only rule, criteria "the
-source supports the claim" / "materially misstates or invents"), all in one call; the runner
-takes the lowest probability as the summary's verdict and fails it below **0.5**, a threshold
-fixed before the run. `calibrate.py versus typesafe/jev-1.13` does this over the same 98
-compare-run summaries as the luna measurement above, against Opus's banked verdicts. **$0.047 for
-all 98.** Without the summary in `state` the context limit did not bite: all 98 fit, the longest
-source 74k characters, where the whole-summary form had failed from 53k.
-
-| threshold on the weakest bullet | caught (of 8) | false alarms (of 90) |
+| | JEV | Opus `FABRICATED` |
 |---|---|---|
-| **< 0.5 (the bar)** | **2** | **2** |
-| < 0.7 | 2 | 8 |
-| < 0.8 | 4 | 21 |
-| < 0.9 | 8 | 51 |
+| Model | `typesafe/jev-1.13` | `anthropic/claude-opus-5.5`, effort `medium` |
+| Score | `t2_jev_weakest`: P(supported) of the weakest bullet | `t2_fabricated`: 1 clean, 0 if anything invented |
+| Cost | ~$0.02 a 50-item run | ~$2.60–2.80 a 50-item run, ~$0.06 a call |
+| Used on | every candidate (default in `sweep`) | finalists only (`stage2.py judge opus`) |
+| Read as | comparative signal, no floor | invented share, no floor |
 
-AUC **0.75**, up from 0.64, and no threshold meets the bar (≥75% caught with ≤5 false alarms). This
-is the Sonnet failure again, not luna's: JEV rarely invents a fault but **under-rates real
-ones**. Its probabilities sit in a narrow band — the median summary's weakest bullet is 0.87 —
-and Opus's material claims mostly land inside it: matching Opus's flagged claim to its bullet
-(approximately, by the comment text), JEV put that bullet lowest on 3 of 9 claims but below 0.5 on
-one only (0.17). One of its two catches was on a different bullet than the one Opus flagged. Both
-false alarms are the same source (`cmp-1296a1f2292e`, an application window's dates), which Opus
-graded `minor` on both summaries. **Omission-free local claims are the form this model suits, and
-it still cannot gate a filter.** The verdicts are in `temp/versus-typesafe_jev-1.13-*.json`,
-untracked.
+Every score carries its pin in metadata — `judge_model` and `judge_prompt` (`<name>@<hash>` of the
+prompt and schema). **Editing a prompt, question or schema moves the pin** and unpins it from
+every banked score; the pins at the end of 2026-09-28 were `fabricated@9ce4d77c42da` and
+`jev-supported@ef74f34ee0d8`. The hash covers the exact string, which is why
+`pyproject.toml` exempts `scripts/eval/` from `E501`: reflowing a prompt to fit the line length
+would repin the judge.
 
-**Neither the call shape nor the wording is the bottleneck.** Two follow-up variants on the same
-98 summaries, one bullet per call each (`versus typesafe/jev-1.13 0 single|minimal`):
+The judges run locally rather than as Langfuse-managed evaluators **by choice, not constraint**.
+Both are per-item judgements and would fit. Two things would be given up: the **judge reports and
+the runner decides** (a managed evaluator returns one numeric score plus reasoning, so it could not
+carry Opus's `findings[]` or JEV's per-bullet probabilities), and the pin by hash, which a managed
+evaluator would replace with Langfuse's own versioning copied into run metadata by hand. Revisit
+the trade; do not assume it was forced.
 
-| variant | AUC | caught / false alarms at 0.5 | at 0.8 | median weakest bullet, clean | cost |
-|---|---|---|---|---|---|
-| batched: all bullets in one call | 0.75 | 2 / 2 | 4 / 21 | 0.87 | $0.047 |
-| single: one bullet per call, same wording | 0.75 | 2 / 2 | 5 / 21 | 0.87 | $0.445 |
-| minimal: one per call, "is this claim supported?" plus a translation note | 0.73 | 2 / 1 | 2 / 6 | 0.94 | $0.439 |
+### JEV: the cheap screen on every candidate
 
-- **Batching changes nothing.** Per bullet, batched and single differ by a median of **0.000**
-  (95th percentile 0.02, max 0.19, over 1,197 bullets), so JEV answers each question
-  independently and one-per-call only multiplies the bill by about 9.5, since every call pays
-  for the source again. **Near the threshold it is not quite nothing**: `minimal` batched
-  (`--variant minimal-batched`, $0.009 for the 22 labelled summaries) caught 1 of the 3
-  hand-labelled errors against single's 2, because one landed between 0.5 and 0.6. A per-bullet
-  drift of up to 0.19 is enough to cross a fixed threshold, so compare variants on AUC and the
-  sweep, not on the single 0.5 cut.
-- **Stripping the exclusions and error types moves every probability up**, not the bad ones
-  down: fewer false alarms at every threshold and no extra catch, AUC unchanged within noise.
-- **All three catch the same two summaries** (`cmp-179d3a312217`, `cmp-24e03e64dc2e`). What
-  limits JEV here is the model's own discrimination between a supported and a materially
-  distorted claim, not how the question is put, so a further prompt variant is not worth a run.
+`typesafe/jev-1.13` (TypeSafe's "System One") is not an LLM: it returns typed decisions — here a
+yes/no — each with a probability, and generates no text. **$0.042 per M input tokens, output
+free.** It cannot be called on `chat/completions` (400: *"is a decisions model … Use the
+/api/alpha/decisions endpoint"*), but **OpenRouter accepts TypeSafe's protocol on
+`POST /api/alpha/decisions`** with the ordinary key, so the harness reaches it with `urllib` and
+needs no pydantic-ai bump. The body is `{model, state, questions}`; each question is
+`{type: "noul", instructions, criteria: {true, false}}` and the reply is `answers[name].noul`, the
+probability of true. Identical calls return identical probabilities.
 
-**Then the user labelled the disagreements, and against hand labels the verdict reverses.** Every
-luna, JEV and Opus comparison above measured agreement with Opus. On 2026-09-27 the user read
-the 26 summaries where the judges split — Opus's 8 material flags and the 18 summaries Opus
-passed but luna or JEV flagged — with verbatim source quotes beside each claim, and labelled 22
-(four skipped: one unsure, one not read, two second copies of an item). Labels are in
-`temp/human-labels-2026-09-27.json`, untracked.
+How it is asked, and why each choice holds:
 
-| judge | human errors caught (of 3) | false alarms (of 19) | agreement |
-|---|---|---|---|
-| Opus (the pinned judge) | 2 | **5** | 73% |
-| `gpt-6-luna` | 1 | 16 | 18% |
-| JEV, any of the three variants | 2 | **1** | 91% |
+- **One question per bullet, the source whole in `state`.** Asked once whether a whole summary is
+  faithful, JEV ranked barely above chance (AUC 0.64): finding one wrong claim in a long source is
+  a search, not a decision. Per bullet it reached AUC 0.75 against Opus. `state` holds the source
+  alone: with the summary in it too, sources past ~50k characters returned `max_tokens_exceeded`;
+  without it the longest source tried, 74k, fitted. **Never truncate the source** — every claim
+  from the missing half would look unsupported.
+- **All bullets in one call.** Against one call per bullet, a bullet's probability moves by a
+  median of **0.000** (95th percentile 0.02, max 0.19, over 1,197 bullets) and the bill falls about
+  ten times, since every call pays for the source again. The 0.19 tail can cross a fixed
+  threshold, which is one more reason not to gate on one.
+- **The shortest positive question** (`JEV_SUPPORTED`: *"Is this claim supported by the source?
+  The claim may be a translation."*). Asked whether a claim is *invented*, with criteria written so
+  `true` stayed the clean answer, JEV answered the question and ignored the polarity: AUC **0.28**.
+  Longer instructions — exclusion lists, error types, Opus's definition of a fact — made it doubt
+  every bullet more without catching more errors (on 42 hand-labelled summaries: AUC **0.80** for
+  the short question against 0.72 with the fact definition). JEV is not steered by being told
+  more; four wordings were measured.
+- **The weakest bullet stands for the summary**, since one invented claim is enough to mislead and
+  an average would let ten sound bullets hide it. `JEV_FLAG_BELOW = 0.6` was the best balance on
+  the 42 labels and is a reading aid for the report's `jev<0.6` column, not a gate.
 
-- **Five of Opus's eight material flags were not errors to the user** — the same false-alarm
-  direction that rejected sol-pro and luna, in the judge those were measured against. Most of
-  JEV's "misses" above were therefore Opus's false alarms, and JEV catches the same two real
-  errors Opus does (`cmp-179d3a312217`, a revenue figure; `cmp-24e03e64dc2e` on the older model).
-  The third (`cmp-be9afb262b65`, an overstated retention figure and an expansion stated as done)
-  only luna caught. Luna's standing does not change.
-- **Opus's 88% calibration came from a different sample and still stands as recorded**; this
-  review sampled *disagreements*, which is where a judge's errors concentrate, so 73% here is not
-  a revised overall figure.
-- **Three real errors cannot certify anything.** JEV at 2 of 3 is below the 75% bar and within one
-  item of anything; the 72 summaries where all three judges agreed were not read. What this
-  settles is narrower: agreement with Opus is not a valid proxy for correctness on this corpus,
-  so the rejections above rest on the wrong reference and JEV is **not** ruled out.
+**It is a coarse screen, and the finalists show where it stops.** Read comparatively it ordered
+the top of the 2026-09-28 queue the way Opus did, and it separated a model that fabricates more
+(stepfun) from the production model, p = 0.011. But it flagged glm-5.3-flash and mimo-v2.6-pro on
+4% and 0% where Opus found something invented in 28% and 18%. JEV rarely invents a fault and
+**under-rates real ones** — its probabilities sit in a narrow band (median weakest bullet ~0.9 on
+clean summaries).
 
-**Ask JEV whether a claim is supported, never whether it is invented.** The labels led the user
-to narrow Tier 2 to one question — does the summary state a fact the source does not contain —
-since everything they confirmed as an error was an invented or distorted fact and Opus's
-wording-level flags were not. Put to JEV per bullet as *"Does this claim state a fact that is not
-in the source?"*, with criteria written so `true` stayed the clean answer ("No: every fact … is in
-the source"), it flagged all 98 summaries: AUC **0.28**. JEV answered the question and ignored
-the criteria's polarity. Read the other way round it is still near chance — AUC 0.63 against
-Opus and **0.56 against the hand labels** — and every probability sat between 0.13 and 0.71
-around a median of 0.42, so the negative framing leaves the model unsure rather than merely
-inverted. The same idea in positive form is the `minimal` variant above (*"Is this claim
-supported by the source?"*), which gives 2 of 3 human errors caught with 1 false alarm. $0.042 for
-the run (`versus typesafe/jev-1.13 0 invented`).
+### Opus `FABRICATED`: the finalists' judge
 
-**Opus's definition of a fact, put to JEV positively, is worse too (2026-09-28).** The `facts`
-variant (`calibrate.py`, `--variant facts`) keeps JEV's "is it supported?" framing but spells out
-what a fact is, as `INVENTED` does for Opus — a name, number, date, event, who did what, a cause,
-done versus planned — and says compression and wording are not errors. On the 42 hand-labelled
-summaries ($0.019), against the pipeline's `minimal` question on the same items:
+`FABRICATED` asks for every claim the source does not support, each sorted into one of two kinds:
+**invented** — no basis in the source or the source says otherwise (a name, number, date, event or
+actor it does not have; done stated as not done) — and **compression** — merged, generalised,
+re-emphasised, slightly over- or understated, rounded, with "when a claim could be either, it is
+compression". Only *invented* fails the summary; compression is counted in the score's metadata
+and comment and moves nothing, because the user judged it a matter of taste.
 
-| question | AUC vs the user | median weakest, clean | at < 0.6: caught / false alarms |
-|---|---|---|---|
-| `minimal` (the pipeline's) | **0.80** | 0.91 | 4 of 6 / **3 of 36** |
-| `facts` | 0.72 | 0.76 | 3 of 6 / 12 of 36 |
-
-The longer definition makes JEV doubt every bullet more — clean summaries fall from a median of
-0.91 to 0.76 — without catching more errors, the same pattern as the long `batched` instruction.
-Four wordings have now been measured, and the shortest positive question is the best of them;
-JEV is not steered by being told more. Both rows are against the same, partly stale labels, so
-the comparison between them stands even where each absolute number does not.
-
-#### Hand labels made from a model's chosen quote inherit the model's choice
-
-**The hand labels above are not ground truth, and the reason is how they were gathered.** To make
-labelling tractable, each summary claim was shown beside a verbatim passage that `gpt-6-luna`
-picked from the source (checked to occur verbatim). That guarantees the passage is real, not that
-it is the passage that decides the claim. Two cases found on 2026-09-27:
-
-- **A mention outside the passage.** A stepfun summary said a business serves "Amazon and Walmart"
-  sellers; the passage around the anchor named only Amazon (31 mentions), so the user marked it
-  invented. Walmart occurs once, elsewhere.
-- **A passage that points the wrong way.** A gpt-6-luna summary said the team went through
-  *Anthropic's* accelerator. The passage looked supportive, so it was labelled clean; the source
-  says the accelerator was Cohere's, in a Ukrainian transcript that spells both names in Cyrillic
-  (*Антропік*, *Кохія*). Opus found it; the user confirmed it on the full text.
-
-So a labeller reading only the quote errs in both directions, and a "false alarm" against such
-labels may be a judge being right. Two things follow. **Judge-vs-labeller disagreements must be
-adjudicated before they are counted** — the labeller re-checks each against the full source.
-And **a review aid should find deciding passages by plain search**, not by a model: the dispute
-file for the one-question prompt lists every sentence containing a name or number from the
-finding, matching Cyrillic names on a five-letter stem so inflected forms still match. The
-review files, per-summary full texts and the label files are under `temp/`, untracked.
-
-**The one-question prompt (`judge.py` `INVENTED`, pin `3a6bf3cc1d96`), first run.** It asks only
-whether the summary states a fact the source does not contain or contradicts, with no types and
-no severity, and any finding fails the summary. It was run on Opus 5.5 over the 42 labelled
-summaries (22 luna, 20 stepfun; `versus anthropic/claude-opus-5.5 --prompt invented --labels
-temp/human-labels-all.json`), $2.34, $0.056 a call. Against the labels as they stood it caught
-**all 6** errors with **23 false alarms of 36** (the old prompt on Opus 5: 3 of 6, 12 false
-alarms); counting only summaries with two or more findings gives 4 of 6 and 9. Because of the
-section above, those 23 are being adjudicated rather than read as false alarms — **OPEN** until
-the user has checked them.
-
-**Adjudication was abandoned, and so was per-summary agreement as the goal.** Reading all 43
-findings, the user agreed with many and disagreed with many, and concluded that labelling further
-would not converge: the line between distorting and compressing is a reader's judgement, and the
-filter only needs to catch a model that plainly makes things up. So the last prompt splits every
-finding in two (`judge.py` `FABRICATED`): *invented* — no basis in the source or the source says
-otherwise (a name, number, date, event or actor it does not have; done stated as not done) — and
-*compression* — merged, generalised, re-emphasised, slightly over- or understated, rounded, with
-"when in doubt, compression". Only *invented* fails the summary. Rerun on the 29 summaries the
-one-question prompt flagged ($1.87, $0.064 a call): **30 of 102 findings invented, 72
-compression**; against the unadjudicated labels, 4 of 6 errors caught and 15 false alarms of 36.
-Those 15 cannot be read as false: on their face most are the kind the user does count — the host,
-not the guest, leaving for a daughter's birthday; 100k read as 200k; Cohere's accelerator
-attributed to Anthropic (which the user had already confirmed). The labels are what is stale, and
-nobody will relabel them.
-
-**Then the user read the `FABRICATED` findings, and agreed with Opus (2026-09-28).** Going
-through the file of all 102 findings, they checked most of the 30 *invented* ones against the full
+**Why this judge is trusted (2026-09-28).** The user read the 102 findings `FABRICATED` produced on
+29 summaries (30 invented, 72 compression), checked most of the 30 invented ones against the full
 sources and agreed with every one they checked — including several on summaries they had labelled
-clean (`cmp-07b12243a1ea`, for one, where they had seen the error and not counted it as critical).
-What they had been rejecting in earlier Opus verdicts was what `FABRICATED` now sorts as
-*compression*. So on the question the filter asks — does the model plainly make things up — Opus
-with `FABRICATED` agrees with the user, and it replaced the old `FAITHFULNESS` prompt as the
-pipeline's Opus option (`judge.eval_fabricated`, score `t2_fabricated`, 1 clean / 0 invented, on
-`judge.FABRICATED_MODEL` = Opus 5.5). It is not certified in the calibration sense — no fresh
-blind sample, and "most" rather than all of 30 were checked — but it is the judge the user trusts.
-The old prompt's 85% floor (`FAITHFULNESS_FLOOR`) was removed with it; no judge sets a floor now.
+clean. What they had rejected in earlier Opus verdicts was what this prompt now sorts as
+compression. It is **not certified** in the calibration sense: no fresh blind sample, and "most"
+rather than all of 30 were checked (**ASSUMED** correct where unchecked).
 
-**Where that leaves the judge (2026-09-28).** No judge is certified against the user, and none will
-be: the reference would take more labelling than the decision is worth. Opus costs ~$3 a
-candidate on the 50-item set, against a bot that costs the user about $10–15 a month to run: one
-model is a fraction of a month, but a queue of ten — the size that builds up in a month or two
-of releases — is $30, two to three months of running the bot. So it stays out of the default
-route: JEV (`minimal`) is the cheap signal for plain fabrication on every candidate, read
-comparatively rather than against a floor, and `FABRICATED` on Opus 5.5 is run on the finalists
-only (`stage2.py judge opus <model> ...`, over their existing compare runs, no regeneration). The
-final choice weighs the invented share against `run $` and compression — the user counts a longer
-summary that keeps more detail in its favour.
+**Why only on finalists.** ~$3 a candidate against a bot that costs the user about $10–15 a month
+to run: one model is a fraction of a month, but a queue of ten — the size that builds up in a
+month or two of releases — is two to three months of running the bot.
 
-**JEV as the pipeline's Tier 2, first read (2026-09-28).** `judge.eval_jev` scores each compare
-item `t2_jev_weakest` — P(supported) of its weakest bullet under the `minimal` question, all
-bullets in one call — and `stage2.py jev` backfilled the three runs that existed (148 items,
-$0.062). The report, with no hand labels involved:
+Three details of the call are load-bearing:
 
-| candidate | JEV median | share < 0.6 | t1_pass |
-|---|---|---|---|
-| `openai/gpt-5.6-luna` (production) | 0.92 | 6% | 98% |
-| `openai/gpt-6-luna` | 0.94 | 2% | 98% |
-| `stepfun/step-3.7-flash` | 0.89 | 12% | 96% |
+- **The judge enumerates; it never returns a count.** A model that declares a number before its
+  reasoning commits to it before it has thought — one verdict's reasoning ended *"retracting to 0
+  unsupported"* while the emitted count stayed 1 — and a truncated reply then loses the grounds for
+  a number already asserted. An enumerated list loses only its tail, and the runner counts.
+- **Opus 5.5 rejects a forced tool call** (checked 2026-09-27): every provider OpenRouter routes it
+  to answers 400, *"tool_choice: type "tool" and "any" are not supported for this model"*, and
+  `urllib` surfaces only `HTTP Error 400: Bad Request` — read the body. `ask_fabricated` asks for
+  the schema through `response_format: json_schema` instead, which returns clean
+  schema-conforming JSON.
+- **OpenRouter does not enforce `required`**, so a truncated or lazy reply can arrive short a
+  field. `ask_fabricated` raises rather than scoring a partial; `stage2.py judge` catches it per
+  item, names the item and carries on. Opus can also refuse with `finish_reason: content_filter`
+  on innocuous content (once, on a summary of a Go-language blog post), which surfaces the same
+  way.
 
-Paired sign tests on per-item deltas put stepfun below both: 32 better / 14 worse for
-`gpt-5.6-luna`, **p = 0.011**; 35 / 7 for `gpt-6-luna`, **p < 0.001**; the two luna models do not
-separate (17 / 26, p = 0.22). That is the ordering the hand labels and Opus both pointed to, so
-JEV read comparatively does what the filter needs from it — it tells a model that fabricates
-more from one that does not — even though no threshold on it could be certified per summary.
-Each luna run is one item short on both judges: the item lost to the sweep hang, stored with an
-empty output.
+**Judge spend is measured, not estimated.** Every call sets `usage: {include: true}`, so
+OpenRouter prices it and the evaluator stores `cost` in the score metadata; `stage2.py judge`
+totals it. **Never quote a judge's cost from the catalog — measure a round.** The card has been
+wrong every time it was checked: Sonnet 5 promised 5× cheaper than Opus 5 and gave 2.2×;
+`gpt-5.6-sol-pro` promised 2.5× and cost the same ($0.057 against $0.058 a call — the saving went
+on reasoning tokens); Opus 5.5 promised 20% off Opus 5 and cost $0.060 a call against $0.058.
 
-### Three details of the judge are load-bearing
+### Choosing a judge model: the two constraints
 
-The judge never returns a verdict already reduced to one number — faithfulness enumerates and the
-runner gates — because a model asked directly for `0.71` makes arithmetic slips no prompt wording
-fixes (the retired coverage judge counted entailed facts for the same reason). Those schemas declare their **verdict field before
-`reasoning`**, since models emit in declared order and it is the long reasoning string that runs
-into `max_tokens` — a truncated call then still carries the answer. And OpenRouter does not
-enforce `required` on this route, so a missing field has to be caught explicitly rather than
-trusted. Pairwise runs **both orders and discards disagreements**; the discard rate is itself a
-judge-quality signal.
+**The judge's family must not appear in the candidate pool** — a judge scoring its own family
+favours it. **And the judge must outrank the candidates** — judging mid-tier output with a
+mid-tier model measures the judge's ceiling. Re-check both whenever a candidate from the judge's
+family is evaluated. The judge is pinned by model id, reasoning effort and prompt hash — not by
+temperature, which frontier models increasingly reject outright.
 
-### Faithfulness enumerates; it does not count
+**Weigh the direction of a judge's errors, not only its agreement.** A judge that misses faults
+under-detects and punishes nobody; a judge that invents them **penalises good models**, which is
+the thing the score exists to prevent. Sonnet 5 and JEV under-rate real errors; `gpt-5.6-sol-pro`
+and `gpt-6-luna` invent them.
 
-The faithfulness schema is the exception to the ordering above, and calibration is what forced
-it. Declaring a count ahead of the reasoning makes the model commit to a number **before it has
-thought**, and the number cannot then be revised: across 25 hand-labelled items one verdict's own
-reasoning ended *"Re-checking, all claims are supported; retracting to 0 unsupported"* while the
-stored count stayed 1, and another wrote *"Actually hard to find clear unsupported claims"*
-under a count of 2. The reasoning that would explain the number was then truncated at the
-900-character comment cap, so the count could be neither justified nor audited. That single
-defect produced most of one judge's false positives.
+## Rejected, and why
 
-So the judge returns `findings[]` — each entry carrying the claim, what the source actually says,
-a `severity` and a `type` — and **the runner applies the gate**. An empty list is a clean verdict.
-Truncation now loses the tail of a list rather than the grounds for a number already asserted.
+Everything below was built, measured and removed on this branch (STG-138, 2026-08-16 to
+2026-09-28). The code is in git history; the lessons are here so none of it is rebuilt without
+them.
 
-Three consequences worth keeping:
+- **Coverage via a key-facts checklist (`t2_coverage`, `checklists.py`), removed 2026-09-26.** A
+  strong model extracted the points a summary must not omit, a human edited the list, and a judge
+  scored coverage against it. Neither a model nor the user could cut a list to a cap consistently
+  (of 17 drop decisions, Opus and the user agreed on 2), atomic facts pulled toward figures and
+  names (48% of facts were supporting detail) while the product asks for ideas, and the uncapped
+  list read as a table of contents. The user's framing ended it: the stage evaluates the chosen
+  model under the product prompt, so labels belong on its summaries, not on a competing reference.
+  Generation cost ~$0.06–0.08 an item — the bill is the source, not the reply.
+- **Omission by binary questions, 2026-09-26.** Two rounds of yes/no questions (main takeaway,
+  major topics, ending, advice, repetition) on production summaries: Opus answered true on all
+  five questions for all 48 summaries of round 2, luna's ~23% shorter summaries included. Any
+  competent key-points summary passes them on sources under ~45k characters, so they cannot rank
+  candidates. Omission currently has no metric.
+- **`t2_no_filler`, removed 2026-09-26.** Never calibrated, so in a filter it would drop models on
+  an unchecked judgement, and padding is visible the moment the user reads a survivor.
+- **Tier 3 pairwise readability, removed 2026-09-26.** Never calibrated — best round 78% agreement
+  but kappa 0.23 on a 19/5/1 label split. Two lessons outlive it. **What a pairwise judge decides
+  on is whatever the prompt fails to exclude**: accuracy, output language and retained coverage
+  each crept in, each looked like a miscalibrated judge, and each was found by reading the judge's
+  own reasons on the disagreements — do that before paying for any round. And **a skewed or
+  TIE-heavy label split collapses kappa** however good the judge; kappa is comparable between
+  judges only at comparable discard rates. An evaluator sees one item, so pairwise can never be a
+  Langfuse evaluator; readability is judged by the user reading the survivors.
+- **Faithfulness with a severity gate (`FAITHFULNESS`, `t2_faithfulness`, Opus 5), replaced
+  2026-09-28.** It enumerated findings graded material/minor/borderline and failed a summary on
+  any *material* one, with an 85% floor. Calibrated at **88% agreement / kappa 0.65** on 24 items
+  against hand labels in an annotation queue. When the user later labelled the judges'
+  disagreements, **5 of Opus's 8 material flags were not errors to them** — the line between
+  distortion and compression is a reader's judgement. `FABRICATED` replaced it by making that line
+  explicit and failing only on invented facts. Its scores remain on old runs; its score config is
+  archived.
+- **Cheaper judges for faithfulness, 2026-08 to 2026-09-27**, all against Opus's verdicts:
+  Sonnet 5 (64% / kappa 0.32, grading real errors `minor`); `gpt-5.6-sol-pro` (80% / 0.56, four
+  false alarms, no cheaper); `gpt-6-luna` (caught 4 of 8 with **16** false alarms on 98 summaries,
+  $0.145 — cheap, wrong); Opus 5.5 on the old prompt (no cheaper, no better: 1 of 3 errors, 4 false
+  alarms on 22 labels). JEV as a whole-summary judge (AUC 0.64) and in six per-bullet variants —
+  what survived is the one described above.
+- **The one-question prompt (`INVENTED`), 2026-09-28.** "Does the summary state a fact the source
+  does not contain", no types, any finding fails. On 42 labelled summaries it caught **all 6**
+  errors but flagged 23 of 36 clean ones, a mix of real fabrications and compression artefacts the
+  user could neither accept nor reject as a set — which is what `FABRICATED`'s two kinds sort.
+- **Calibrating per summary against hand labels, abandoned 2026-09-28.** Two labelling rounds (22
+  and 20 summaries) and a dispute round. Labels made from a passage a model chose inherit the
+  model's choice — a mention outside the quoted passage was labelled invented, and a passage
+  pointing the wrong way was labelled clean — so **judge-vs-labeller disagreements must be
+  adjudicated against the full source before they are counted**, and a review aid should find
+  deciding passages by plain search, not by a model. The user concluded that labellers would not
+  converge on "distortion vs compression", so no judge is certified per summary and none sets a
+  floor. The annotation queue (`calibration-faithful-v1`) was deleted and its score configs
+  archived on 2026-09-28.
+- **A separate screening stage (`stage1.py`, 25 items, Tier 1 only), removed 2026-09-28.** Once
+  the compare run carried Tier 1 and a two-cent judge, a separate cheaper run saved nothing worth
+  a second step.
 
-- **Only `material` moves the score.** `minor` and `borderline` are recorded and deliberately do
-  not, because the hand labels tolerate a real-but-immaterial error and reject a changed meaning.
-  Gating inside the prompt instead would let one nitpick decide the verdict with nothing left to
-  inspect afterwards.
-- **There is no claim total to divide by, and asking for one was tried.** The model supplied it
-  erratically — absent entirely on one call, and **6** against the previous prompt's **15** on the
-  very same summary. A denominator that reflects how finely the model chose to slice the summary,
-  and that sometimes fails to arrive, cannot carry a quality score. `t2_faithfulness` is therefore
-  **1 or 0**, so a run's mean reads as the share of its summaries free of a material error — the
-  same statement the hand labels make, which is what lets the calibration number say anything
-  about the score at all.
-- **The severity boundary is the hard part, and prose alone does not convey it.** Tightening the
-  wording moved nothing measurable. Adding a worked minor/material pair as a few-shot example was
-  tried and **removed**: it produced no net gain — one item gained, another lost — while
-  contaminating a calibration item by handing the judge its answer. Do not re-add examples drawn
-  from the calibration set; the set is 25 items, so one of them is worth four points of agreement.
+## The report
 
-### Comprehensibility is substance; elegance is not
-
-Now that Tier 3 judges readability alone, this distinction carries more weight rather than less —
-it is what keeps "better to read" from collapsing into "sounds nicer". The prompt tells the judge
-to ignore which summary sounds more confident and to give no credit for polish that does not help
-a reader understand. What it does count is language a reader has to fight (clumsy translation,
-mangled syntax, phrasing that leaves the meaning in doubt) and points so compressed that the
-thread between them has to be reconstructed: **a point the reader cannot extract has not been
-delivered**, whether the obstacle is bad syntax or missing connective tissue.
-
-Translationese is a live failure mode here, since summaries are Russian while sources usually are
-not, so discounting it entirely would blind the one dimension meant to catch it.
-
-The labeller has to apply the same line, and the cost of not doing so is now measured rather than
-hypothetical: **a whole round was spent, twice, on a dimension where the two sides were asked
-different questions**, and it read as a miscalibrated judge for as long as nobody compared the
-instructions. **Specification comes before calibration.** Tuning a prompt against disagreements
-is what calibration is for, but only once both sides are asked the same thing — and the cheapest
-way to check that is to read the judge's own reasoning on the disagreements before touching
-anything, because it states the criterion it applied.
-
-### Calibration runs before the compare stage, not after
-
-`scripts/eval/calibrate.py` measures the judge against hand labels: raw agreement plus Cohen's
-kappa, targeting ~80% / kappa >0.6. A Tier 2/3 ranking means nothing until this passes, so it
-gates stage 2 rather than reviewing it. It is also **cheapest before any Tier 2/3 score is
-banked** — every judge-prompt revision moves `judge_version` and unpins banked comparisons, so
-iterating now costs nothing and iterating later destroys real work.
-
-Four things about it are load-bearing:
-
-- **The judge prompts and schemas are imported from `judge.py`, never restated.** Calibration
-  has to measure the prompt production actually uses; a copy would drift and the agreement
-  number would then describe nothing.
-- **Name the dimension being re-measured: `judge [<model>] [faithfulness|pairwise]`.** Prompts
-  move one dimension at a time, so a whole-round re-run pays to re-score a dimension whose prompt
-  has not changed — and it does not merely waste the money. Severity near the boundary is
-  unstable per run, so the second round *replaces* a banked, quoted result with a different
-  number for the same prompt. The two arguments are order-independent; omitting the dimension
-  keeps the old both-dimensions behaviour.
-- **Both dimensions are hand-labelled in a Langfuse annotation queue, and its items must point
-  at the ROOT span.** A screening trace holds four observations, and only the choice between
-  them decides whether the measurement means anything. The root span's output is the clean
-  summary, byte-identical to what the judge is given. The GENERATION nested inside it holds the
-  model's reply *as parts*, with a reasoning model putting a `thinking` part in front of the
-  `text` one — annotate that and the human reads a different artefact than the judge scores and
-  sees reasoning the judge never sees. Nothing complains either way; the wrong pick simply
-  produces an agreement number about nothing.
-- **Pairwise has no existing object to point at**, because a queue item is one object and the
-  comparison needs two summaries side by side — the constraint that stopped Tier 3 being an
-  evaluator. `calibrate.py setup` writes one purpose-built span per pair, source as input and
-  both summaries as output, and the blinding lives in its metadata as the only record of which
-  model was shown as A. They are free, named `calibration pair`, and never read as bot traffic. Those traces are keyed by the duel they were built from, not only by
-  the item: change `PAIR_A`/`PAIR_B` and `setup` writes fresh ones and pulls the previous duel's
-  items out of the queue, because a trace from another duel answers a different question while
-  looking identical in the UI.
-- **Pick the calibration duel by which axis the spec is least sure of**, not by which models
-  matter most commercially. Two models a reader rates equally mostly produce TIE, which inflates
-  chance agreement and collapses kappa; two that differ on a criterion the prompt already
-  handles carefully test nothing. Holding the well-specified axis roughly fixed — length, say —
-  and varying the newest one is what makes 25 labels informative.
-- **One queue holds both dimensions.** The Hobby plan allows exactly one annotation queue, and
-  no API route updates *or deletes* a queue after creation. A queue missing a config simply
-  never offers that channel, on any item, with nothing to say why. Mis-setting a channel on the
-  wrong kind of item is harmless: agreement maps observations back to sample items, and a label
-  on an observation outside that mapping is ignored.
-- **The UI *can* attach a score config to an existing queue** — verified, and it takes effect
-  immediately with the queue's items and their statuses intact. So a queue built short of a
-  config is fixed in its settings; it never has to be deleted and rebuilt. The API restriction
-  above is an API restriction only, and `setup` creating a queue with every config it will need
-  stays the rule for a *new* queue rather than a repair procedure.
-- **Labels survive the queue.** A label is a score on an observation; the queue is only a work
-  list pointing at observations. Deleting and rebuilding the queue therefore loses no labelling
-  — the rebuilt items come back `PENDING` while their scores stay in the score table and keep
-  mapping. Verified with 25 `h_faithful` labels in hand.
-- **The sample is derived, not stored** — items sorted by id and dealt round-robin across the
-  screening runs. Agreement is only comparable across prompt revisions when the items stay
-  fixed, and a stored manifest would drift from the runs it names.
-- **Pairwise labelling is blind, and the blinding is per item.** Which model appears as A is
-  derived from a hash of the item id, so the layout reproduces without a manifest while no
-  vendor can be tracked down the file. These labels *become the standard the judge is measured
-  against*, so a preference leaking into them is not a bias in one score — it is a bias baked
-  into the target. Verdicts are stored canonically (A always means the first model), so a human
-  label and a judge label are the same kind of statement.
-- **The unflip has been verified against real labels, and the blinded view is not the result.**
-  The stored `columns_flipped` matched the value derived from the item id on all 50 spans, and
-  unflipping scored 11/22 against the judge where leaving it raw scored 8/22. The trap is
-  reading the *blinded* tally as a preference: 25 labels came out **12 / 12 / 1 TIE** as shown
-  and **19 / 5 / 1** once canonical. The even split is evidence the blinding worked, nothing
-  more — quote the canonical figures, never the as-shown ones.
-- **Read only the current duel's spans.** A previous duel's spans survive forever, nothing in v4
-  deletes an observation, and they carry the same `dataset_item_id` — so an unfiltered read maps
-  a label about two *other* models onto this comparison. `setup` filters on `run_a`/`run_b` when
-  it enqueues and `agreement` now filters the same way on the way back out.
-- **A skewed marginal collapses kappa exactly as a TIE-heavy one does.** The duel above ran
-  19/5/1, and that lopsidedness pushed chance agreement to ~57% against an observed 50%, giving a
-  **negative** kappa. The guidance to avoid two models a reader rates equally is only half the
-  rule: *any* strongly unbalanced label distribution starves kappa, so pick a duel the labeller
-  will split somewhere near evenly, in either direction.
-
-An `INCONSISTENT` pairwise verdict is the judge **abstaining**, not disagreeing: the two orders
-contradicted each other, so there is no opinion to compare. Those are excluded from agreement
-and kappa and reported as a discard rate, exactly as the compare stage discards them. Counting
-them against the judge would understate agreement and quietly merge position bias with error.
-
-### Tier 3 ranked readability, not overall quality (removed)
-
-**Pairwise must not weigh factual accuracy, and the prompt used to open by demanding
-it.** That single line — *"Weigh faithfulness to the source first"* — is what made Tier 3
-uncalibratable, and it is worth understanding rather than just fixing, because the failure was
-invisible in every individual verdict.
-
-The two dimensions are deliberately **orthogonal**. `h_faithful` asks whether the source supports
-the claims, per summary. `h_pairwise` asks which summary is better to *read* — style, coherence,
-comprehensibility. Scoring accuracy in both counts the same defect twice, and worse, it lets
-accuracy dominate the comparison so completely that the readability signal never surfaces: a
-judge told to rank faithfulness first will decide almost every pair on the first criterion and
-never reach the second.
-
-That is exactly what the banked round shows. The labeller applied the split as designed; the
-judge obeyed its prompt; nine of eleven disagreements have the judge citing a factual error in
-the summary the labeller preferred on style. **Both sides were internally consistent and
-answering different questions**, which is why a stronger judge made the number worse rather than
-better — Opus simply found more of the errors it had been told to rank on.
-
-Three consequences follow, and the second is easy to miss:
-
-- **The source is still shown to the pairwise judge**, because dense and disconnected cannot be
-  told apart without knowing what was being condensed. The prompt therefore has to say what the
-  source is *not* for, or the judge starts checking claims against it again by default.
-- **`t3_pairwise_win` no longer means "better summary".** It means "better to read", so it cannot
-  by itself rank candidates the way the compare stage was originally written to expect. A ranking
-  now has to combine it with `t2_faithfulness` rather than read Tier 3 as the
-  verdict. The score name predates this and is now misleading; renaming it would orphan any
-  banked score from its history, so it is left alone deliberately — read this paragraph, not the
-  name.
-- **A summary in the wrong language does not lose the duel for being in the wrong language.** The
-  judge had been disqualifying it on its own initiative — *"a reader of the intended output gets
-  nothing"* — which is the double-counting rule again from a different direction: `t1_language_match`
-  already scores output language, per summary and binary, so deciding a duel on it both counts the
-  defect twice and ends the comparison before readability is reached. The labeller applies the
-  same line and preferred an English summary over a badly written Russian one. The prompt now says
-  so explicitly, because left unsaid the judge supplies the disqualification itself.
-
-  This is a **specification** decision, not a preference about output language: the bot must still
-  answer in the language asked for, and `t1_language_match` is where that is enforced and where a
-  failure like minimax's 8% drift rate shows up.
-
-#### Density is a cost, and this is the defect a prohibition does not fix
-
-Excluding accuracy left a second leak of the same shape, found by re-reading the eleven
-disagreements after the rewrite: **six were decided on how much of the source each summary
-retained**, a seventh cited it as a secondary reason, and only two turned on the criteria the
-prompt actually lists. Retained substance is `t2_coverage`'s question, measured per summary
-against a fixed checklist, so weighing it here is the double-count again — and the prompt did not
-forbid it, having forbidden only claim-checking. It now forbids both, and says the source is not
-an inventory to score omissions against.
-
-`PAIRWISE` still tells the judge that coverage "is measured separately, per summary, against a
-fixed checklist", which stopped being true when the coverage judge was removed. It is left as is
-on purpose: the instruction it supports — do not weigh how much each summary retained — is still
-the right one, and editing the sentence would move the pairwise pin (`ccc8bc85092a`) for no
-change in what the judge is asked to do. Reword it the next time the prompt changes for a real
-reason.
-
-The direction of the disagreement is the part worth keeping, because a prohibition alone would
-not have fixed it. In all six the judge named the *denser* summary as the one that retained more
-and picked it; the labeller picked the other one every time. Across the whole duel the labeller
-preferred the longer model 19–5, and the judge preferred the shorter one in 9 of the 11
-disagreements. So the two sides were not disagreeing about how much was kept — they were
-disagreeing about whether packing it in is a virtue:
-
-- **The judge treated density as a virtue**, crediting facts-per-line and forgiving length when
-  the payload justified it — *"A is longer but earns it."*
-- **The labeller treated density as a cost**, which is what the prompt's own Coherence bullet
-  already said: a stack of noun phrases reads as fragments *however much it contains*.
-
-The rule was therefore already in the prompt and lost to a criterion nothing ruled out. The fix
-is not another prohibition but an explicit statement that density is a cost — plus the note that
-economy and density are not the same thing, since cutting the words that carried the connection
-between two points is damage, not concision.
-
-**The general lesson, now on its third instance: what the pairwise judge decides on is whatever
-the prompt fails to exclude.** Accuracy, output language and retained coverage each arrived this
-way, each looked like a miscalibrated judge, and each was found the same way — by reading the
-judge's own stated reasons on the disagreements rather than by tuning wording. Do that read
-before paying for any round.
-
-### The round that produced this: pairwise was not calibrated on either judge
-
-These are the numbers the mismatch above produced, kept because they are what a
-criterion-mismatch looks like from the outside — near-chance agreement, negative kappa, and a
-*stronger* judge scoring worse:
-
-| judge | agreement | kappa | inconsistent |
-|---|---|---|---|
-| Sonnet 5 | 50% | −0.05 | 12% |
-| Opus 5 | **39%** | **−0.09** | **28%** |
-
-Neither is evidence about judge quality on the question Tier 3 is now asking, and neither is a
-baseline to improve on: the prompt they were run under has been replaced, so `judge_version`
-moved and both are unpinned. Re-measure before concluding anything.
-
-The 28% discard rate looked like a **second, independent** defect: on seven pairs the judge
-contradicted itself when the order was swapped, which is position sensitivity rather than
-criterion mismatch, and it more than doubled when the judge got stronger. It was not independent.
-Fixing the specification took it to 8% without anything addressing position bias directly — so a
-high discard rate here meant the *comparison* was under-determined, not that the judge was
-careless. A judge asked a question its instructions cannot settle will answer it differently in
-the two orders.
-
-### The round that measured the rewritten prompt: better on every axis, still not calibrated
-
-Same 25 hand labels, same judge model, three specification fixes later
-(`pairwise@ccc8bc85092a`):
-
-| judge / prompt | agreement | kappa | inconsistent |
-|---|---|---|---|
-| Opus 5, accuracy-first | 39% | −0.09 | 28% |
-| Sonnet 5, accuracy-first | 50% | −0.05 | 12% |
-| **Opus 5, readability** | **78%** | 0.23 | **8%** |
-| Sonnet 5, readability | 50% | **0.29** | **60%** |
-
-Agreement doubled, the discard rate fell to a third, and kappa went from negative to positive —
-and the verdict is still **NOT CALIBRATED**, because 0.23 is nowhere near 0.6. Understanding why
-those two facts sit together is the whole lesson of this round.
-
-**The marginal is degenerate.** The judge answered A on 22 of 25 and B once; the labeller answered
-A 19 times, B 5 and TIE once. Two raters who both almost always say A agree often by construction:
-chance agreement alone is about 72% here, so 78% observed buys almost nothing above it. **Raw
-agreement passed the ~80% bar while kappa says the number is uninformative** — which is exactly
-why the target is stated as both, and why quoting agreement alone would have declared this
-calibrated.
-
-All five disagreements are the same shape: `human=B` or `TIE` against `judge=A`. The judge never
-picks the second model where the labeller does.
-
-**Length bias was the obvious suspect and the data clears it.** Telling a judge that density is a
-cost could plausibly push it into preferring whichever summary is longer, and the candidate that
-won 22 times is systematically the longer one. It did not happen. Mean A/B character ratio where
-the judge says A is **1.23**, against **1.26** where the labeller says A — indistinguishable. The
-judge's single B came on the item where A was **1.75×** longer, the opposite of a length
-preference. And the labeller's own B verdicts average **1.32**, so those are not "the shorter one
-wins" either; they are cases where the extra length stopped paying for itself.
-
-So the prompt is not over-corrected, and the judge tracks the labeller across the easy majority.
-What it cannot do is call the five hard ones, and **this duel does not contain enough of them to
-certify anything either way**. That is the duel-selection rule biting from the other side: a
-19/5/1 split starves kappa whichever direction it leans, and picking this pair for varying the
-newest criterion did not make the labeller split evenly on it.
-
-**A better round on this duel cannot fix this.** The next move for Tier 3 is a duel the labeller
-splits closer to evenly, which costs 25 fresh hand labels and about $2.80 of judge time — not
-another prompt revision. Until then Tier 3 stays uncalibrated and a ranking rests on
-`t2_faithfulness`.
-
-#### Do not read that table's kappa column across rows
-
-Sonnet on the rewritten prompt scores kappa **0.29 against Opus's 0.23**, and it costs less than
-half as much per call. Reading the column downward says take Sonnet. That is wrong, and the reason
-is worth holding onto because the table itself does not show it.
-
-Sonnet discarded **60%** of the pairs. Its kappa is computed on the **10 verdicts that survived**,
-Opus's on 23 — different samples, different sizes, and no basis for comparison. Sonnet's number is
-higher precisely *because* what survived is balanced (3 A / 3 B / 4 TIE), and a balanced marginal
-lowers chance agreement; the same property that starves Opus's kappa inflates Sonnet's. Four of
-its ten consistent verdicts are TIE, so it is hedging rather than deciding.
-
-**Kappa is only comparable between judges at comparable discard rates.** Read the discard column
-first: it is the one number here that is a direct judge-quality signal, needs no hand labels at
-all, and cannot be inflated by a favourable marginal.
-
-**A tighter specification made the weaker judge worse, and that direction is the finding.** Sonnet
-went from 12% discards to 60% on the rewritten prompt while Opus went from 28% to 8%. The new
-prompt asks the judge to hold four exclusions at once — accuracy, output language, retained
-coverage, density-as-virtue — and apply what is left. Holding them is capability-bound. So the
-failure mode is not the one faithfulness showed, where a weaker judge *under-rated* real problems;
-here the weaker judge does not disagree at all, it becomes **unstable**, answering differently
-depending on which summary it sees first. Expect a precision-raising prompt edit to cost a weak
-judge consistency, and re-check the discard rate rather than the agreement after making one.
-
-This closes the spend-the-difference question for Tier 3 for now: the cheap judge does not clear
-the bar, for a second and different reason than on faithfulness. It cost $1.24 to settle with
-numbers instead of assumption, which is the right trade — do not re-litigate it from the price
-table.
-
-### Two operational traps this round exposed
-
-- **A 402 mid-round is a reservation failure, not an empty account, and it is not the
-  `openrouter_key_limit` trap recorded above.** OpenRouter reserves the *maximum possible* cost of
-  a call — prompt tokens plus the whole `max_tokens` budget — against the remaining credit, so a
-  balance that comfortably covers an entire round still refuses one call carrying a full-size
-  source. The first round died at item 14 of 25 with $3.79 left and $19.28 of key limit unused,
-  and a trivial call on the same key succeeded seconds later. Check the **credit balance**
-  (`/api/v1/credits`), not the key limit (`/api/v1/key`); they are different numbers and this
-  round had room in the one that gets checked first.
-- **The verdicts bought before the crash survived**, because the Langfuse SDK flushes at exit even
-  though `run_judge`'s own `client.flush()` never ran. Do not rely on that — but do check what
-  landed before paying again. `run_judge` now skips sample items already banked under the current
-  pin, filtered on the duel as well, so a killed round is resumed rather than repurchased. Editing
-  the prompt moves the pin and re-runs everything, which is what makes a deliberate
-  re-measurement still possible.
-- **Judge spend is $0.056 per pairwise call on Opus**, measured over the 24-call resume at $1.3445;
-  Sonnet is $0.025, only 2.2x cheaper rather than the 5x its price card suggests, because the bill
-  is dominated by the source on input rather than by the short verdict. Two
-  calls per pair, so a 25-item duel is about $2.80. That is the figure to size the round-robin
-  from: seven candidates is 21 duels, ~2100 calls, on the order of **$120** — which is why the
-  duel stage is a decision and not a step.
-
-The generated labelling file is markdown containing *summaries that are themselves markdown*,
-so a parser keyed on a `## ` prefix alone reattributes verdicts to headings the model wrote.
-`labels` accepts a heading only when it names a known sample item. The failure mode is a
-dropped label that reads as an unlabelled item, not as an error.
-
-### The compare stage's report
-
-`scripts/eval/stage2.py` holds what is built on top of `judge.py`: the sweep across models and
-the aggregation the API does not provide. (It also held the Tier 3 round-robin driver until
-pairwise was removed; mentions of duels below are history.) `sweep` validates every model id
-against the OpenRouter catalog before spending anything, exactly as the screening sweep does —
-otherwise a typo in the sixth id surfaces only after the first five runs are paid for.
-
-**The report ends in a filter: `KEEP` / `DROP` on a `t2_faithfulness` floor of 85%**
-(`FAITHFULNESS_FLOOR`), mirroring screening's floor on `t1_pass`. The number is a judgement, not a
-measurement: strong models scored 92–96% on 24 production sources, so 85% — a material error on
-more than one summary in seven — removes a model that invents facts without trying to separate
-good ones. Revisit it after the first sweep of several models on the 50-item set; a candidate
-with no faithfulness score at all is listed as `UNSCORED` rather than dropped.
-
-**A mean never ranks a model here.** With 25–50 items a few points between two means is noise,
-so every mean the report prints is paired with a test over *per-item* deltas — the sign test on
-Tier 3 verdicts, and the same test on per-item Tier 2 deltas between two candidates. That is why
-every candidate runs over the same items: controlling for item difficulty is worth roughly 3–4×
-the sample size, and fifty paired items beat two hundred unpaired ones. The paired Tier 2 table
-is also the cheap half of the ranking — it needs no judge call beyond the Tier 2 scores each run
-already banked, so it is available before a single duel is paid for.
-
-Five details are load-bearing:
+`stage2.py report` aggregates every compare run on the dataset — what the API does not provide.
 
 - **A candidate is a model *and* a strategy.** `t1_pass` and the Tier 2 means rank models only
-  within one strategy, so runs are keyed `<model> / <prompt_key>` throughout and a model swept
-  under both strategies is two candidates that can duel each other.
-- **Compare runs carry a `stage2 / ` prefix, for the same reason screening runs do.**
-  `GET /experiments` returns seven fields and none of them is metadata, so which stage a run
-  belongs to and which candidate produced it are readable *only* from the run name. Anything
-  that discovers runs is therefore parsing names, and renaming a run orphans it from the report.
-- **The bootstrap is seeded from a constant.** An unseeded interval moves on every read of the
-  same banked verdicts, and that movement is indistinguishable from the data having changed.
-- **The `unres` column merges two different things** — the judge abstaining because the two
-  orders contradicted each other, and a call that never returned. Only the first is a
-  judge-quality signal. `cmd_pairwise` banks a score for consistent verdicts *only*, so the
-  report can see how many are missing but not why; `judge.py pairwise` prints the true split at
-  run time. Do not read `unres` as the discard rate.
-- **Pairwise scores are read from the score table, not from the experiment.** A pairwise score
-  is anchored to run A's trace and carries the pair in its metadata, so filtering scores by
-  experiment id returns nothing for it — the same trap as evaluator scores attaching to the
-  observation.
+  within one strategy, so runs are keyed `<model> / <prompt_key>` throughout.
+- **Compare runs carry a `stage2 / ` prefix.** `GET /experiments` returns seven fields and none of
+  them is metadata, so which candidate produced a run is readable *only* from its name. Anything
+  that discovers runs parses names, and renaming a run orphans it from the report. Langfuse
+  appends a timestamp, and the newest run per candidate wins, so a botched run is superseded by
+  re-running the candidate rather than deleted (nothing deletes an experiment).
+- **A mean never ranks a model.** With 50 items a few points between two means is noise, so every
+  Tier 2 mean is paired with a sign test over *per-item* deltas between two candidates on the same
+  items — controlling for item difficulty is worth roughly 3–4× the sample size. Worked example
+  from the first compare round: two models 0.02 apart on the mean split 5 better / 6 worse per
+  item, p = 1.000.
+- **The filter is Tier 1 only.** `KEEP`/`DROP` on `t1_pass` below `PASS_THRESHOLD`; beside each
+  kept model it prints JEV's flagged share as a signal.
+- **`run $` is what OpenRouter charged for the 50 summaries**, summed from each generation's
+  `totalCost` — which `v2/observations` returns only when the `usage` field group is requested; it
+  is absent, not `null`, otherwise. One paginated read over the run's time window, filtered to the
+  run's own traces so the bot's traffic in the same window is excluded; `*` marks a run with
+  unpriced items (a hung or failed generation). Judge calls are not on these traces. First
+  readings ran under the catalog: $0.12 for `gpt-5.6-luna`'s 50 summaries against an estimate of
+  $0.28.
+- **Tier 2 scores are read from `v3/scores` by name**, not from the experiment items — see the
+  seven-score cap under *API shapes*.
+- **`INCOMPLETE COVERAGE`** lists a run whose Tier 2 score is missing on some items; its means
+  cover only the items that carry it.
 
-The round-robin driver skips pairs already banked, matching on the **exact run names** their
-scores carry. Re-running a candidate produces a new run name, so its pairs are duelled again —
-which is what re-running it means.
+### Results of 2026-09-28
 
-### The first run of the filter, 2026-09-26
+The whole 13-model queue, one run each on the 50 items (thinking `medium`,
+`key_points_for_transcript`). `openai/gpt-5.6-luna` is the production model.
 
-`openai/gpt-6-luna` (candidate) against `openai/gpt-5.6-luna` (the bot's usual model), end to end.
-Screening: `gpt-6-luna` 25/25 on every Tier 1 check. Compare, 50 items: faithfulness **0.939**
-against **0.898**, both `KEEP` above the 85% floor; paired on 48 shared items gpt-6-luna was
-better on 3 and worse on 1, **p = 0.625** — no measurable difference. Compression 0.171 against
-0.220 (gpt-6-luna writes shorter), median latency 19.5 s against 20.7 s. Each run lost one item
-to the hang described under *The harness*, and **the killed item is written with an empty output**,
-so it fails every Tier 1 check and shows as `t1_pass` 98% — read a run's `t1_pass` against its
-`INCOMPLETE COVERAGE` lines before believing a Tier 1 failure. Both go on to live reading; at the
-time `gpt-6-luna` was not in `config.MODEL_SPECS`, so reading it in the bot needs it added there.
+| candidate | t1_pass | JEV median | JEV < 0.6 | invented (Opus) | compression | latency | run $ |
+|---|---|---|---|---|---|---|---|
+| `x-ai/grok-4.7` | **100%** | 0.93 | 0% | **8%** | 0.200 | 23.4 s | 0.75 |
+| `deepseek/deepseek-v4.1-flash` | 96%¹ | **0.94** | **0%** | **10%** | **0.229** | 15.9 s | 0.16 |
+| `openai/gpt-6-luna` | 98% | **0.94** | 2% | 14% | 0.171 | 19.5 s | **0.04** |
+| `xiaomi/mimo-v2.6-pro` | 98% | 0.93 | 0% | 18% | 0.187 | 37.2 s | 0.17 |
+| `openai/gpt-5.6-luna` (production) | 98% | 0.92 | 6% | 27% | 0.220 | 20.7 s | 0.12 |
+| `z-ai/glm-5.3-flash` | 98% | 0.92 | 4% | 28% | 0.166 | **10.6 s** | 0.05 |
+| `meta/muse-spark-1.3` | 96%¹ | 0.92 | 4% | — | 0.197 | 18.8 s | 0.76 |
+| `upstage/solar-pro4` | 98% | 0.92 | 0% | — | 0.158 | 35.7 s | 0.09 |
+| `stepfun/step-3.7-flash` | 96% | 0.89 | 12% | — | 0.202 | 14.1 s | 0.20 |
+| `tencent/hy4-preview` — DROP | 92% | 0.93 | 2% | — | 0.261 | 105.6 s | 1.11 |
+| `inception/mercury-2.5` — DROP | 92%² | 0.91 | 2% | — | 0.071 | 5.3 s | 0.02 |
+| `xiaomi/mimo-v2.6-flash` — DROP | 76% | 0.92 | 2% | — | 0.205 | 25.1 s | 0.06 |
+| `ibm-granite/granite-4.2-8b` — DROP | 62% | 0.80 | 26% | — | 0.178 | 20.6 s | 0.03 |
 
-### The second run of the filter: six cheap candidates on Tier 1 and JEV, 2026-09-28
+¹ one errored item. ² four errored items; 100% on the 46 it answered.
 
-The first sweep on the one-run route (`stage2.py sweep`, JEV as Tier 2), all 50 items each,
-beside the three runs already there. `run $` is what OpenRouter charged for the summaries; the six
-new runs came to **$0.56** together, plus about $0.12 of JEV — against a catalog estimate of
-$0.85, the fourth time the card has been off, this time in the cheap direction.
-
-| candidate | JEV median | JEV < 0.6 | t1_pass | compression | latency | run $ |
-|---|---|---|---|---|---|---|
-| `deepseek/deepseek-v4.1-flash` | **0.94** | **0%** | 96% | 0.229 | 15.9 s | 0.16 |
-| `openai/gpt-6-luna` | **0.94** | 2% | 98% | 0.171 | 19.5 s | **0.04** |
-| `xiaomi/mimo-v2.6-pro` | 0.93 | 0% | 98% | 0.190 | 37.1 s | 0.17 |
-| `openai/gpt-5.6-luna` (production) | 0.92 | 6% | 98% | 0.220 | 20.7 s | 0.12 |
-| `upstage/solar-pro4` | 0.92 | 0% | 98% | 0.158 | 35.7 s | 0.09 |
-| `z-ai/glm-5.3-flash` | 0.92 | 4% | 98% | 0.166 | **10.6 s** | 0.05 |
-| `stepfun/step-3.7-flash` | 0.89 | 12% | 96% | 0.202 | 14.1 s | 0.20 |
-| `ibm-granite/granite-4.2-8b` — **DROP** | 0.80 | 26% | **62%** | 0.178 | 20.6 s | 0.03 |
-| `xiaomi/mimo-v2.6-flash` — **DROP** | 0.92 | 2% | **76%** | 0.205 | 25.1 s | 0.06 |
-
-- **Tier 1 dropped two, each for a reason it exists to catch.** granite answered in English on a
-  third of the items (`t1_language_match` 66%); mimo-v2.6-flash leaked foreign-script letters into
-  a fifth of its summaries (`t1_script_clean` 80%). The deterministic gate did what it was kept for.
-- **JEV, paired, splits the survivors into two groups.** deepseek-v4.1-flash beats the production
-  model on 34 items against 8 (p < 0.001) and ties gpt-6-luna (24 / 18, p = 0.44); gpt-6-luna,
-  mimo-v2.6-pro, solar-pro4 and glm-5.3-flash do not separate from the production model; stepfun
-  sits below most of them, as before. Differences inside the upper group are within noise, so
-  what separates it is cost, latency and the user's reading.
-- **The last four, same day** (`sweep4`; `run $` from the report):
-
-  | candidate | JEV median | JEV < 0.6 | t1_pass | compression | latency | run $ |
-  |---|---|---|---|---|---|---|
-  | `x-ai/grok-4.7` | 0.93 | 0% | **100%** | 0.200 | 23.4 s | 0.75 |
-  | `meta/muse-spark-1.3` | 0.92 | 4% | 96% | 0.197 | 18.8 s | 0.76 |
-  | `tencent/hy4-preview` — **DROP** | 0.93 | 2% | 92% | 0.261 | 105.6 s | 1.11 |
-  | `inception/mercury-2.5` — **DROP** | 0.91 | 2% | 92% | **0.071** | 5.3 s | 0.02 |
-
-  hy4-preview failed `t1_script_clean` on 8% of items — the foreign-script leak its predecessor
-  hy3 was rejected for — and was also the slowest and dearest run. mercury-2.5's failures are
-  **four items whose generation errored**, not bad summaries; on the 46 it answered it passes
-  every check, so its drop is the provider's. It writes a third the length of anyone else,
-  though, which counts against it for a user who values detail. muse-spark-1.3's 96% is likewise
-  one errored item. Against the production model on JEV, grok-4.7 leans better (29 / 16,
-  p = 0.072); muse-spark and hy4 do not separate (p = 0.88, 1.0).
-- **Opus `FABRICATED` on six finalists** (`stage2.py judge opus ...`, over the existing runs,
-  **$16.33** — $2.60–2.79 a model): share of the 50 summaries with at least
-  one *invented* finding, beside the numbers the choice is weighed on.
-
-  | candidate | invented | vs production (paired) | compression | run $ |
-  |---|---|---|---|---|
-  | `x-ai/grok-4.7` | **8%** | 11 / 2, **p = 0.022** | 0.200 | 0.75 |
-  | `deepseek/deepseek-v4.1-flash` | **10%** | 9 / 1, **p = 0.021** | **0.229** | 0.16 |
-  | `openai/gpt-6-luna` | 14% | 8 / 2, p = 0.109 | 0.171 | **0.04** |
-  | `xiaomi/mimo-v2.6-pro` | 18% | 10 / 6, p = 0.454 | 0.187 | 0.17 |
-  | `openai/gpt-5.6-luna` (production) | 27% | — | 0.220 | 0.12 |
-  | `z-ai/glm-5.3-flash` | 28% | 9 / 9, p = 1.000 | 0.166 | 0.05 |
-
-  The production model invents something in more than a quarter of its summaries. Two candidates
-  are measurably better on it, grok-4.7 and deepseek-v4.1-flash, and they do not separate from
-  each other (2 / 3, p = 1.0); deepseek writes the longest summaries and costs a fifth of grok's
-  run. JEV agreed on the order at the top (deepseek and gpt-6-luna best) but missed
-  glm-5.3-flash and mimo-v2.6-pro entirely — 4% and 0% flagged against Opus's 28% and 18% — so it
-  is a coarse screen, and Opus on the finalists is what separated them.
-- **Two traps this round hit.** The experiment-items read returns **at most seven scores per
-  item**: the luna runs, carrying five Tier 1 scores, the old `t2_faithfulness`, JEV and then
-  `t2_fabricated`, came back without the eighth, and the report showed "-" for 49 scores that
-  existed. `stage2.py` now reads Tier 2 scores by name from `v3/scores` and merges them in. And
-  grok's last seven calls returned **402 with $11 on the balance**: the key's own monthly limit
-  ($50, `usage_monthly` $49.81), the `openrouter_key_limit` case recorded under *API shapes*, not
-  the balance. The user raised the limit to $60 and `stage2.py judge opus x-ai/grok-4.7` resumed the last seven
-  items ($0.33), skipping the 43 already scored.
-- **deepseek's 96% is its runner, not the model.** One item hit the 10-minute generation timeout
-  and was stored as an error, which fails every Tier 1 check; on the 49 it answered it is 100%.
-  The timeout did what it was added for — the sweep carried on — but the stored message was
-  empty (`Error: `), since a bare `TimeoutError` has none; it now names the timeout.
-
-### Two things the report does not print, and both change how its table reads
-
-- **Only `t2_faithfulness` gets a paired test** (historical: the report no longer has a
-  `t2_no_filler` column). `t2_no_filler` means were printed with nothing
-  behind them, so they cannot rank anything and a reader of the table will not guess that from
-  looking at it. Two further reasons not to read that column as a ranking: `t2_no_filler` has
-  never been calibrated against hand labels the way faithfulness has, so it is a signal rather
-  than a verdict; and malformed verdicts left it missing on **8 of 149** items, so its
-  denominators differ per candidate (47, 46, 48) while the faithfulness column's do not.
-- **The cost column exists since 2026-09-28, and "not obtainable" was wrong.** It had been
-  recorded that observation price fields come back `null` on the list endpoint. They come back
-  *absent* unless the `usage` field group is requested: with `fields=core,usage`,
-  `v2/observations` returns each generation's `totalCost`, which is what OpenRouter charged
-  (the cost wrapper in `src/llm.py` puts it on the span). `stage2.py report` sums it per run in
-  `run $` with one paginated read over the run's time window, filtered to the run's own traces
-  so the bot's traffic in the same window is excluded; a `*` marks a run with unpriced items (a
-  hung or failed generation). Judge calls are not on these traces and are not in the column —
-  JEV adds about two cents a run. First readings ran well under the catalog estimates: $0.12
-  for `gpt-5.6-luna`'s 50 summaries against an estimate of $0.28.
-
-### The first compare round, and what it settled
-
-Three candidates over `summarization-compare-v1`, all on the same 50 items. Kept because the
-paired tests are the point, not the means:
-
-| candidate | t2_faithfulness | t2_no_filler | t1_pass | compression | latency |
-|---|---|---|---|---|---|
-| inkling | **0.860** | 0.875 | 100% | 0.1725 | 36.7s |
-| minimax | 0.840 | 0.809 | **92%** | 0.1969 | 42.7s |
-| stepfun | 0.653 | 0.804 | 100% | 0.1879 | 37.2s |
-
-Paired sign tests on per-item `t2_faithfulness` deltas: **minimax vs inkling is 5 better / 6
-worse, p = 1.000 — indistinguishable**; minimax vs stepfun 12/3, p = 0.035; stepfun vs inkling
-4/14, p = 0.031. **The two means differing by 0.02 is exactly the noise the paired test exists to
-catch**, and this round is the worked example: read the test, never the gap between two means.
-
-Two findings the table does not carry on its face:
-
-- **All 4 of minimax's `t1_pass` failures are `t1_language_match`** — it answered in English where
-  Russian was asked, on **8% of 50** items. A single sub-check accounting for every failure is
-  what makes `t1_pass` worth decomposing before reading it as a quality number.
-- **Cost separates what the quality tests could not.** At list prices minimax was roughly 3.4×
-  cheaper on output than inkling, which is the whole decision between two candidates the paired
-  test calls indistinguishable — and it is precisely the column the report cannot print.
-
-That round's ranking was never finished, and no longer will be: Tier 3 was removed, and the
-harness now ends in a keep/drop filter rather than a ranking.
+- **Tier 1 dropped four, each for a reason it exists to catch.** granite answered in English on a
+  third of the items; mimo-v2.6-flash (20%) and hy4-preview (8%) leaked foreign-script letters —
+  the leak hy3 was rejected for; mercury-2.5's drop is its provider's errors, and it writes a third
+  the length of anyone else.
+- **Opus separates the finalists; JEV does not.** Against production, paired on invented: grok-4.7
+  11 / 2, **p = 0.022**; deepseek-v4.1-flash 9 / 1, **p = 0.021**; gpt-6-luna 8 / 2, p = 0.109;
+  mimo-v2.6-pro p = 0.454; glm-5.3-flash 9 / 9, p = 1.000. grok and deepseek do not separate from
+  each other (2 / 3, p = 1.0); deepseek writes the longest summaries at a fifth of grok's cost. The
+  production model invents something in more than a quarter of its summaries. Opus on six
+  finalists cost **$16.33**.
+- **Not yet acted on:** no finalist has been added to `config.MODEL_SPECS` for live reading — a
+  separate branch, at the user's direction.
 
 ## API shapes that cost real time to rediscover
 
-Installing a code evaluator through the (now removed) unstable API had a shape trap, kept here
-in case the v2 routes repeat it: on
-`POST /unstable/evaluators` the `prompt` and `outputDefinition` fields are llm-as-judge-only and
-are rejected outright for `type=code`, while on `POST /unstable/evaluation-rules` the evaluator
-reference needs `type: "code"` and `mapping` must be **omitted entirely** — an empty array is
-rejected just as a populated one is, and leaving `type` off makes the request validate as
-llm-as-judge and demand a mapping. The evaluator reference also needs `name` and `scope`
-alongside `id` and `type`; sending only the id fails validation. The server fills the omitted
-`mapping` in with defaults, so a rule read back after creation shows six entries — that is
-expected, not drift. A rule returning `status: "active"` means its preflight ran the code
-**once, against sample data**; it does not mean the code survives real data, so treat `422` from
-a later `POST /unstable/evaluators` as the authoritative crash report.
-
-A few more:
-
+- **The experiment-items read returns at most seven scores per item.** An item carrying five
+  Tier 1 scores, a retired Tier 2 score, JEV and then `t2_fabricated` came back without the eighth,
+  and the report showed "-" for 49 scores that existed (2026-09-28). `stage2.py` reads Tier 2 scores
+  by name from `v3/scores` and merges them in; inline scores still serve Tier 1.
 - **Nothing in v4 deletes an experiment.** `experiments` and `experiment-items` expose `list`
-  only. The deprecated v3 `DELETE /datasets/{name}/runs/{runName}` returns **200** and clears
-  the run from the v3 view, but the v4 experiment and its items survive — so a botched sweep is
-  permanent and shows up in every listing afterwards. Score configs are the same shape: they
-  archive, they do not delete. Plan for junk runs to be *named* rather than removed, and check
-  a runner end to end on one item before sweeping a whole dataset with it.
-- **A score's value: the OpenAPI spec and the live API disagree, and the live one wins.** The
-  spec declares `CategoricalScore.value` a *number* (the category mapping) with the label in
-  `stringValue`. What `GET /v3/scores` actually returns is `value: "A"` with `stringValue`
-  absent — verified against 25 categorical hand labels. BOOLEAN is the same shape: the boolean
-  in `value`, no `stringValue`. Reading only one field fails silently either way, yielding
-  `None` or `0` for every verdict, which looks exactly like a judge that never ran.
-  `langfuse_api.py` holds the one decoder, `score_value(row)`, covering both shapes; do not read
-  `value` off a score row directly, and do not "correct" it to match the spec.
-- **`subject` is its own `fields` group on `GET /v3/scores` and must be requested.** Without it
-  a score row carries **no target at all** — no `observationId`, no `subject`, nothing saying
-  what was scored. Any code mapping labels back to items then matches nothing and reports zero,
-  which is indistinguishable from nobody having labelled anything. This cost real confusion with
-  25 hand labels already saved. Note the shape differs by route: scores returned *inline* by
-  `fields=core,scores` on `GET /experiment-items` carry `subject` without being asked.
-- **Score configs are archived, not deleted: `PATCH /score-configs/{id}` with `isArchived: true`.**
-  On 2026-09-26 the eight for retired scores were archived (`h_pairwise`, `cal_pairwise`,
-  `t3_pairwise_win`, `t2_no_filler`, `t2_coverage`, `t1_bullet_purity`, `t1_no_artifacts`,
-  `t1_no_preamble`); the scores themselves are untouched. A score needs no config to be written —
-  `t1_script_clean` has none — so a config is only worth creating for a score a human labels.
-- **No route updates or deletes an annotation queue.** `/annotation-queues` has GET and POST,
-  `/annotation-queues/{queueId}` has **GET only** — no PATCH, no PUT, no DELETE. Only its
-  *items* can be changed (`POST`, `PATCH`, `DELETE` on the items routes). So a queue created
-  without a score config can never gain one through the API, and cannot be deleted through it
-  either; both need the UI. Create a queue with every config it will ever need.
-- Tier 2 evaluators attach through `Langfuse.run_experiment(evaluators=[…])` rather than by
-  posting scores by hand — the run wires each `Evaluation` to the right item.
-- **Score ingestion is asynchronous and can take longer than it looks.** A posted score was
-  absent from `GET /v3/scores` six seconds after `flush()` and present twenty seconds later, so
-  running `calibrate.py agreement` straight after `calibrate.py judge` reads fewer scores than
-  were written and looks exactly like a judge that silently failed. Wait, or re-read, before
-  concluding anything from a low count.
+  only. The deprecated v3 `DELETE /datasets/{name}/runs/{runName}` returns **200** and clears the
+  run from the v3 view, but the v4 experiment and its items survive. Plan for junk runs to be
+  superseded by newer ones rather than removed.
+- **A score's value: the OpenAPI spec and the live API disagree, and the live one wins.** The spec
+  declares `CategoricalScore.value` a *number* with the label in `stringValue`; `GET /v3/scores`
+  actually returns `value: "A"` with `stringValue` absent. BOOLEAN is the same shape. Reading only
+  one field yields `None` or `0` for every verdict, which looks exactly like a judge that never
+  ran. `langfuse_api.score_value(row)` is the one decoder; do not read `value` off a score row
+  directly, and do not "correct" it to match the spec.
+- **`subject` is its own `fields` group on `GET /v3/scores` and must be requested.** Without it a
+  score row carries **no target at all**, and code mapping scores back to items matches nothing.
+  Scores returned *inline* by `fields=core,scores` on `GET /experiment-items` carry `subject`
+  without being asked.
+- **Score configs are archived, not deleted** (`PATCH /score-configs/{id}` with
+  `isArchived: true`, or Project Settings → Scores / Evaluation in the UI); the scores themselves
+  are untouched. Active at the end of 2026-09-28: `t1_pass`, `t1_compression`, `t1_bullet_count`,
+  `t1_language_match`. A score needs no config to be written — `t1_script_clean`,
+  `t2_jev_weakest` and `t2_fabricated` have none — so a config is only worth creating for a score
+  a human labels.
+- **No API route updates or deletes an annotation queue** — `/annotation-queues/{queueId}` is GET
+  only; only its items can be changed. The UI can attach a score config to an existing queue and
+  can delete one. Labels are scores on observations, so they survive their queue.
 - **A `402` from OpenRouter usually means the API key's own limit, not an empty account.** The
-  body distinguishes them: `limit_source: openrouter_key_limit` with a `remedy_hint` pointing at
-  the key settings. The message reads *"This request requires more credits, or fewer max_tokens.
-  You requested up to 65536 tokens, but can only afford 8028"* — OpenRouter reserves the
-  **maximum possible** cost of a call, so a request is refused on `max_tokens` alone while the
-  balance still shows plenty (verified with $19.51 available). Two consequences: the failure is
-  per-request, so **judge calls kept working while candidate generation did not** — `_call_body`
-  asks for 8000 tokens and the summariser for 65536 — and raising the key's monthly limit, not
-  topping up the balance, is the fix.
+  body says `limit_source: openrouter_key_limit`. OpenRouter reserves the **maximum possible** cost
+  of a call — prompt plus the whole `max_tokens` — so a request is refused on `max_tokens` alone
+  while the balance shows plenty, and the failure is per request: judge calls (8,000 tokens) kept
+  working while candidate generation (65,536) did not. Raising the key's monthly limit, not topping
+  up the balance, is the fix. The bot uses the same key, so while the limit is exhausted the bot
+  fails too; it was raised from $50 to $60 on 2026-09-28. When the body does *not* name the key
+  limit, check the credit balance (`/api/v1/credits`), not the key (`/api/v1/key`) — a round once
+  died with $3.79 left because one call carried a full-size source.
 - **A failed task is stored, not lost, and a partly failed run reads as a bad model.**
-  `run_experiment` catches whatever the task raises and writes `Error: {exc}` into the item's
-  output, then skips that item's Tier 2 evaluators — so no garbage Tier 2 score is banked, which
-  is the good half. The bad half: **the Tier 1 rule still fires**, and it scores the English error
-  string as a language failure. A sweep that lost 36 of 49 items to `402` therefore reported
-  `t1_pass` 0.245 and `t1_language_match` 0.245 — a completely plausible verdict about a model
-  that had in fact never answered. `stage1.py report` guards only the *total* case (every item at
-  `t1_compression` 0); the partial case is caught by nothing, so `cmd_run` now counts items whose
-  output begins with `Error:` and says so while there is still a sweep to stop.
-- **A botched compare run does not have to be lived with, despite experiments being undeletable.**
-  Langfuse appends a timestamp to the run name, and `discover_runs` walks newest-first with
-  `setdefault`, so the freshest run per candidate wins and an earlier broken one is simply never
-  read. That is what makes the documented advice — check a runner end to end on a couple of items
-  before sweeping a whole dataset — cheap and safe rather than something that permanently
-  pollutes the report. Do it; a 2-item probe costs cents and catches exactly this class of
-  failure.
-- **A judge call can come back `content_filter`, on content that explains nothing.** Opus refused
-  one calibration item — a summary of a Google blog post about the Go language — returning a tool
-  call with no arguments and `finish_reason: content_filter`. `_unpack` raises on the missing
-  field, which is right for one call and wrong for a round: `run_judge` posts 75 scores and
-  flushes only at the end, so an escaping exception discards every verdict already paid for. It
-  therefore catches the refusal, drops that item, names it in the summary line, and continues.
-  A dropped item has to be *named*: silently scoring fewer items than the sample holds is exactly
-  what a broken runner also looks like.
-- A Langfuse score **requires a target**. Passing `trace_id=None` fails with a bare
-  `Bad request` while the calling code still prints success, so a pairwise score has to be
-  anchored to something — run A's trace for that item is the natural choice.
-- Dataset run names embed the model id, so they contain `/` and spaces and must be URL-encoded
+  `run_experiment` catches whatever the task raises, writes `Error: {exc}` into the item's output
+  and skips that item's Tier 2 evaluators. The Tier 1 rule still fires on the error string: a sweep
+  that lost 36 of 49 items to `402` reported `t1_pass` 0.245 — a plausible verdict about a model
+  that never answered. `judge.run` counts `Error:` outputs and warns while there is still a sweep
+  to stop.
+- **A Langfuse score requires a target.** Passing `trace_id=None` fails with a bare `Bad request`
+  while the calling code still prints success. `stage2.py judge` anchors a backfilled score to the
+  experiment item's observation (the item's `id`), exactly as `run_experiment` does — the trace
+  alone would be missing from the experiment-items read.
+- **Dataset run names embed the model id**, so they contain `/` and spaces and must be URL-encoded
   into REST paths or the segments split and the request 404s.
+- **Installing a code evaluator through the (removed) unstable API had shape traps**, kept in case
+  the v2 routes repeat them: `prompt` and `outputDefinition` are rejected for `type=code`; the
+  rule's evaluator reference needs `type: "code"`, `name` and `scope` beside `id`, and `mapping`
+  must be **omitted** — an empty array is rejected too. A rule returning `status: "active"` means
+  its preflight ran once against sample data, not that the code survives real data.
