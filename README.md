@@ -303,8 +303,7 @@ uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # Opus o
 Wait about a minute after a run before reading the report, because Langfuse ingests scores
 asynchronously. Include the model you use now in the sweep, so candidates are compared against
 it. Harness runs import the bot's config, so if Sentry is set up, their errors appear in your
-production stream. [`docs/context/evals.md`](docs/context/evals.md) covers the rest: why each
-choice was made, what was tried and rejected, and the traps in the Langfuse and OpenRouter APIs.
+production stream.
 
 ## Docs
 
