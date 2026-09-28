@@ -1028,9 +1028,11 @@ attributed to Anthropic (which the user had already confirmed). The labels are w
 nobody will relabel them.
 
 **Where that leaves the judge (2026-09-28).** No judge is certified against the user, and none will
-be: the reference would take more labelling than the decision is worth. At ~$3 a candidate on the
-50-item set, Opus costs more per model screened than the bot's production model costs to run for a
-month, so it stays out of the default route; the user chose JEV (`minimal`) as the cheap signal for
+be: the reference would take more labelling than the decision is worth. Opus costs ~$3 a
+candidate on the 50-item set, against a bot that costs the user about $10–15 a month to run: one
+model is a fraction of a month, but a queue of ten — the size that builds up in a month or two
+of releases — is $30, two to three months of running the bot. So it stays out of the default
+route; the user chose JEV (`minimal`) as the cheap signal for
 plain fabrication, read comparatively across models rather than against a floor. `FABRICATED` on
 Opus 5.5 remains the best-specified instrument available, and is the one to reach for if a single
 final decision between two survivors ever needs an arbiter.
