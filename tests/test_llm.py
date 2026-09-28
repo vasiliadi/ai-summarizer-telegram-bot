@@ -347,7 +347,7 @@ def test_run_drives_a_real_agent_run(llm_client, mocker):
 
 @pytest.mark.parametrize(
     ("thinking_level", "expected_level"),
-    [("high", "HIGH"), ("minimal", "MINIMAL"), ("xhigh", "HIGH")],
+    [("high", "HIGH"), ("minimal", "LOW"), ("xhigh", "HIGH")],
 )
 def test_run_builds_the_expected_gemini_request_config(
     llm_client,
@@ -357,7 +357,12 @@ def test_run_builds_the_expected_gemini_request_config(
     """Test pydantic-ai, not this codebase, translates the level for Gemini.
 
     Gemini has no XHIGH, so xhigh collapses onto HIGH here — the reason the
-    fifth level is offered for a future provider rather than for today.
+    fifth level is offered for a future provider rather than for today. And
+    gemini-3.7-flash documents no MINIMAL, so pydantic-ai's model profile
+    (`google_supports_minimal_thinking_level`, new in the 2.29 -> 2.32.1 bump)
+    collapses minimal onto LOW: the keyboard's five levels are indistinguishable
+    at the bottom as well as at the top. A Gemini model whose profile does claim
+    MINIMAL keeps it, so this expectation is per-model, not per-provider.
 
     include_thoughts arrives True and cannot be turned off on this path: it is
     hard-coded beside the level in pydantic-ai's Google translation. Gemini

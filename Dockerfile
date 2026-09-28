@@ -1,4 +1,4 @@
-FROM python:3.14-slim@sha256:ce40764625a4ff50df3548277632e7f96c4e77fe75fa848aae9885476e7df5a4 AS builder
+FROM python:3.14-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS builder
 ENV ENV=BUILD \
     PATH="/app/.venv/bin:$PATH" \
     MODAL_BUILD_VALIDATION=ignore
@@ -7,7 +7,7 @@ ARG MODAL_TOKEN_ID
 ARG MODAL_TOKEN_SECRET
 WORKDIR /app
 COPY . .
-COPY --from=ghcr.io/astral-sh/uv:latest@sha256:606e70c71c852d03f611b1e56a195d08648507018a7057fab82c4974c4eae105 /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest@sha256:e85be844203885286c60ffad8a858d48afb6c5a5c237ca0e67f12e74b8f174b1 /uv /bin/
 RUN uv sync \
     --frozen \
     --only-group build \
@@ -17,7 +17,7 @@ RUN python scripts/db.py \
     && alembic upgrade head \
     && modal deploy scripts/cron.py
 
-FROM python:3.14-alpine@sha256:05b2b8b732ecd268fee8727a369f936f022d1321b59befd13c30ede22769dcdc
+FROM python:3.14-alpine@sha256:9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
 ENV ENV=PROD \
     PYTHONUNBUFFERED=1 \
     DENO_V8_FLAGS="--max-old-space-size=256" \
@@ -26,7 +26,7 @@ ENV SENTRY_ENVIRONMENT=${ENV} \
     LANGFUSE_TRACING_ENVIRONMENT=prod
 WORKDIR /app
 RUN apk add --no-cache ffmpeg deno
-COPY --from=ghcr.io/astral-sh/uv:latest@sha256:606e70c71c852d03f611b1e56a195d08648507018a7057fab82c4974c4eae105 /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest@sha256:e85be844203885286c60ffad8a858d48afb6c5a5c237ca0e67f12e74b8f174b1 /uv /bin/
 COPY pyproject.toml uv.lock LICENSE NOTICE ./
 RUN uv sync \
     --frozen \
