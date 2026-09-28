@@ -995,6 +995,29 @@ alarms); counting only summaries with two or more findings gives 4 of 6 and 9. B
 section above, those 23 are being adjudicated rather than read as false alarms — **OPEN** until
 the user has checked them.
 
+**Adjudication was abandoned, and so was per-summary agreement as the goal.** Reading all 43
+findings, the user agreed with many and disagreed with many, and concluded that labelling further
+would not converge: the line between distorting and compressing is a reader's judgement, and the
+filter only needs to catch a model that plainly makes things up. So the last prompt splits every
+finding in two (`judge.py` `FABRICATED`): *invented* — no basis in the source or the source says
+otherwise (a name, number, date, event or actor it does not have; done stated as not done) — and
+*compression* — merged, generalised, re-emphasised, slightly over- or understated, rounded, with
+"when in doubt, compression". Only *invented* fails the summary. Rerun on the 29 summaries the
+one-question prompt flagged ($1.87, $0.064 a call): **30 of 102 findings invented, 72
+compression**; against the unadjudicated labels, 4 of 6 errors caught and 15 false alarms of 36.
+Those 15 cannot be read as false: on their face most are the kind the user does count — the host,
+not the guest, leaving for a daughter's birthday; 100k read as 200k; Cohere's accelerator
+attributed to Anthropic (which the user had already confirmed). The labels are what is stale, and
+nobody will relabel them.
+
+**Where that leaves the judge (2026-09-28).** No judge is certified against the user, and none will
+be: the reference would take more labelling than the decision is worth. At ~$3 a candidate on the
+50-item set, Opus costs more per model screened than the bot's production model costs to run for a
+month, so it stays out of the default route; the user chose JEV (`minimal`) as the cheap signal for
+plain fabrication, read comparatively across models rather than against a floor. `FABRICATED` on
+Opus 5.5 remains the best-specified instrument available, and is the one to reach for if a single
+final decision between two survivors ever needs an arbiter.
+
 ### Three details of the judge are load-bearing
 
 The judge never returns a verdict already reduced to one number — faithfulness enumerates and the
