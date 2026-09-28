@@ -288,7 +288,11 @@ nothing else — those are the two prompt variables, and an `inputSchema` reject
 either. `prompt_key` rides in `metadata`, not `input`: an experiment picks one prompt and runs it
 over every item, so the originating trace's strategy fills no variable. A second dataset,
 `summarization-screen-v1` (a 25-item subset), is left in Langfuse from the retired screening
-stage; nothing reads it and the rebuild no longer writes it.
+stage; nothing reads it and the rebuild no longer writes it. **Do not delete it without editing
+the Tier 1 rule first**: `tier1-on-experiments` filters on `datasetId any of` both datasets'
+ids, and what the rule does with the id of a deleted dataset is unknown — a rule that stops
+firing leaves Tier 1 silently unscored. The rule can be edited through
+`PATCH /v2/evaluation-rules/{id}`; a dataset can be deleted only in the UI.
 
 The trap when harvesting: a trace's tag is the **Telegram** `content_type`, which is `text` for
 a URL as much as for a pasted paragraph. A YouTube transcript, a web article and a
