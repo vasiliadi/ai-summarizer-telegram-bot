@@ -85,22 +85,19 @@ Setup is split in two, because the environment's setup script runs outside the r
    - **uv**: the `astral.sh` installer, which replaces the image's uv in `/root/.local/bin`.
    - **pre-commit**: `uv tool install pre-commit`.
 
-   An earlier version fell back to pip for uv and to the deadsnakes PPA for Python; neither
-   fallback ever ran, so they were dropped. The uv installer needs **Full** network access, as
-   `astral.sh` is blocked on **Trusted** (see below). If the environment moves to **Trusted**, restore the uv fallback —
-   `python3 -m pip install --upgrade --break-system-packages uv`, then
+   The uv installer needs **Full** network access: `astral.sh` is blocked on **Trusted** (see
+   below). On **Trusted**, install uv with `python3 -m pip install --upgrade
+   --break-system-packages uv`, then
    `ln -sf "$(python3 -c 'import uv; print(uv.find_uv_bin())')" /root/.local/bin/uv`, since pip
-   puts uv in `/usr/local/bin`, behind the image's copy on `PATH` — and first check whether
-   uv's Python download works there.
+   puts uv in `/usr/local/bin`, behind the image's copy on `PATH` — and first check whether uv's
+   Python download works there.
 
    The script installs **no Python** and the environment sets **no variables**. The hook's
    `uv sync --frozen` downloads exactly the patch pinned in `.python-version` on first use, as it
-   would locally; this works on **Full**. An earlier version ran
-   `uv python install 3.14` here and set `UV_PYTHON=3.14` and `UV_PYTHON_DOWNLOADS=manual`,
-   chosen while Python downloads were assumed blocked. All three were dropped: the install got
-   the *newest* 3.14, so any patch mismatch with the pin made the cached copy useless; `manual`
-   turned that mismatch into a failure; and both variables applied to every repo started in the
-   environment.
+   would locally; this works on **Full**. Do not add `uv python install 3.14` to the script: it
+   gets the *newest* 3.14, not the pinned patch. Do not set `UV_PYTHON` or
+   `UV_PYTHON_DOWNLOADS`: environment variables apply to every repo started in the environment,
+   and `UV_PYTHON_DOWNLOADS=manual` turns a patch mismatch into a failure of every uv command.
 2. **`scripts/cloud_session_start.sh`**, a SessionStart hook in `.claude/settings.json`, runs in
    the repo in every cloud session. Its essential job is `pre-commit install`: nothing else puts
    the hooks into a fresh clone's `.git/hooks`, so without it cloud commits silently skip every
