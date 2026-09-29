@@ -93,9 +93,9 @@ class ModelSpec:
     `supports_files` False sends documents to `DEFAULT_MODEL_ID_FOR_SUMMARY`
     instead. Every OpenRouter model is registered with both False on purpose:
     OpenRouter has no file API, so files would have to be inlined as base64,
-    and several registered models — `meta/muse-spark-1.2` advertises both — do
-    read those modalities upstream. Correcting the flags to match the catalog
-    without first building an inline path breaks the routing.
+    and several registered models do read those modalities upstream, some of
+    them both. Correcting the flags to match the catalog without first building
+    an inline path breaks the routing.
     """
 
     label: str

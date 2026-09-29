@@ -39,7 +39,34 @@ Use `uv add` rather than hand-editing `pyproject.toml`. Keep production dependen
 | `build` | CI build/deploy (alembic, modal, psycopg2-binary, sqlalchemy) | CI only — explicit `uv sync --group build` |
 | `modal` | Modal cron image (redis) | CI only — explicit `uv sync --group modal` |
 
-`default-groups = ["dev", "test"]` in `[tool.uv]` means `uv sync` always installs `dev` and `test`. Do not add `build` or `modal` to local installs.
+`default-groups = ["dev", "test"]` in `[tool.uv]` means `uv sync` always installs `dev` and
+`test`. Do not add `build` or `modal` to local installs. The `Dockerfile` excludes every
+non-production group explicitly (`--no-group dev/test/modal/build`) rather than relying on the
+defaults, so adding a group means adding a `--no-group` line there too.
+
+**`scripts/eval/` gets no dependency group of its own, and one was tried and removed.** The
+harness imports `config`, `llm` and `prompts` from `src/`, so running it needs the bot's entire
+runtime set — a group could never be synced on its own, which is the only thing such a group
+would have been for. Everything it needs is already a project or `dev` dependency, so a group
+would have held `python-dotenv` and nothing else. Install the harness with a plain `uv sync`.
+
+**`requests` is a production dependency**, not a transitive one to rely on. `src/transcription.py`,
+`src/services.py` and `src/summary.py` all catch `requests.exceptions`; it reached them through
+`exa-py`/`tavily-python`/`replicate` for a long time before being declared. Anything `src/`
+imports belongs in `[project.dependencies]`, however reliably some other package drags it in.
+
+**Do not swap `requests.exceptions` for `curl_cffi.requests.exceptions`.** The names all exist on
+both sides — `SSLError`, `ProxyError`, `ChunkedEncodingError`, `ReadTimeout` — which makes the swap
+look like a free way to drop a dependency. They are **unrelated classes with no subclass relation
+in either direction**, so `except` on one never catches the other, and the failure is silent: the
+handler simply stops firing and `tenacity` stops retrying, with no error to say so. The exceptions
+are not raised by `curl-cffi` at those sites anyway — `pyTelegramBotAPI` and
+`youtube-transcript-api` both transport over `requests`, so their errors *are* `requests`
+exceptions, and that is an API contract of those libraries rather than an implementation detail.
+`summary.py` imports both deliberately and catches both in `summarize_with_document`, which is the
+one path that also downloads through `curl-cffi`; `summarize_with_file` takes an already-local path
+and needs only the `requests` side. Dropping `requests` means replacing those two libraries, not
+rewriting an import.
 
 `redis` is declared twice on purpose — once in `[project.dependencies]` for the bot and once in
 the `modal` group for the cron image. Bump both together, and do not fold either back into a

@@ -64,9 +64,8 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   models read. OpenRouter has no file API, so a file would have to be base64-inlined —
   the same limit that keeps Gemini on its Files API — and pydantic-ai only accepts
   wav/mp3 audio inline, while this pipeline produces Opus `.ogg`. Upstream, several
-  registered models advertise audio or file input — `meta/muse-spark-1.2` advertises
-  both; matching the flags to the catalog without first building an inline path breaks
-  the routing.
+  registered models advertise audio or file input, some of them both; matching the flags
+  to the catalog without first building an inline path breaks the routing.
 - **Thinking levels are pydantic-ai's, translated by pydantic-ai** — the allow-list is
   its `ThinkingEffort` (`minimal|low|medium|high|xhigh`), passed to the unified `thinking`
   setting, and each provider's model maps it. This codebase owns no mapping, which is what
@@ -284,3 +283,10 @@ to Gemini — return the raw model text with **no** prefix.
   not the download, parse or upload around it; and a retried `summarize_text` produces
   one trace per attempt, since nothing groups them. `langfuse_client.shutdown()` flushes on exit. Independent of
   Sentry, which handles error capture and logs.
+  **Trace-level input/output is deprecated** in the Langfuse v4 data model — tables, judges and
+  exports all read from an observation instead. Nothing here sets it, and that must hold:
+  `observe_message` only propagates attributes, and the model call's own span already carries
+  the input and output. **Never add `set_current_trace_io()` or an equivalent**, not even to
+  keep a legacy evaluator working; migrate the evaluator to the root observation instead.
+  Everything built *on top* of these traces — datasets, scorers, judges, and the harness in
+  `scripts/eval/` — is owned by `evals.md`, not this file.

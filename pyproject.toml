@@ -19,6 +19,10 @@ dependencies = [
     "pytelegrambotapi==4.37.0",
     "redis==8.1.0",
     "replicate==1.0.7",
+    # `src/` catches requests.exceptions in transcription, services and summary.
+    # It arrived transitively through exa-py/tavily-python/replicate for a long
+    # time; declared here so a provider dropping it cannot break the bot.
+    "requests==2.34.2",
     "sentry-sdk==2.70.0",
     "sqlalchemy==2.1.0",
     "tavily-python==0.8.4",
@@ -132,6 +136,15 @@ ignore = ["S603", "S607", "D100", "D401", "PLR0913", "PLR0917", "FBT001", "FBT00
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ANN", "S101", "S105", "PLR2004", "SLF001", "ARG002", "ARG005", "PYI034", "E501", "EM101", "TRY003"]
+# Operational scripts, run by hand and never imported by the bot: stdout is
+# their interface (T20), they take no annotations (ANN), and `tier1_evaluator.py`
+# is uploaded to Langfuse and executed there against globals it does not define.
+# RUF001: the bullet-marker table must contain the real EN DASH and EM DASH
+# characters models emit. PLC0415: deferred imports keep `_bootstrap.load()`
+# ordered before anything that reads the environment it sets up. E501: the judge
+# prompts are hashed into their `judge_prompt` pin, so reflowing their wording to
+# fit the line length would repin the judge and invalidate every banked comparison.
+"scripts/eval/**/*.py" = ["ANN", "T20", "D103", "PLR2004", "E402", "F821", "INP001", "RUF001", "PLC0415", "E501"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -143,10 +156,14 @@ docstring-code-line-length = "dynamic"
 
 [tool.pyrefly]
 project-includes = ["**/*.py*", "**/*.ipynb"]
-project-excludes = ["tests/**", "migrations/**"]
+project-excludes = ["tests/**", "migrations/**", "scripts/eval/**"]
 
+# `scripts/eval` is excluded for a reason that cannot be fixed in the code:
+# `tier1_evaluator.py` is uploaded to Langfuse and executed there against
+# `Score` and `EvaluationResult`, which the runtime injects. Defining them
+# locally to satisfy a type checker would ship dead code to the evaluator.
 [tool.ty.src]
-exclude = ["tests"]
+exclude = ["tests", "scripts/eval"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
