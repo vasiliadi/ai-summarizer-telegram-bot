@@ -1,5 +1,12 @@
 web_search = "live"
 
+# Codex sessions otherwise show a smaller window than the model's API limit, so set it
+# explicitly. Keep it below the model's input-token cap, and keep the compaction limit
+# below this window: Codex clamps auto-compaction to 90% of the context window.
+model = "gpt-6-astra"
+model_context_window = 828000
+model_auto_compact_token_limit = 700000
+
 # Mirrors the PreToolUse hook in .claude/settings.json: block edits to tracked repo
 # files while the checkout is on main. Gitignored files stay exempt.
 #
