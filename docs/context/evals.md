@@ -128,7 +128,8 @@ it failed at once with `RuntimeError: ... is bound to a different event loop` (a
 200 calls); the silent hang is the same reuse when the other loop is idle and never reads the
 socket, and was **not** reproduced — assumed, not confirmed. `LLMClient` now builds one provider
 per thread, which removed every failure in the reproduction, so each harness thread gets a
-fresh client. The harness still guards against it: `eval_client.summarize` runs each
+fresh client, which `summarize` closes on that thread's loop once the run returns — `run_sync`
+never closes it. The harness still guards against it: `eval_client.summarize` runs each
 generation on a **daemon** thread and waits `GENERATION_TIMEOUT` (600 s), so a stuck item is
 stored as a named `TimeoutError` and the run finishes. It had to be a daemon thread:
 `asyncio.to_thread` uses the default executor, whose threads are joined at interpreter exit, so a
