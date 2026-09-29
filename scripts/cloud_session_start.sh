@@ -12,6 +12,8 @@ cd "$CLAUDE_PROJECT_DIR"
 # stdout of a SessionStart hook lands in Claude's context; keep the install noise in a log
 exec >>"$HOME/session-start.log" 2>&1
 
-uv sync --frozen
-pre-commit install
+# git hooks first: a failed uv sync must not leave commits unchecked
+pre-commit install --hook-type pre-commit --hook-type post-merge \
+  --hook-type post-checkout --hook-type post-rewrite
 pre-commit install-hooks || true
+uv sync --frozen
