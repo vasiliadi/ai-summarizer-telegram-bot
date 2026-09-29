@@ -78,19 +78,22 @@ Claude Code cloud sessions run on an Ubuntu 24.04 VM whose image ships Python 3.
 `python3` is 3.11) and **uv 0.8.17** — no 3.14, and a uv too old to trust with this `uv.lock`.
 Setup is split in two, because the environment's setup script runs outside the repo:
 
-1. **Environment setup script** (claude.ai environment dialog, not in the repo) provisions the VM,
-   each step with a fallback:
-   - **uv**: the `astral.sh` installer, which replaces the preinstalled uv in `/root/.local/bin`;
-     if that fails, `python3 -m pip install --upgrade --break-system-packages uv` plus
-     `ln -sf "$(python3 -c 'import uv; print(uv.find_uv_bin())')" /root/.local/bin/uv` — pip puts
-     the new uv in `/usr/local/bin`, behind the preinstalled one on `PATH`. The script runs under
-     `set -o pipefail`, without which a failed `curl` in `curl … | sh` never reaches the fallback.
-   - **Python 3.14**: `uv python install 3.14`; if that fails, `apt-get install python3.14
-     python3.14-venv` from the deadsnakes PPA the image already lists.
+1. **Environment setup script** (claude.ai environment dialog, not in the repo) provisions the VM
+   under `set -euo pipefail`, logging to `/root/setup.log`:
+   - **uv**: the `astral.sh` installer, which replaces the image's uv in `/root/.local/bin`.
+   - **Python 3.14**: `uv python install 3.14`, a uv-managed CPython.
    - **pre-commit**: `uv tool install pre-commit`.
 
+   An earlier version fell back to pip for uv and to the deadsnakes PPA for Python; neither
+   fallback ever ran, so they were dropped. The uv installer needs **Full** network access, as
+   `astral.sh` is blocked on **Trusted** (see below). If the environment moves to **Trusted**, restore the uv fallback —
+   `python3 -m pip install --upgrade --break-system-packages uv`, then
+   `ln -sf "$(python3 -c 'import uv; print(uv.find_uv_bin())')" /root/.local/bin/uv`, since pip
+   puts uv in `/usr/local/bin`, behind the image's copy on `PATH` — and first check whether
+   `uv python install` works there.
+
    The environment's variables set `UV_PYTHON=3.14` (a version request, so it matches a
-   uv-managed or a deadsnakes interpreter) and `UV_PYTHON_DOWNLOADS=manual` (the explicit install
+   uv-managed or a system interpreter) and `UV_PYTHON_DOWNLOADS=manual` (the explicit install
    above still works; `uv sync`/`uv run` never download one on their own).
 2. **`scripts/cloud_session_start.sh`**, a SessionStart hook in `.claude/settings.json`, runs in
    the repo in every cloud session. Its essential job is `pre-commit install`: nothing else puts
@@ -111,12 +114,11 @@ Network constraints behind those choices (sandbox egress proxy, observed 2026-09
   session, at any access level. In practice, on **Full**, both first-choice downloads work
   (observed 2026-09): the astral.sh installer put uv 0.12.20 in `/root/.local/bin`, replacing
   the image's 0.8.17, and `uv python install 3.14` installed a uv-managed CPython 3.14.7 that
-  `.venv` uses. Neither fallback ran, so the pip and deadsnakes paths are untested but kept.
+  `.venv` uses.
 - The image's `apt` sources include PPAs on `ppa.launchpadcontent.net`, which **Trusted** blocks
   (`x-deny-reason: host_not_allowed`), so any `apt-get update` fails there. A **Custom** entry for
-  that host did not take effect. The environment uses **Full** network access; whether the
-  first-choice path works on **Trusted** is untested — if `uv python install` failed there, its
-  apt fallback would fail too, and setup would stop.
+  that host did not take effect. The environment uses **Full** network access; whether
+  `uv python install` works on **Trusted** is untested.
 
 ## Pixi
 
