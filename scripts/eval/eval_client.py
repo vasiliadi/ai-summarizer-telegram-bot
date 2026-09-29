@@ -61,10 +61,29 @@ class EvalLLMClient(LLMClient):
             )
         return self._models[model_id]
 
+    def close_openrouter_provider(self):
+        """Close this thread's provider on this thread's event loop, then the loop.
+
+        `run_sync` never enters the model as a context manager, so pydantic-ai
+        never closes the provider's HTTP client, and it leaves the loop it made
+        open too; `summarize` starts a thread, so a provider and a loop, per
+        item. With no loop in this thread `run_sync` was never reached, so the
+        client never opened a connection to close.
+        """
+        provider = getattr(self._local, "openrouter_provider", None)
+        if provider is None:
+            return
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            return
+        loop.run_until_complete(provider.client.close())
+        loop.close()
+
 
 LLM = EvalLLMClient(
     client=config.gemini_client,
-    openrouter_provider=config.openrouter_provider,
+    openrouter_provider_factory=config.openrouter_provider_factory,
 )
 
 
@@ -109,6 +128,10 @@ async def summarize(model_id, prompt, text, language):
             loop.call_soon_threadsafe(settle, None, exc)
         else:
             loop.call_soon_threadsafe(settle, result, None)
+        finally:
+            # After settling, so the item is not held up; a timed-out worker
+            # still closes it whenever its run finally returns.
+            LLM.close_openrouter_provider()
 
     # A daemon thread rather than `asyncio.to_thread`: a sweep has hung forever
     # on one item with its sockets in CLOSE_WAIT (evals.md, *The harness*), and

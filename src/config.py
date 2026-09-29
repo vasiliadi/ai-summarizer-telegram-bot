@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Literal
 
@@ -73,7 +74,10 @@ gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # OpenRouter config
 OPENROUTER_API_KEY = os.environ["OPENROUTER_API_KEY"]
-openrouter_provider = OpenRouterProvider(api_key=OPENROUTER_API_KEY)
+# A factory, not a provider: its async HTTP pool is bound to the event loop that
+# opened each connection, and every thread that calls `run_sync` runs its own
+# loop, so `LLMClient` builds one provider per thread (see `llm.py`).
+openrouter_provider_factory = partial(OpenRouterProvider, api_key=OPENROUTER_API_KEY)
 
 
 # Summarizing model registry
