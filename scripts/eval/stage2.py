@@ -182,7 +182,8 @@ def _summary(rows, cost):
     comp = [s["t1_compression"] for s in scores if "t1_compression" in s]
     jev = [s[JEV] for s in scores if s.get(JEV) is not None]
     fabricated = [s[FABRICATED] for s in scores if s.get(FABRICATED) is not None]
-    t1_pass = sum(passes) / len(passes) if passes else None
+    incomplete = not rows or len(passes) != len(rows)
+    t1_pass = sum(passes) / len(passes) if not incomplete else None
     dollars, priced = cost or (None, 0)
     return {
         "t1_pass": t1_pass,
@@ -196,6 +197,8 @@ def _summary(rows, cost):
         "latency": statistics.median(latencies) if latencies else None,
         "cost": dollars,
         "drop": t1_pass is not None and t1_pass < PASS_THRESHOLD,
+        "incomplete": incomplete,
+        "t1_scored": len(passes),
         "n": len(rows),
         "errored": sum(e for _, _, e in rows.values()),
         "unpriced": dollars is not None and priced < len(rows),
@@ -219,6 +222,8 @@ COLUMNS = {
 def _notes(row):
     """Why a row's numbers cover fewer items than the run, if they do."""
     notes = []
+    if row["incomplete"]:
+        notes.append(f"Tier 1 scored {row['t1_scored']} of {row['n']} items")
     if row["errored"]:
         notes.append(f"{row['errored']} of {row['n']} items failed to generate")
     for judge_name, scored in row["scored"].items():
@@ -229,8 +234,8 @@ def _notes(row):
     return notes
 
 
-def _table(summaries):
-    """The report as a markdown table: kept candidates first, then the dropped.
+def _table(summaries):  # noqa: C901
+    """Print kept candidates first, then incomplete candidates, then dropped ones.
 
     Within each group, candidates Opus judged come first by invented share, the
     rest by JEV median, so the finalists sit at the top of the table.
@@ -239,10 +244,11 @@ def _table(summaries):
     def order(item):
         _, row = item
         opus = row["invented"] is None
-        return (row["drop"], opus, row["invented"] or 0, -(row["jev_median"] or 0))
+        status = 2 if row["drop"] else int(row["incomplete"])
+        return (status, opus, row["invented"] or 0, -(row["jev_median"] or 0))
 
     rows = sorted(summaries.items(), key=order)
-    kept = [row for _, row in rows if not row["drop"]]
+    kept = [row for _, row in rows if not row["drop"] and not row["incomplete"]]
     best = {}
     for key, (_, spec, pick) in COLUMNS.items():
         values = [row[key] for row in kept if row[key] is not None]
@@ -254,6 +260,8 @@ def _table(summaries):
     print("|---" * (len(COLUMNS) + 1) + "|")
     for candidate, row in rows:
         label = f"`{_short(candidate)}`" + (" — DROP" if row["drop"] else "")
+        if row["incomplete"]:
+            label += " — INCOMPLETE"
         marks = []
         for note in _notes(row):
             if note not in footnotes:
@@ -266,7 +274,7 @@ def _table(summaries):
                 cells.append("—")
                 continue
             text = spec.format(row[key])
-            bold = not row["drop"] and best.get(key) == text
+            bold = not row["drop"] and not row["incomplete"] and best.get(key) == text
             cells.append(f"**{text}**" if bold else text)
         print(f"| {label} | " + " | ".join(cells) + " |")
     print()
@@ -382,11 +390,13 @@ def backfill(tier2, models=(), dataset_name=COMPARE):
         for i in client.get_dataset(dataset_name).items
     }
     todo = []
+    scores = _tier2_scores()
     for candidate, run in sorted(discover_runs(dataset_name).items()):
         if models and _split(candidate)[0] not in models:
             continue
         for item in API.experiment_items(run["id"], fields="core,io,scores"):
             names = {s["name"] for s in item.get("scores") or []}
+            names.update(scores.get(item["id"], {}))
             summary = judge._text(item.get("output"))  # noqa: SLF001
             if judge.generation_failed(summary):
                 continue

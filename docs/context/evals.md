@@ -617,7 +617,10 @@ into one markdown table, readable in a terminal and pasteable into a document.
   an item killed mid-generation), a judge that scored fewer items than generated, or
   generations with no price. Read them before believing a Tier 1 failure.
 - **The filter is Tier 1 only.** `DROP` is `t1_pass` below `PASS_THRESHOLD`; the judges set no
-  floor.
+  floor. Until every returned item has a `t1_pass` score, the row is marked `INCOMPLETE`,
+  its Tier 1 percentage is withheld, and it is excluded from kept candidates and best-value
+  highlighting. A footnote gives Tier 1 score coverage, including zero scores; an empty run
+  is incomplete too.
 - **A mean never ranks a model, so `--all-pairs` exists.** With 50 items a few points between
   two means can be noise. The flag adds, per Tier 2 score, a sign test over *per-item* deltas
   for every pair of candidates on the same items — controlling for item difficulty is worth
@@ -642,7 +645,9 @@ into one markdown table, readable in a terminal and pasteable into a document.
   these traces. Measured runs have come in well under catalog estimates ($0.12 against $0.28 for
   one model).
 - **Tier 2 scores are read from `v3/scores` by name**, not from the experiment items — see the
-  seven-score cap under *API shapes*.
+  seven-score cap under *API shapes*. Backfill merges this same complete lookup by observation
+  id before deciding which items need a paid judge, so an omitted inline score cannot trigger
+  duplicate evaluation.
 
 ## API shapes that cost real time to rediscover
 
