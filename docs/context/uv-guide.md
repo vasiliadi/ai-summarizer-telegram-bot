@@ -95,7 +95,7 @@ Setup is split in two, because the environment's setup script runs outside the r
 
    The script installs **no Python** and the environment sets **no variables**. The hook's
    `uv sync --frozen` downloads exactly the patch pinned in `.python-version` on first use, as it
-   would locally; this works on **Full** and took about 1 s. An earlier version ran
+   would locally; this works on **Full**. An earlier version ran
    `uv python install 3.14` here and set `UV_PYTHON=3.14` and `UV_PYTHON_DOWNLOADS=manual`,
    chosen while Python downloads were assumed blocked. All three were dropped: the install got
    the *newest* 3.14, so any patch mismatch with the pin made the cached copy useless; `manual`
