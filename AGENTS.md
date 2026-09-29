@@ -24,6 +24,8 @@ Before the first tracked-file edit, branch from `main` with `git checkout -b <sc
 
    A durable fact is anything a later session must not get wrong, such as an external-service constraint, settled choice, rejected review finding, or convention. Record it during the work; gitignored handoffs and agent-local memory are not substitutes. Treat these updates as mandatory, like the pre-commit hooks.
 
+   Do not copy versions that Renovate bumps (`pyproject.toml` pins, `uv.lock`, `.python-version`, workflow actions) into docs — name the file that holds them, or the copy goes stale on the next bump. A version you observed rather than pinned, such as a cloud VM image's, carries the date you observed it.
+
 ## Where Things Live
 
 ### Code

@@ -185,6 +185,29 @@ pre-commit install --hook-type post-checkout
 pre-commit install --hook-type post-rewrite
 ```
 
+#### Claude Cloud Sessions
+
+To run [Claude Code cloud sessions](https://code.claude.com/docs/en/claude-code-on-the-web) on this repo, configure the
+[cloud environment](https://code.claude.com/docs/en/cloud-environments) with **Full** network access (the uv installer's
+host, `astral.sh`, is blocked on Trusted) and this setup script:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+exec > >(tee /root/setup.log) 2>&1
+
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv --version
+
+uv tool install pre-commit
+```
+
+No environment variables are needed, and the script installs no Python: uv follows `.python-version`
+and downloads that exact patch on first use.
+
+The setup script only provisions the VM. Project setup runs from the repo's SessionStart hook,
+`scripts/cloud_session_start.sh`, which installs the git hooks above and runs `uv sync --frozen` in every cloud session.
+
 #### Webpage parsing
 
 Webpage URLs are parsed into clean text before being passed to Gemini. This gives every model version identical, well-structured input and removes the variability introduced by Gemini's server-side `UrlContext` tool.
