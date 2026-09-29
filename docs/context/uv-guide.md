@@ -74,8 +74,9 @@ the `modal` group for the cron image. Bump both together, and do not fold either
 
 ## Cloud Sessions
 
-Claude Code cloud sessions run on an Ubuntu 24.04 VM whose image ships Python 3.10–3.13 (default
-`python3` is 3.11) and **uv 0.8.17** — no 3.14, and a uv too old to trust with this `uv.lock`.
+Claude Code cloud sessions run on an Ubuntu 24.04 VM whose image (as observed 2026-09) ships
+Python 3.10–3.13, default `python3` 3.11, and **uv 0.8.17** — no 3.14, and a uv too old to trust
+with this `uv.lock`.
 Setup is split in two, because the environment's setup script runs outside the repo:
 
 1. **Environment setup script** (pasted into the claude.ai environment dialog; the reference copy
@@ -93,7 +94,7 @@ Setup is split in two, because the environment's setup script runs outside the r
    uv's Python download works there.
 
    The script installs **no Python** and the environment sets **no variables**. The hook's
-   `uv sync --frozen` downloads exactly the `.python-version` patch (`3.14.7`) on first use, as it
+   `uv sync --frozen` downloads exactly the patch pinned in `.python-version` on first use, as it
    would locally; this works on **Full** and took about 1 s. An earlier version ran
    `uv python install 3.14` here and set `UV_PYTHON=3.14` and `UV_PYTHON_DOWNLOADS=manual`,
    chosen while Python downloads were assumed blocked. All three were dropped: the install got
