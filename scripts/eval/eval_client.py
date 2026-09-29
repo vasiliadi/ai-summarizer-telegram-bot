@@ -62,12 +62,13 @@ class EvalLLMClient(LLMClient):
         return self._models[model_id]
 
     def close_openrouter_provider(self):
-        """Close this thread's provider on this thread's event loop.
+        """Close this thread's provider on this thread's event loop, then the loop.
 
         `run_sync` never enters the model as a context manager, so pydantic-ai
-        never closes the provider's HTTP client, and `summarize` starts a thread,
-        so a provider, per item. With no loop in this thread `run_sync` was never
-        reached, so the client never opened a connection to close.
+        never closes the provider's HTTP client, and it leaves the loop it made
+        open too; `summarize` starts a thread, so a provider and a loop, per
+        item. With no loop in this thread `run_sync` was never reached, so the
+        client never opened a connection to close.
         """
         provider = getattr(self._local, "openrouter_provider", None)
         if provider is None:
@@ -77,6 +78,7 @@ class EvalLLMClient(LLMClient):
         except RuntimeError:
             return
         loop.run_until_complete(provider.client.close())
+        loop.close()
 
 
 LLM = EvalLLMClient(
