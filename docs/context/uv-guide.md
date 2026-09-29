@@ -78,7 +78,8 @@ Claude Code cloud sessions run on an Ubuntu 24.04 VM whose image ships Python 3.
 `python3` is 3.11) and **uv 0.8.17** — no 3.14, and a uv too old to trust with this `uv.lock`.
 Setup is split in two, because the environment's setup script runs outside the repo:
 
-1. **Environment setup script** (claude.ai environment dialog, not in the repo) provisions the VM
+1. **Environment setup script** (pasted into the claude.ai environment dialog; the reference copy,
+   with the env vars, is in `README.md` → *Claude Cloud Sessions* — edit both together) provisions the VM
    under `set -euo pipefail`, logging to `/root/setup.log`:
    - **uv**: the `astral.sh` installer, which replaces the image's uv in `/root/.local/bin`.
    - **Python 3.14**: `uv python install 3.14`, a uv-managed CPython.
