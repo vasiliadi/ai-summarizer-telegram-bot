@@ -73,11 +73,23 @@ gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 # OpenRouter config
+# HTTP-Referer/X-Title are what OpenRouter attributes a call to; without them every
+# call lands under "Unknown" in the account's app ranking. Hardcoded rather than read
+# from the environment: the identity belongs to this repo, and pydantic-ai's own
+# OPENROUTER_APP_URL/OPENROUTER_APP_TITLE fallback would leave attribution silently
+# broken wherever those vars are not set.
+OPENROUTER_APP_URL = "https://github.com/vasiliadi/ai-summarizer-telegram-bot"
+OPENROUTER_APP_TITLE = "ai-summarizer-telegram-bot"
 OPENROUTER_API_KEY = os.environ["OPENROUTER_API_KEY"]
 # A factory, not a provider: its async HTTP pool is bound to the event loop that
 # opened each connection, and every thread that calls `run_sync` runs its own
 # loop, so `LLMClient` builds one provider per thread (see `llm.py`).
-openrouter_provider_factory = partial(OpenRouterProvider, api_key=OPENROUTER_API_KEY)
+openrouter_provider_factory = partial(
+    OpenRouterProvider,
+    api_key=OPENROUTER_API_KEY,
+    app_url=OPENROUTER_APP_URL,
+    app_title=OPENROUTER_APP_TITLE,
+)
 
 
 # Summarizing model registry

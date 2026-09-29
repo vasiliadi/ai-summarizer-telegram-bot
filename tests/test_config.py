@@ -186,3 +186,10 @@ def test_default_thinking_level_is_selectable():
     outside the allow-list would give every new user an unusable level.
     """
     assert config.DEFAULT_THINKING_LEVEL in config.ALLOWED_THINKING_LEVELS
+
+
+def test_openrouter_provider_identifies_the_app():
+    """Test OpenRouter calls carry app attribution instead of landing under "Unknown"."""
+    headers = config.openrouter_provider_factory().client.default_headers
+    assert headers["HTTP-Referer"] == config.OPENROUTER_APP_URL
+    assert headers["X-Title"] == config.OPENROUTER_APP_TITLE

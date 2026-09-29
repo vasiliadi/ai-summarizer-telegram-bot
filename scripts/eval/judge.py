@@ -139,6 +139,10 @@ def _post(url, body, timeout=300):
         headers={
             "Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}",
             "Content-Type": "application/json",
+            # Same attribution the bot sends (see config); the judges' spend is this
+            # repo's spend even though they skip LLMClient.
+            "HTTP-Referer": config.OPENROUTER_APP_URL,
+            "X-Title": config.OPENROUTER_APP_TITLE,
         },
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
