@@ -92,6 +92,13 @@ output against a JSON schema, which `LLMClient` does not do and the bot never as
 is not a chat model at all. What a judge spends is a cost of running the evaluation, not a
 property of the model being ranked, so it does not belong on the candidate's trace either.
 
+Skipping `LLMClient` also skips its OpenRouter attribution, so `judge._post` sets
+`HTTP-Referer`/`X-Title` by hand from `config.OPENROUTER_APP_URL`/`OPENROUTER_APP_TITLE`
+(`architecture.md`, *OpenRouter calls identify the app*); any new direct OpenRouter call must
+do the same. The candidate path inherits them from `config.openrouter_provider_factory`. Eval
+spend is deliberately *not* separated from the bot's in OpenRouter's app ranking — it is this
+repo's spend, and a second referer would split it into a second Top Apps entry.
+
 ## The harness
 
 | File | Purpose |

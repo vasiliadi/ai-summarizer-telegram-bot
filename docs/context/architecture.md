@@ -66,6 +66,14 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   wav/mp3 audio inline, while this pipeline produces Opus `.ogg`. Upstream, several
   registered models advertise audio or file input, some of them both; matching the flags
   to the catalog without first building an inline path breaks the routing.
+- **OpenRouter calls identify the app** — `config.openrouter_provider_factory` passes
+  `app_url`/`app_title` from `config.OPENROUTER_APP_URL`/`OPENROUTER_APP_TITLE`, which
+  pydantic-ai sends as `HTTP-Referer`/`X-Title`; without them all spend lands under
+  "Unknown" in OpenRouter's app ranking. OpenRouter groups apps by the referer URL, so
+  changing `OPENROUTER_APP_URL` starts a *new* Top Apps entry rather than renaming the old
+  one. Hardcoded deliberately over pydantic-ai's `OPENROUTER_APP_URL`/`OPENROUTER_APP_TITLE`
+  env fallback: the identity belongs to the repo, and an unset var in some deployment would
+  silently revert attribution. The eval judges set the same headers by hand (`evals.md`).
 - **Thinking levels are pydantic-ai's, translated by pydantic-ai** — the allow-list is
   its `ThinkingEffort` (`minimal|low|medium|high|xhigh`), passed to the unified `thinking`
   setting, and each provider's model maps it. This codebase owns no mapping, which is what
