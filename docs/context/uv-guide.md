@@ -72,6 +72,48 @@ rewriting an import.
 the `modal` group for the cron image. Bump both together, and do not fold either back into a
 `limits[redis]` extra; see *Why this stack* in `architecture.md` for the version cap that forbids it.
 
+## Cloud Sessions
+
+Claude Code cloud sessions run on an Ubuntu 24.04 VM whose image ships Python 3.10–3.13 (default
+`python3` is 3.11) and **uv 0.8.17** — no 3.14, and a uv too old to trust with this `uv.lock`.
+Setup is split in two, because the environment's setup script runs outside the repo:
+
+1. **Environment setup script** (claude.ai environment dialog, not in the repo) provisions the VM,
+   each step with a fallback:
+   - **uv**: the `astral.sh` installer, which replaces the preinstalled uv in `/root/.local/bin`;
+     if that fails, `python3 -m pip install --upgrade --break-system-packages uv` plus
+     `ln -sf "$(python3 -c 'import uv; print(uv.find_uv_bin())')" /root/.local/bin/uv` — pip puts
+     the new uv in `/usr/local/bin`, behind the preinstalled one on `PATH`. The script runs under
+     `set -o pipefail`, without which a failed `curl` in `curl … | sh` never reaches the fallback.
+   - **Python 3.14**: `uv python install 3.14`; if that fails, `apt-get install python3.14
+     python3.14-venv` from the deadsnakes PPA the image already lists.
+   - **pre-commit**: `uv tool install pre-commit`.
+
+   The environment's variables set `UV_PYTHON=3.14` (a version request, so it matches a
+   uv-managed or a deadsnakes interpreter) and `UV_PYTHON_DOWNLOADS=manual` (the explicit install
+   above still works; `uv sync`/`uv run` never download one on their own).
+2. **`scripts/cloud_session_start.sh`**, a SessionStart hook in `.claude/settings.json`, runs in
+   the repo in every cloud session. Its essential job is `pre-commit install`: nothing else puts
+   the hooks into a fresh clone's `.git/hooks`, so without it cloud commits silently skip every
+   check. It also runs `uv sync --frozen`; `uv run` would sync on first use anyway, but `--frozen`
+   installs strictly from `uv.lock` — with `exclude-newer = "3 days"`, a re-resolve could rewrite
+   the lock. It exits at once unless `CLAUDE_CODE_REMOTE=true`, so local sessions are untouched,
+   and logs to `~/session-start.log`, since SessionStart stdout is fed into Claude's context.
+
+   Do not move `pre-commit install` into the setup script: it runs outside the repo, a
+   `|| true` would hide the failure, and the setup script is cached and skipped while each
+   session gets a fresh clone.
+
+Network constraints behind those choices (sandbox egress proxy, observed 2026-09):
+
+- `astral.sh` is not on the **Trusted** allowlist; the uv install script 403s there.
+- Per the Claude Code docs, the GitHub proxy serves release assets only for repos attached to
+  the session, at any access level — which would block both the uv installer's binary and
+  `uv python install`. Not yet confirmed either way in a run; hence the fallbacks.
+- The image's `apt` sources include PPAs on `ppa.launchpadcontent.net`, which **Trusted** blocks
+  (`x-deny-reason: host_not_allowed`), so any `apt-get update` fails there. The environment
+  therefore uses **Full** network access; a **Custom** entry for that host did not take effect.
+
 ## Pixi
 
 `pyproject.toml` contains a `[tool.pixi.*]` workspace config and `pixi.lock` exists. Pixi manages
