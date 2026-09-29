@@ -72,6 +72,34 @@ rewriting an import.
 the `modal` group for the cron image. Bump both together, and do not fold either back into a
 `limits[redis]` extra; see *Why this stack* in `architecture.md` for the version cap that forbids it.
 
+## Cloud Sessions
+
+Claude Code cloud sessions run on an Ubuntu 24.04 VM whose image ships Python 3.10–3.13 (default
+`python3` is 3.11) and **uv 0.8.17** — no 3.14, and a uv too old to trust with this `uv.lock`.
+Setup is split in two, because the environment's setup script runs outside the repo:
+
+1. **Environment setup script** (claude.ai environment dialog, not in the repo) provisions the VM:
+   `apt-get install python3.14 python3.14-venv` from the deadsnakes PPA the image already lists,
+   `python3 -m pip install --upgrade --break-system-packages uv`, then
+   `ln -sf "$(python3 -c 'import uv; print(uv.find_uv_bin())')" /root/.local/bin/uv` — pip puts
+   the new uv in `/usr/local/bin`, behind the preinstalled one in `/root/.local/bin` on `PATH` —
+   and finally `uv tool install pre-commit`. The environment's variables set
+   `UV_PYTHON=python3.14` and `UV_PYTHON_DOWNLOADS=never`.
+2. **`scripts/cloud_session_start.sh`**, a SessionStart hook in `.claude/settings.json`, runs
+   `uv sync --frozen` and installs the pre-commit hooks in every cloud session. It exits at once
+   unless `CLAUDE_CODE_REMOTE=true`, so local sessions are untouched. `--frozen` matters: with
+   `exclude-newer = "3 days"`, a plain `uv sync` can re-resolve and rewrite `uv.lock`. Its output
+   goes to `~/session-start.log`, since SessionStart stdout is fed into Claude's context.
+
+Network constraints behind those choices (sandbox egress proxy, observed 2026-09):
+
+- `astral.sh` is not on the **Trusted** allowlist, so the uv install script 403s; get uv from PyPI.
+- `uv python install` / `uv self update` download from GitHub releases of repos not attached to
+  the session, which the GitHub proxy refuses — hence the PPA and `UV_PYTHON_DOWNLOADS=never`.
+- The image's `apt` sources include PPAs on `ppa.launchpadcontent.net`, which **Trusted** blocks
+  (`x-deny-reason: host_not_allowed`), so any `apt-get update` fails there. The environment
+  therefore uses **Full** network access; a **Custom** entry for that host did not take effect.
+
 ## Pixi
 
 `pyproject.toml` contains a `[tool.pixi.*]` workspace config and `pixi.lock` exists. Pixi manages

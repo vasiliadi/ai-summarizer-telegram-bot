@@ -114,6 +114,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
 | `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight UTC, resetting every user's daily budget. |
 | `scripts/db.py` | Standalone bootstrap script — creates the `users` table via its own `Base`/engine (separate from `src/models.py`); runs `create_all` at import. |
+| `scripts/cloud_session_start.sh` | Claude Code SessionStart hook — in cloud sessions only, runs `uv sync --frozen` and installs pre-commit hooks; see *Cloud Sessions* in `uv-guide.md`. |
 
 ## Request flow
 
