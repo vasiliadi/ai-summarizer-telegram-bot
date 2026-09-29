@@ -95,7 +95,7 @@ class LLMClient:
 
     @property
     def _openrouter_provider(self) -> OpenRouterProvider:
-        """This thread's OpenRouter provider, built on first use.
+        """Return the calling thread's OpenRouter provider, built on first use.
 
         One per thread because `run_sync` drives a separate event loop in every
         thread that calls it, and the provider's async HTTP pool hands a kept-
@@ -111,7 +111,7 @@ class LLMClient:
 
     @property
     def _models(self) -> dict[str, Model]:
-        """This thread's model cache: an OpenRouter model holds its provider."""
+        """Return this thread's model cache: an OpenRouter model holds its provider."""
         if not hasattr(self._local, "models"):
             self._local.models = {}
         return self._local.models

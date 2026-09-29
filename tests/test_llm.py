@@ -196,7 +196,8 @@ def test_build_model_gives_each_thread_its_own_openrouter_provider(mocker):
     Each thread's `run_sync` drives its own event loop, and a provider shared
     across them hands one loop a connection bound to another, which fails the
     call with `RuntimeError: ... is bound to a different event loop`. Within a
-    thread the provider and the model are still built once and reused.
+    thread the provider is built once and shared by every OpenRouter model,
+    and each model is built once and reused.
     """
     factory = mocker.Mock(side_effect=lambda: OpenRouterProvider(api_key="mock_key"))
     client = LLMClient(mocker.MagicMock(), factory)
@@ -205,6 +206,8 @@ def test_build_model_gives_each_thread_its_own_openrouter_provider(mocker):
     def build(name):
         first = client.build_model("minimax/minimax-m3")
         assert client.build_model("minimax/minimax-m3") is first
+        other = client.build_model("openai/gpt-5.6-luna")
+        assert other.wrapped._provider is first.wrapped._provider
         built[name] = first
 
     for name in ("a", "b"):
