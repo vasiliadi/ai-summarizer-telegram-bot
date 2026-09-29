@@ -37,7 +37,7 @@ from itertools import combinations
 import _bootstrap
 import requests
 from langfuse import Langfuse
-from langfuse_api import LangfuseAPI, score_value
+from langfuse_api import EPOCH, LangfuseAPI, score_value
 
 REPO = _bootstrap.load()
 API = LangfuseAPI(*_bootstrap.langfuse_rest())
@@ -93,7 +93,7 @@ def _seconds(item):
     return (datetime.fromisoformat(end) - datetime.fromisoformat(start)).total_seconds()
 
 
-def _tier2_scores():
+def _tier2_scores(runs):
     """Observation id -> {Tier 2 score name: value}, read from the score table.
 
     **The experiment-items read returns at most seven scores per item.** An item
@@ -101,13 +101,20 @@ def _tier2_scores():
     `t2_fabricated` came back with seven and the eighth silently missing, so the
     report showed "-" for a judge that had scored every item.
     Tier 2 scores are therefore read by name from `v3/scores` and merged in; the
-    inline scores still serve Tier 1.
+    inline scores still serve Tier 1. No score predates the run it scores, so
+    the read starts at the earliest of `runs`.
     """
+    since = min((r["startTime"] for r in runs.values()), default=EPOCH)
     out: dict[str, dict] = {}
     for name in PAIRED_METRICS:
         rows = API.paginate(
             "v3/scores",
-            {"name": name, "limit": 100, "fields": "core,subject"},
+            {
+                "name": name,
+                "limit": 100,
+                "fields": "core,subject",
+                "fromTimestamp": since,
+            },
         )
         for row in rows:
             subject = row.get("subject") or {}
@@ -357,7 +364,7 @@ def report(dataset_name=COMPARE, *, all_pairs=False):
         f"`{dataset_name}`, thinking `{judge.THINKING_LEVEL}`, {len(runs)} candidate(s); "
         f"JEV `{judge.JEV_MODEL}`, Opus `{judge.FABRICATED_MODEL}`\n",
     )
-    tier2 = _tier2_scores()
+    tier2 = _tier2_scores(runs)
     items = {
         c: API.experiment_items(e["id"], fields="core,io,scores")
         for c, e in runs.items()
@@ -390,8 +397,9 @@ def backfill(tier2, models=(), dataset_name=COMPARE):
         for i in client.get_dataset(dataset_name).items
     }
     todo = []
-    scores = _tier2_scores()
-    for candidate, run in sorted(discover_runs(dataset_name).items()):
+    runs = discover_runs(dataset_name)
+    scores = _tier2_scores(runs)
+    for candidate, run in sorted(runs.items()):
         if models and _split(candidate)[0] not in models:
             continue
         for item in API.experiment_items(run["id"], fields="core,io,scores"):

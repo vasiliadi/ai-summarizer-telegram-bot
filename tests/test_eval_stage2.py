@@ -98,7 +98,12 @@ def test_backfill_only_pays_for_missing_scores(stage2, mocker, score_location):
     mocker.patch.object(
         stage2,
         "discover_runs",
-        return_value={"vendor/model / strategy": {"id": "run-1"}},
+        return_value={
+            "vendor/model / strategy": {
+                "id": "run-1",
+                "startTime": "2026-09-28T00:00:00Z",
+            },
+        },
     )
     mocker.patch.object(
         stage2,
@@ -131,3 +136,23 @@ def test_backfill_only_pays_for_missing_scores(stage2, mocker, score_location):
     else:
         evaluator.assert_not_called()
         client.create_score.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("runs", "since"),
+    [
+        (
+            {
+                "a": {"startTime": "2026-09-28T00:00:00Z"},
+                "b": {"startTime": "2026-09-27T00:00:00Z"},
+            },
+            "2026-09-27T00:00:00Z",
+        ),
+        ({}, "2020-01-01T00:00:00Z"),
+    ],
+)
+def test_tier2_scores_start_at_earliest_run(stage2, mocker, runs, since):
+    """The score read is bounded by the oldest run it has to cover."""
+    paginate = mocker.patch.object(stage2.API, "paginate", return_value=[])
+    stage2._tier2_scores(runs)
+    assert {c.args[1]["fromTimestamp"] for c in paginate.call_args_list} == {since}

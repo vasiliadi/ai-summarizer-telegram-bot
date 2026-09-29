@@ -647,7 +647,8 @@ into one markdown table, readable in a terminal and pasteable into a document.
 - **Tier 2 scores are read from `v3/scores` by name**, not from the experiment items — see the
   seven-score cap under *API shapes*. Backfill merges this same complete lookup by observation
   id before deciding which items need a paid judge, so an omitted inline score cannot trigger
-  duplicate evaluation.
+  duplicate evaluation. The read starts at the earliest discovered run's `startTime`
+  (`fromTimestamp`), since no score predates the run it scores.
 
 ## API shapes that cost real time to rediscover
 
