@@ -36,6 +36,8 @@ Use `# noqa` sparingly and always specify the exact rule code.
 - Docstrings for private (`_method`) members are optional when behavior is obvious.
 - Use inline `#` comments sparingly, and only to explain *why* non-obvious logic exists — not *what*
   the code does. Code should be self-documenting through naming.
+- Never describe another component in a comment (what a different script installs, what a doc
+  says): it goes stale the moment that component changes. Point to the `docs/context/` file instead.
 
 ## Error Handling & Logging
 

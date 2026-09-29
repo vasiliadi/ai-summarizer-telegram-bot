@@ -196,11 +196,9 @@ host, `astral.sh`, is blocked on Trusted) and this setup script:
 set -euo pipefail
 exec > >(tee /root/setup.log) 2>&1
 
-# uv: official installer; replaces the image's old uv in /root/.local/bin
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv --version
 
-# pre-commit as a global tool; hooking it into the repo happens in the SessionStart hook
 uv tool install pre-commit
 ```
 

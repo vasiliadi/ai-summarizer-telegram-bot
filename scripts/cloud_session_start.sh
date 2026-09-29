@@ -1,9 +1,5 @@
 #!/bin/bash
-# SessionStart hook: installs project deps and git hooks in Claude Code cloud sessions.
-# The environment's setup script provisions the VM (uv, pre-commit) but runs outside the
-# repo, so anything that needs pyproject.toml or .git lives here instead — including Python,
-# which uv sync downloads to match .python-version.
-# See "Cloud Sessions" in docs/context/uv-guide.md.
+# Claude Code SessionStart hook for cloud sessions; see "Cloud Sessions" in docs/context/uv-guide.md.
 set -euo pipefail
 
 [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] || exit 0
