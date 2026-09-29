@@ -107,12 +107,16 @@ Setup is split in two, because the environment's setup script runs outside the r
 Network constraints behind those choices (sandbox egress proxy, observed 2026-09):
 
 - `astral.sh` is not on the **Trusted** allowlist; the uv install script 403s there.
-- Per the Claude Code docs, the GitHub proxy serves release assets only for repos attached to
-  the session, at any access level — which would block both the uv installer's binary and
-  `uv python install`. Not yet confirmed either way in a run; hence the fallbacks.
+- The Claude Code docs say the GitHub proxy serves release assets only for repos attached to the
+  session, at any access level. In practice, on **Full**, both first-choice downloads work
+  (observed 2026-09): the astral.sh installer put uv 0.12.20 in `/root/.local/bin`, replacing
+  the image's 0.8.17, and `uv python install 3.14` installed a uv-managed CPython 3.14.7 that
+  `.venv` uses. Neither fallback ran, so the pip and deadsnakes paths are untested but kept.
 - The image's `apt` sources include PPAs on `ppa.launchpadcontent.net`, which **Trusted** blocks
-  (`x-deny-reason: host_not_allowed`), so any `apt-get update` fails there. The environment
-  therefore uses **Full** network access; a **Custom** entry for that host did not take effect.
+  (`x-deny-reason: host_not_allowed`), so any `apt-get update` fails there. A **Custom** entry for
+  that host did not take effect. The environment uses **Full** network access; whether the
+  first-choice path works on **Trusted** is untested — if `uv python install` failed there, its
+  apt fallback would fail too, and setup would stop.
 
 ## Pixi
 
