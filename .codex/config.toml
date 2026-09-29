@@ -1,9 +1,10 @@
 web_search = "live"
 
-# Codex sessions otherwise show a smaller window than the model's API limit, so set it
-# explicitly. Keep it below the model's input-token cap, and keep the compaction limit
-# below this window: Codex clamps auto-compaction to 90% of the context window.
-model = "gpt-6-astra"
+# Codex opens each model at its catalog context_window (272000 for the GPT models),
+# below the max_context_window it can raise to. These apply to whichever model the
+# session picks: Codex clamps the window to that model's max_context_window and the
+# compaction limit to 90% of the resulting window. Don't pin `model` here: a project
+# `model` becomes every new session's default and overrides the one picked last time.
 model_context_window = 828000
 model_auto_compact_token_limit = 700000
 
