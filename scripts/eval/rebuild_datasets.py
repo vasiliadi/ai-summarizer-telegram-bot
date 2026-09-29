@@ -123,7 +123,7 @@ def select(candidates, quota):
 
 
 def wipe(dataset_name):
-    wiped = 0
+    deleted = set()
     while True:
         response = requests.get(
             f"{BASE}/api/public/dataset-items",
@@ -134,14 +134,18 @@ def wipe(dataset_name):
         response.raise_for_status()
         items = response.json()["data"]
         if not items:
-            return wiped
-        for item in items:
+            return len(deleted)
+        ids = {item["id"] for item in items}
+        # A DELETE that succeeds without removing the item would loop forever.
+        if ids & deleted:
+            sys.exit(f"wipe: deleted items are still listed: {sorted(ids & deleted)}")
+        for item_id in ids:
             requests.delete(
-                f"{BASE}/api/public/dataset-items/{item['id']}",
+                f"{BASE}/api/public/dataset-items/{item_id}",
                 auth=AUTH,
                 timeout=30,
             ).raise_for_status()
-        wiped += len(items)
+        deleted |= ids
 
 
 def push(client, dataset_name, picked, prefix):
