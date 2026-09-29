@@ -1,4 +1,6 @@
 import asyncio
+import threading
+from functools import partial
 from types import SimpleNamespace
 from typing import get_args
 
@@ -38,8 +40,10 @@ def test_build_model_returns_google_model(llm_client):
 
 def test_build_model_returns_openrouter_model(mocker):
     """Test build_model wires a registered OpenRouter id to an OpenRouterModel."""
-    provider = OpenRouterProvider(api_key="mock_openrouter_key")
-    client = LLMClient(mocker.MagicMock(), provider)
+    client = LLMClient(
+        mocker.MagicMock(),
+        partial(OpenRouterProvider, api_key="mock_openrouter_key"),
+    )
 
     model = client.build_model("openai/gpt-5.6-luna")
 
@@ -51,7 +55,10 @@ def test_build_model_returns_openrouter_model(mocker):
 
 def test_build_model_asks_openrouter_for_usage_accounting(mocker):
     """Test the OpenRouter model requests the usage that carries the cost."""
-    client = LLMClient(mocker.MagicMock(), OpenRouterProvider(api_key="mock_key"))
+    client = LLMClient(
+        mocker.MagicMock(),
+        partial(OpenRouterProvider, api_key="mock_key"),
+    )
 
     model = client.build_model("minimax/minimax-m3")
 
@@ -170,7 +177,10 @@ def test_build_model_caches_across_providers(mocker):
     ids never collide. There is a single Gemini id left in the registry, so a
     same-provider version of the second half has nothing to compare against.
     """
-    client = LLMClient(mocker.MagicMock(), OpenRouterProvider(api_key="mock_key"))
+    client = LLMClient(
+        mocker.MagicMock(),
+        partial(OpenRouterProvider, api_key="mock_key"),
+    )
 
     google = client.build_model("gemini-3.7-flash")
     openrouter = client.build_model("minimax/minimax-m3")
@@ -178,6 +188,33 @@ def test_build_model_caches_across_providers(mocker):
     assert client.build_model("gemini-3.7-flash") is google
     assert client.build_model("minimax/minimax-m3") is openrouter
     assert google is not openrouter
+
+
+def test_build_model_gives_each_thread_its_own_openrouter_provider(mocker):
+    """Test no two threads share an OpenRouter provider or a model built on one.
+
+    Each thread's `run_sync` drives its own event loop, and a provider shared
+    across them hands one loop a connection bound to another, which fails the
+    call with `RuntimeError: ... is bound to a different event loop`. Within a
+    thread the provider and the model are still built once and reused.
+    """
+    factory = mocker.Mock(side_effect=lambda: OpenRouterProvider(api_key="mock_key"))
+    client = LLMClient(mocker.MagicMock(), factory)
+    built = {}
+
+    def build(name):
+        first = client.build_model("minimax/minimax-m3")
+        assert client.build_model("minimax/minimax-m3") is first
+        built[name] = first
+
+    for name in ("a", "b"):
+        thread = threading.Thread(target=build, args=(name,))
+        thread.start()
+        thread.join()
+
+    assert factory.call_count == 2
+    assert built["a"] is not built["b"]
+    assert built["a"].wrapped._provider is not built["b"].wrapped._provider
 
 
 def test_build_model_rejects_unregistered_model(llm_client):
@@ -297,7 +334,10 @@ def test_build_uploaded_file_rejects_registered_openrouter_model(mocker):
     substitute a Gemini model before reaching here; this is the backstop if it
     ever stops doing so.
     """
-    client = LLMClient(mocker.MagicMock(), OpenRouterProvider(api_key="mock_key"))
+    client = LLMClient(
+        mocker.MagicMock(),
+        partial(OpenRouterProvider, api_key="mock_key"),
+    )
     file = SimpleNamespace(name="files/x", uri="https://x", mime_type="application/pdf")
 
     with pytest.raises(ValueError, match="Cannot reference a Gemini file"):

@@ -47,6 +47,10 @@ def test_build_container_returns_wired_container():
     assert summarizer._gemini_helper._client is config.gemini_client
     assert isinstance(summarizer._llm_client, LLMClient)
     assert summarizer._llm_client._client is config.gemini_client
+    assert (
+        summarizer._llm_client._openrouter_provider_factory
+        is config.openrouter_provider_factory
+    )
     assert isinstance(summarizer._audio_transcriber, AudioTranscriber)
     assert summarizer._audio_transcriber._client is config.replicate_client
     assert isinstance(summarizer._yt_transcriber, YouTubeTranscriber)

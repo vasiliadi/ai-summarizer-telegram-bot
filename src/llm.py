@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
@@ -15,7 +16,7 @@ from config import MODEL_SPECS
 from prompts import SYSTEM_INSTRUCTION
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
     from google import genai
     from google.genai import types
@@ -76,11 +77,12 @@ class LLMClient:
     def __init__(
         self,
         client: genai.Client,
-        openrouter_provider: OpenRouterProvider,
+        openrouter_provider_factory: Callable[[], OpenRouterProvider],
     ) -> None:
-        """Store the injected providers and this client's model cache."""
+        """Store the injected Gemini client and OpenRouter provider factory."""
         self._client = client
-        self._openrouter_provider = openrouter_provider
+        self._openrouter_provider_factory = openrouter_provider_factory
+        self._local = threading.local()
         # Neither agent is model-, language- or user-specific: pydantic-ai takes
         # the model, the instructions and the settings per run. They differ only
         # in whether instrumentation is on.
@@ -90,7 +92,29 @@ class LLMClient:
         # Langfuse generation with token usage but no content behind it.
         self._untraced_agent: Agent[None, str] = Agent()
         self._untraced_agent.instrument = False
-        self._models: dict[str, Model] = {}
+
+    @property
+    def _openrouter_provider(self) -> OpenRouterProvider:
+        """This thread's OpenRouter provider, built on first use.
+
+        One per thread because `run_sync` drives a separate event loop in every
+        thread that calls it, and the provider's async HTTP pool hands a kept-
+        alive connection to whichever loop asks next while its socket stays
+        bound to the loop that opened it. Shared across the bot's worker
+        threads, a reused connection fails the call with `RuntimeError: ... is
+        bound to a different event loop`. The Gemini client needs no such
+        split: google-genai keeps one HTTP session per event loop itself.
+        """
+        if not hasattr(self._local, "openrouter_provider"):
+            self._local.openrouter_provider = self._openrouter_provider_factory()
+        return self._local.openrouter_provider
+
+    @property
+    def _models(self) -> dict[str, Model]:
+        """This thread's model cache: an OpenRouter model holds its provider."""
+        if not hasattr(self._local, "models"):
+            self._local.models = {}
+        return self._local.models
 
     @staticmethod
     def _is_text_only(content: str | Sequence[UserContent]) -> bool:
@@ -100,7 +124,7 @@ class LLMClient:
         return all(isinstance(part, str) for part in content)
 
     def build_model(self, model_id: str) -> Model:
-        """Return the pydantic-ai model for a registered id, shared across calls."""
+        """Return the pydantic-ai model for a registered id, cached per thread."""
         if model_id not in self._models:
             spec = MODEL_SPECS[model_id]
             if spec.provider == "google":

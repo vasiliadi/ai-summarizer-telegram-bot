@@ -99,7 +99,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; the `__main__` block just calls `build_app`, `run`, `shutdown`. |
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
-| `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a model cache keyed by id across providers; model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`, Google and OpenRouter today); `build_settings` has no provider branch at all — every provider takes the agnostic `thinking` effort, so the one provider-specific setting there is (OpenRouter usage accounting) rides on the model instead. `OpenRouterCostReporter`, the wrapper `build_model` puts around every OpenRouter model, reports cost to the trace (see Tracing below). |
+| `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a per-thread OpenRouter provider and a per-thread model cache keyed by id across providers (see *One OpenRouter provider per thread* below); model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`, Google and OpenRouter today); `build_settings` has no provider branch at all — every provider takes the agnostic `thinking` effort, so the one provider-specific setting there is (OpenRouter usage accounting) rides on the model instead. `OpenRouterCostReporter`, the wrapper `build_model` puts around every OpenRouter model, reports cost to the trace (see Tracing below). |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
@@ -237,6 +237,22 @@ to Gemini — return the raw model text with **no** prefix.
   makes at most two attempts on `DownloadError` (`stop_after_attempt(2)`).
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
+- **One OpenRouter provider per thread.** `LLMClient.run` ends in pydantic-ai's `run_sync`,
+  which drives a separate event loop in every thread that calls it — each telebot worker
+  (two by default) and each eval-harness thread. An `OpenRouterProvider` owns one async HTTP
+  pool (`AsyncOpenAI` over httpx2), and that pool hands a kept-alive connection to whichever
+  loop asks next while the socket stays bound to the loop that opened it. Shared across
+  threads, the reuse fails the call at once with `RuntimeError: <asyncio.locks.Event ...> is
+  bound to a different event loop`, which no `@retry` catches — reproduced on 2026-09-29 as
+  every call on the second of two alternating worker threads, and about half of 200 calls
+  run four at a time on fresh threads. A connection is only reused within its 5 s keep-alive,
+  so the bot hit this when two users' OpenRouter requests landed on different workers close
+  together. `config` therefore exports `openrouter_provider_factory`, not a provider, and
+  `LLMClient` builds one provider per thread on first use; the model cache is per thread
+  too, because an `OpenRouterModel` holds its provider. **Do not go back to one shared
+  provider**, and do not share any other async client across `run_sync` threads. The Gemini
+  client is exempt: google-genai keeps a separate aiohttp session per event loop itself, and
+  sharing it across the same two threads reproduced no failure.
 - **Tracing (optional), text input only.** Enabled only when `LANGFUSE_PUBLIC_KEY` and
   `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`, else `None`).
   `Agent.instrument_all()` then makes pydantic-ai emit an OpenTelemetry span per model

@@ -64,7 +64,7 @@ class EvalLLMClient(LLMClient):
 
 LLM = EvalLLMClient(
     client=config.gemini_client,
-    openrouter_provider=config.openrouter_provider,
+    openrouter_provider_factory=config.openrouter_provider_factory,
 )
 
 
