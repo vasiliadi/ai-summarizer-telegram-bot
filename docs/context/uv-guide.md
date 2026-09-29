@@ -82,7 +82,6 @@ Setup is split in two, because the environment's setup script runs outside the r
    is in `README.md` → *Claude Cloud Sessions* — edit both together) provisions the VM
    under `set -euo pipefail`, logging to `/root/setup.log`:
    - **uv**: the `astral.sh` installer, which replaces the image's uv in `/root/.local/bin`.
-   - **Python 3.14**: `uv python install 3.14`, a uv-managed CPython.
    - **pre-commit**: `uv tool install pre-commit`.
 
    An earlier version fell back to pip for uv and to the deadsnakes PPA for Python; neither
@@ -91,15 +90,16 @@ Setup is split in two, because the environment's setup script runs outside the r
    `python3 -m pip install --upgrade --break-system-packages uv`, then
    `ln -sf "$(python3 -c 'import uv; print(uv.find_uv_bin())')" /root/.local/bin/uv`, since pip
    puts uv in `/usr/local/bin`, behind the image's copy on `PATH` — and first check whether
-   `uv python install` works there.
+   uv's Python download works there.
 
-   The environment sets **no variables**. uv follows `.python-version` (`3.14.7`, an exact patch)
-   as it does locally; when the setup script's `uv python install 3.14` got a different patch —
-   a newer 3.14 at cache-build time, or `.python-version` bumped since — uv downloads the pinned
-   one on first use, which works on **Full**. An earlier version set `UV_PYTHON=3.14` and
-   `UV_PYTHON_DOWNLOADS=manual`, chosen while Python downloads were assumed blocked; they were
-   dropped because `manual` turned any patch mismatch into a failure, and both variables apply to
-   every repo started in the environment.
+   The script installs **no Python** and the environment sets **no variables**. The hook's
+   `uv sync --frozen` downloads exactly the `.python-version` patch (`3.14.7`) on first use, as it
+   would locally; this works on **Full** and took about 1 s. An earlier version ran
+   `uv python install 3.14` here and set `UV_PYTHON=3.14` and `UV_PYTHON_DOWNLOADS=manual`,
+   chosen while Python downloads were assumed blocked. All three were dropped: the install got
+   the *newest* 3.14, so any patch mismatch with the pin made the cached copy useless; `manual`
+   turned that mismatch into a failure; and both variables applied to every repo started in the
+   environment.
 2. **`scripts/cloud_session_start.sh`**, a SessionStart hook in `.claude/settings.json`, runs in
    the repo in every cloud session. Its essential job is `pre-commit install`: nothing else puts
    the hooks into a fresh clone's `.git/hooks`, so without it cloud commits silently skip every
@@ -123,7 +123,7 @@ Network constraints behind those choices (sandbox egress proxy, observed 2026-09
 - The image's `apt` sources include PPAs on `ppa.launchpadcontent.net`, which **Trusted** blocks
   (`x-deny-reason: host_not_allowed`), so any `apt-get update` fails there. A **Custom** entry for
   that host did not take effect. The environment uses **Full** network access; whether
-  `uv python install` works on **Trusted** is untested.
+  uv's Python download works on **Trusted** is untested.
 
 ## Pixi
 

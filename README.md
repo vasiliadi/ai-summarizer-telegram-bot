@@ -200,15 +200,12 @@ exec > >(tee /root/setup.log) 2>&1
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv --version
 
-# Python 3.14, uv-managed
-uv python install 3.14
-
 # pre-commit as a global tool; hooking it into the repo happens in the SessionStart hook
 uv tool install pre-commit
 ```
 
-No environment variables are needed: uv follows `.python-version`, downloading that exact patch on
-first use if the setup script installed a different 3.14.
+No environment variables are needed, and the script installs no Python: uv follows `.python-version`
+and downloads that exact patch on first use.
 
 The setup script only provisions the VM. Project setup runs from the repo's SessionStart hook,
 `scripts/cloud_session_start.sh`, which installs the git hooks above and runs `uv sync --frozen` in every cloud session.
