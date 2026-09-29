@@ -187,9 +187,9 @@ pre-commit install --hook-type post-rewrite
 
 #### Claude Cloud Sessions
 
-To run [Claude Code cloud sessions](https://code.claude.com/docs/en/claude-code-on-the-web) on this repo, configure a dedicated
-[cloud environment](https://code.claude.com/docs/en/cloud-environments) (its variables apply to every repo started in it) with **Full** network access (the uv installer's
-host, `astral.sh`, is blocked on Trusted), this setup script:
+To run [Claude Code cloud sessions](https://code.claude.com/docs/en/claude-code-on-the-web) on this repo, configure the
+[cloud environment](https://code.claude.com/docs/en/cloud-environments) with **Full** network access (the uv installer's
+host, `astral.sh`, is blocked on Trusted) and this setup script:
 
 ```bash
 #!/bin/bash
@@ -207,12 +207,8 @@ uv python install 3.14
 uv tool install pre-commit
 ```
 
-and these environment variables:
-
-```env
-UV_PYTHON=3.14
-UV_PYTHON_DOWNLOADS=manual
-```
+No environment variables are needed: uv follows `.python-version`, downloading that exact patch on
+first use if the setup script installed a different 3.14.
 
 The setup script only provisions the VM. Project setup runs from the repo's SessionStart hook,
 `scripts/cloud_session_start.sh`, which installs the git hooks above and runs `uv sync --frozen` in every cloud session.

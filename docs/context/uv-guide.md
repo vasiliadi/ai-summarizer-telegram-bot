@@ -78,8 +78,8 @@ Claude Code cloud sessions run on an Ubuntu 24.04 VM whose image ships Python 3.
 `python3` is 3.11) and **uv 0.8.17** — no 3.14, and a uv too old to trust with this `uv.lock`.
 Setup is split in two, because the environment's setup script runs outside the repo:
 
-1. **Environment setup script** (pasted into the claude.ai environment dialog; the reference copy,
-   with the env vars, is in `README.md` → *Claude Cloud Sessions* — edit both together) provisions the VM
+1. **Environment setup script** (pasted into the claude.ai environment dialog; the reference copy
+   is in `README.md` → *Claude Cloud Sessions* — edit both together) provisions the VM
    under `set -euo pipefail`, logging to `/root/setup.log`:
    - **uv**: the `astral.sh` installer, which replaces the image's uv in `/root/.local/bin`.
    - **Python 3.14**: `uv python install 3.14`, a uv-managed CPython.
@@ -93,12 +93,13 @@ Setup is split in two, because the environment's setup script runs outside the r
    puts uv in `/usr/local/bin`, behind the image's copy on `PATH` — and first check whether
    `uv python install` works there.
 
-   The environment's variables set `UV_PYTHON=3.14` (a version request, so it matches a
-   uv-managed or a system interpreter) and `UV_PYTHON_DOWNLOADS=manual` (the explicit install
-   above still works; `uv sync`/`uv run` never download one on their own). `UV_PYTHON` overrides
-   `.python-version`, which pins `3.14.7`: without it, a cache rebuild that installs a newer 3.14
-   patch would leave uv needing a 3.14.7 it may not download. Both variables apply to every repo
-   started in the environment, so use one dedicated to this repo.
+   The environment sets **no variables**. uv follows `.python-version` (`3.14.7`, an exact patch)
+   as it does locally; when the setup script's `uv python install 3.14` got a different patch —
+   a newer 3.14 at cache-build time, or `.python-version` bumped since — uv downloads the pinned
+   one on first use, which works on **Full**. An earlier version set `UV_PYTHON=3.14` and
+   `UV_PYTHON_DOWNLOADS=manual`, chosen while Python downloads were assumed blocked; they were
+   dropped because `manual` turned any patch mismatch into a failure, and both variables apply to
+   every repo started in the environment.
 2. **`scripts/cloud_session_start.sh`**, a SessionStart hook in `.claude/settings.json`, runs in
    the repo in every cloud session. Its essential job is `pre-commit install`: nothing else puts
    the hooks into a fresh clone's `.git/hooks`, so without it cloud commits silently skip every
