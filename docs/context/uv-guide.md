@@ -95,7 +95,10 @@ Setup is split in two, because the environment's setup script runs outside the r
 
    The environment's variables set `UV_PYTHON=3.14` (a version request, so it matches a
    uv-managed or a system interpreter) and `UV_PYTHON_DOWNLOADS=manual` (the explicit install
-   above still works; `uv sync`/`uv run` never download one on their own).
+   above still works; `uv sync`/`uv run` never download one on their own). `UV_PYTHON` overrides
+   `.python-version`, which pins `3.14.7`: without it, a cache rebuild that installs a newer 3.14
+   patch would leave uv needing a 3.14.7 it may not download. Both variables apply to every repo
+   started in the environment, so use one dedicated to this repo.
 2. **`scripts/cloud_session_start.sh`**, a SessionStart hook in `.claude/settings.json`, runs in
    the repo in every cloud session. Its essential job is `pre-commit install`: nothing else puts
    the hooks into a fresh clone's `.git/hooks`, so without it cloud commits silently skip every

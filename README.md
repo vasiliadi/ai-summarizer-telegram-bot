@@ -187,8 +187,8 @@ pre-commit install --hook-type post-rewrite
 
 #### Claude Cloud Sessions
 
-To run [Claude Code cloud sessions](https://code.claude.com/docs/en/claude-code-on-the-web) on this repo, configure the
-[cloud environment](https://code.claude.com/docs/en/cloud-environments) with **Full** network access (the uv installer's
+To run [Claude Code cloud sessions](https://code.claude.com/docs/en/claude-code-on-the-web) on this repo, configure a dedicated
+[cloud environment](https://code.claude.com/docs/en/cloud-environments) (its variables apply to every repo started in it) with **Full** network access (the uv installer's
 host, `astral.sh`, is blocked on Trusted), this setup script:
 
 ```bash
