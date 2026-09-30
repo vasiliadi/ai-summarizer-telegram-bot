@@ -32,9 +32,9 @@ def llm_client(mocker):
 
 def test_build_model_returns_google_model(llm_client):
     """Test build_model wires a registered Gemini id to a GoogleModel."""
-    model = llm_client.build_model("gemini-3.7-flash")
+    model = llm_client.build_model("gemini-3.8-flash")
     assert isinstance(model, GoogleModel)
-    assert model.model_name == "gemini-3.7-flash"
+    assert model.model_name == "gemini-3.8-flash"
     assert model.system == "google"
 
 
@@ -45,11 +45,11 @@ def test_build_model_returns_openrouter_model(mocker):
         partial(OpenRouterProvider, api_key="mock_openrouter_key"),
     )
 
-    model = client.build_model("openai/gpt-5.6-luna")
+    model = client.build_model("openai/gpt-6-luna")
 
     assert isinstance(model, OpenRouterCostReporter)
     assert isinstance(model.wrapped, OpenRouterModel)
-    assert model.model_name == "openai/gpt-5.6-luna"
+    assert model.model_name == "openai/gpt-6-luna"
     assert model.system == "openrouter"
 
 
@@ -60,14 +60,14 @@ def test_build_model_asks_openrouter_for_usage_accounting(mocker):
         partial(OpenRouterProvider, api_key="mock_key"),
     )
 
-    model = client.build_model("minimax/minimax-m3")
+    model = client.build_model("x-ai/grok-4.7")
 
     assert model.settings == {"openrouter_usage": {"include": True}}
 
 
 def test_build_model_leaves_gemini_unwrapped(llm_client):
     """Test Langfuse prices Gemini itself, so it needs no cost reporter."""
-    model = llm_client.build_model("gemini-3.7-flash")
+    model = llm_client.build_model("gemini-3.8-flash")
 
     assert not isinstance(model, OpenRouterCostReporter)
     assert model.settings is None
@@ -182,11 +182,11 @@ def test_build_model_caches_across_providers(mocker):
         partial(OpenRouterProvider, api_key="mock_key"),
     )
 
-    google = client.build_model("gemini-3.7-flash")
-    openrouter = client.build_model("minimax/minimax-m3")
+    google = client.build_model("gemini-3.8-flash")
+    openrouter = client.build_model("x-ai/grok-4.7")
 
-    assert client.build_model("gemini-3.7-flash") is google
-    assert client.build_model("minimax/minimax-m3") is openrouter
+    assert client.build_model("gemini-3.8-flash") is google
+    assert client.build_model("x-ai/grok-4.7") is openrouter
     assert google is not openrouter
 
 
@@ -204,9 +204,9 @@ def test_build_model_gives_each_thread_its_own_openrouter_provider(mocker):
     built = {}
 
     def build(name):
-        first = client.build_model("minimax/minimax-m3")
-        assert client.build_model("minimax/minimax-m3") is first
-        other = client.build_model("openai/gpt-5.6-luna")
+        first = client.build_model("x-ai/grok-4.7")
+        assert client.build_model("x-ai/grok-4.7") is first
+        other = client.build_model("openai/gpt-6-luna")
         assert other.wrapped._provider is first.wrapped._provider
         built[name] = first
 
@@ -281,7 +281,7 @@ def test_unknown_thinking_level_raises_when_the_request_is_built(llm_client):
     agent.run_sync, but *not* caught by summary.py's typed @retry decorators, so
     it surfaces to Sentry on the first attempt rather than being retried.
     """
-    model = llm_client.build_model("gemini-3.7-flash")
+    model = llm_client.build_model("gemini-3.8-flash")
     settings = llm_client.build_settings(thinking_level="INVALID")
     messages = [ModelRequest(parts=[UserPromptPart(content="hello")])]
     settings, params = model.prepare_request(settings, ModelRequestParameters())
@@ -300,7 +300,7 @@ def test_build_uploaded_file_uses_uri_as_file_id(llm_client):
         mime_type="audio/ogg",
     )
 
-    part = llm_client.build_uploaded_file(model_id="gemini-3.7-flash", file=file)
+    part = llm_client.build_uploaded_file(model_id="gemini-3.8-flash", file=file)
 
     assert part.file_id == file.uri
     assert part.media_type == "audio/ogg"
@@ -344,7 +344,7 @@ def test_build_uploaded_file_rejects_registered_openrouter_model(mocker):
     file = SimpleNamespace(name="files/x", uri="https://x", mime_type="application/pdf")
 
     with pytest.raises(ValueError, match="Cannot reference a Gemini file"):
-        client.build_uploaded_file(model_id="openai/gpt-5.6-luna", file=file)
+        client.build_uploaded_file(model_id="openai/gpt-6-luna", file=file)
 
 
 def test_run_drives_a_real_agent_run(llm_client, mocker):
@@ -377,7 +377,7 @@ def test_run_drives_a_real_agent_run(llm_client, mocker):
 
     result = llm_client.run(
         content="Summarize this.",
-        model_id="gemini-3.7-flash",
+        model_id="gemini-3.8-flash",
         target_language="Ukrainian",
         thinking_level="medium",
     )
@@ -401,7 +401,7 @@ def test_run_builds_the_expected_gemini_request_config(
 
     Gemini has no XHIGH, so xhigh collapses onto HIGH here — the reason the
     fifth level is offered for a future provider rather than for today. And
-    gemini-3.7-flash documents no MINIMAL, so pydantic-ai's model profile
+    gemini-3.8-flash documents no MINIMAL, so pydantic-ai's model profile
     (`google_supports_minimal_thinking_level`, new in the 2.29 -> 2.32.1 bump)
     collapses minimal onto LOW: the keyboard's five levels are indistinguishable
     at the bottom as well as at the top. A Gemini model whose profile does claim
@@ -412,7 +412,7 @@ def test_run_builds_the_expected_gemini_request_config(
     therefore generates thought summaries that run() drops, which is the price
     of owning no mapping. If a bump ever separates the two, this test says so.
     """
-    model = llm_client.build_model("gemini-3.7-flash")
+    model = llm_client.build_model("gemini-3.8-flash")
     settings = llm_client.build_settings(thinking_level=thinking_level)
     messages = [ModelRequest(parts=[UserPromptPart(content="hello")])]
     settings, params = model.prepare_request(settings, ModelRequestParameters())
@@ -441,7 +441,7 @@ def test_run_passes_model_and_instructions(llm_client, mocker):
 
     result = llm_client.run(
         content="Summarize this.",
-        model_id="gemini-3.7-flash",
+        model_id="gemini-3.8-flash",
         target_language="Ukrainian",
         thinking_level="medium",
     )
@@ -449,7 +449,7 @@ def test_run_passes_model_and_instructions(llm_client, mocker):
     assert result == "A summary."
     call = mock_run_sync.call_args
     assert call.args[0] == "Summarize this."
-    assert call.kwargs["model"].model_name == "gemini-3.7-flash"
+    assert call.kwargs["model"].model_name == "gemini-3.8-flash"
     assert "Ukrainian" in call.kwargs["instructions"]
 
 
@@ -463,7 +463,7 @@ def test_run_instructions_are_dedented(llm_client, mocker):
 
     llm_client.run(
         content="Summarize this.",
-        model_id="gemini-3.7-flash",
+        model_id="gemini-3.8-flash",
         target_language="English",
         thinking_level="high",
     )
@@ -485,7 +485,7 @@ def test_run_raises_on_empty_output(llm_client, mocker, output):
     with pytest.raises(AttributeError):
         llm_client.run(
             content="Summarize this.",
-            model_id="gemini-3.7-flash",
+            model_id="gemini-3.8-flash",
             target_language="English",
             thinking_level="high",
         )
@@ -505,7 +505,7 @@ def test_run_uses_traced_agent_for_text_content(llm_client, mocker):
 
     result = llm_client.run(
         content="Summarize this.",
-        model_id="gemini-3.7-flash",
+        model_id="gemini-3.8-flash",
         target_language="English",
         thinking_level="high",
     )
@@ -532,7 +532,7 @@ def test_run_uses_traced_agent_for_multipart_text_content(llm_client, mocker):
 
     result = llm_client.run(
         content=["Summarize this.", "Use short bullets."],
-        model_id="gemini-3.7-flash",
+        model_id="gemini-3.8-flash",
         target_language="English",
         thinking_level="high",
     )
@@ -554,7 +554,7 @@ def test_run_uses_untraced_agent_for_uploaded_file_content(llm_client, mocker):
         mime_type="audio/ogg",
     )
     uploaded_file = llm_client.build_uploaded_file(
-        model_id="gemini-3.7-flash",
+        model_id="gemini-3.8-flash",
         file=file,
     )
     mock_run_sync = mocker.patch.object(
@@ -569,7 +569,7 @@ def test_run_uses_untraced_agent_for_uploaded_file_content(llm_client, mocker):
 
     result = llm_client.run(
         content=["Summarize this.", uploaded_file],
-        model_id="gemini-3.7-flash",
+        model_id="gemini-3.8-flash",
         target_language="English",
         thinking_level="high",
     )
