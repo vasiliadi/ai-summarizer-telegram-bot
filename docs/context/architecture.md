@@ -252,7 +252,8 @@ to Gemini — return the raw model text with **no** prefix.
   runs a separate event loop in every calling thread (each telebot worker, each eval-harness
   thread). An `OpenRouterProvider` owns one async HTTP pool, and a kept-alive connection reused from
   another thread's loop fails at once with `RuntimeError: ... is bound to a different event loop`,
-  which no `@retry` catches. So `config` exports `openrouter_provider_factory`, and `LLMClient`
+  which no `@retry` catches. A connection is only reused within its 5 s keep-alive, so it fails
+  only when requests on different threads land within 5 s of each other. So `config` exports `openrouter_provider_factory`, and `LLMClient`
   builds one provider — and one model cache, since an `OpenRouterModel` holds its provider — per
   thread. **Do not go back to one shared provider**, and do not share any other async client across
   `run_sync` threads. The Gemini client is exempt: google-genai keeps an aiohttp session per loop.

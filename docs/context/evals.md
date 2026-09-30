@@ -145,7 +145,7 @@ dump --pid <pid>`; macOS needs `sudo`) showed one worker thread in `LLM.run` →
 pydantic-ai's own event loop, idle in `select()` — the **candidate generation**, not the judge.
 The cause is an OpenRouter provider shared across event loops (`architecture.md`, *One
 OpenRouter provider per thread*): each item's thread runs its own loop, and a kept-alive
-connection opened by one loop and reused by another fails the call. Reproduced,
+connection opened by one loop and reused by another fails the call. In reproduction
 it failed at once with `RuntimeError: ... is bound to a different event loop` (about half of
 200 calls); the silent hang is the same reuse when the other loop is idle and never reads the
 socket, and was **not** reproduced — assumed, not confirmed. `LLMClient` now builds one provider
