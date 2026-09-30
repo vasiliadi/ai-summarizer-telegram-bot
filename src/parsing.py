@@ -4,7 +4,7 @@ import ipaddress
 import logging
 import socket
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 from urllib.parse import urlsplit
 
 from curl_cffi import requests
@@ -18,6 +18,12 @@ from tenacity import (
     wait_fixed,
 )
 
+from config import (
+    BLOCK_DETECTOR_MODEL_ID,
+    OPENROUTER_APP_TITLE,
+    OPENROUTER_APP_URL,
+    OPENROUTER_DECISIONS_URL,
+)
 from domain import PrefixedText
 from exceptions import WebParseError
 from utils import get_proxy
@@ -29,6 +35,85 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
+
+
+class BlockedPageDetector:
+    """Asks JEV whether an extraction is a block page rather than the content.
+
+    Exa and Tavily are sometimes refused by the site and return what it shows
+    instead — a region block, a bot check, an access-denied or login page — as
+    ordinary non-empty text. JEV answers one yes/no question over the text with
+    a probability; calibrated on 2026-09-30, block pages scored 0.83-0.99 and
+    real pages (including an article *about* regional blocking) 0.01-0.03.
+    """
+
+    _QUESTION: ClassVar[str] = (
+        "Is this page a block, access-denied or error page instead of the "
+        "requested content?"
+    )
+    _CRITERIA: ClassVar[dict[str, str]] = {
+        "true": (
+            "The text is what a site shows instead of its content: a region or "
+            "access block, a bot check or CAPTCHA, a login or paywall, a "
+            "JavaScript-required notice, or an error page."
+        ),
+        "false": (
+            "The text carries the page's actual content, such as an article, "
+            "documentation, a post or a discussion, even if it mentions blocking "
+            "or errors."
+        ),
+    }
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = BLOCK_DETECTOR_MODEL_ID,
+        threshold: float = 0.5,
+        timeout: int = 30,
+    ) -> None:
+        """Store the OpenRouter key, the JEV model id, and the block threshold."""
+        self._api_key = api_key
+        self._model = model
+        self._threshold = threshold
+        self._timeout = timeout
+
+    def is_blocked(self, content: str, url: str) -> bool:
+        """Return True when JEV judges the extraction to be a block page.
+
+        Fails open: any detector error is logged and treated as not blocked, so
+        a JEV outage can never break web parsing.
+        """
+        body = {
+            "model": self._model,
+            "state": content,
+            "questions": {
+                "blocked": {
+                    "type": "noul",
+                    "instructions": self._QUESTION,
+                    "criteria": self._CRITERIA,
+                },
+            },
+        }
+        try:
+            response = requests.post(
+                OPENROUTER_DECISIONS_URL,
+                json=body,
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "HTTP-Referer": OPENROUTER_APP_URL,
+                    "X-Title": OPENROUTER_APP_TITLE,
+                },
+                timeout=self._timeout,
+            )
+            response.raise_for_status()
+            probability = float(response.json()["answers"]["blocked"]["noul"])
+        except Exception:  # best-effort: never let detection break parsing
+            logger.warning("Block-page check failed for %s", url, exc_info=True)
+            return False
+        if probability >= self._threshold:
+            logger.warning("JEV flagged %s as a block page (p=%.2f)", url, probability)
+            return True
+        return False
 
 
 class ParserBackend(ABC):
@@ -48,9 +133,33 @@ class ExaBackend(ParserBackend):
     name = "Exa"
     prefix = "🌐"
 
-    def __init__(self, client: Exa) -> None:
-        """Store the injected Exa client."""
+    def __init__(
+        self,
+        client: Exa,
+        detector: BlockedPageDetector | None = None,
+    ) -> None:
+        """Store the injected Exa client and the optional block-page detector."""
         self._client = client
+        self._detector = detector
+
+    def parse(self, url: str) -> str:
+        """Extract main textual content from a URL using Exa.ai.
+
+        A block page is rejected without re-running Exa: the site refused Exa,
+        and asking again 5 s later would only fetch the same page.
+
+        Raises:
+            WebParseError: If Exa returns no results or empty content (retried
+                once, 2 total attempts, before re-raising), or if the detector
+                judges the extraction a block page.
+
+        """
+        content = self._extract(url)
+        if self._detector is not None and self._detector.is_blocked(content, url):
+            msg = f"Exa returned a block page for {url}"
+            logger.warning(msg)
+            raise WebParseError(msg)
+        return content
 
     @retry(
         stop=stop_after_attempt(2),
@@ -59,14 +168,7 @@ class ExaBackend(ParserBackend):
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=True,
     )
-    def parse(self, url: str) -> str:
-        """Extract main textual content from a URL using Exa.ai.
-
-        Raises:
-            WebParseError: If Exa returns no results or empty content. Retried
-                once (2 total attempts) before re-raising.
-
-        """
+    def _extract(self, url: str) -> str:
         response = self._client.get_contents(
             urls=[url],
             text={"max_characters": 20000, "include_html_tags": True},

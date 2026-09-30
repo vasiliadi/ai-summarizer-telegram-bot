@@ -4,15 +4,27 @@ import pytest
 from tavily.errors import TimeoutError as TavilyTimeoutError
 from tenacity import RetryError
 
+from config import (
+    BLOCK_DETECTOR_MODEL_ID,
+    OPENROUTER_APP_TITLE,
+    OPENROUTER_APP_URL,
+    OPENROUTER_DECISIONS_URL,
+)
 from exceptions import WebParseError
-from parsing import ExaBackend, TavilyBackend, UrlResolver, WebParser
+from parsing import (
+    BlockedPageDetector,
+    ExaBackend,
+    TavilyBackend,
+    UrlResolver,
+    WebParser,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _make_parser(mocker):
+def _make_parser(mocker, detector=None):
     """Return (parser, mock_exa_client, mock_tavily_client).
 
     Injects a stub resolver that passes the URL through unchanged so the
@@ -22,7 +34,11 @@ def _make_parser(mocker):
     mock_tavily = mocker.MagicMock()
     resolver = mocker.Mock()
     resolver.resolve.side_effect = lambda url: url
-    parser = WebParser(ExaBackend(mock_exa), TavilyBackend(mock_tavily), resolver)
+    parser = WebParser(
+        ExaBackend(mock_exa, detector),
+        TavilyBackend(mock_tavily),
+        resolver,
+    )
     return parser, mock_exa, mock_tavily
 
 
@@ -439,3 +455,130 @@ def test_resolve_blocks_redirect_to_private_host(mocker, caplog):
 
     assert result == "https://example.com/start"
     assert "Blocked redirect to non-public host" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Block-page detection
+# ---------------------------------------------------------------------------
+
+
+def test_parse_url_keeps_exa_content_when_not_blocked(mocker):
+    """Test parse returns Exa's text when the detector passes it."""
+    detector = mocker.Mock()
+    detector.is_blocked.return_value = False
+    parser, mock_exa, mock_tavily = _make_parser(mocker, detector)
+    mock_exa.get_contents.return_value = mocker.Mock(
+        results=[mocker.Mock(text="Hello world.")],
+    )
+
+    result = parser.parse("https://example.com")
+
+    assert result.text == "Hello world."
+    assert result.prefix == "🌐"
+    detector.is_blocked.assert_called_once_with("Hello world.", "https://example.com")
+    mock_tavily.extract.assert_not_called()
+
+
+def test_parse_url_falls_back_to_tavily_on_block_page(mocker, caplog):
+    """Test a block page falls back to Tavily without re-running Exa."""
+    mock_sleep = mocker.patch("time.sleep")
+    detector = mocker.Mock()
+    detector.is_blocked.return_value = True
+    parser, mock_exa, mock_tavily = _make_parser(mocker, detector)
+    mock_exa.get_contents.return_value = mocker.Mock(
+        results=[mocker.Mock(text="App unavailable in your region.")],
+    )
+    mock_tavily.extract.return_value = {
+        "results": [{"url": "https://example.com", "raw_content": "From Tavily."}],
+        "failed_results": [],
+    }
+
+    with caplog.at_level(logging.WARNING, logger="parsing"):
+        result = parser.parse("https://example.com")
+
+    assert result.text == "From Tavily."
+    assert result.prefix == "🕸️"
+    mock_exa.get_contents.assert_called_once()
+    mock_sleep.assert_not_called()
+    assert "Exa returned a block page for https://example.com" in caplog.text
+
+
+def _decisions_response(mocker, noul):
+    response = mocker.Mock()
+    response.json.return_value = {
+        "model": "typesafe/jev-1.13-20260917",
+        "answers": {"blocked": {"type": "noul", "noul": noul}},
+    }
+    return response
+
+
+def test_is_blocked_asks_jev_with_the_page_as_state(mocker):
+    """Test is_blocked posts one noul question over the whole page."""
+    mock_post = mocker.patch(
+        "parsing.requests.post",
+        return_value=_decisions_response(mocker, 0.02),
+    )
+
+    assert not BlockedPageDetector("key").is_blocked("Page.", "https://e.com")
+
+    mock_post.assert_called_once()
+    args, kwargs = mock_post.call_args
+    assert args == (OPENROUTER_DECISIONS_URL,)
+    assert kwargs["timeout"] == 30
+    assert kwargs["headers"] == {
+        "Authorization": "Bearer key",
+        "HTTP-Referer": OPENROUTER_APP_URL,
+        "X-Title": OPENROUTER_APP_TITLE,
+    }
+    body = kwargs["json"]
+    assert body["model"] == BLOCK_DETECTOR_MODEL_ID
+    assert body["state"] == "Page."
+    question = body["questions"]["blocked"]
+    assert question["type"] == "noul"
+    assert question["instructions"]
+    assert set(question["criteria"]) == {"true", "false"}
+
+
+def test_is_blocked_true_at_threshold_logs_probability(mocker, caplog):
+    """Test is_blocked flags a probability at the threshold and logs it."""
+    mocker.patch(
+        "parsing.requests.post",
+        return_value=_decisions_response(mocker, 0.97),
+    )
+    detector = BlockedPageDetector("key", threshold=0.97)
+
+    with caplog.at_level(logging.WARNING, logger="parsing"):
+        assert detector.is_blocked("Access Denied", "https://e.com")
+
+    assert "JEV flagged https://e.com as a block page (p=0.97)" in caplog.text
+
+
+def _http_error(mocker):
+    response = mocker.Mock()
+    response.raise_for_status.side_effect = RuntimeError("502 Bad Gateway")
+    return {"return_value": response}
+
+
+def _malformed(mocker):
+    response = mocker.Mock()
+    response.json.return_value = {"error": "no answers"}
+    return {"return_value": response}
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        lambda mocker: {"side_effect": RuntimeError("boom")},
+        _http_error,
+        _malformed,
+    ],
+    ids=["network", "http_error", "malformed"],
+)
+def test_is_blocked_fails_open(mocker, caplog, failure):
+    """Test any detector failure is logged and treated as not blocked."""
+    mocker.patch("parsing.requests.post", **failure(mocker))
+
+    with caplog.at_level(logging.WARNING, logger="parsing"):
+        assert not BlockedPageDetector("key").is_blocked("Page.", "https://e.com")
+
+    assert "Block-page check failed for https://e.com" in caplog.text
