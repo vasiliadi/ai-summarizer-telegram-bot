@@ -630,3 +630,15 @@ def test_is_blocked_fails_open(mocker, caplog, failure):
         assert not BlockedPageDetector("key").is_blocked("Page.", "https://e.com")
 
     assert "Block-page check failed for https://e.com" in caplog.text
+
+
+def test_is_blocked_caps_state_at_max_chars(mocker):
+    """Test is_blocked sends only the first max_chars of the page to JEV."""
+    mock_post = mocker.patch(
+        "parsing.requests.post",
+        return_value=_decisions_response(mocker, 0.02),
+    )
+
+    BlockedPageDetector("key", max_chars=5).is_blocked("0123456789", "https://e.com")
+
+    assert mock_post.call_args.kwargs["json"]["state"] == "01234"

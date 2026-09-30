@@ -70,12 +70,18 @@ class BlockedPageDetector:
         model: str = BLOCK_DETECTOR_MODEL_ID,
         threshold: float = 0.5,
         timeout: int = 30,
+        max_chars: int = 20000,
     ) -> None:
-        """Store the OpenRouter key, the JEV model id, and the block threshold."""
+        """Store the OpenRouter key, the JEV model id, and the block threshold.
+
+        Only the first `max_chars` go to JEV: a block page is short, and an
+        uncapped Tavily extraction can overflow JEV's input limit.
+        """
         self._api_key = api_key
         self._model = model
         self._threshold = threshold
         self._timeout = timeout
+        self._max_chars = max_chars
 
     def is_blocked(self, content: str, url: str) -> bool:
         """Return True when JEV judges the extraction to be a block page.
@@ -85,7 +91,7 @@ class BlockedPageDetector:
         """
         body = {
             "model": self._model,
-            "state": content,
+            "state": content[: self._max_chars],
             "questions": {
                 "blocked": {
                     "type": "noul",

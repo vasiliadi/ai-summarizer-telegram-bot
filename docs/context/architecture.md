@@ -247,7 +247,8 @@ to Gemini — return the raw model text with **no** prefix.
 - **Every extraction is screened for block pages by JEV.** A site that refuses a parser (a
   region block, a bot check, access denied, a login or paywall) still yields non-empty text, which
   used to be summarized as if it were the page. `WebParser` hands each backend's output to
-  `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over the whole text; at
+  `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over its first 20k characters (a block page
+  is short, and an uncapped Tavily extraction can overflow JEV's input); at
   p ≥ 0.5 the output counts as a `WebParseError`, so a blocked primary falls through to the
   fallback, and a blocked fallback ends in "page is not available" instead of a summary of the
   block page. The check lives in `WebParser`, not in a backend, so it holds whichever backend is
