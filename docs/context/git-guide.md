@@ -44,7 +44,7 @@ scope. Half the filters live in `.pre-commit-config.yaml`, half in the upstream
 | `check-yaml` / `check-toml` | staged `.yaml`/`.yml` / `.toml` files |
 | `uv-lock` | `uv.lock`, `pyproject.toml`, `uv.toml` |
 | `ruff-check`, `ruff-format` | staged `.py`, `.pyi`, `.ipynb` |
-| `pytest` | `src/`, `tests/`, `pyproject.toml`, `uv.lock` |
+| `pytest` | `src/`, `tests/`, `scripts/eval/`, `pyproject.toml`, `uv.lock` |
 | `ty` | `src/`, `pyproject.toml`, `uv.lock` — **not** `tests/` |
 
 Two consequences worth holding onto. A test-only change is never type-checked at commit time, so run

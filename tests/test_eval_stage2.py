@@ -76,9 +76,10 @@ def test_incomplete_candidate_does_not_hide_best_complete_candidate(stage2, caps
     assert "**1.0 s**" not in output
 
 
+@pytest.mark.parametrize("rescore", [False, True])
 @pytest.mark.parametrize("score_location", ["full", "inline", "missing"])
-def test_backfill_only_pays_for_missing_scores(stage2, mocker, score_location):
-    """Either score source prevents a paid call, including a zero-valued score."""
+def test_backfill_only_pays_for_missing_scores(stage2, mocker, score_location, rescore):
+    """Either score source prevents a paid call, unless every item is rescored."""
     evaluator = mocker.Mock(
         return_value=SimpleNamespace(
             name="t2_fabricated",
@@ -108,9 +109,10 @@ def test_backfill_only_pays_for_missing_scores(stage2, mocker, score_location):
     mocker.patch.object(
         stage2,
         "_tier2_scores",
-        return_value={"obs-1": {"t2_fabricated": 0}}
-        if score_location == "full"
-        else {},
+        return_value=(
+            {"obs-1": {"t2_fabricated": 0}} if score_location == "full" else {},
+            {},
+        ),
     )
     mocker.patch.object(
         stage2.API,
@@ -129,8 +131,8 @@ def test_backfill_only_pays_for_missing_scores(stage2, mocker, score_location):
             },
         ],
     )
-    stage2.backfill("opus", ["vendor/model"])
-    if score_location == "missing":
+    stage2.backfill("opus", ["vendor/model"], rescore=rescore)
+    if score_location == "missing" or rescore:
         evaluator.assert_called_once_with(input={"content": "source"}, output="summary")
         assert client.create_score.call_args.kwargs["observation_id"] == "obs-1"
     else:
@@ -156,3 +158,247 @@ def test_tier2_scores_start_at_earliest_run(stage2, mocker, runs, since):
     paginate = mocker.patch.object(stage2.API, "paginate", return_value=[])
     stage2._tier2_scores(runs)
     assert {c.args[1]["fromTimestamp"] for c in paginate.call_args_list} == {since}
+
+
+# --- reading runs back ----------------------------------------------------------
+
+
+def test_candidate_is_read_back_from_the_run_name(stage2):
+    """The candidate is the run name between prefix and timestamp."""
+    name = "stage2 / vendor/model / key_points_for_transcript - 2026-09-28T10:00:00Z"
+    assert stage2._candidate(name) == "vendor/model / key_points_for_transcript"
+    assert stage2._split("vendor/model / other") == ("vendor/model", "other")
+    assert stage2._short("vendor/model / key_points_for_transcript") == "vendor/model"
+    assert stage2._short("vendor/model / other") == "vendor/model / other"
+
+
+def test_discover_runs_keeps_the_newest_run_per_candidate(stage2, mocker):
+    """The report reads each candidate's newest run only."""
+    mocker.patch.object(stage2.API, "dataset_id", return_value="ds-1")
+    experiments = mocker.patch.object(
+        stage2.API,
+        "experiments",
+        return_value=[
+            {"name": "stage2 / a / s - 2026-09-29", "id": "new"},
+            {"name": "stage2 / b / s - 2026-09-28", "id": "b"},
+            {"name": "stage2 / a / s - 2026-09-27", "id": "old"},
+        ],
+    )
+    runs = stage2.discover_runs("dataset")
+    assert {k: v["id"] for k, v in runs.items()} == {"a / s": "new", "b / s": "b"}
+    experiments.assert_called_once_with("ds-1", name_prefix=stage2.RUN_PREFIX)
+
+
+@pytest.mark.parametrize(
+    ("item", "seconds"),
+    [
+        (
+            {
+                "startTime": "2026-09-28T10:00:00+00:00",
+                "endTime": "2026-09-28T10:00:21.5+00:00",
+            },
+            21.5,
+        ),
+        ({"startTime": "2026-09-28T10:00:00+00:00"}, None),
+        ({}, None),
+    ],
+)
+def test_seconds(stage2, item, seconds):
+    """Latency is end minus start, or unknown without both."""
+    assert stage2._seconds(item) == seconds
+
+
+def test_item_rows_merge_tier2_scores_and_flag_failures(stage2):
+    """Inline and Tier 2 scores merge per item; a failed generation is flagged."""
+    items = [
+        {
+            "id": "obs-1",
+            "experimentItemId": "src-1",
+            "output": "- summary",
+            "scores": [{"name": "t1_pass", "value": True}],
+        },
+        {"id": "obs-2", "experimentItemId": "src-2", "output": "", "scores": None},
+    ]
+    rows = stage2._item_rows(items, {"obs-1": {stage2.JEV: 0.8}})
+    assert rows["src-1"] == ({"t1_pass": True, stage2.JEV: 0.8}, None, False)
+    assert rows["src-2"] == ({}, None, True)
+
+
+def test_tier2_scores_keep_observation_scores_only(stage2, mocker):
+    """Scores on anything but an observation are ignored."""
+    snapshot = {"judge_model_version": "typesafe/jev-1.13-20260917"}
+    paginate = mocker.patch.object(
+        stage2.API,
+        "paginate",
+        side_effect=[
+            [
+                {
+                    "subject": {"kind": "observation", "id": "obs-1"},
+                    "value": 0.7,
+                    "metadata": snapshot,
+                },
+                {"subject": {"kind": "observation", "id": "obs-2"}, "value": 0.5},
+                {"subject": {"kind": "trace", "id": "t-1"}, "value": 0.1},
+                {"value": 0.2},
+            ],
+            [{"subject": {"kind": "observation", "id": "obs-1"}, "value": 1}],
+        ],
+    )
+
+    scores, jev_versions = stage2._tier2_scores({})
+
+    assert scores == {
+        "obs-1": {stage2.JEV: 0.7, stage2.FABRICATED: 1},
+        "obs-2": {stage2.JEV: 0.5},
+    }
+    # Opus scores carry no snapshot; a JEV score without the field, None.
+    assert jev_versions == {"obs-1": "typesafe/jev-1.13-20260917", "obs-2": None}
+    # Metadata is only returned with the `details` field group.
+    assert {c.args[1]["fields"] for c in paginate.call_args_list} == {
+        "core,subject,details",
+    }
+
+
+def test_tier2_scores_keep_the_newest_score_per_observation(stage2, mocker):
+    """A rescore supersedes the old score whichever order the pages come in."""
+    old = {
+        "subject": {"kind": "observation", "id": "obs-1"},
+        "value": 0.2,
+        "timestamp": "2026-09-28T10:00:00.000Z",
+    }
+    new = {
+        "subject": {"kind": "observation", "id": "obs-1"},
+        "value": 0.9,
+        "timestamp": "2026-09-30T10:00:00.000Z",
+        "metadata": {"judge_model_version": "typesafe/jev-1.13-20260917"},
+    }
+    for rows in ([old, new], [new, old]):
+        mocker.patch.object(stage2.API, "paginate", side_effect=[rows, []])
+        scores, jev_versions = stage2._tier2_scores({})
+        assert scores == {"obs-1": {stage2.JEV: 0.9}}
+        assert jev_versions == {"obs-1": "typesafe/jev-1.13-20260917"}
+
+
+def test_snapshot_notes_name_the_snapshot_that_scored(stage2, capsys):
+    """One snapshot across every candidate is no warning."""
+    items = {"a / s": [{"id": "1"}, {"id": "2"}], "b / s": [{"id": "3"}]}
+    same = "typesafe/jev-1.13-20260917"
+    stage2._jev_snapshot_notes(items, {"1": same, "2": same, "3": same})
+    output = capsys.readouterr().out
+    assert output == f"JEV answered as `{same}` x3\n"
+
+
+def test_snapshot_notes_count_unrecorded_as_a_judge_of_its_own(stage2, capsys):
+    """An unrecorded snapshot is an unknown judge, never assumed to be another."""
+    items = {
+        "a / key_points_for_transcript": [{"id": "1"}],
+        "b / key_points_for_transcript": [{"id": "2"}],
+    }
+    stage2._jev_snapshot_notes(items, {"1": None, "2": "typesafe/jev-1.14-20261101"})
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[1].startswith("WARNING: JEV scores come from more than one snapshot")
+    assert lines[2:] == [
+        "  a: unrecorded x1",
+        "  b: `typesafe/jev-1.14-20261101` x1",
+    ]
+
+
+def test_snapshot_notes_warn_when_candidates_saw_different_judges(stage2, capsys):
+    """Two recorded snapshots mean the rows are not measured by one judge."""
+    items = {
+        "a / key_points_for_transcript": [{"id": "1"}, {"id": "2"}],
+        "b / key_points_for_transcript": [{"id": "3"}],
+    }
+    stage2._jev_snapshot_notes(items, {"1": "old", "2": "old", "3": "new"})
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].startswith("JEV answered as ")
+    assert lines[1].startswith("WARNING: JEV scores come from more than one snapshot")
+    assert lines[2:] == ["  a: `old` x2", "  b: `new` x1"]
+
+
+def test_snapshot_notes_are_silent_without_jev_scores(stage2, capsys):
+    """A report with no JEV scores has no snapshot to name."""
+    stage2._jev_snapshot_notes({"a / s": [{"id": "1"}]}, {})
+    assert capsys.readouterr().out == ""
+
+
+def test_run_cost_counts_only_the_runs_own_traces(stage2, mocker):
+    """The bot's own traffic in the same window is not the candidate's bill."""
+    paginate = mocker.patch.object(
+        stage2.API,
+        "paginate",
+        return_value=[
+            {"traceId": "t1", "totalCost": 0.01},
+            {"traceId": "t1", "totalCost": 0.02},
+            {"traceId": "t2", "totalCost": None},
+            {"traceId": "bot", "totalCost": 5.0},
+        ],
+    )
+    items = [
+        {
+            "traceId": "t1",
+            "startTime": "2026-09-28T10:00",
+            "endTime": "2026-09-28T10:05",
+        },
+        {
+            "traceId": "t2",
+            "startTime": "2026-09-28T09:00",
+            "endTime": "2026-09-28T11:00",
+        },
+    ]
+    cost, priced = stage2._run_cost(items)
+    assert cost == pytest.approx(0.03)
+    assert priced == 1
+    params = paginate.call_args.args[1]
+    assert params["fields"] == "core,usage"  # without it totalCost is absent
+    assert params["fromStartTime"] == "2026-09-28T09:00"
+    assert params["toStartTime"] == "2026-09-28T11:00"
+
+
+def test_run_cost_without_items_is_unknown(stage2, mocker):
+    """No items means no cost read at all."""
+    paginate = mocker.patch.object(stage2.API, "paginate")
+    assert stage2._run_cost([]) == (None, 0)
+    paginate.assert_not_called()
+
+
+# --- paired comparison ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("wins", "losses", "p"),
+    [(0, 0, 1.0), (3, 3, 1.0), (5, 0, 0.0625), (0, 5, 0.0625), (9, 1, 0.021484375)],
+)
+def test_sign_test_is_the_exact_two_sided_binomial(stage2, wins, losses, p):
+    """Known p-values, ties excluded by the caller."""
+    assert stage2._sign_test(wins, losses) == pytest.approx(p)
+
+
+def test_deltas_use_shared_items_scored_on_both_sides(stage2):
+    """Only items both candidates were scored on are compared."""
+    rows = {
+        "a": {"1": ({"m": 0.9},), "2": ({"m": 0.5},), "3": ({},), "4": ({"m": 1},)},
+        "b": {"1": ({"m": 0.4},), "2": ({"m": 0.7},), "3": ({"m": 0.1},)},
+    }
+    assert stage2._deltas(rows, "a", "b", "m") == pytest.approx([0.5, -0.2])
+    assert stage2._deltas(rows, "a", "missing", "m") == []
+
+
+def test_paired_table_prints_each_pair_sharing_items(stage2, capsys):
+    """Pairs with shared items get a row; the rest are skipped."""
+    rows = {
+        "a / key_points_for_transcript": {str(i): ({"m": 1.0},) for i in range(5)},
+        "b / other": {str(i): ({"m": 0.5},) for i in range(5)},
+        "c / other": {"x": ({"m": 0.5},)},
+    }
+    stage2._paired_tier2_table(rows, "m")
+    lines = capsys.readouterr().out.splitlines()
+    pair = next(line for line in lines if line.startswith("a vs b / other"))
+    assert pair.split()[-5:] == ["5", "5", "0", "0.500", "0.062"]
+    assert not any(line.startswith("a vs c") for line in lines)
+
+
+def test_paired_table_says_when_no_pair_shares_an_item(stage2, capsys):
+    """An empty table says why it is empty."""
+    stage2._paired_tier2_table({"a / s": {"1": ({"m": 1},)}, "b / s": {}}, "m")
+    assert "no candidate pair shares an item scored on m" in capsys.readouterr().out

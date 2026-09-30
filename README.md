@@ -271,7 +271,7 @@ Each candidate gets three kinds of score:
   to be in Cyrillic, contain no letters from a foreign script, and be a list where a list was
   asked for. The harness evaluates Cyrillic summaries only. A model passing under 95% of items
   is dropped.
-- **JEV** (`typesafe/jev-1.13`): asks, bullet by bullet, whether the source supports the
+- **JEV** (`~typesafe/jev-latest`): asks, bullet by bullet, whether the source supports the
   claim. It costs about $0.02 a run and is read against the other candidates, never
   against a threshold.
 - **Opus** (`anthropic/claude-opus-5.5`): lists every claim the source does not support,
@@ -357,7 +357,7 @@ import the bot's config, so if Sentry is set up, their errors appear in your pro
 [Renovate bot](https://docs.renovatebot.com/), [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) \
 [crontab guru](https://crontab.guru/) \
 [Gemini API Cookbook](https://github.com/google-gemini/cookbook/) \
-[AI Agent Framework](https://github.com/Arkya-AI/claude-context-os), [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+[Best practices for Claude Code](https://code.claude.com/docs/en/best-practices)
 
 ### Cloud DBs
 

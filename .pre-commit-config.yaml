@@ -47,7 +47,7 @@ repos:
         language: system
         pass_filenames: false
         always_run: false
-        files: ^(src|tests)/|^(pyproject\.toml|uv\.lock)$
+        files: ^(src|tests|scripts/eval)/|^(pyproject\.toml|uv\.lock)$
         verbose: true
 
   - repo: local

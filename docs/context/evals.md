@@ -117,7 +117,20 @@ uv run python scripts/eval/install_tier1.py     # after every edit to tier1_eval
 uv run python scripts/eval/stage2.py report [--all-pairs]  # free, read-only
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... [--judge=jev|opus|none]  # COSTS MONEY: a compare run each
 uv run python scripts/eval/stage2.py judge jev [<openrouter-id> ...]    # ~2 cents a run: JEV where missing
+uv run python scripts/eval/stage2.py judge jev --rescore [<openrouter-id> ...]  # ~2 cents a run: JEV on every item again
 uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # ~$3 a run: Opus FABRICATED on finalists
+```
+
+**The harness is tested but sits outside the 100% coverage rule.** `tests/test_eval_*.py` cover
+what fails silently — the seam with `src/` (`EvalLLMClient` against `LLMClient`), the Tier 1
+checks and their portability, how each judge's answer becomes a score, and the report's
+arithmetic — and the pytest hook runs them on any change under `scripts/eval/`. The CLI entry
+points and thin network wrappers (`install_tier1.py`, `main()`, `wipe`/`push`, `report`/`sweep`)
+are untested on purpose, so `[tool.coverage.run]` measures `src/` only and the project's 100%
+stays about the bot. To see the harness's own coverage:
+
+```bash
+uv run pytest tests/test_eval_*.py --cov=scripts/eval
 ```
 
 **A run is always the whole dataset.** The report reads the newest run per candidate, so a short
@@ -140,7 +153,8 @@ returns — `run_sync` closes neither. The harness still guards against it: `eva
 generation on a **daemon** thread and waits `GENERATION_TIMEOUT` (600 s), so a stuck item is
 stored as a named `TimeoutError` and the run finishes. It had to be a daemon thread:
 `asyncio.to_thread` uses the default executor, whose threads are joined at interpreter exit, so a
-timeout around it would only move the hang to shutdown. A timed-out item shows in the run's
+timeout around it would only move the hang to shutdown. A worker that returns after its item timed
+out may find the experiment's loop already closed; its answer is dropped quietly. A timed-out item shows in the run's
 failed-items warning and fails Tier 1, like any other failed item.
 
 **Wait a minute after a run before reading its report.** Langfuse ingests experiment items and
@@ -444,7 +458,7 @@ Two judges, both in `judge.py`, selected per run through `judge.JUDGES` (`jev`, 
 
 | | JEV | Opus `FABRICATED` |
 |---|---|---|
-| Model | `typesafe/jev-1.13` | `anthropic/claude-opus-5.5`, effort `medium` |
+| Model | `~typesafe/jev-latest` (was `typesafe/jev-1.13`) | `anthropic/claude-opus-5.5`, effort `medium` |
 | Score | `t2_jev_weakest`: P(supported) of the weakest bullet | `t2_fabricated`: 1 clean, 0 if anything invented |
 | Cost | ~$0.02 a 50-item run | ~$2.60–2.80 a 50-item run, ~$0.06 a call |
 | Used on | every candidate (default in `sweep`) | finalists only (`stage2.py judge opus`) |
@@ -455,6 +469,19 @@ prompt and schema). **Editing a prompt, question or schema moves the pin** and u
 every banked score. The hash covers the exact string, which is why `pyproject.toml` exempts
 `scripts/eval/` from `E501`: reflowing a prompt to fit the line length would repin the judge.
 
+**JEV's `judge_model` is an alias; `judge_model_version` is the judge.** JEV is asked for as
+`~typesafe/jev-latest`, and OpenRouter names the snapshot that answered in the reply's `model` —
+`typesafe/jev-1.13-20260917` on 2026-09-30, for both the alias and `typesafe/jev-1.13`, which is
+itself an alias. Each JEV score records that snapshot as `judge_model_version`. **When the alias
+moves, rescore**: `stage2.py judge jev --rescore` scores every compare item again (692 items cost
+$0.29 on 2026-09-30), and the report reads the newest score per observation, so the old ones are
+superseded rather than deleted. Plain `judge jev` only fills missing scores, so without the rescore
+a report mixes two judges. `stage2.py report` prints which snapshots scored it (`JEV answered as
+...`) and warns, per candidate, once more than one appears; a score with no version is shown as
+`unrecorded` and counts as a judge of its own. The scores banked before the version was recorded
+were rescored on 2026-09-30. Everything measured on JEV below — the AUCs, the question wording,
+`JEV_FLAG_BELOW` — was measured on 1.13 and would need re-checking on a new snapshot.
+
 The judges run locally rather than as Langfuse-managed evaluators **by choice, not constraint**.
 Both are per-item judgements and would fit. Two things would be given up: the **judge reports and
 the runner decides** (a managed evaluator returns one numeric score plus reasoning, so it could not
@@ -464,14 +491,18 @@ the trade; do not assume it was forced.
 
 ### JEV: the cheap screen on every candidate
 
-`typesafe/jev-1.13` (TypeSafe's "System One") is not an LLM: it returns typed decisions — here a
+JEV (TypeSafe's "System One", measured below as `typesafe/jev-1.13`) is not an LLM: it returns typed decisions — here a
 yes/no — each with a probability, and generates no text. **$0.042 per M input tokens, output
 free.** It cannot be called on `chat/completions` (400: *"is a decisions model … Use the
 /api/alpha/decisions endpoint"*), but **OpenRouter accepts TypeSafe's protocol on
 `POST /api/alpha/decisions`** with the ordinary key, so the harness reaches it with `urllib` and
 needs no pydantic-ai bump. The body is `{model, state, questions}`; each question is
 `{type: "noul", instructions, criteria: {true, false}}` and the reply is `answers[name].noul`, the
-probability of true. Identical calls return identical probabilities.
+probability of true. **Identical calls do not return identical probabilities** (they once did).
+On 2026-09-30, three identical calls to `typesafe/jev-1.13-20260917` moved single bullets by up to
+0.03, and rescoring all 692 compare items changed 364 weakest-bullet scores — median change 0,
+largest 0.16 — with the snapshot and the prompt pin unchanged. A JEV median that differs by a
+point or two between candidates, or between a score and its rescore, is noise.
 
 How it is asked, and why each choice holds:
 
@@ -681,6 +712,9 @@ into one markdown table, readable in a terminal and pasteable into a document.
   score row carries **no target at all**, and code mapping scores back to items matches nothing.
   Scores returned *inline* by `fields=core,scores` on `GET /experiment-items` carry `subject`
   without being asked.
+- **A score's `metadata` and `comment` are the `details` field group on `GET /v3/scores`.**
+  `core,subject` returns neither, and asking for `metadata` is a 400 — the groups are `core`,
+  `details`, `subject` and `annotation`. The report reads JEV's `judge_model_version` this way.
 - **Score configs are archived, not deleted** (`PATCH /score-configs/{id}` with
   `isArchived: true`, or Project Settings → Scores / Evaluation in the UI); the scores themselves
   are untouched. A score needs no config to be written — `t1_script_clean`, `t2_jev_weakest` and
