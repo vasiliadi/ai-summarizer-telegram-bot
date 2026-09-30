@@ -12,14 +12,14 @@
 
 ## About
 
-A bot designed to summarize YouTube videos (via audio or transcripts), Castro.fm podcasts, and various Telegram content, including voice messages, videos, and files (PDF, RTF, CSV, etc.).
+A bot designed to summarize webpages, YouTube videos (via audio or transcripts), Castro.fm podcasts, and various Telegram content, including voice messages, videos, and files (PDF, RTF, CSV, etc.). Each user picks a summarizing model — Gemini directly or a text model through OpenRouter — a prompt strategy, a thinking level, and the language of the summary.
 
 ## Usage
 
 ### General settings
 
 1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [OpenRouter](https://openrouter.ai/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/), [Exa](https://dashboard.exa.ai/)
-2. Setup DB and Redis. For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
+2. Set up PostgreSQL and Valkey (or Redis). For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
 4. Set up the [Modal Secrets](https://modal.com/secrets) with name `resetlimit-secrets`. Only `REDIS_URL` from `.env` needed.
 
@@ -89,7 +89,7 @@ PROXY="https://user:password@proxy.com:1234,https://user:password@proxy.com:1235
 
 Don't forget to enable `RLS` if you use [Supabase x Postgres](https://supabase.com/database).
 
-After completing these steps, you are ready to send youtube.com and castro.fm links to the bot and receive summary.
+After completing these steps, you are ready to send the bot links (webpages, YouTube, Castro), voice messages, audio, video, and documents, and receive a summary.
 
 ## List of commands for BotFather
 
@@ -208,17 +208,11 @@ and downloads that exact patch on first use.
 The setup script only provisions the VM. Project setup runs from the repo's SessionStart hook,
 `scripts/cloud_session_start.sh`, which installs the git hooks above and runs `uv sync --frozen` in every cloud session.
 
-#### Webpage parsing
-
-Webpage URLs are parsed into clean text before being passed to Gemini. This gives every model version identical, well-structured input and removes the variability introduced by Gemini's server-side `UrlContext` tool.
-
-Parsing runs a fixed two-stage flow: [Exa.ai](https://exa.ai) is tried first, and [Tavily](https://tavily.com) is used as an automatic fallback when Exa.ai fails.
-
 #### Remote functions
 
 To avoid multiple docker images, I use a [Modal](https://modal.com/) for cron jobs to reset the bot's own daily request counters. [Modal Secrets](https://modal.com/docs/guide/secrets) should include `REDIS_URL`.
 
-Modal Image Builder Version required to be `2025.06`. Set in Settings -> Image Builder Version.
+Modal Image Builder Version must be `2025.06`, otherwise the image may fail to build. Set it in Settings -> Image Builder Version.
 
 ## Summarizing models
 
@@ -248,6 +242,12 @@ providers that train, so check the endpoint behind any model you register in `MO
 of the pipeline sees content too: Replicate receives the audio it transcribes, Exa and Tavily only
 the URL. If you run this bot for anyone other than yourself, that content is theirs.
 
+## Webpage parsing
+
+Webpage URLs are parsed into clean text before being passed to the model. This gives every model identical, well-structured input and removes the variability of a provider's server-side URL tools.
+
+Parsing runs a fixed two-stage flow: [Exa.ai](https://exa.ai) is tried first, and [Tavily](https://tavily.com) is used as an automatic fallback when Exa.ai fails. Each result is checked by TypeSafe's JEV model (through OpenRouter) for block pages — bot checks, region blocks, logins, paywalls — so a blocked page falls through to the fallback, or ends in "page is not available", instead of being summarized. If that check itself fails, the text is kept.
+
 ## Audio vs text summaries
 
 Audio carries what a transcript drops — intonation, emphasis, pauses, speaker turns, and non-verbal
@@ -259,75 +259,9 @@ transcript path is faster and cheaper, and for most content the difference is sm
 
 ## Evaluating models
 
-`scripts/eval/` is an optional harness for deciding whether a new model belongs in
-`MODEL_SPECS`. It summarises a fixed set of real sources with a candidate over OpenRouter, the
-same way the bot does, and scores the results in [Langfuse](https://langfuse.com). It is a
-**filter, not a ranking**: it drops models that are plainly broken and puts cost, length and a
-fabrication signal beside the rest, and you choose between the survivors by reading them.
-
-Each candidate gets three kinds of score:
-
-- **Tier 1**: deterministic checks that Langfuse runs on every run for free. The summary has
-  to be in Cyrillic, contain no letters from a foreign script, and be a list where a list was
-  asked for. The harness evaluates Cyrillic summaries only. A model passing under 95% of items
-  is dropped.
-- **JEV** (`~typesafe/jev-latest`): asks, bullet by bullet, whether the source supports the
-  claim. It costs about $0.02 a run and is read against the other candidates, never
-  against a threshold.
-- **Opus** (`anthropic/claude-opus-5.5`): lists every claim the source does not support,
-  sorted into *invented* and *compression*. Only *invented* counts against the model. It
-  costs about $3 a run, so it is run on finalists only.
-
-### Setup
-
-The harness needs `OPENROUTER_API_KEY` and all three `LANGFUSE_*` variables in `.env`.
-`LANGFUSE_BASE_URL` is required here, even though the bot can run without it. Then set up the
-Langfuse project once:
-
-1. **Collect traces.** Run the bot with Langfuse tracing on until it has summarised a few
-   dozen webpages and transcripts. The dataset is built from real traffic.
-2. **Create an empty dataset** named `summarization-compare-v1` in the Langfuse UI.
-3. **Fill it** from a fresh export of traced generations. The Langfuse API only returns the
-   last 30 days on the free plan. The export command comes from the
-   [Langfuse CLI](https://langfuse.com/docs), which needs Node.js:
-
-   ```bash
-   npx langfuse-cli api observations list --type GENERATION --fields core,io --json > obs.json
-   uv run python scripts/eval/rebuild_datasets.py --yes-wipe obs.json
-   ```
-
-   The script picks 50 sources, split across YouTube transcripts, audio transcripts and
-   webpages. `--yes-wipe` is required because the script first deletes everything already in
-   the dataset.
-4. **Create the Tier 1 evaluator** in the Langfuse UI: a code evaluator named exactly
-   `tier1-on-experiments`, plus an evaluation rule that runs it on experiments. The rule's
-   filter must name the `summarization-compare-v1` dataset, because it scores only the
-   datasets it names. Then upload the real code:
-
-   ```bash
-   uv run python scripts/eval/install_tier1.py
-   ```
-
-   Re-run it after every edit to `scripts/eval/tier1_evaluator.py`. Langfuse runs this code on
-   its own servers, not on your machine, and a crash there shows nowhere else: this script's
-   preflight check is the only place it is reported.
-
-### Running
-
-Models are named by their OpenRouter id, for example `vendor/model`. The harness checks every id
-against the OpenRouter catalog before spending anything.
-
-```bash
-uv run python scripts/eval/stage2.py sweep <openrouter-id> ...          # a run per model, with JEV
-uv run python scripts/eval/stage2.py report [--all-pairs]               # free: the comparison table
-uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # Opus on the finalists' runs
-```
-
-Wait about a minute after a run before reading the report, because Langfuse ingests scores
-asynchronously. Include the model you use now in the sweep, so candidates are compared against
-it. On 50 items a gap between two averages can be noise: `--all-pairs` adds a per-item sign
-test for every pair of models, which shows whether one really beats another. Harness runs
-import the bot's config, so if Sentry is set up, their errors appear in your production stream.
+`scripts/eval/` is an optional harness for deciding whether a new model belongs in `MODEL_SPECS`:
+it summarises a fixed set of real sources with a candidate over OpenRouter and scores the results
+in [Langfuse](https://langfuse.com). Setup and usage are in [scripts/eval/README.md](scripts/eval/README.md).
 
 ## Docs
 
@@ -387,7 +321,6 @@ Redis: [Redis.io](https://redis.io/), [Upstash x Redis](https://upstash.com/), [
 ## Possible improvements
 
 - [Gitflow workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
-- [NumPy Docstrings Style Guide | Docstrings](https://numpydoc.readthedocs.io/en/latest/format.html).
 - Frontend to configure access.
 
 ## License

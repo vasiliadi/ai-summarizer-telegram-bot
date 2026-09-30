@@ -6,6 +6,8 @@ tiers, the judges, and the harness in `scripts/eval/`.
 Nothing here is imported by the bot — these are operational scripts, run by hand.
 `architecture.md` owns the bot itself, including *how* it emits the traces this is built on;
 read its **Tracing** bullet before changing anything that produces trace data.
+The operator's setup and run steps live in `scripts/eval/README.md`; edit them there, and keep the
+why here.
 
 ## What this is for
 
