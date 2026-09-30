@@ -34,7 +34,7 @@ The Dockerfile installs additional system packages into the image with
     carry ffmpeg's own GPL obligations for that binary.
   - deno — MIT (notice retention only).
 
-The base image (python:*-alpine) also contains its own operating-system
+The base image (alpine) also contains its own operating-system
 packages (e.g. BusyBox, GPL-2.0-only) under their respective licenses, as any
 Linux distribution image does.
 
