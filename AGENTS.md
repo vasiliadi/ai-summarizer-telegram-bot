@@ -26,12 +26,16 @@ Before the first tracked-file edit, branch from `main` with `git checkout -b <sc
 
    Do not copy versions that Renovate bumps (`pyproject.toml` pins, `uv.lock`, `.python-version`, workflow actions) into docs — name the file that holds them, or the copy goes stale on the next bump. A version you observed rather than pinned, such as a cloud VM image's, carries the date you observed it.
 
+   Date a fact only when it is an observation of an external system the repo cannot demonstrate (a provider's behaviour, a calibration, a VM image) or a real deadline; the date tells the reader when to re-check it. Name a version only where behaviour changed at it. Do not date what the code or a test already proves, and keep results snapshots and "next step" notes out of `docs/context/` — they are work logs.
+
+   Keep code comments and docstrings to one or two lines; the explanation lives in `docs/context/` (see *Docstrings & Comments* in `style-guide.md`).
+
 ## Where Things Live
 
 ### Code
 
 - `src/` — the bot. `architecture.md` maps it module by module.
-- `tests/` — the pytest suite. `src/` is at 100% line coverage; keep it there.
+- `tests/` — the pytest suite. Coverage rules are in `git-guide.md`.
 - `scripts/` — standalone operational scripts, never imported by the bot. `scripts/eval/` is
   the evaluation harness; read `docs/context/evals.md` before touching it.
 

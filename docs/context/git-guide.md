@@ -58,7 +58,9 @@ Do not pre-run the hook suite as a gate before committing — that is the hook's
 already what runs. Running `uv run pytest --cov` while iterating on code is a different thing and is
 expected; see `docs/context/uv-guide.md`.
 
-**Coverage:** The project is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report printed by the pytest hook and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
+**Coverage:** `src/` is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report printed by the pytest hook and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
+
+`scripts/eval/` has no coverage target. `[tool.coverage.run]` measures `src` only, so neither the hook's report nor Codecov counts it. Its tests (`tests/test_eval_*.py`) still run in the same pytest hook, which fires on changes under `scripts/eval/`, and must pass: cover the behaviour that matters, not a percentage.
 
 **Ruff:** the hooks auto-fix and format, so no manual run is needed. They see only your staged files — a green commit is not a green tree, and only CI sweeps the rest.
 

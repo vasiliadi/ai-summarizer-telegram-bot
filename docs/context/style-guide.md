@@ -28,16 +28,27 @@ Use `# noqa` sparingly and always specify the exact rule code.
 
 ## Docstrings & Comments
 
-- Public functions, classes, and methods use **Google-style** docstrings led by a one-line summary.
-  Skip `Args:` — annotations are complete, so a param block only restates the signature; fold
-  anything non-obvious into the summary instead. Keep `Raises:` (the `RetryError` contracts the
-  `@retry` decorators create are not derivable from the body), and `Returns:` only where it says
-  something the return type does not.
-- Docstrings for private (`_method`) members are optional when behavior is obvious.
-- Use inline `#` comments sparingly, and only to explain *why* non-obvious logic exists — not *what*
-  the code does. Code should be self-documenting through naming.
-- Never describe another component in a comment (what a different script installs, what a doc
-  says): it goes stale the moment that component changes. Point to the `docs/context/` file instead.
+`docs/context/` is the single source of truth for design rationale, gotchas, and "do not" rules.
+Comments and docstrings go stale unnoticed, so keep them short and let them point to the doc.
+This applies to `src/` and `scripts/` alike.
+
+- **Comments: at most two lines, and only *why*.** Never explain *what* the code does — naming does
+  that. Anything longer (a provider's behaviour, a rejected alternative, a history of what broke)
+  goes in the owning `docs/context/` file, and the comment names the section:
+  `# See architecture.md → *OpenRouter calls identify the app*`. Name the section, not a line
+  number, so the pointer survives edits to the doc.
+- **Docstrings: a one-line summary**, Google style, for public functions, classes, and methods. A
+  second sentence is fine when the summary cannot carry a non-obvious contract; longer explanations
+  follow the comment rule above. Skip `Args:` — annotations are complete, so a param block only
+  restates the signature. Keep `Raises:` (the `RetryError` contracts the `@retry` decorators create
+  are not derivable from the body), and `Returns:` only where it says something the return type
+  does not. Docstrings for private (`_method`) members are optional when behavior is obvious.
+- Never describe another component in a comment (what a different script installs, what another
+  module does): it goes stale the moment that component changes.
+- Guard an invariant that must not regress with a test, not a comment — a test fails loudly, a
+  comment rots quietly (e.g. `test_sentry_opts_into_log_collection`).
+- A long existing comment is not deleted outright: move whatever it says that `docs/context/` does
+  not already record, then shorten it.
 
 ## Error Handling & Logging
 
