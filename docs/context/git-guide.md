@@ -68,33 +68,15 @@ expected; see `docs/context/uv-guide.md`.
 
 ## CI Workflows
 
-`astral-sh/setup-uv` is pinned to `version: "latest-known"` in `typechecking.yml` and `codecov.yml`,
-deliberately and unlike the uvx rule above. Left unset, `version` searches for a pinned uv in
-`uv.toml` then `pyproject.toml` and falls through to `latest`; this project pins none — no
-`required-version` under `[tool.uv]`, no `.tool-versions` — so `latest` is what both workflows would
-otherwise get.
+`typechecking.yml` and `codecov.yml` pin `astral-sh/setup-uv` to `version: "latest-known"`,
+deliberately and unlike the uvx rule above. The project pins no uv version, so leaving `version`
+unset means `latest`. The action verifies a download only against the checksum table baked into
+the action release you pinned, and **silently skips verification** for a uv newer than that table
+— which `latest` usually is. `latest-known` resolves to the newest uv *inside* the table, so the
+checksum is always checked. Do not "upgrade" it to `latest`.
 
-What separates the two is **checksum verification, not where the version number comes from**. Both
-read the same `astral-sh/versions` manifest, and `latest-known` still fetches it for the download
-URL, so neither saves a network round-trip. The action verifies a download against `KNOWN_CHECKSUMS`,
-a table baked into the action at the commit you pinned — and when the version is absent from that
-table it **silently skips verification**: `validateChecksum` logs at debug level and returns
-(`src/download/checksum/checksum.ts`, v10.0.0). It will not fall back to the manifest's own `sha256`
-either; `download-version.ts` forwards that value only when a custom `manifest-url` is set, which we
-do not set. `latest-known` resolves to the newest version *inside* the table, so a checksum always
-exists. `latest` resolves to the newest published uv — exactly the case the table cannot cover once
-uv releases past the pinned action, which is most of the time. Do not "upgrade" it to `latest`.
-
-`enable-cache: "auto"` is spelled out in both, which is also the v10 default — written explicitly so
-the choice is visible at the call site and survives a future change of default. `auto` caches on
-GitHub-hosted runners *except* on `release`, tag-push, `pull_request_target`, and `workflow_run`
-events. That exclusion is a cache-poisoning guard: those events run with the base repo's permissions
-or produce published artifacts, so a cache entry written by a less-trusted run must not flow into
-them. **Do not set `enable-cache: true`** — it opts out of the guard for no gain. The only run it
-would change today is `codecov.yml` on a tag push (its trigger is bare `on: push`), and skipping the
-cache there costs a few seconds of cold install.
-
-The uv cache is a real trust boundary, not just a speed knob: `uv sync` verifies downloads against
-the hashes in `uv.lock`, but a restored cache holds *already-unpacked* wheels that are not re-checked
-against those hashes. No `cache-dependency-glob` is needed — the default already covers `uv.lock` and
-`pyproject.toml`.
+Both also spell out `enable-cache: "auto"` (the default, written so the choice survives a change of
+default). `auto` skips the cache on `release`, tag-push, `pull_request_target`, and `workflow_run`
+events — a cache-poisoning guard, because a restored cache holds unpacked wheels that `uv sync` does
+not re-check against `uv.lock` hashes. **Do not set `enable-cache: true`**; it drops the guard to save
+seconds. No `cache-dependency-glob` is needed — the default covers `uv.lock` and `pyproject.toml`.
