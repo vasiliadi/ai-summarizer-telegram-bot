@@ -357,7 +357,7 @@ import the bot's config, so if Sentry is set up, their errors appear in your pro
 [Renovate bot](https://docs.renovatebot.com/), [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) \
 [crontab guru](https://crontab.guru/) \
 [Gemini API Cookbook](https://github.com/google-gemini/cookbook/) \
-[AI Agent Framework](https://github.com/Arkya-AI/claude-context-os), [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices)
+[Best practices for Claude Code](https://code.claude.com/docs/en/best-practices)
 
 ### Cloud DBs
 
