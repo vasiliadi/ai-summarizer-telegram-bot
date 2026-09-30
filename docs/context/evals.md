@@ -120,6 +120,18 @@ uv run python scripts/eval/stage2.py judge jev [<openrouter-id> ...]    # ~2 cen
 uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # ~$3 a run: Opus FABRICATED on finalists
 ```
 
+**The harness is tested but sits outside the 100% coverage rule.** `tests/test_eval_*.py` cover
+what fails silently — the seam with `src/` (`EvalLLMClient` against `LLMClient`), the Tier 1
+checks and their portability, how each judge's answer becomes a score, and the report's
+arithmetic — and the pytest hook runs them on any change under `scripts/eval/`. The CLI entry
+points and thin network wrappers (`install_tier1.py`, `main()`, `wipe`/`push`, `report`/`sweep`)
+are untested on purpose, so `[tool.coverage.run]` measures `src/` only and the project's 100%
+stays about the bot. To see the harness's own coverage:
+
+```bash
+uv run pytest tests/test_eval_*.py --cov=scripts/eval
+```
+
 **A run is always the whole dataset.** The report reads the newest run per candidate, so a short
 probe run made after a full one would replace it there; there is no item limit to pass.
 
@@ -140,7 +152,8 @@ returns — `run_sync` closes neither. The harness still guards against it: `eva
 generation on a **daemon** thread and waits `GENERATION_TIMEOUT` (600 s), so a stuck item is
 stored as a named `TimeoutError` and the run finishes. It had to be a daemon thread:
 `asyncio.to_thread` uses the default executor, whose threads are joined at interpreter exit, so a
-timeout around it would only move the hang to shutdown. A timed-out item shows in the run's
+timeout around it would only move the hang to shutdown. A worker that returns after its item timed
+out may find the experiment's loop already closed; its answer is dropped quietly. A timed-out item shows in the run's
 failed-items warning and fails Tier 1, like any other failed item.
 
 **Wait a minute after a run before reading its report.** Langfuse ingests experiment items and

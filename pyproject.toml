@@ -172,7 +172,7 @@ pythonpath = ["src", "tests"]
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-source = ["src", "scripts/eval"]
+source = ["src"]
 omit = ["tests/*", "migrations/*"]
 
 [tool.coverage.report]
