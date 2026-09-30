@@ -30,4 +30,3 @@ poetry.toml
 **/.venv
 compose.yaml
 **/*.envrc
-**/.python-version

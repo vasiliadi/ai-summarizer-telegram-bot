@@ -19,10 +19,11 @@
   "pre-commit": { "enabled": true },
   "packageRules": [
     {
-      "description": "Python pyenv (.python-version): don't gate on Docker Hub republish time",
+      "description": "Python pyenv (.python-version): don't gate on Docker Hub republish time; merge by hand once the pinned uv can download the new patch",
       "matchManagers": ["pyenv"],
       "matchPackageNames": ["python"],
-      "minimumReleaseAge": "0 days"
+      "minimumReleaseAge": "0 days",
+      "automerge": false
     },
     {
       "description": "Force Renovate to evaluate patches independently, but strictly IGNORE alphas/betas",
