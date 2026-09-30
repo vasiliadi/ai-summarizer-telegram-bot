@@ -9,6 +9,7 @@ harness is a filter, not a ranking: a person reads the survivors.
     uv run python scripts/eval/stage2.py report [--all-pairs]           # free
     uv run python scripts/eval/stage2.py sweep <model> ... [--judge=jev|opus|none]  # COSTS MONEY
     uv run python scripts/eval/stage2.py judge jev [<model> ...]        # ~2 cents a run: add JEV to runs
+    uv run python scripts/eval/stage2.py judge jev --rescore [<model> ...]  # ~2 cents a run: JEV on every item again
     uv run python scripts/eval/stage2.py judge opus <model> ...         # ~$3 a run: Opus FABRICATED on finalists
 
 Models are named by their OpenRouter id and passed as arguments; there is no
@@ -58,10 +59,6 @@ PASS_THRESHOLD = 0.95
 JEV = "t2_jev_weakest"
 FABRICATED = "t2_fabricated"
 
-# The snapshot behind every JEV score banked before `judge_model_version` was
-# recorded: `typesafe/jev-1.13` answered as this on 2026-09-30 (evals.md, *Tier 2*).
-UNRECORDED_JEV = "typesafe/jev-1.13-20260917"
-
 # The paired Tier 2 tests run on these, whichever a run carries.
 PAIRED_METRICS = (JEV, FABRICATED)
 
@@ -102,9 +99,10 @@ def _tier2_scores(runs):
     """Tier 2 scores by observation id, and the JEV snapshot behind each.
 
     Returns `({observation id: {score name: value}}, {observation id: snapshot})`.
-    The snapshot is the score's `judge_model_version`, `None` for scores banked
-    before it was recorded; it rides in the score metadata, which only the
-    `details` field group returns.
+    The snapshot is the score's `judge_model_version`, `None` where it is not
+    recorded; it rides in the score metadata, which only the `details` field
+    group returns. An observation scored more than once — `judge --rescore` —
+    keeps its newest score, so a rescore supersedes without deleting.
 
     **The experiment-items read returns at most seven scores per item.** An item
     carrying five Tier 1 scores, a retired Tier 2 score, JEV and then
@@ -117,6 +115,7 @@ def _tier2_scores(runs):
     since = min((r["startTime"] for r in runs.values()), default=EPOCH)
     out: dict[str, dict] = {}
     jev_versions: dict[str, str | None] = {}
+    newest: dict[tuple[str, str], str] = {}
     for name in PAIRED_METRICS:
         rows = API.paginate(
             "v3/scores",
@@ -131,6 +130,11 @@ def _tier2_scores(runs):
             subject = row.get("subject") or {}
             if subject.get("kind") != "observation":
                 continue
+            # ISO-8601 UTC timestamps, so they order as strings.
+            stamp = row.get("timestamp") or ""
+            if newest.get((subject["id"], name), "") > stamp:
+                continue
+            newest[subject["id"], name] = stamp
             out.setdefault(subject["id"], {})[name] = score_value(row)
             if name == JEV:
                 meta = row.get("metadata") or {}
@@ -150,9 +154,8 @@ def _jev_snapshot_notes(items, jev_versions):
     """Say which JEV snapshots scored the report, and warn when they differ.
 
     `JEV_MODEL` is an alias, so the snapshot recorded on each score is the only
-    thing that says whether two candidates were measured by the same judge.
-    Unrecorded scores predate the field but are not of unknown origin: they
-    count as `UNRECORDED_JEV`, so old scores beside a newer snapshot are a mix.
+    thing that says whether two candidates were measured by the same judge. An
+    unrecorded snapshot is an unknown judge and counts as a snapshot of its own.
     """
     by_candidate = {
         c: collections.Counter(
@@ -164,7 +167,7 @@ def _jev_snapshot_notes(items, jev_versions):
     if not total:
         return
     print(f"JEV answered as {_snapshots(total)}")
-    if len({v or UNRECORDED_JEV for v in total}) > 1:
+    if len(total) > 1:
         print(
             "WARNING: JEV scores come from more than one snapshot; compare "
             "candidates only on scores from the same one.",
@@ -431,8 +434,11 @@ def report(dataset_name=COMPARE, *, all_pairs=False):
             _paired_tier2_table(rows_by_candidate, metric)
 
 
-def backfill(tier2, models=(), dataset_name=COMPARE):
+def backfill(tier2, models=(), dataset_name=COMPARE, *, rescore=False):
     """Score a Tier 2 judge on compare items that lack it, without regenerating.
+
+    `rescore` scores every item again instead — to move banked scores onto a
+    new judge snapshot. The old scores stay; the report reads the newest.
 
     `tier2` names an entry of `judge.JUDGES` — `jev` at about two cents a run,
     `opus` at about $3 — and `models` limits it to those candidates, which is
@@ -464,8 +470,8 @@ def backfill(tier2, models=(), dataset_name=COMPARE):
     # The score name is only known from an evaluation, so skip on a probe.
     probe = evaluator.__name__.removeprefix("eval_")
     name = {"jev": JEV, "fabricated": FABRICATED}[probe]
-    todo = [(c, i, s) for c, i, s, names in todo if name not in names]
-    print(f"{len(todo)} item(s) without {name}")
+    todo = [(c, i, s) for c, i, s, names in todo if rescore or name not in names]
+    print(f"{len(todo)} item(s) {'to rescore on' if rescore else 'without'} {name}")
 
     def one(job):
         candidate, item, summary = job
@@ -561,7 +567,13 @@ if __name__ == "__main__":
         sweep([a for a in args[1:] if not a.startswith("--judge=")], tier2=tier2)
     elif command == "judge":
         if len(args) < 2 or args[1] not in judge.JUDGES or args[1] == "none":
-            sys.exit("usage: stage2.py judge jev|opus [<openrouter-model-id> ...]")
-        backfill(args[1], tuple(args[2:]))
+            sys.exit(
+                "usage: stage2.py judge jev|opus [--rescore] [<openrouter-model-id> ...]",
+            )
+        backfill(
+            args[1],
+            tuple(a for a in args[2:] if a != "--rescore"),
+            rescore="--rescore" in args,
+        )
     else:
         sys.exit(f"unknown command: {command}")

@@ -117,6 +117,7 @@ uv run python scripts/eval/install_tier1.py     # after every edit to tier1_eval
 uv run python scripts/eval/stage2.py report [--all-pairs]  # free, read-only
 uv run python scripts/eval/stage2.py sweep <openrouter-id> ... [--judge=jev|opus|none]  # COSTS MONEY: a compare run each
 uv run python scripts/eval/stage2.py judge jev [<openrouter-id> ...]    # ~2 cents a run: JEV where missing
+uv run python scripts/eval/stage2.py judge jev --rescore [<openrouter-id> ...]  # ~2 cents a run: JEV on every item again
 uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # ~$3 a run: Opus FABRICATED on finalists
 ```
 
@@ -471,14 +472,14 @@ every banked score. The hash covers the exact string, which is why `pyproject.to
 **JEV's `judge_model` is an alias; `judge_model_version` is the judge.** JEV is asked for as
 `~typesafe/jev-latest`, and OpenRouter names the snapshot that answered in the reply's `model` —
 `typesafe/jev-1.13-20260917` on 2026-09-30, for both the alias and `typesafe/jev-1.13`, which is
-itself an alias. Each JEV score records that snapshot as `judge_model_version`. Scores from before
-the switch carry `judge_model: typesafe/jev-1.13` and no version; they came from that same snapshot
-and stay comparable. **When the alias moves, compare only scores with the same
-`judge_model_version`**: `stage2.py judge jev` fills missing scores and never rescores, so a report
-can then mix two judges. `stage2.py report` prints which snapshots scored it (`JEV answered as
-...`, with pre-switch scores shown as `unrecorded`) and warns, per candidate, once more than one
-snapshot appears — an unrecorded score counts as 1.13-20260917, so old scores beside a newer
-snapshot are a mix. Everything measured on JEV below — the AUCs, the question wording,
+itself an alias. Each JEV score records that snapshot as `judge_model_version`. **When the alias
+moves, rescore**: `stage2.py judge jev --rescore` scores every compare item again (692 items cost
+$0.29 on 2026-09-30), and the report reads the newest score per observation, so the old ones are
+superseded rather than deleted. Plain `judge jev` only fills missing scores, so without the rescore
+a report mixes two judges. `stage2.py report` prints which snapshots scored it (`JEV answered as
+...`) and warns, per candidate, once more than one appears; a score with no version is shown as
+`unrecorded` and counts as a judge of its own. The scores banked before the version was recorded
+were rescored on 2026-09-30. Everything measured on JEV below — the AUCs, the question wording,
 `JEV_FLAG_BELOW` — was measured on 1.13 and would need re-checking on a new snapshot.
 
 The judges run locally rather than as Langfuse-managed evaluators **by choice, not constraint**.
@@ -497,7 +498,11 @@ free.** It cannot be called on `chat/completions` (400: *"is a decisions model �
 `POST /api/alpha/decisions`** with the ordinary key, so the harness reaches it with `urllib` and
 needs no pydantic-ai bump. The body is `{model, state, questions}`; each question is
 `{type: "noul", instructions, criteria: {true, false}}` and the reply is `answers[name].noul`, the
-probability of true. Identical calls return identical probabilities.
+probability of true. **Identical calls do not return identical probabilities** (they once did).
+On 2026-09-30, three identical calls to `typesafe/jev-1.13-20260917` moved single bullets by up to
+0.03, and rescoring all 692 compare items changed 364 weakest-bullet scores — median change 0,
+largest 0.16 — with the snapshot and the prompt pin unchanged. A JEV median that differs by a
+point or two between candidates, or between a score and its rescore, is noise.
 
 How it is asked, and why each choice holds:
 

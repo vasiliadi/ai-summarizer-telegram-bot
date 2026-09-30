@@ -76,9 +76,10 @@ def test_incomplete_candidate_does_not_hide_best_complete_candidate(stage2, caps
     assert "**1.0 s**" not in output
 
 
+@pytest.mark.parametrize("rescore", [False, True])
 @pytest.mark.parametrize("score_location", ["full", "inline", "missing"])
-def test_backfill_only_pays_for_missing_scores(stage2, mocker, score_location):
-    """Either score source prevents a paid call, including a zero-valued score."""
+def test_backfill_only_pays_for_missing_scores(stage2, mocker, score_location, rescore):
+    """Either score source prevents a paid call, unless every item is rescored."""
     evaluator = mocker.Mock(
         return_value=SimpleNamespace(
             name="t2_fabricated",
@@ -130,8 +131,8 @@ def test_backfill_only_pays_for_missing_scores(stage2, mocker, score_location):
             },
         ],
     )
-    stage2.backfill("opus", ["vendor/model"])
-    if score_location == "missing":
+    stage2.backfill("opus", ["vendor/model"], rescore=rescore)
+    if score_location == "missing" or rescore:
         evaluator.assert_called_once_with(input={"content": "source"}, output="summary")
         assert client.create_score.call_args.kwargs["observation_id"] == "obs-1"
     else:
@@ -250,7 +251,7 @@ def test_tier2_scores_keep_observation_scores_only(stage2, mocker):
         "obs-1": {stage2.JEV: 0.7, stage2.FABRICATED: 1},
         "obs-2": {stage2.JEV: 0.5},
     }
-    # Opus scores carry no snapshot; a JEV score banked before the field, None.
+    # Opus scores carry no snapshot; a JEV score without the field, None.
     assert jev_versions == {"obs-1": "typesafe/jev-1.13-20260917", "obs-2": None}
     # Metadata is only returned with the `details` field group.
     assert {c.args[1]["fields"] for c in paginate.call_args_list} == {
@@ -258,17 +259,37 @@ def test_tier2_scores_keep_observation_scores_only(stage2, mocker):
     }
 
 
-def test_snapshot_notes_name_the_snapshots_that_scored(stage2, capsys):
-    """One snapshot, with or without unrecorded older scores, is no warning."""
-    items = {"a / s": [{"id": "1"}, {"id": "2"}, {"id": "3"}], "b / s": [{"id": "4"}]}
-    same = stage2.UNRECORDED_JEV
-    stage2._jev_snapshot_notes(items, {"1": same, "2": same, "3": None})
+def test_tier2_scores_keep_the_newest_score_per_observation(stage2, mocker):
+    """A rescore supersedes the old score whichever order the pages come in."""
+    old = {
+        "subject": {"kind": "observation", "id": "obs-1"},
+        "value": 0.2,
+        "timestamp": "2026-09-28T10:00:00.000Z",
+    }
+    new = {
+        "subject": {"kind": "observation", "id": "obs-1"},
+        "value": 0.9,
+        "timestamp": "2026-09-30T10:00:00.000Z",
+        "metadata": {"judge_model_version": "typesafe/jev-1.13-20260917"},
+    }
+    for rows in ([old, new], [new, old]):
+        mocker.patch.object(stage2.API, "paginate", side_effect=[rows, []])
+        scores, jev_versions = stage2._tier2_scores({})
+        assert scores == {"obs-1": {stage2.JEV: 0.9}}
+        assert jev_versions == {"obs-1": "typesafe/jev-1.13-20260917"}
+
+
+def test_snapshot_notes_name_the_snapshot_that_scored(stage2, capsys):
+    """One snapshot across every candidate is no warning."""
+    items = {"a / s": [{"id": "1"}, {"id": "2"}], "b / s": [{"id": "3"}]}
+    same = "typesafe/jev-1.13-20260917"
+    stage2._jev_snapshot_notes(items, {"1": same, "2": same, "3": same})
     output = capsys.readouterr().out
-    assert output == f"JEV answered as `{same}` x2, unrecorded x1\n"
+    assert output == f"JEV answered as `{same}` x3\n"
 
 
-def test_snapshot_notes_count_unrecorded_scores_as_the_old_snapshot(stage2, capsys):
-    """Old unrecorded scores beside a newer snapshot are two judges, not one."""
+def test_snapshot_notes_count_unrecorded_as_a_judge_of_its_own(stage2, capsys):
+    """An unrecorded snapshot is an unknown judge, never assumed to be another."""
     items = {
         "a / key_points_for_transcript": [{"id": "1"}],
         "b / key_points_for_transcript": [{"id": "2"}],
