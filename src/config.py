@@ -121,38 +121,26 @@ class ModelSpec:
 
 
 MODEL_SPECS: dict[str, ModelSpec] = {
-    "gemini-3.7-flash": ModelSpec(
-        label="Gemini 3.7 Flash",
+    "deepseek/deepseek-v4.1-flash": ModelSpec(
+        label="DeepSeek V4.1 Flash",
+        provider="openrouter",
+        supports_audio=False,
+        supports_files=False,
+    ),
+    "gemini-3.8-flash": ModelSpec(
+        label="Gemini 3.8 Flash",
         provider="google",
         supports_audio=True,
         supports_files=True,
     ),
-    "meta/muse-spark-1.2": ModelSpec(
-        label="Meta Muse Spark 1.2",
+    "openai/gpt-6-luna": ModelSpec(
+        label="GPT-6 Luna",
         provider="openrouter",
         supports_audio=False,
         supports_files=False,
     ),
-    "minimax/minimax-m3": ModelSpec(
-        label="MiniMax M3",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
-    ),
-    "openai/gpt-5.6-luna": ModelSpec(
-        label="GPT-5.6 Luna",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
-    ),
-    "stepfun/step-3.7-flash": ModelSpec(
-        label="StepFun Step 3.7 Flash",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
-    ),
-    "thinkingmachines/inkling": ModelSpec(
-        label="Thinking Machines Inkling",
+    "x-ai/grok-4.7": ModelSpec(
+        label="Grok 4.7",
         provider="openrouter",
         supports_audio=False,
         supports_files=False,
@@ -164,7 +152,7 @@ ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_SPECS.keys())
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
 # It also serves documents whose selected model has supports_files=False, so it
 # must stay a spec with supports_files=True.
-DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.7-flash"
+DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.8-flash"
 DEFAULT_THINKING_LEVEL = "medium"
 # The keys are pydantic-ai's `ThinkingEffort`, which every provider's model maps
 # to its own vocabulary; nothing here translates them. The values exist only to

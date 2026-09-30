@@ -84,7 +84,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   to dodge it. And `xhigh` is indistinguishable from `high` on both registered providers
   (Gemini has no XHIGH; OpenRouter's `reasoning.effort` stops at high), so it is offered
   for a future provider, not for a difference users can feel today. The same collapse
-  happens at the bottom of the scale: `gemini-3.7-flash` documents no MINIMAL level, and
+  happens at the bottom of the scale: `gemini-3.8-flash` documents no MINIMAL level, and
   pydantic-ai's Google profile (`google_supports_minimal_thinking_level`) turns `minimal`
   into LOW for it, so the keyboard's `Minimal` and `Low` reach today's only Gemini model
   identically. Both collapses are pydantic-ai's per-model mapping, not ours — a Gemini
