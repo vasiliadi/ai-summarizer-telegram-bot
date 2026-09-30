@@ -59,9 +59,12 @@ Models are named by their OpenRouter id, for example `vendor/model`. The harness
 against the OpenRouter catalog before spending anything.
 
 ```bash
-uv run python scripts/eval/stage2.py sweep <openrouter-id> ...          # a run per model, with JEV
-uv run python scripts/eval/stage2.py report [--all-pairs]               # free: the comparison table
-uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # Opus on the finalists' runs
+uv run python scripts/eval/install_tier1.py     # after every edit to tier1_evaluator.py
+uv run python scripts/eval/stage2.py report [--all-pairs]  # free, read-only
+uv run python scripts/eval/stage2.py sweep <openrouter-id> ... [--judge=jev|opus|none]  # COSTS MONEY: a compare run each
+uv run python scripts/eval/stage2.py judge jev [<openrouter-id> ...]    # ~2 cents a run: JEV where missing
+uv run python scripts/eval/stage2.py judge jev --rescore [<openrouter-id> ...]  # ~2 cents a run: JEV on every item again
+uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # ~$3 a run: Opus FABRICATED on finalists
 ```
 
 Wait about a minute after a run before reading the report, because Langfuse ingests scores

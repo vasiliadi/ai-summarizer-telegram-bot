@@ -114,14 +114,7 @@ repo's spend, and a second referer would split it into a second Top Apps entry.
 | `stage2.py` | The command line: `sweep`, `report`, and `judge`, which adds a judge to existing runs |
 | `rebuild_datasets.py` | Rebuilds the dataset from a raw harvest. Destructive; needs `--yes-wipe` |
 
-```bash
-uv run python scripts/eval/install_tier1.py     # after every edit to tier1_evaluator.py
-uv run python scripts/eval/stage2.py report [--all-pairs]  # free, read-only
-uv run python scripts/eval/stage2.py sweep <openrouter-id> ... [--judge=jev|opus|none]  # COSTS MONEY: a compare run each
-uv run python scripts/eval/stage2.py judge jev [<openrouter-id> ...]    # ~2 cents a run: JEV where missing
-uv run python scripts/eval/stage2.py judge jev --rescore [<openrouter-id> ...]  # ~2 cents a run: JEV on every item again
-uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # ~$3 a run: Opus FABRICATED on finalists
-```
+The commands are in `scripts/eval/README.md`.
 
 **The harness is tested but sits outside the 100% coverage rule.** `tests/test_eval_*.py` cover
 what fails silently — the seam with `src/` (`EvalLLMClient` against `LLMClient`), the Tier 1

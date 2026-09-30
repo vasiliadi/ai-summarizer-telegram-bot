@@ -216,8 +216,9 @@ to Gemini — return the raw model text with **no** prefix.
 - **Sentry log collection is an explicit opt-in.** `config.py` passes
   `LoggingIntegration(capture_sentry_logs=True)` to `sentry_sdk.init`; without it stdlib `logging`
   records stop reaching Sentry Logs while error capture keeps working (pinned by
-  `test_sentry_opts_into_log_collection`). The old `enable_logs=True` is a no-op since sentry-sdk
-  2.68.0 — do not re-add it. `logging.basicConfig(force=True)` after `init` does not unhook the
+  `test_sentry_opts_into_log_collection`). `enable_logs=True` was a no-op in sentry-sdk 2.68.0;
+  later releases honour it only as a compat fallback slated for removal in the next major, so keep
+  the explicit flag rather than switching back. `logging.basicConfig(force=True)` after `init` does not unhook the
   integration: it patches `logging.Logger.callHandlers` rather than adding a root handler.
 - **Uploaded files are not cleaned up on failure.** After a successful `files.upload`,
   `GeminiHelper.upload_and_wait_for_file` raises on three paths — missing name, `FAILED`
@@ -240,7 +241,7 @@ to Gemini — return the raw model text with **no** prefix.
   output is a `WebParseError`: a blocked primary falls through to the fallback, a blocked fallback
   ends in "page is not available". The check lives in `WebParser`, not a backend, so it holds
   whichever backend is primary. JEV is a decisions model served only on OpenRouter's
-  `POST /api/alpha/decisions`, so it is called over plain HTTP, not through `LLMClient`.
+  `POST /api/alpha/decisions`, so it is called with a direct HTTPS request, not through `LLMClient`.
   Calibrated on 2026-09-30 against `typesafe/jev-1.13-20260917`: block pages 0.83–0.99, real pages
   (including an article *about* regional blocking) 0.01–0.03; ~0.4 s and ~$0.0002 per 20k-character
   page. Settled: **fail open** (a detector error logs a warning and keeps the text), **no retry on
