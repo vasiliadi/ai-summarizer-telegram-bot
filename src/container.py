@@ -50,12 +50,10 @@ def build_container() -> Container:
     llm_client = LLMClient(config.gemini_client, config.openrouter_provider_factory)
     downloader = Downloader(config.TG_API_TOKEN)
     web_parser = WebParser(
-        ExaBackend(
-            config.exa_client,
-            BlockedPageDetector(config.OPENROUTER_API_KEY),
-        ),
+        ExaBackend(config.exa_client),
         TavilyBackend(config.tavily_client),
         UrlResolver(),
+        BlockedPageDetector(config.OPENROUTER_API_KEY),
     )
     audio_transcriber = AudioTranscriber(config.replicate_client)
     yt_transcriber = YouTubeTranscriber(ApiBackend(), YtDlpBackend())

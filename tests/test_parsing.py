@@ -35,9 +35,10 @@ def _make_parser(mocker, detector=None):
     resolver = mocker.Mock()
     resolver.resolve.side_effect = lambda url: url
     parser = WebParser(
-        ExaBackend(mock_exa, detector),
+        ExaBackend(mock_exa),
         TavilyBackend(mock_tavily),
         resolver,
+        detector,
     )
     return parser, mock_exa, mock_tavily
 
@@ -483,7 +484,7 @@ def test_parse_url_falls_back_to_tavily_on_block_page(mocker, caplog):
     """Test a block page falls back to Tavily without re-running Exa."""
     mock_sleep = mocker.patch("time.sleep")
     detector = mocker.Mock()
-    detector.is_blocked.return_value = True
+    detector.is_blocked.side_effect = [True, False]
     parser, mock_exa, mock_tavily = _make_parser(mocker, detector)
     mock_exa.get_contents.return_value = mocker.Mock(
         results=[mocker.Mock(text="App unavailable in your region.")],
@@ -501,6 +502,53 @@ def test_parse_url_falls_back_to_tavily_on_block_page(mocker, caplog):
     mock_exa.get_contents.assert_called_once()
     mock_sleep.assert_not_called()
     assert "Exa returned a block page for https://example.com" in caplog.text
+    assert detector.is_blocked.call_args_list == [
+        mocker.call("App unavailable in your region.", "https://example.com"),
+        mocker.call("From Tavily.", "https://example.com"),
+    ]
+
+
+def test_parse_url_rejects_tavily_block_page(mocker, caplog):
+    """Test a block page from the fallback fails the parse, not summarized."""
+    detector = mocker.Mock()
+    detector.is_blocked.return_value = True
+    parser, mock_exa, mock_tavily = _make_parser(mocker, detector)
+    mock_exa.get_contents.return_value = mocker.Mock(results=[])
+    mocker.patch("time.sleep")
+    mock_tavily.extract.return_value = {
+        "results": [{"url": "https://example.com", "raw_content": "Just a moment..."}],
+        "failed_results": [],
+    }
+
+    with (
+        caplog.at_level(logging.WARNING, logger="parsing"),
+        pytest.raises(WebParseError, match="Both parsing backends failed"),
+    ):
+        parser.parse("https://example.com")
+
+    assert "Tavily returned a block page for https://example.com" in caplog.text
+
+
+def test_parse_url_fails_when_both_backends_return_block_pages(mocker):
+    """Test block pages from both backends fail the parse with one fetch each."""
+    mock_sleep = mocker.patch("time.sleep")
+    detector = mocker.Mock()
+    detector.is_blocked.return_value = True
+    parser, mock_exa, mock_tavily = _make_parser(mocker, detector)
+    mock_exa.get_contents.return_value = mocker.Mock(
+        results=[mocker.Mock(text="Access Denied")],
+    )
+    mock_tavily.extract.return_value = {
+        "results": [{"url": "https://example.com", "raw_content": "Access Denied"}],
+        "failed_results": [],
+    }
+
+    with pytest.raises(WebParseError, match="Both parsing backends failed"):
+        parser.parse("https://example.com")
+
+    mock_exa.get_contents.assert_called_once()
+    mock_tavily.extract.assert_called_once()
+    mock_sleep.assert_not_called()
 
 
 def _decisions_response(mocker, noul):

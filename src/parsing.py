@@ -133,33 +133,9 @@ class ExaBackend(ParserBackend):
     name = "Exa"
     prefix = "🌐"
 
-    def __init__(
-        self,
-        client: Exa,
-        detector: BlockedPageDetector | None = None,
-    ) -> None:
-        """Store the injected Exa client and the optional block-page detector."""
+    def __init__(self, client: Exa) -> None:
+        """Store the injected Exa client."""
         self._client = client
-        self._detector = detector
-
-    def parse(self, url: str) -> str:
-        """Extract main textual content from a URL using Exa.ai.
-
-        A block page is rejected without re-running Exa: the site refused Exa,
-        and asking again 5 s later would only fetch the same page.
-
-        Raises:
-            WebParseError: If Exa returns no results or empty content (retried
-                once, 2 total attempts, before re-raising), or if the detector
-                judges the extraction a block page.
-
-        """
-        content = self._extract(url)
-        if self._detector is not None and self._detector.is_blocked(content, url):
-            msg = f"Exa returned a block page for {url}"
-            logger.warning(msg)
-            raise WebParseError(msg)
-        return content
 
     @retry(
         stop=stop_after_attempt(2),
@@ -168,7 +144,14 @@ class ExaBackend(ParserBackend):
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=True,
     )
-    def _extract(self, url: str) -> str:
+    def parse(self, url: str) -> str:
+        """Extract main textual content from a URL using Exa.ai.
+
+        Raises:
+            WebParseError: If Exa returns no results or empty content. Retried
+                once (2 total attempts) before re-raising.
+
+        """
         response = self._client.get_contents(
             urls=[url],
             text={"max_characters": 20000, "include_html_tags": True},
@@ -303,17 +286,33 @@ class WebParser:
         primary: ParserBackend,
         fallback: ParserBackend,
         resolver: UrlResolver,
+        detector: BlockedPageDetector | None = None,
     ) -> None:
-        """Store the primary/fallback backends and the URL resolver."""
+        """Store the backends, the URL resolver and the optional block detector."""
         self._primary = primary
         self._fallback = fallback
         self._resolver = resolver
+        self._detector = detector
+
+    def _extract(self, backend: ParserBackend, url: str) -> PrefixedText:
+        """Parse with one backend, rejecting a block page as a parse failure.
+
+        Checked here, outside the backends' own `@retry`, so a block page is not
+        fetched again: the site would only refuse the backend a second time.
+        """
+        text = backend.parse(url)
+        if self._detector is not None and self._detector.is_blocked(text, url):
+            msg = f"{backend.name} returned a block page for {url}"
+            logger.warning(msg)
+            raise WebParseError(msg)
+        return PrefixedText(text=text, prefix=backend.prefix)
 
     def parse(self, url: str) -> PrefixedText:
         """Resolve redirects, then extract main textual content from the URL.
 
         Resolves the final destination (best-effort, SSRF-guarded), parses with
-        the primary backend first, and falls back to the secondary on failure.
+        the primary backend first, and falls back to the secondary on failure —
+        including a block page, when a detector is set.
 
         Returns:
             PrefixedText: The extracted content and source display prefix.
@@ -326,10 +325,7 @@ class WebParser:
         """
         url = self._resolver.resolve(url)
         try:
-            return PrefixedText(
-                text=self._primary.parse(url),
-                prefix=self._primary.prefix,
-            )
+            return self._extract(self._primary, url)
         except WebParseError as primary_error:
             logger.warning(
                 "%s parsing backend failed, falling back to %s: %s",
@@ -338,10 +334,7 @@ class WebParser:
                 primary_error,
             )
             try:
-                return PrefixedText(
-                    text=self._fallback.parse(url),
-                    prefix=self._fallback.prefix,
-                )
+                return self._extract(self._fallback, url)
             except (WebParseError, RetryError) as fallback_error:
                 logger.warning(
                     "%s fallback backend also failed: %s",

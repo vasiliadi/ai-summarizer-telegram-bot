@@ -37,7 +37,7 @@ def test_build_container_returns_wired_container():
     assert handlers._messenger._bot is config.bot
     assert isinstance(handlers._web_parser, WebParser)
     assert handlers._web_parser._primary._client is config.exa_client
-    detector = handlers._web_parser._primary._detector
+    detector = handlers._web_parser._detector
     assert isinstance(detector, BlockedPageDetector)
     assert detector._api_key is config.OPENROUTER_API_KEY
     assert handlers._web_parser._fallback._client is config.tavily_client
