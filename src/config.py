@@ -90,6 +90,10 @@ openrouter_provider_factory = partial(
     app_url=OPENROUTER_APP_URL,
     app_title=OPENROUTER_APP_TITLE,
 )
+# JEV is a decisions model, not a chat model: OpenRouter serves it only on this
+# endpoint, which pydantic-ai does not speak (see parsing.BlockedPageDetector).
+OPENROUTER_DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
+BLOCK_DETECTOR_MODEL_ID = "~typesafe/jev-latest"
 
 
 # Summarizing model registry

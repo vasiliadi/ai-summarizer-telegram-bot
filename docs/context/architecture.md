@@ -110,7 +110,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a per-thread OpenRouter provider and a per-thread model cache keyed by id across providers (see *One OpenRouter provider per thread* below); model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`, Google and OpenRouter today); `build_settings` has no provider branch at all — every provider takes the agnostic `thinking` effort, so the one provider-specific setting there is (OpenRouter usage accounting) rides on the model instead. `OpenRouterCostReporter`, the wrapper `build_model` puts around every OpenRouter model, reports cost to the trace (see Tracing below). |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
-| `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback. |
+| `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback; each backend's output is block-page checked by JEV. |
 | `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (names, tags and adds settings metadata to the Langfuse trace for a message, if one is opened). |
 | `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator to `config`'s clients. `Container` carries only the five roots `BotApp` holds (`bot`, `quota_manager`, `tracer`, `user_repo`, `handlers`); the rest of the graph is reached through `handlers`. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
@@ -244,6 +244,23 @@ to Gemini — return the raw model text with **no** prefix.
   to `False` is **rejected**: it would turn many tolerable downloads into hard failures,
   while the rare truncated file that crashes the ffmpeg fixup is retryable — `download_yt`
   makes at most two attempts on `DownloadError` (`stop_after_attempt(2)`).
+- **Every extraction is screened for block pages by JEV.** A site that refuses a parser (a
+  region block, a bot check, access denied, a login or paywall) still yields non-empty text, which
+  used to be summarized as if it were the page. `WebParser` hands each backend's output to
+  `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over its first 20k characters (a block page
+  is short, and an uncapped Tavily extraction can overflow JEV's input); at
+  p ≥ 0.5 the output counts as a `WebParseError`, so a blocked primary falls through to the
+  fallback, and a blocked fallback ends in "page is not available" instead of a summary of the
+  block page. The check lives in `WebParser`, not in a backend, so it holds whichever backend is
+  primary. JEV is a decisions model: OpenRouter serves it only on `POST /api/alpha/decisions`
+  (not `chat/completions`), so it is called with plain HTTP, not through `LLMClient`. Calibrated
+  on 2026-09-30 against `typesafe/jev-1.13-20260917`: block pages 0.83–0.99, real pages —
+  including an article *about* regional blocking — 0.01–0.03; ~0.4 s and ~$0.0002 for a
+  20k-character page. Settled choices: **fail open** (any detector error logs a warning and keeps
+  the text, so a JEV outage never breaks parsing); **no retry on a block page** (the check sits
+  outside the backends' `@retry`, since the site would refuse the backend again); **not metered**
+  by `QuotaManager`. It does not catch a bare marketing shell with no block wording (Spark's
+  web-share page scored 0.05) — that is not a block page.
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
 - **One OpenRouter provider per thread.** `LLMClient.run` ends in pydantic-ai's `run_sync`,

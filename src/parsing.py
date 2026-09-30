@@ -4,7 +4,7 @@ import ipaddress
 import logging
 import socket
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 from urllib.parse import urlsplit
 
 from curl_cffi import requests
@@ -18,6 +18,12 @@ from tenacity import (
     wait_fixed,
 )
 
+from config import (
+    BLOCK_DETECTOR_MODEL_ID,
+    OPENROUTER_APP_TITLE,
+    OPENROUTER_APP_URL,
+    OPENROUTER_DECISIONS_URL,
+)
 from domain import PrefixedText
 from exceptions import WebParseError
 from utils import get_proxy
@@ -29,6 +35,91 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
+
+
+class BlockedPageDetector:
+    """Asks JEV whether an extraction is a block page rather than the content.
+
+    Exa and Tavily are sometimes refused by the site and return what it shows
+    instead — a region block, a bot check, an access-denied or login page — as
+    ordinary non-empty text. JEV answers one yes/no question over the text with
+    a probability; calibrated on 2026-09-30, block pages scored 0.83-0.99 and
+    real pages (including an article *about* regional blocking) 0.01-0.03.
+    """
+
+    _QUESTION: ClassVar[str] = (
+        "Is this page a block, access-denied or error page instead of the "
+        "requested content?"
+    )
+    _CRITERIA: ClassVar[dict[str, str]] = {
+        "true": (
+            "The text is what a site shows instead of its content: a region or "
+            "access block, a bot check or CAPTCHA, a login or paywall, a "
+            "JavaScript-required notice, or an error page."
+        ),
+        "false": (
+            "The text carries the page's actual content, such as an article, "
+            "documentation, a post or a discussion, even if it mentions blocking "
+            "or errors."
+        ),
+    }
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = BLOCK_DETECTOR_MODEL_ID,
+        threshold: float = 0.5,
+        timeout: int = 30,
+        max_chars: int = 20000,
+    ) -> None:
+        """Store the OpenRouter key, the JEV model id, and the block threshold.
+
+        Only the first `max_chars` go to JEV: a block page is short, and an
+        uncapped Tavily extraction can overflow JEV's input limit.
+        """
+        self._api_key = api_key
+        self._model = model
+        self._threshold = threshold
+        self._timeout = timeout
+        self._max_chars = max_chars
+
+    def is_blocked(self, content: str, url: str) -> bool:
+        """Return True when JEV judges the extraction to be a block page.
+
+        Fails open: any detector error is logged and treated as not blocked, so
+        a JEV outage can never break web parsing.
+        """
+        body = {
+            "model": self._model,
+            "state": content[: self._max_chars],
+            "questions": {
+                "blocked": {
+                    "type": "noul",
+                    "instructions": self._QUESTION,
+                    "criteria": self._CRITERIA,
+                },
+            },
+        }
+        try:
+            response = requests.post(
+                OPENROUTER_DECISIONS_URL,
+                json=body,
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "HTTP-Referer": OPENROUTER_APP_URL,
+                    "X-Title": OPENROUTER_APP_TITLE,
+                },
+                timeout=self._timeout,
+            )
+            response.raise_for_status()
+            probability = float(response.json()["answers"]["blocked"]["noul"])
+        except Exception:  # best-effort: never let detection break parsing
+            logger.warning("Block-page check failed for %s", url, exc_info=True)
+            return False
+        if probability >= self._threshold:
+            logger.warning("JEV flagged %s as a block page (p=%.2f)", url, probability)
+            return True
+        return False
 
 
 class ParserBackend(ABC):
@@ -201,17 +292,33 @@ class WebParser:
         primary: ParserBackend,
         fallback: ParserBackend,
         resolver: UrlResolver,
+        detector: BlockedPageDetector | None = None,
     ) -> None:
-        """Store the primary/fallback backends and the URL resolver."""
+        """Store the backends, the URL resolver and the optional block detector."""
         self._primary = primary
         self._fallback = fallback
         self._resolver = resolver
+        self._detector = detector
+
+    def _extract(self, backend: ParserBackend, url: str) -> PrefixedText:
+        """Parse with one backend, rejecting a block page as a parse failure.
+
+        Checked here, outside the backends' own `@retry`, so a block page is not
+        fetched again: the site would only refuse the backend a second time.
+        """
+        text = backend.parse(url)
+        if self._detector is not None and self._detector.is_blocked(text, url):
+            msg = f"{backend.name} returned a block page for {url}"
+            logger.warning(msg)
+            raise WebParseError(msg)
+        return PrefixedText(text=text, prefix=backend.prefix)
 
     def parse(self, url: str) -> PrefixedText:
         """Resolve redirects, then extract main textual content from the URL.
 
         Resolves the final destination (best-effort, SSRF-guarded), parses with
-        the primary backend first, and falls back to the secondary on failure.
+        the primary backend first, and falls back to the secondary on failure —
+        including a block page, when a detector is set.
 
         Returns:
             PrefixedText: The extracted content and source display prefix.
@@ -224,10 +331,7 @@ class WebParser:
         """
         url = self._resolver.resolve(url)
         try:
-            return PrefixedText(
-                text=self._primary.parse(url),
-                prefix=self._primary.prefix,
-            )
+            return self._extract(self._primary, url)
         except WebParseError as primary_error:
             logger.warning(
                 "%s parsing backend failed, falling back to %s: %s",
@@ -236,10 +340,7 @@ class WebParser:
                 primary_error,
             )
             try:
-                return PrefixedText(
-                    text=self._fallback.parse(url),
-                    prefix=self._fallback.prefix,
-                )
+                return self._extract(self._fallback, url)
             except (WebParseError, RetryError) as fallback_error:
                 logger.warning(
                     "%s fallback backend also failed: %s",

@@ -5,7 +5,7 @@ from database import UserRepository
 from download import Downloader
 from handlers import MessageHandlers
 from llm import LLMClient
-from parsing import WebParser
+from parsing import BlockedPageDetector, WebParser
 from services import GeminiHelper, Messenger, QuotaManager, Tracer
 from summary import Summarizer
 from transcription import ApiBackend, AudioTranscriber, YouTubeTranscriber, YtDlpBackend
@@ -37,6 +37,9 @@ def test_build_container_returns_wired_container():
     assert handlers._messenger._bot is config.bot
     assert isinstance(handlers._web_parser, WebParser)
     assert handlers._web_parser._primary._client is config.exa_client
+    detector = handlers._web_parser._detector
+    assert isinstance(detector, BlockedPageDetector)
+    assert detector._api_key is config.OPENROUTER_API_KEY
     assert handlers._web_parser._fallback._client is config.tavily_client
     assert isinstance(handlers._downloader, Downloader)
     assert handlers._downloader._tg_api_token is config.TG_API_TOKEN

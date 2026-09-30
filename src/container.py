@@ -11,7 +11,13 @@ from database import UserRepository
 from download import Downloader
 from handlers import MessageHandlers
 from llm import LLMClient
-from parsing import ExaBackend, TavilyBackend, UrlResolver, WebParser
+from parsing import (
+    BlockedPageDetector,
+    ExaBackend,
+    TavilyBackend,
+    UrlResolver,
+    WebParser,
+)
 from services import GeminiHelper, Messenger, QuotaManager, Tracer
 from summary import Summarizer
 from transcription import ApiBackend, AudioTranscriber, YouTubeTranscriber, YtDlpBackend
@@ -47,6 +53,7 @@ def build_container() -> Container:
         ExaBackend(config.exa_client),
         TavilyBackend(config.tavily_client),
         UrlResolver(),
+        BlockedPageDetector(config.OPENROUTER_API_KEY),
     )
     audio_transcriber = AudioTranscriber(config.replicate_client)
     yt_transcriber = YouTubeTranscriber(ApiBackend(), YtDlpBackend())
