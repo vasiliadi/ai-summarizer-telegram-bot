@@ -16,6 +16,7 @@ the evaluation rather than a property of the model under evaluation.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
 import threading
 
@@ -115,6 +116,13 @@ async def summarize(model_id, prompt, text, language):
         if not future.done():  # already cancelled by the timeout
             future.set_exception(error) if error else future.set_result(result)
 
+    def post(result, error):
+        # A worker that outlives its timeout can find the experiment's loop
+        # already closed. Nobody awaits its answer any more, so it is dropped
+        # rather than killing the thread with `Event loop is closed`.
+        with contextlib.suppress(RuntimeError):
+            loop.call_soon_threadsafe(settle, result, error)
+
     def work():
         try:
             result = context.run(
@@ -125,9 +133,9 @@ async def summarize(model_id, prompt, text, language):
                 thinking_level=THINKING_LEVEL,
             )
         except Exception as exc:
-            loop.call_soon_threadsafe(settle, None, exc)
+            post(None, exc)
         else:
-            loop.call_soon_threadsafe(settle, result, None)
+            post(result, None)
         finally:
             # After settling, so the item is not held up; a timed-out worker
             # still closes it whenever its run finally returns.
