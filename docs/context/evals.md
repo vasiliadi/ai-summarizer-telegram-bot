@@ -476,8 +476,9 @@ the switch carry `judge_model: typesafe/jev-1.13` and no version; they came from
 and stay comparable. **When the alias moves, compare only scores with the same
 `judge_model_version`**: `stage2.py judge jev` fills missing scores and never rescores, so a report
 can then mix two judges. `stage2.py report` prints which snapshots scored it (`JEV answered as
-...`, with pre-switch scores counted as `unrecorded`) and warns, per candidate, once more than one
-recorded snapshot appears. Everything measured on JEV below — the AUCs, the question wording,
+...`, with pre-switch scores shown as `unrecorded`) and warns, per candidate, once more than one
+snapshot appears — an unrecorded score counts as 1.13-20260917, so old scores beside a newer
+snapshot are a mix. Everything measured on JEV below — the AUCs, the question wording,
 `JEV_FLAG_BELOW` — was measured on 1.13 and would need re-checking on a new snapshot.
 
 The judges run locally rather than as Langfuse-managed evaluators **by choice, not constraint**.

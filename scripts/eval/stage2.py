@@ -58,6 +58,10 @@ PASS_THRESHOLD = 0.95
 JEV = "t2_jev_weakest"
 FABRICATED = "t2_fabricated"
 
+# The snapshot behind every JEV score banked before `judge_model_version` was
+# recorded: `typesafe/jev-1.13` answered as this on 2026-09-30 (evals.md, *Tier 2*).
+UNRECORDED_JEV = "typesafe/jev-1.13-20260917"
+
 # The paired Tier 2 tests run on these, whichever a run carries.
 PAIRED_METRICS = (JEV, FABRICATED)
 
@@ -147,8 +151,8 @@ def _jev_snapshot_notes(items, jev_versions):
 
     `JEV_MODEL` is an alias, so the snapshot recorded on each score is the only
     thing that says whether two candidates were measured by the same judge.
-    Unrecorded scores predate the field; they came from 1.13-20260917
-    (evals.md, *Tier 2*), so only recorded snapshots count as a mix.
+    Unrecorded scores predate the field but are not of unknown origin: they
+    count as `UNRECORDED_JEV`, so old scores beside a newer snapshot are a mix.
     """
     by_candidate = {
         c: collections.Counter(
@@ -160,7 +164,7 @@ def _jev_snapshot_notes(items, jev_versions):
     if not total:
         return
     print(f"JEV answered as {_snapshots(total)}")
-    if len({v for v in total if v}) > 1:
+    if len({v or UNRECORDED_JEV for v in total}) > 1:
         print(
             "WARNING: JEV scores come from more than one snapshot; compare "
             "candidates only on scores from the same one.",

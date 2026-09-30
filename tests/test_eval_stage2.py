@@ -261,12 +261,25 @@ def test_tier2_scores_keep_observation_scores_only(stage2, mocker):
 def test_snapshot_notes_name_the_snapshots_that_scored(stage2, capsys):
     """One snapshot, with or without unrecorded older scores, is no warning."""
     items = {"a / s": [{"id": "1"}, {"id": "2"}, {"id": "3"}], "b / s": [{"id": "4"}]}
-    stage2._jev_snapshot_notes(
-        items,
-        {"1": "jev-1.13-20260917", "2": "jev-1.13-20260917", "3": None},
-    )
+    same = stage2.UNRECORDED_JEV
+    stage2._jev_snapshot_notes(items, {"1": same, "2": same, "3": None})
     output = capsys.readouterr().out
-    assert output == "JEV answered as `jev-1.13-20260917` x2, unrecorded x1\n"
+    assert output == f"JEV answered as `{same}` x2, unrecorded x1\n"
+
+
+def test_snapshot_notes_count_unrecorded_scores_as_the_old_snapshot(stage2, capsys):
+    """Old unrecorded scores beside a newer snapshot are two judges, not one."""
+    items = {
+        "a / key_points_for_transcript": [{"id": "1"}],
+        "b / key_points_for_transcript": [{"id": "2"}],
+    }
+    stage2._jev_snapshot_notes(items, {"1": None, "2": "typesafe/jev-1.14-20261101"})
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[1].startswith("WARNING: JEV scores come from more than one snapshot")
+    assert lines[2:] == [
+        "  a: unrecorded x1",
+        "  b: `typesafe/jev-1.14-20261101` x1",
+    ]
 
 
 def test_snapshot_notes_warn_when_candidates_saw_different_judges(stage2, capsys):
@@ -275,11 +288,11 @@ def test_snapshot_notes_warn_when_candidates_saw_different_judges(stage2, capsys
         "a / key_points_for_transcript": [{"id": "1"}, {"id": "2"}],
         "b / key_points_for_transcript": [{"id": "3"}],
     }
-    stage2._jev_snapshot_notes(items, {"1": "old", "2": None, "3": "new"})
+    stage2._jev_snapshot_notes(items, {"1": "old", "2": "old", "3": "new"})
     lines = capsys.readouterr().out.splitlines()
     assert lines[0].startswith("JEV answered as ")
     assert lines[1].startswith("WARNING: JEV scores come from more than one snapshot")
-    assert lines[2:] == ["  a: `old` x1, unrecorded x1", "  b: `new` x1"]
+    assert lines[2:] == ["  a: `old` x2", "  b: `new` x1"]
 
 
 def test_snapshot_notes_are_silent_without_jev_scores(stage2, capsys):
