@@ -457,7 +457,7 @@ Two judges, both in `judge.py`, selected per run through `judge.JUDGES` (`jev`, 
 
 | | JEV | Opus `FABRICATED` |
 |---|---|---|
-| Model | `typesafe/jev-1.13` | `anthropic/claude-opus-5.5`, effort `medium` |
+| Model | `~typesafe/jev-latest` (was `typesafe/jev-1.13`) | `anthropic/claude-opus-5.5`, effort `medium` |
 | Score | `t2_jev_weakest`: P(supported) of the weakest bullet | `t2_fabricated`: 1 clean, 0 if anything invented |
 | Cost | ~$0.02 a 50-item run | ~$2.60–2.80 a 50-item run, ~$0.06 a call |
 | Used on | every candidate (default in `sweep`) | finalists only (`stage2.py judge opus`) |
@@ -468,6 +468,16 @@ prompt and schema). **Editing a prompt, question or schema moves the pin** and u
 every banked score. The hash covers the exact string, which is why `pyproject.toml` exempts
 `scripts/eval/` from `E501`: reflowing a prompt to fit the line length would repin the judge.
 
+**JEV's `judge_model` is an alias; `judge_model_version` is the judge.** JEV is asked for as
+`~typesafe/jev-latest`, and OpenRouter names the snapshot that answered in the reply's `model` —
+`typesafe/jev-1.13-20260917` on 2026-09-30, for both the alias and `typesafe/jev-1.13`, which is
+itself an alias. Each JEV score records that snapshot as `judge_model_version`. Scores from before
+the switch carry `judge_model: typesafe/jev-1.13` and no version; they came from that same snapshot
+and stay comparable. **When the alias moves, compare only scores with the same
+`judge_model_version`**: `stage2.py judge jev` fills missing scores and never rescores, so a report
+can then mix two judges. Everything measured on JEV below — the AUCs, the question wording,
+`JEV_FLAG_BELOW` — was measured on 1.13 and would need re-checking on a new snapshot.
+
 The judges run locally rather than as Langfuse-managed evaluators **by choice, not constraint**.
 Both are per-item judgements and would fit. Two things would be given up: the **judge reports and
 the runner decides** (a managed evaluator returns one numeric score plus reasoning, so it could not
@@ -477,7 +487,7 @@ the trade; do not assume it was forced.
 
 ### JEV: the cheap screen on every candidate
 
-`typesafe/jev-1.13` (TypeSafe's "System One") is not an LLM: it returns typed decisions — here a
+JEV (TypeSafe's "System One", measured below as `typesafe/jev-1.13`) is not an LLM: it returns typed decisions — here a
 yes/no — each with a probability, and generates no text. **$0.042 per M input tokens, output
 free.** It cannot be called on `chat/completions` (400: *"is a decisions model … Use the
 /api/alpha/decisions endpoint"*), but **OpenRouter accepts TypeSafe's protocol on

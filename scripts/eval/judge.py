@@ -224,7 +224,12 @@ def _source_of(item_input):
 # costs about $3 a candidate against JEV's two cents. Its number is read
 # comparatively across candidates, never against a floor.
 
-JEV_MODEL = "typesafe/jev-1.13"
+# An alias that follows TypeSafe's newest JEV, so the pin in `jev_meta` names
+# only what was asked for. Even a versioned id such as `typesafe/jev-1.13` is an
+# alias for a dated snapshot, so every score also records the snapshot that
+# answered, as `judge_model_version` — that, not this, says whether two scores
+# came from the same judge.
+JEV_MODEL = "~typesafe/jev-latest"
 DECISIONS_URL = f"{BASE}/alpha/decisions"
 # The positive framing. Asked whether a claim is *invented*, JEV answered the
 # question and ignored the criteria's polarity (AUC 0.28), so the question
@@ -260,7 +265,10 @@ def jev_meta():
 
 
 def jev_probabilities(source, bullets):
-    """P(supported) per bullet, and what OpenRouter charged. Raises on HTTP errors.
+    """P(supported) per bullet, the cost, and the snapshot that answered.
+
+    Raises on HTTP errors. The snapshot is the reply's `model`, such as
+    `typesafe/jev-1.13-20260917`; `None` if the alpha endpoint ever drops it.
 
     The source goes whole into `state` and each bullet is its own question:
     asked once whether a whole summary was faithful, JEV ranked barely above
@@ -282,7 +290,7 @@ def jev_probabilities(source, bullets):
     payload = _post(DECISIONS_URL, body, timeout=120)
     answers = {k: a["noul"] for k, a in payload["answers"].items()}
     cost = (payload.get("usage") or {}).get("cost") or 0
-    return [answers[k] for k in questions], cost
+    return [answers[k] for k in questions], cost, payload.get("model")
 
 
 # --- Tier 2: evaluator functions for Langfuse.run_experiment -----------------
@@ -299,14 +307,14 @@ def eval_jev(*, input, output, expected_output=None, metadata=None, **kw):  # no
     bullets = bullets_of(summary)
     if not source or not bullets:
         return None
-    probabilities, cost = jev_probabilities(source, bullets)
+    probabilities, cost, version = jev_probabilities(source, bullets)
     weakest = min(range(len(bullets)), key=probabilities.__getitem__)
     return Evaluation(
         name="t2_jev_weakest",
         value=probabilities[weakest],
         data_type="NUMERIC",
         comment=f"bullet {weakest + 1}: {bullets[weakest]}"[:900],
-        metadata={**jev_meta(), "cost": cost},
+        metadata={**jev_meta(), "judge_model_version": version, "cost": cost},
     )
 
 

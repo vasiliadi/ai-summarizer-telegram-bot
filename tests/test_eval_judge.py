@@ -132,28 +132,35 @@ def test_jev_asks_one_question_per_bullet_in_one_call(judge, mocker):
         judge,
         "_post",
         return_value={
+            # The reply's shape as observed on 2026-09-30.
+            "model": "typesafe/jev-1.13-20260917",
             # Answers out of order: they are matched by key, not position.
             "answers": {"b01": {"noul": 0.2}, "b00": {"noul": 0.9}},
             "usage": {"cost": 0.02},
         },
     )
 
-    probabilities, cost = judge.jev_probabilities(SOURCE, ["first", "second"])
+    probabilities, cost, version = judge.jev_probabilities(
+        SOURCE,
+        ["first", "second"],
+    )
 
     assert probabilities == [0.9, 0.2]
     assert cost == 0.02
+    assert version == "typesafe/jev-1.13-20260917"
     url, body = post.call_args.args
     assert url == judge.DECISIONS_URL
+    assert body["model"] == judge.JEV_MODEL
     assert body["state"] == {"source": SOURCE}  # the whole source, never cut
     assert list(body["questions"]) == ["b00", "b01"]
     assert "«first»" in body["questions"]["b00"]["instructions"]
     assert body["questions"]["b00"]["criteria"] == judge.JEV_SUPPORTED_CRITERIA
 
 
-def test_jev_cost_defaults_to_zero(judge, mocker):
-    """A reply without usage costs nothing rather than failing."""
+def test_jev_reply_without_usage_or_model_still_scores(judge, mocker):
+    """A missing cost is zero and a missing snapshot is unknown, not a failure."""
     mocker.patch.object(judge, "_post", return_value={"answers": {"b00": {"noul": 1}}})
-    assert judge.jev_probabilities(SOURCE, ["one"]) == ([1], 0)
+    assert judge.jev_probabilities(SOURCE, ["one"]) == ([1], 0, None)
 
 
 def _opus_reply(content, finish_reason="stop", usage=None):
@@ -202,7 +209,7 @@ def test_eval_jev_scores_the_weakest_bullet(judge, mocker):
     mocker.patch.object(
         judge,
         "jev_probabilities",
-        return_value=([0.9, 0.1, 0.8], 0.02),
+        return_value=([0.9, 0.1, 0.8], 0.02, "typesafe/jev-1.13-20260917"),
     )
 
     evaluation = judge.eval_jev(input={"content": SOURCE}, output=SUMMARY)
@@ -210,7 +217,11 @@ def test_eval_jev_scores_the_weakest_bullet(judge, mocker):
     assert evaluation.name == "t2_jev_weakest"
     assert evaluation.value == 0.1
     assert evaluation.comment == "bullet 2: Компания выросла."
-    assert evaluation.metadata == {**judge.jev_meta(), "cost": 0.02}
+    assert evaluation.metadata == {
+        **judge.jev_meta(),
+        "judge_model_version": "typesafe/jev-1.13-20260917",
+        "cost": 0.02,
+    }
 
 
 @pytest.mark.parametrize(
