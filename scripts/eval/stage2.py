@@ -27,6 +27,7 @@ means compare models only within one strategy. So runs are keyed by
 
 from __future__ import annotations
 
+import collections
 import math
 import statistics
 import sys
@@ -94,7 +95,12 @@ def _seconds(item):
 
 
 def _tier2_scores(runs):
-    """Observation id -> {Tier 2 score name: value}, read from the score table.
+    """Tier 2 scores by observation id, and the JEV snapshot behind each.
+
+    Returns `({observation id: {score name: value}}, {observation id: snapshot})`.
+    The snapshot is the score's `judge_model_version`, `None` for scores banked
+    before it was recorded; it rides in the score metadata, which only the
+    `details` field group returns.
 
     **The experiment-items read returns at most seven scores per item.** An item
     carrying five Tier 1 scores, a retired Tier 2 score, JEV and then
@@ -106,21 +112,61 @@ def _tier2_scores(runs):
     """
     since = min((r["startTime"] for r in runs.values()), default=EPOCH)
     out: dict[str, dict] = {}
+    jev_versions: dict[str, str | None] = {}
     for name in PAIRED_METRICS:
         rows = API.paginate(
             "v3/scores",
             {
                 "name": name,
                 "limit": 100,
-                "fields": "core,subject",
+                "fields": "core,subject,details",
                 "fromTimestamp": since,
             },
         )
         for row in rows:
             subject = row.get("subject") or {}
-            if subject.get("kind") == "observation":
-                out.setdefault(subject["id"], {})[name] = score_value(row)
-    return out
+            if subject.get("kind") != "observation":
+                continue
+            out.setdefault(subject["id"], {})[name] = score_value(row)
+            if name == JEV:
+                meta = row.get("metadata") or {}
+                jev_versions[subject["id"]] = meta.get("judge_model_version")
+    return out, jev_versions
+
+
+def _snapshots(counts):
+    """`Counter` of JEV snapshots -> "`typesafe/jev-1.13-20260917` x40, unrecorded x10"."""
+    return ", ".join(
+        f"`{version}` x{n}" if version else f"unrecorded x{n}"
+        for version, n in counts.most_common()
+    )
+
+
+def _jev_snapshot_notes(items, jev_versions):
+    """Say which JEV snapshots scored the report, and warn when they differ.
+
+    `JEV_MODEL` is an alias, so the snapshot recorded on each score is the only
+    thing that says whether two candidates were measured by the same judge.
+    Unrecorded scores predate the field; they came from 1.13-20260917
+    (evals.md, *Tier 2*), so only recorded snapshots count as a mix.
+    """
+    by_candidate = {
+        c: collections.Counter(
+            jev_versions[i["id"]] for i in rows if i["id"] in jev_versions
+        )
+        for c, rows in items.items()
+    }
+    total = sum(by_candidate.values(), collections.Counter())
+    if not total:
+        return
+    print(f"JEV answered as {_snapshots(total)}")
+    if len({v for v in total if v}) > 1:
+        print(
+            "WARNING: JEV scores come from more than one snapshot; compare "
+            "candidates only on scores from the same one.",
+        )
+        for candidate, counts in sorted(by_candidate.items()):
+            print(f"  {_short(candidate)}: {_snapshots(counts)}")
 
 
 def _item_rows(items, tier2):
@@ -362,13 +408,15 @@ def report(dataset_name=COMPARE, *, all_pairs=False):
         )
     print(
         f"`{dataset_name}`, thinking `{judge.THINKING_LEVEL}`, {len(runs)} candidate(s); "
-        f"JEV `{judge.JEV_MODEL}`, Opus `{judge.FABRICATED_MODEL}`\n",
+        f"JEV `{judge.JEV_MODEL}`, Opus `{judge.FABRICATED_MODEL}`",
     )
-    tier2 = _tier2_scores(runs)
+    tier2, jev_versions = _tier2_scores(runs)
     items = {
         c: API.experiment_items(e["id"], fields="core,io,scores")
         for c, e in runs.items()
     }
+    _jev_snapshot_notes(items, jev_versions)
+    print()
     rows_by_candidate = {c: _item_rows(i, tier2) for c, i in items.items()}
     summaries = {
         c: _summary(rows, _run_cost(items[c])) for c, rows in rows_by_candidate.items()
@@ -398,7 +446,7 @@ def backfill(tier2, models=(), dataset_name=COMPARE):
     }
     todo = []
     runs = discover_runs(dataset_name)
-    scores = _tier2_scores(runs)
+    scores, _ = _tier2_scores(runs)
     for candidate, run in sorted(runs.items()):
         if models and _split(candidate)[0] not in models:
             continue

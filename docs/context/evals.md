@@ -475,7 +475,9 @@ itself an alias. Each JEV score records that snapshot as `judge_model_version`. 
 the switch carry `judge_model: typesafe/jev-1.13` and no version; they came from that same snapshot
 and stay comparable. **When the alias moves, compare only scores with the same
 `judge_model_version`**: `stage2.py judge jev` fills missing scores and never rescores, so a report
-can then mix two judges. Everything measured on JEV below — the AUCs, the question wording,
+can then mix two judges. `stage2.py report` prints which snapshots scored it (`JEV answered as
+...`, with pre-switch scores counted as `unrecorded`) and warns, per candidate, once more than one
+recorded snapshot appears. Everything measured on JEV below — the AUCs, the question wording,
 `JEV_FLAG_BELOW` — was measured on 1.13 and would need re-checking on a new snapshot.
 
 The judges run locally rather than as Langfuse-managed evaluators **by choice, not constraint**.
@@ -704,6 +706,9 @@ into one markdown table, readable in a terminal and pasteable into a document.
   score row carries **no target at all**, and code mapping scores back to items matches nothing.
   Scores returned *inline* by `fields=core,scores` on `GET /experiment-items` carry `subject`
   without being asked.
+- **A score's `metadata` and `comment` are the `details` field group on `GET /v3/scores`.**
+  `core,subject` returns neither, and asking for `metadata` is a 400 — the groups are `core`,
+  `details`, `subject` and `annotation`. The report reads JEV's `judge_model_version` this way.
 - **Score configs are archived, not deleted** (`PATCH /score-configs/{id}` with
   `isArchived: true`, or Project Settings → Scores / Evaluation in the UI); the scores themselves
   are untouched. A score needs no config to be written — `t1_script_clean`, `t2_jev_weakest` and

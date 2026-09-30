@@ -108,9 +108,10 @@ def test_backfill_only_pays_for_missing_scores(stage2, mocker, score_location):
     mocker.patch.object(
         stage2,
         "_tier2_scores",
-        return_value={"obs-1": {"t2_fabricated": 0}}
-        if score_location == "full"
-        else {},
+        return_value=(
+            {"obs-1": {"t2_fabricated": 0}} if score_location == "full" else {},
+            {},
+        ),
     )
     mocker.patch.object(
         stage2.API,
@@ -224,21 +225,67 @@ def test_item_rows_merge_tier2_scores_and_flag_failures(stage2):
 
 def test_tier2_scores_keep_observation_scores_only(stage2, mocker):
     """Scores on anything but an observation are ignored."""
-    mocker.patch.object(
+    snapshot = {"judge_model_version": "typesafe/jev-1.13-20260917"}
+    paginate = mocker.patch.object(
         stage2.API,
         "paginate",
         side_effect=[
             [
-                {"subject": {"kind": "observation", "id": "obs-1"}, "value": 0.7},
+                {
+                    "subject": {"kind": "observation", "id": "obs-1"},
+                    "value": 0.7,
+                    "metadata": snapshot,
+                },
+                {"subject": {"kind": "observation", "id": "obs-2"}, "value": 0.5},
                 {"subject": {"kind": "trace", "id": "t-1"}, "value": 0.1},
                 {"value": 0.2},
             ],
             [{"subject": {"kind": "observation", "id": "obs-1"}, "value": 1}],
         ],
     )
-    assert stage2._tier2_scores({}) == {
+
+    scores, jev_versions = stage2._tier2_scores({})
+
+    assert scores == {
         "obs-1": {stage2.JEV: 0.7, stage2.FABRICATED: 1},
+        "obs-2": {stage2.JEV: 0.5},
     }
+    # Opus scores carry no snapshot; a JEV score banked before the field, None.
+    assert jev_versions == {"obs-1": "typesafe/jev-1.13-20260917", "obs-2": None}
+    # Metadata is only returned with the `details` field group.
+    assert {c.args[1]["fields"] for c in paginate.call_args_list} == {
+        "core,subject,details",
+    }
+
+
+def test_snapshot_notes_name_the_snapshots_that_scored(stage2, capsys):
+    """One snapshot, with or without unrecorded older scores, is no warning."""
+    items = {"a / s": [{"id": "1"}, {"id": "2"}, {"id": "3"}], "b / s": [{"id": "4"}]}
+    stage2._jev_snapshot_notes(
+        items,
+        {"1": "jev-1.13-20260917", "2": "jev-1.13-20260917", "3": None},
+    )
+    output = capsys.readouterr().out
+    assert output == "JEV answered as `jev-1.13-20260917` x2, unrecorded x1\n"
+
+
+def test_snapshot_notes_warn_when_candidates_saw_different_judges(stage2, capsys):
+    """Two recorded snapshots mean the rows are not measured by one judge."""
+    items = {
+        "a / key_points_for_transcript": [{"id": "1"}, {"id": "2"}],
+        "b / key_points_for_transcript": [{"id": "3"}],
+    }
+    stage2._jev_snapshot_notes(items, {"1": "old", "2": None, "3": "new"})
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].startswith("JEV answered as ")
+    assert lines[1].startswith("WARNING: JEV scores come from more than one snapshot")
+    assert lines[2:] == ["  a: `old` x1, unrecorded x1", "  b: `new` x1"]
+
+
+def test_snapshot_notes_are_silent_without_jev_scores(stage2, capsys):
+    """A report with no JEV scores has no snapshot to name."""
+    stage2._jev_snapshot_notes({"a / s": [{"id": "1"}]}, {})
+    assert capsys.readouterr().out == ""
 
 
 def test_run_cost_counts_only_the_runs_own_traces(stage2, mocker):
