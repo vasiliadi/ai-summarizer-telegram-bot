@@ -743,8 +743,11 @@ into one markdown table, readable in a terminal and pasteable into a document.
   `run_experiment` catches whatever the task raises, writes `Error: {exc}` into the item's output
   and skips that item's Tier 2 evaluators. The Tier 1 rule still fires on the error string: a sweep
   that lost 36 of 49 items to `402` reported `t1_pass` 0.245 — a plausible verdict about a model
-  that never answered. `judge.run` counts `Error:` outputs and warns while there is still a sweep
-  to stop.
+  that never answered. The error is stored in Langfuse only: the SDK logs `Item N failed` and
+  **drops the item from the returned `item_results`** (reproduced on 2026-10-01 against the locked
+  SDK), so no `Error:` output ever reaches the caller. `judge.run` therefore counts failures as the
+  dataset's items missing from `item_results`, plus empty outputs, and warns while there is still a
+  sweep to stop; `stage2.py report` reads the stored outputs, so its footnote sees them too.
 - **A Langfuse score requires a target.** Passing `trace_id=None` fails with a bare `Bad request`
   while the calling code still prints success. `stage2.py judge` anchors a backfilled score to the
   experiment item's observation (the item's `id`), exactly as `run_experiment` does — the trace

@@ -338,13 +338,14 @@ def run(model_id, dataset_name, prompt_key, *, tier2="jev"):
     for row in result.item_results:
         scores = {e.name: e.value for e in row.evaluations}
         print(f"  {str(row.item.id)[:18]:20s} {len(_text(row.output)):5d}ch  {scores}")
-    # Tier 1 scores a stored `Error: ...` as a language failure; warn while a sweep
-    # can still be stopped. See evals.md → *API shapes that cost real time to rediscover*.
-    failed = [r for r in result.item_results if generation_failed(_text(r.output))]
+    # A raised task is missing from `item_results`, not stored there. See evals.md →
+    # *API shapes that cost real time to rediscover*.
+    empty = sum(generation_failed(_text(r.output)) for r in result.item_results)
+    failed = len(items) - len(result.item_results) + empty
     if failed:
         print(
-            f"\n  WARNING: {len(failed)}/{len(result.item_results)} items failed to "
-            f"generate. Their Tier 1 scores describe the error text, not a summary.",
+            f"\n  WARNING: {failed}/{len(items)} items failed to generate (the SDK "
+            f"logged each as `Item N failed`). Their Tier 1 scores describe the error "
+            f"text, not a summary.",
         )
-        print(f"  first: {_text(failed[0].output)[:200]}")
     return result
