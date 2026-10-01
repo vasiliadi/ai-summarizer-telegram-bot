@@ -24,7 +24,7 @@ dependencies = [
     # time; declared here so a provider dropping it cannot break the bot.
     "requests==2.34.2",
     "sentry-sdk==2.70.0",
-    "sqlalchemy==2.1.0",
+    "sqlalchemy==2.1.1",
     "tavily-python==0.8.4",
     "telegramify-markdown==1.2.0",
     "tenacity==9.1.4",
@@ -37,7 +37,7 @@ build = [
     "alembic==1.20.0",
     "modal==1.5.5",
     "psycopg2-binary==2.9.13",
-    "sqlalchemy==2.1.0",
+    "sqlalchemy==2.1.1",
 ]
 dev = [
     "alembic==1.20.0",
