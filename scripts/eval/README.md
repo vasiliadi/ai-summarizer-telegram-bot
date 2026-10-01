@@ -21,8 +21,10 @@ Each candidate gets three kinds of score:
 
 ## Setup
 
-The harness needs `OPENROUTER_API_KEY` and all three `LANGFUSE_*` variables in `.env`.
-`LANGFUSE_BASE_URL` is required here, even though the bot can run without it. Then set up the
+The harness needs the bot's full `.env` (see [.env](../../README.md#env) in the root README):
+every script imports `src/config.py`, which fails at import on any missing required variable.
+On top of that, all three `LANGFUSE_*` variables must be set — `LANGFUSE_BASE_URL` included,
+even though the bot can run without it. Then set up the
 Langfuse project once:
 
 1. **Collect traces.** Run the bot with Langfuse tracing on until it has summarised a few
@@ -37,7 +39,7 @@ Langfuse project once:
    uv run python scripts/eval/rebuild_datasets.py --yes-wipe obs.json
    ```
 
-   The script picks 50 sources, split across YouTube transcripts, audio transcripts and
+   The script picks up to 50 sources (fewer when a stratum lacks candidates), split across YouTube transcripts, audio transcripts and
    webpages. `--yes-wipe` is required because the script first deletes everything already in
    the dataset.
 4. **Create the Tier 1 evaluator** in the Langfuse UI: a code evaluator named exactly
