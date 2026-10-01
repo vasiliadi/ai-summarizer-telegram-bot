@@ -74,22 +74,15 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   one. Hardcoded deliberately over pydantic-ai's `OPENROUTER_APP_URL`/`OPENROUTER_APP_TITLE`
   env fallback: the identity belongs to the repo, and an unset var in some deployment would
   silently revert attribution. The eval judges set the same headers by hand (`evals.md`).
-- **Thinking levels are pydantic-ai's, translated by pydantic-ai** — the allow-list is
-  its `ThinkingEffort` (`minimal|low|medium|high|xhigh`), passed to the unified `thinking`
-  setting, and each provider's model maps it. This codebase owns no mapping, which is what
-  a test pinning `ALLOWED_THINKING_LEVELS` to `get_args(ThinkingEffort)` protects. Two
-  consequences: Gemini receives `include_thoughts=True`, hard-coded beside the level in
-  pydantic-ai's Google translation, so it generates thought summaries `run` discards —
-  the accepted price of owning no mapping, **do not** reintroduce `google_thinking_config`
-  to dodge it. And `xhigh` is indistinguishable from `high` on both registered providers
-  (Gemini has no XHIGH; OpenRouter's `reasoning.effort` stops at high), so it is offered
-  for a future provider, not for a difference users can feel today. The same collapse
-  happens at the bottom of the scale: `gemini-3.8-flash` documents no MINIMAL level, and
-  pydantic-ai's Google profile (`google_supports_minimal_thinking_level`) turns `minimal`
-  into LOW for it, so the keyboard's `Minimal` and `Low` reach today's only Gemini model
-  identically. Both collapses are pydantic-ai's per-model mapping, not ours — a Gemini
-  model whose profile does claim MINIMAL would keep it, which is why
-  `test_run_builds_the_expected_gemini_request_config` pins the level per model id.
+- **Thinking levels are pydantic-ai's, translated by pydantic-ai** — the allow-list is its
+  `ThinkingEffort` (`minimal|low|medium|high|xhigh`), passed to the unified `thinking` setting;
+  this codebase owns no per-provider mapping, and a test pins `ALLOWED_THINKING_LEVELS` to
+  `get_args(ThinkingEffort)`. Accepted consequences: Gemini always receives `include_thoughts=True`
+  from pydantic-ai, so it generates thought summaries `run` discards — **do not** reintroduce
+  `google_thinking_config` to dodge it. Levels collapse per model in pydantic-ai: `xhigh` equals
+  `high` on both registered providers, and `minimal` becomes LOW on `gemini-3.8-flash` (its
+  profile claims no MINIMAL), which is why `test_run_builds_the_expected_gemini_request_config`
+  pins the level per model id.
 - **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
   the two have different durability needs.
 - **Modal for serverless cron** — clears the bot's own per-user daily counters in
@@ -221,15 +214,12 @@ to Gemini — return the raw model text with **no** prefix.
   "try again later" message. Other mapped errors: `LimitExceededError`,
   `WebParseError`. All exceptions are sent to Sentry via `capture_exception`.
 - **Sentry log collection is an explicit opt-in.** `config.py` passes
-  `LoggingIntegration(capture_sentry_logs=True)` to `sentry_sdk.init`; that flag is what
-  forwards stdlib `logging` records to Sentry Logs, and it defaults to **off**. The
-  `enable_logs=True` option that used to do this became a no-op in sentry-sdk 2.68.0 and
-  is slated for removal in the next major — passing it again only logs a warning. Drop
-  the integration and error capture still works while logs silently stop arriving, which
-  is what `test_sentry_opts_into_log_collection` pins. `init` runs *before*
-  `logging.basicConfig(force=True)` and stays unaffected: the integration patches
-  `logging.Logger.callHandlers` instead of attaching a root handler, so wiping the root
-  handlers does not unhook it.
+  `LoggingIntegration(capture_sentry_logs=True)` to `sentry_sdk.init`; without it stdlib `logging`
+  records stop reaching Sentry Logs while error capture keeps working (pinned by
+  `test_sentry_opts_into_log_collection`). `enable_logs=True` was a no-op in sentry-sdk 2.68.0;
+  later releases honour it only as a compat fallback slated for removal in the next major, so keep
+  the explicit flag rather than switching back. `logging.basicConfig(force=True)` after `init` does not unhook the
+  integration: it patches `logging.Logger.callHandlers` rather than adding a root handler.
 - **Uploaded files are not cleaned up on failure.** After a successful `files.upload`,
   `GeminiHelper.upload_and_wait_for_file` raises on three paths — missing name, `FAILED`
   state, the uri/mime guard — and deletes nothing. Deliberate, not a leak: both callers
@@ -244,91 +234,59 @@ to Gemini — return the raw model text with **no** prefix.
   to `False` is **rejected**: it would turn many tolerable downloads into hard failures,
   while the rare truncated file that crashes the ffmpeg fixup is retryable — `download_yt`
   makes at most two attempts on `DownloadError` (`stop_after_attempt(2)`).
-- **Every extraction is screened for block pages by JEV.** A site that refuses a parser (a
-  region block, a bot check, access denied, a login or paywall) still yields non-empty text, which
-  used to be summarized as if it were the page. `WebParser` hands each backend's output to
-  `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over its first 20k characters (a block page
-  is short, and an uncapped Tavily extraction can overflow JEV's input); at
-  p ≥ 0.5 the output counts as a `WebParseError`, so a blocked primary falls through to the
-  fallback, and a blocked fallback ends in "page is not available" instead of a summary of the
-  block page. The check lives in `WebParser`, not in a backend, so it holds whichever backend is
-  primary. JEV is a decisions model: OpenRouter serves it only on `POST /api/alpha/decisions`
-  (not `chat/completions`), so it is called with plain HTTP, not through `LLMClient`. Calibrated
-  on 2026-09-30 against `typesafe/jev-1.13-20260917`: block pages 0.83–0.99, real pages —
-  including an article *about* regional blocking — 0.01–0.03; ~0.4 s and ~$0.0002 for a
-  20k-character page. Settled choices: **fail open** (any detector error logs a warning and keeps
-  the text, so a JEV outage never breaks parsing); **no retry on a block page** (the check sits
-  outside the backends' `@retry`, since the site would refuse the backend again); **not metered**
-  by `QuotaManager`. It does not catch a bare marketing shell with no block wording (Spark's
-  web-share page scored 0.05) — that is not a block page.
+- **Every extraction is screened for block pages by JEV.** A refused parser (region block, bot
+  check, login or paywall) still returns non-empty text. `WebParser` passes each backend's output to
+  `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over the first 20k characters
+  (block pages are short; an uncapped Tavily extraction can overflow JEV's input). At p ≥ 0.5 the
+  output is a `WebParseError`: a blocked primary falls through to the fallback, a blocked fallback
+  ends in "page is not available". The check lives in `WebParser`, not a backend, so it holds
+  whichever backend is primary. JEV is a decisions model served only on OpenRouter's
+  `POST /api/alpha/decisions`, so it is called with a direct HTTPS request, not through `LLMClient`.
+  Calibrated on 2026-09-30 against `typesafe/jev-1.13-20260917`: block pages 0.83–0.99, real pages
+  (including an article *about* regional blocking) 0.01–0.03; ~0.4 s and ~$0.0002 per 20k-character
+  page. Settled: **fail open** (a detector error logs a warning and keeps the text), **no retry on
+  a block page** (outside the backends' `@retry`), **not metered** by `QuotaManager`. A bare
+  marketing shell with no block wording is not a block page and is not caught.
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
-- **One OpenRouter provider per thread.** `LLMClient.run` ends in pydantic-ai's `run_sync`,
-  which drives a separate event loop in every thread that calls it — each telebot worker
-  (two by default) and each eval-harness thread. An `OpenRouterProvider` owns one async HTTP
-  pool (`AsyncOpenAI` over httpx2), and that pool hands a kept-alive connection to whichever
-  loop asks next while the socket stays bound to the loop that opened it. Shared across
-  threads, the reuse fails the call at once with `RuntimeError: <asyncio.locks.Event ...> is
-  bound to a different event loop`, which no `@retry` catches — reproduced on 2026-09-29 as
-  every call on the second of two alternating worker threads, and about half of 200 calls
-  run four at a time on fresh threads. A connection is only reused within its 5 s keep-alive,
-  so the bot hit this when two users' OpenRouter requests landed on different workers close
-  together. `config` therefore exports `openrouter_provider_factory`, not a provider, and
-  `LLMClient` builds one provider per thread on first use; the model cache is per thread
-  too, because an `OpenRouterModel` holds its provider. **Do not go back to one shared
-  provider**, and do not share any other async client across `run_sync` threads. The Gemini
-  client is exempt: google-genai keeps a separate aiohttp session per event loop itself, and
-  sharing it across the same two threads reproduced no failure.
+- **One OpenRouter provider per thread.** `LLMClient.run` ends in pydantic-ai's `run_sync`, which
+  runs a separate event loop in every calling thread (each telebot worker, each eval-harness
+  thread). An `OpenRouterProvider` owns one async HTTP pool, and a kept-alive connection reused from
+  another thread's loop fails at once with `RuntimeError: ... is bound to a different event loop`,
+  which no `@retry` catches. A connection is only reused within its 5 s keep-alive, so it fails
+  only when requests on different threads land within 5 s of each other. So `config` exports `openrouter_provider_factory`, and `LLMClient`
+  builds one provider — and one model cache, since an `OpenRouterModel` holds its provider — per
+  thread. **Do not go back to one shared provider**, and do not share any other async client across
+  `run_sync` threads. The Gemini client is exempt: google-genai keeps an aiohttp session per loop.
 - **Tracing (optional), text input only.** Enabled only when `LANGFUSE_PUBLIC_KEY` and
-  `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`, else `None`).
-  `Agent.instrument_all()` then makes pydantic-ai emit an OpenTelemetry span per model
-  call, which the OTel-based Langfuse SDK ingests — no provider-specific instrumentor.
-  `LLMClient` overrides that to off for any run carrying an `UploadedFile`, because
-  pydantic-ai serializes the file pointer rather than the bytes behind it: Langfuse
-  would get real token usage with no content — a wrong cost signal, useless for
-  datasets and evaluators. **Do not re-enable it for file runs.**
-  Cost is not part of what pydantic-ai hands over: it publishes its `genai-prices`
-  estimate as `operation.cost`, an attribute Langfuse does not read, and that table has
-  no entry for half the registered OpenRouter ids anyway. Langfuse instead prices a
-  generation by matching its model id against a model definition, which the Gemini ids
-  match and no `provider/model` OpenRouter id does. So `LLMClient.build_model` asks
-  OpenRouter for usage accounting and wraps the model in `OpenRouterCostReporter`, which
-  copies the cost OpenRouter reports it charged onto the span as `gen_ai.usage.cost` —
-  the attribute Langfuse ingests as the generation's cost. It must be a wrapper *inside*
-  the instrumented model: pydantic-ai closes the generation span before `run_sync`
-  returns, so nothing afterwards can reach it. Drop the wrapper and every OpenRouter
-  trace silently goes back to tokens with no cost, which is the number the traces exist
-  to compare models on. An id carrying OpenRouter's `:free` suffix is billed at zero, so its
-  span does get a `gen_ai.usage.cost`, of `0.0` — OpenRouter's own number, not a wrapper that
-  stopped working. No `:free` id is registered today.
-  `Tracer.observe_message` opens no span of its own, it only names and attributes
-  (`trace_name="handle_message"`, tagged with the content type, plus `prompt_key`,
-  `prompt_version`, `target_language` and `thinking_level` as metadata) whatever spans
-  the message's model calls open. Those are metadata because nothing else carries
-  them: pydantic-ai exports only the six numeric OTel model settings, so the
-  string-valued thinking level never reaches a span, and the rest
-  would have to be parsed back out of the prompt wording. They exist to make a
-  trace filterable and replayable as an evaluation dataset item; the model id needs no
-  entry, being already on the generation span. `prompt_version`
-  (`prompts.prompt_version`) is a short hash over `SYSTEM_INSTRUCTION` **and** the
-  strategy's own template, so the key names the strategy while the version pins the
-  wording a run actually used — editing either template moves it. For the same reason
-  `summarize_text` passes the prompt and the content as two parts instead of one
-  concatenated string — a multi-part text prompt is still text-only, so it stays
-  instrumented. Blank or whitespace-only text is the exception: it sends the prompt
-  part alone, so a trace consumer must not assume a content part is present. That case
-  is reachable — `AudioTranscriber.transcribe` returns `""` for audio WhisperX finds no
-  segments in, such as silence or music — and an empty text part is not worth sending.
-  Consequences worth knowing: the Gemini-file call is never
-  traced, but a media message still is when it falls through to Replicate
-  transcription, which summarizes a plain string; a trace spans the model call only,
-  not the download, parse or upload around it; and a retried `summarize_text` produces
-  one trace per attempt, since nothing groups them. `langfuse_client.shutdown()` flushes on exit. Independent of
-  Sentry, which handles error capture and logs.
-  **Trace-level input/output is deprecated** in the Langfuse v4 data model — tables, judges and
-  exports all read from an observation instead. Nothing here sets it, and that must hold:
-  `observe_message` only propagates attributes, and the model call's own span already carries
-  the input and output. **Never add `set_current_trace_io()` or an equivalent**, not even to
-  keep a legacy evaluator working; migrate the evaluator to the root observation instead.
-  Everything built *on top* of these traces — datasets, scorers, judges, and the harness in
-  `scripts/eval/` — is owned by `evals.md`, not this file.
+  `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`, else `None`). `Agent.instrument_all()`
+  makes pydantic-ai emit an OpenTelemetry span per model call, which the OTel-based Langfuse SDK
+  ingests. Independent of Sentry; `langfuse_client.shutdown()` flushes on exit.
+  - **File runs are never traced.** `LLMClient` turns instrumentation off for any run carrying an
+    `UploadedFile`: pydantic-ai serializes the file pointer, not the bytes, so Langfuse would get
+    real token usage with no content. **Do not re-enable it for file runs.** A media message is
+    still traced when it falls through to Replicate transcription, which summarizes a plain string.
+  - **OpenRouter cost comes from `OpenRouterCostReporter`.** Langfuse prices a generation by
+    matching its model id, which no `provider/model` OpenRouter id matches, and it ignores
+    pydantic-ai's `operation.cost`. So `build_model` enables OpenRouter usage accounting and wraps
+    the model in `OpenRouterCostReporter`, which copies the charged cost onto the span as
+    `gen_ai.usage.cost`. It must wrap the model *inside* the instrumentation: the span closes before
+    `run_sync` returns. Drop it and OpenRouter traces silently lose cost. A `:free` id reports
+    `0.0` — OpenRouter's number, not a broken wrapper.
+  - **`Tracer.observe_message` opens no span.** It names the trace `handle_message`, tags it with
+    the content type, and adds `prompt_key`, `prompt_version`, `target_language` and
+    `thinking_level` as metadata — values no span carries (pydantic-ai exports only numeric
+    settings), kept so a trace is filterable and replayable as a dataset item (the model id is already on
+    the generation span). `prompt_version`
+    hashes `SYSTEM_INSTRUCTION` **and** the strategy template, so editing either moves it.
+  - **Prompt and content are separate parts.** `summarize_text` sends them as two text parts, not
+    one concatenated string, so a trace separates the wording from the content (a multi-part text
+    prompt is still text-only, so it stays traced); blank content (e.g. `AudioTranscriber.transcribe` returns
+    `""` for silence or music) sends the prompt part alone, so do not assume a content part.
+  - A trace spans the model call only, not the download, parse or upload around it; a retried
+    `summarize_text` produces one trace per attempt.
+  - **Trace-level input/output is deprecated** in Langfuse v4 — tables, judges and exports read an
+    observation instead. **Never add `set_current_trace_io()` or an equivalent**, not even for a
+    legacy evaluator; migrate the evaluator to the root observation.
+  - Everything built *on top* of these traces — datasets, scorers, judges, `scripts/eval/` — is
+    owned by `evals.md`.

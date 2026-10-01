@@ -6,6 +6,8 @@ tiers, the judges, and the harness in `scripts/eval/`.
 Nothing here is imported by the bot — these are operational scripts, run by hand.
 `architecture.md` owns the bot itself, including *how* it emits the traces this is built on;
 read its **Tracing** bullet before changing anything that produces trace data.
+The operator's setup and run steps live in `scripts/eval/README.md`; edit them there, and keep the
+why here.
 
 ## What this is for
 
@@ -112,14 +114,7 @@ repo's spend, and a second referer would split it into a second Top Apps entry.
 | `stage2.py` | The command line: `sweep`, `report`, and `judge`, which adds a judge to existing runs |
 | `rebuild_datasets.py` | Rebuilds the dataset from a raw harvest. Destructive; needs `--yes-wipe` |
 
-```bash
-uv run python scripts/eval/install_tier1.py     # after every edit to tier1_evaluator.py
-uv run python scripts/eval/stage2.py report [--all-pairs]  # free, read-only
-uv run python scripts/eval/stage2.py sweep <openrouter-id> ... [--judge=jev|opus|none]  # COSTS MONEY: a compare run each
-uv run python scripts/eval/stage2.py judge jev [<openrouter-id> ...]    # ~2 cents a run: JEV where missing
-uv run python scripts/eval/stage2.py judge jev --rescore [<openrouter-id> ...]  # ~2 cents a run: JEV on every item again
-uv run python scripts/eval/stage2.py judge opus <openrouter-id> ...     # ~$3 a run: Opus FABRICATED on finalists
-```
+The commands are in `scripts/eval/README.md`.
 
 **The harness is tested but sits outside the 100% coverage rule.** `tests/test_eval_*.py` cover
 what fails silently — the seam with `src/` (`EvalLLMClient` against `LLMClient`), the Tier 1
@@ -143,7 +138,7 @@ dump --pid <pid>`; macOS needs `sudo`) showed one worker thread in `LLM.run` →
 pydantic-ai's own event loop, idle in `select()` — the **candidate generation**, not the judge.
 The cause is an OpenRouter provider shared across event loops (`architecture.md`, *One
 OpenRouter provider per thread*): each item's thread runs its own loop, and a kept-alive
-connection opened by one loop and reused by another fails the call. Reproduced on 2026-09-29
+connection opened by one loop and reused by another fails the call. In reproduction
 it failed at once with `RuntimeError: ... is bound to a different event loop` (about half of
 200 calls); the silent hang is the same reuse when the other loop is idle and never reads the
 socket, and was **not** reproduced — assumed, not confirmed. `LLMClient` now builds one provider
@@ -743,37 +738,3 @@ into one markdown table, readable in a terminal and pasteable into a document.
   alone would be missing from the experiment-items read.
 - **Dataset run names embed the model id**, so they contain `/` and spaces and must be URL-encoded
   into REST paths or the segments split and the request 404s.
-
-## Latest results (snapshot of 2026-09-28)
-
-A snapshot, not a reference: models change and this table goes stale. Re-run the report before
-acting on it. One run per model on the 50 items, thinking `medium`, `key_points_for_transcript`;
-`openai/gpt-5.6-luna` was the production model.
-
-| candidate | t1_pass | JEV median | JEV < 0.6 | invented (Opus) | compression | latency | run $ |
-|---|---|---|---|---|---|---|---|
-| `x-ai/grok-4.7` | **100%** | 0.93 | 0% | **8%** | 0.200 | 23.4 s | 0.75 |
-| `deepseek/deepseek-v4.1-flash` | 96%¹ | **0.94** | **0%** | **10%** | **0.229** | 15.9 s | 0.16 |
-| `openai/gpt-6-luna` | 98% | **0.94** | 2% | 14% | 0.171 | 19.5 s | **0.04** |
-| `xiaomi/mimo-v2.6-pro` | 98% | 0.93 | 0% | 18% | 0.187 | 37.2 s | 0.17 |
-| `openai/gpt-5.6-luna` (production) | 98% | 0.92 | 6% | 27% | 0.220 | 20.7 s | 0.12 |
-| `z-ai/glm-5.3-flash` | 98% | 0.92 | 4% | 28% | 0.166 | **10.6 s** | 0.05 |
-| `meta/muse-spark-1.3` | 96%¹ | 0.92 | 4% | — | 0.197 | 18.8 s | 0.76 |
-| `upstage/solar-pro4` | 98% | 0.92 | 0% | — | 0.158 | 35.7 s | 0.09 |
-| `stepfun/step-3.7-flash` | 96% | 0.89 | 12% | — | 0.202 | 14.1 s | 0.20 |
-| `tencent/hy4-preview` — DROP | 92% | 0.93 | 2% | — | 0.261 | 105.6 s | 1.11 |
-| `inception/mercury-2.5` — DROP | 92%² | 0.91 | 2% | — | 0.071 | 5.3 s | 0.02 |
-| `xiaomi/mimo-v2.6-flash` — DROP | 76% | 0.92 | 2% | — | 0.205 | 25.1 s | 0.06 |
-| `ibm-granite/granite-4.2-8b` — DROP | 62% | 0.80 | 26% | — | 0.178 | 20.6 s | 0.03 |
-
-¹ one errored item. ² four errored items; 100% on the 46 it answered.
-
-- **Tier 1 dropped four.** granite answered in English on a third of the items; mimo-v2.6-flash
-  (20%) and hy4-preview (8%) leaked foreign-script letters; mercury-2.5's drop is its provider's
-  errors, and it writes a third the length of anyone else.
-- **Opus on six finalists** ($16.33), paired on invented against production: grok-4.7 11 / 2,
-  **p = 0.022**; deepseek-v4.1-flash 9 / 1, **p = 0.021**; gpt-6-luna 8 / 2, p = 0.109;
-  mimo-v2.6-pro p = 0.454; glm-5.3-flash 9 / 9, p = 1.000. grok and deepseek do not separate from
-  each other (2 / 3, p = 1.0); deepseek writes the longest summaries at a fifth of grok's cost.
-- **Next step, not yet taken:** add a finalist (deepseek-v4.1-flash and/or gpt-6-luna) to
-  `config.MODEL_SPECS` and read it live in the bot.
