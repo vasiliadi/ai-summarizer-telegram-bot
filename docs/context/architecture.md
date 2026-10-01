@@ -84,7 +84,10 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   `google_thinking_config` to dodge it. Levels collapse per model in pydantic-ai: `xhigh` equals
   `high` on both registered providers, and `minimal` becomes LOW on `gemini-3.8-flash` (its
   profile claims no MINIMAL), which is why `test_run_builds_the_expected_gemini_request_config`
-  pins the level per model id.
+  pins the level per model id. `xhigh` is offered for a provider that distinguishes it, not for
+  today. A level outside the allow-list passes `build_settings` and raises `KeyError` inside
+  pydantic-ai while the request is built, which no `@retry` catches; only a stale
+  `users.thinking_level` can reach that, since `database.set_thinking_level` is the only writer.
 - **PostgreSQL for persistent user data, Valkey for ephemeral rate-limit counters** —
   the two have different durability needs.
 - **Modal for serverless cron** — clears the bot's own per-user daily counters in
@@ -100,20 +103,20 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | Module | Role |
 |--------|------|
 | `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; the `__main__` block just calls `build_app`, `run`, `shutdown`. |
-| `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
+| `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummarySettings` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
 | `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a per-thread OpenRouter provider and a per-thread model cache keyed by id across providers (see *One OpenRouter provider per thread* below); model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`, Google and OpenRouter today); `build_settings` has no provider branch at all — every provider takes the agnostic `thinking` effort, so the one provider-specific setting there is (OpenRouter usage accounting) rides on the model instead. `OpenRouterCostReporter`, the wrapper `build_model` puts around every OpenRouter model, reports cost to the trace (see Tracing below). |
 | `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`; an empty or whitespace-only transcript counts as a backend failure, so it falls through too). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback; each backend's output is block-page checked by JEV. |
-| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (names, tags and adds settings metadata to the Langfuse trace for a message, if one is opened). |
+| `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (file upload/poll), `Tracer` (names, tags and adds settings metadata to the Langfuse trace for a message, if one is opened). |
 | `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator to `config`'s clients. `Container` carries only the five roots `BotApp` holds (`bot`, `quota_manager`, `tracer`, `user_repo`, `handlers`); the rest of the graph is reached through `handlers`. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
 | `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`. |
 | `config.py` | All third-party clients (by design — see Cross-cutting patterns) + the `MODEL_SPECS` registry, labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION` + `prompt_version` (short hash over both, for trace metadata). |
-| `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. |
+| `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. `SummarySettings` — the per-request settings every `Summarizer` entry point takes. |
 | `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
 | `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight UTC, resetting every user's daily budget. |
 | `scripts/db.py` | Standalone bootstrap script — creates the `users` table via its own `Base`/engine (separate from `src/models.py`); runs `create_all` at import. |
@@ -239,7 +242,7 @@ to Gemini — return the raw model text with **no** prefix.
   to `False` is **rejected**: it would turn many tolerable downloads into hard failures,
   while the rare truncated file that crashes the ffmpeg fixup is retryable — `download_yt`
   makes at most two attempts on `DownloadError` (`stop_after_attempt(2)`).
-- **YouTube transcript cooldown.** When `ApiBackend.fetch_via_api` finds no transcript in the
+- **YouTube transcript cooldown.** When `ApiBackend.fetch` finds no transcript in the
   default languages, it lists the video's languages and sleeps 60 s before fetching again:
   back-to-back requests get rate-limited or blocked by YouTube (youtube-transcript-api issue
   #572). The sleep is deliberate — **do not shorten or remove it**.
@@ -281,7 +284,9 @@ to Gemini — return the raw model text with **no** prefix.
     the model in `OpenRouterCostReporter`, which copies the charged cost onto the span as
     `gen_ai.usage.cost`. It must wrap the model *inside* the instrumentation: the span closes before
     `run_sync` returns. Drop it and OpenRouter traces silently lose cost. A `:free` id reports
-    `0.0` — OpenRouter's number, not a broken wrapper.
+    `0.0` — OpenRouter's number, not a broken wrapper. pydantic-ai's own estimate is no substitute
+    even if Langfuse read it: its `genai-prices` table lacks several registered OpenRouter ids. On
+    an untraced run the current span is non-recording, so the write is a no-op.
   - **`Tracer.observe_message` opens no span**, so a message whose every model call carries an
     uploaded file produces no trace at all. It names the trace `handle_message`, tags it with
     the content type, and adds `prompt_key`, `prompt_version`, `target_language` and

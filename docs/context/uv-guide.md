@@ -50,8 +50,8 @@ runtime set — a group could never be synced on its own, which is the only thin
 would have been for. Everything it needs is already a project or `dev` dependency, so a group
 would have held `python-dotenv` and nothing else. Install the harness with a plain `uv sync`.
 
-**`requests` is a production dependency**, not a transitive one to rely on. `src/transcription.py`,
-`src/services.py` and `src/summary.py` all catch `requests.exceptions`; it reached them through
+**`requests` is a production dependency**, not a transitive one to rely on. `src/transcription.py`
+and `src/services.py` both catch `requests.exceptions`; it reached them through
 `exa-py`/`tavily-python`/`replicate` for a long time before being declared. Anything `src/`
 imports belongs in `[project.dependencies]`, however reliably some other package drags it in.
 
@@ -63,10 +63,10 @@ handler simply stops firing and `tenacity` stops retrying, with no error to say 
 are not raised by `curl-cffi` at those sites anyway — `pyTelegramBotAPI` and
 `youtube-transcript-api` both transport over `requests`, so their errors *are* `requests`
 exceptions, and that is an API contract of those libraries rather than an implementation detail.
-`summary.py` imports both deliberately and catches both in `summarize_with_document`, which is the
-one path that also downloads through `curl-cffi`; `summarize_with_file` takes an already-local path
-and needs only the `requests` side. Dropping `requests` means replacing those two libraries, not
-rewriting an import.
+`summary.py` is the reverse case and catches only the `curl-cffi` side, in
+`summarize_with_document`: that method downloads through `curl-cffi`, and nothing under the
+`Summarizer` retries transports over `requests` — the Gemini upload and pydantic-ai both use httpx.
+Dropping `requests` means replacing those two libraries, not rewriting an import.
 
 `redis` is declared twice on purpose — once in `[project.dependencies]` for the bot and once in
 the `modal` group for the cron image. Bump both together, and do not fold either back into a

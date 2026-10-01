@@ -19,7 +19,7 @@ dependencies = [
     "pytelegrambotapi==4.37.0",
     "redis==8.1.0",
     "replicate==1.0.7",
-    # `src/` catches requests.exceptions in transcription, services and summary.
+    # `src/` catches requests.exceptions in transcription and services.
     # It arrived transitively through exa-py/tavily-python/replicate for a long
     # time; declared here so a provider dropping it cannot break the bot.
     "requests==2.34.2",

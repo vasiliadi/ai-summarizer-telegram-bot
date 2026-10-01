@@ -64,24 +64,15 @@ class BlockedPageDetector:
         ),
     }
 
-    def __init__(
-        self,
-        api_key: str,
-        model: str = BLOCK_DETECTOR_MODEL_ID,
-        threshold: float = 0.5,
-        timeout: int = 30,
-        max_chars: int = 20000,
-    ) -> None:
-        """Store the OpenRouter key, the JEV model id, and the block threshold.
+    _THRESHOLD: ClassVar[float] = 0.5
+    _TIMEOUT: ClassVar[int] = 30
+    # Only the head goes to JEV: a block page is short, and an uncapped Tavily
+    # extraction can overflow JEV's input limit.
+    _MAX_CHARS: ClassVar[int] = 20000
 
-        Only the first `max_chars` go to JEV: a block page is short, and an
-        uncapped Tavily extraction can overflow JEV's input limit.
-        """
+    def __init__(self, api_key: str) -> None:
+        """Store the injected OpenRouter API key."""
         self._api_key = api_key
-        self._model = model
-        self._threshold = threshold
-        self._timeout = timeout
-        self._max_chars = max_chars
 
     def is_blocked(self, content: str, url: str) -> bool:
         """Return True when JEV judges the extraction to be a block page.
@@ -90,8 +81,8 @@ class BlockedPageDetector:
         a JEV outage can never break web parsing.
         """
         body = {
-            "model": self._model,
-            "state": content[: self._max_chars],
+            "model": BLOCK_DETECTOR_MODEL_ID,
+            "state": content[: self._MAX_CHARS],
             "questions": {
                 "blocked": {
                     "type": "noul",
@@ -109,14 +100,14 @@ class BlockedPageDetector:
                     "HTTP-Referer": OPENROUTER_APP_URL,
                     "X-Title": OPENROUTER_APP_TITLE,
                 },
-                timeout=self._timeout,
+                timeout=self._TIMEOUT,
             )
             response.raise_for_status()
             probability = float(response.json()["answers"]["blocked"]["noul"])
         except Exception:  # best-effort: never let detection break parsing
             logger.warning("Block-page check failed for %s", url, exc_info=True)
             return False
-        if probability >= self._threshold:
+        if probability >= self._THRESHOLD:
             logger.warning("JEV flagged %s as a block page (p=%.2f)", url, probability)
             return True
         return False
@@ -219,9 +210,7 @@ class TavilyBackend(ParserBackend):
 class UrlResolver:
     """Resolves a URL to its final post-redirect destination, guarding against SSRF."""
 
-    def __init__(self, timeout: int = 10) -> None:
-        """Store the per-request timeout in seconds."""
-        self._timeout = timeout
+    _TIMEOUT: ClassVar[int] = 10
 
     def resolve(self, url: str) -> str:
         """Return the final URL after following redirects; the original on failure.
@@ -243,7 +232,7 @@ class UrlResolver:
                 allow_redirects=True,
                 impersonate="chrome",
                 verify=True,
-                timeout=self._timeout,
+                timeout=self._TIMEOUT,
                 proxy=get_proxy() or None,
             )
             try:
@@ -292,9 +281,9 @@ class WebParser:
         primary: ParserBackend,
         fallback: ParserBackend,
         resolver: UrlResolver,
-        detector: BlockedPageDetector | None = None,
+        detector: BlockedPageDetector,
     ) -> None:
-        """Store the backends, the URL resolver and the optional block detector."""
+        """Store the backends, the URL resolver and the block-page detector."""
         self._primary = primary
         self._fallback = fallback
         self._resolver = resolver
@@ -307,7 +296,7 @@ class WebParser:
         fetched again: the site would only refuse the backend a second time.
         """
         text = backend.parse(url)
-        if self._detector is not None and self._detector.is_blocked(text, url):
+        if self._detector.is_blocked(text, url):
             msg = f"{backend.name} returned a block page for {url}"
             logger.warning(msg)
             raise WebParseError(msg)
@@ -318,7 +307,7 @@ class WebParser:
 
         Resolves the final destination (best-effort, SSRF-guarded), parses with
         the primary backend first, and falls back to the secondary on failure —
-        including a block page, when a detector is set.
+        including a block page.
 
         Returns:
             PrefixedText: The extracted content and source display prefix.

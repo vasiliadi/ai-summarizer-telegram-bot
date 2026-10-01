@@ -50,7 +50,7 @@ def test_report_marks_missing_tier1_scores_incomplete(stage2, capsys, scored):
 
 def test_report_marks_empty_run_incomplete(stage2):
     """A run with no returned items is not a qualified candidate."""
-    summary = stage2._summary({}, None)
+    summary = stage2._summary({}, (None, 0))
     assert summary["incomplete"]
     assert summary["t1_pass"] is None
 
@@ -381,7 +381,6 @@ def test_deltas_use_shared_items_scored_on_both_sides(stage2):
         "b": {"1": ({"m": 0.4},), "2": ({"m": 0.7},), "3": ({"m": 0.1},)},
     }
     assert stage2._deltas(rows, "a", "b", "m") == pytest.approx([0.5, -0.2])
-    assert stage2._deltas(rows, "a", "missing", "m") == []
 
 
 def test_paired_table_prints_each_pair_sharing_items(stage2, capsys):

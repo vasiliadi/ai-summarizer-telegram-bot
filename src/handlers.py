@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING
 
 from config import TG_MAX_FILE_SIZE
-from domain import format_prefixed_summary
+from domain import SummarySettings, format_prefixed_summary
 from utils import classify_url, clean_up, compress_audio, generate_temporary_name
 
 if TYPE_CHECKING:
@@ -17,17 +17,6 @@ if TYPE_CHECKING:
     from summary import Summarizer
 
     _SizedMedia = Audio | Voice | Video | VideoNote | Document
-
-
-class SummaryKwargs(TypedDict):
-    """Shared summarize() kwargs sourced from a user record."""
-
-    model: str
-    prompt_key: str
-    target_language: str
-    user_id: int
-    daily_limit: int
-    thinking_level: str
 
 
 class MessageHandlers:
@@ -51,16 +40,16 @@ class MessageHandlers:
         self._downloader = downloader
 
     @staticmethod
-    def _summary_kwargs(user: UsersOrm) -> SummaryKwargs:
-        """Build the recurring summarize() kwargs sourced from a user record."""
-        return {
-            "model": user.summarizing_model,
-            "prompt_key": user.prompt_key_for_summary,
-            "target_language": user.target_language,
-            "user_id": user.user_id,
-            "daily_limit": user.daily_limit,
-            "thinking_level": user.thinking_level,
-        }
+    def _settings(user: UsersOrm) -> SummarySettings:
+        """Build the summarization settings sourced from a user record."""
+        return SummarySettings(
+            model=user.summarizing_model,
+            prompt_key=user.prompt_key_for_summary,
+            target_language=user.target_language,
+            user_id=user.user_id,
+            daily_limit=user.daily_limit,
+            thinking_level=user.thinking_level,
+        )
 
     def _fetch_media(
         self,
@@ -89,7 +78,7 @@ class MessageHandlers:
             return
         answer = self._summarizer.summarize(
             data=data,
-            **self._summary_kwargs(user),
+            settings=self._settings(user),
         )
         self._messenger.send_answer(message, answer)
 
@@ -100,7 +89,7 @@ class MessageHandlers:
             return
         answer = self._summarizer.summarize(
             data=data,
-            **self._summary_kwargs(user),
+            settings=self._settings(user),
         )
         self._messenger.send_answer(message, answer)
 
@@ -112,7 +101,7 @@ class MessageHandlers:
             compress_audio(input_file=downloaded_file, output_file=compressed_file)
             answer = self._summarizer.summarize(
                 data=compressed_file,
-                **self._summary_kwargs(user),
+                settings=self._settings(user),
             )
             self._messenger.send_answer(message, answer)
         finally:
@@ -142,7 +131,7 @@ class MessageHandlers:
         answer = self._summarizer.summarize_with_document(
             file=data,
             mime_type=document.mime_type or "application/octet-stream",
-            **self._summary_kwargs(user),
+            settings=self._settings(user),
         )
         self._messenger.send_answer(message, answer)
 
@@ -152,7 +141,7 @@ class MessageHandlers:
         if kind in ("youtube", "castro"):
             answer = self._summarizer.summarize(
                 data=url,
-                **self._summary_kwargs(user),
+                settings=self._settings(user),
             )
             self._messenger.send_answer(message, answer)
         elif kind == "web":
@@ -166,7 +155,7 @@ class MessageHandlers:
                 parsed.prefix,
                 self._summarizer.summarize_text(
                     text=parsed.text,
-                    **self._summary_kwargs(user),
+                    settings=self._settings(user),
                 ),
             )
             self._messenger.send_answer(message, answer)

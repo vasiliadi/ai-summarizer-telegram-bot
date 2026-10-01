@@ -133,7 +133,7 @@ class ApiBackend(TranscriptBackend):
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
-    def fetch_via_api(self, video_id: str) -> str:
+    def fetch(self, url: str, video_id: str) -> str:  # noqa: ARG002
         """Retrieve and format a YouTube transcript via youtube_transcript_api.
 
         Raises:
@@ -160,10 +160,6 @@ class ApiBackend(TranscriptBackend):
             time.sleep(60)
             transcript = ytt_api.fetch(video_id, languages=language_codes)
         return TextFormatter().format_transcript(transcript)
-
-    def fetch(self, url: str, video_id: str) -> str:  # noqa: ARG002
-        """Adapt the uniform backend interface to youtube_transcript_api."""
-        return self.fetch_via_api(video_id)
 
 
 class YtDlpBackend(TranscriptBackend):
@@ -215,7 +211,11 @@ class YtDlpBackend(TranscriptBackend):
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
-    def fetch_via_ytdlp(self, url: str) -> str:  # noqa: C901, PLR0912, PLR0915
+    def fetch(  # noqa: C901, PLR0912, PLR0915
+        self,
+        url: str,
+        video_id: str,  # noqa: ARG002
+    ) -> str:
         """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
         Prefers manual subtitles (English first), else original-language auto captions.
@@ -342,10 +342,6 @@ class YtDlpBackend(TranscriptBackend):
         finally:
             for f in Path.cwd().glob(f"{temp_basename}.*"):
                 clean_up(file=str(f))
-
-    def fetch(self, url: str, video_id: str) -> str:  # noqa: ARG002
-        """Adapt the uniform backend interface to yt-dlp."""
-        return self.fetch_via_ytdlp(url)
 
 
 class YouTubeTranscriber:

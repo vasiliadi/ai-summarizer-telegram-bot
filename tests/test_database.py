@@ -84,16 +84,19 @@ def test_select_user_missing(user_repo):
         user_repo.select_user(999)
 
 
-def test_check_auth_approved_user(user_repo):
+def test_check_auth_approved_user(user_repo, sqlite_session_factory):
     """Test that an approved user returns True."""
-    user_repo.register_user(123, "First", "Last", "user", approved=True)
+    user_repo.register_user(123, "First", "Last", "user")
+    with sqlite_session_factory() as session:
+        session.get(UsersOrm, 123).approved = True
+        session.commit()
 
     assert user_repo.check_auth(123) is True
 
 
 def test_check_auth_unapproved_user(user_repo):
     """Test that an unapproved user returns False."""
-    user_repo.register_user(123, "First", "Last", "user", approved=False)
+    user_repo.register_user(123, "First", "Last", "user")
 
     assert user_repo.check_auth(123) is False
 
@@ -158,46 +161,33 @@ def test_set_setting_rejects_unsupported(user_repo, setter, bad_value):
     assert getattr(user_repo, setter)(123, bad_value) is False
 
 
-@pytest.mark.parametrize(
-    ("setter", "value", "orm_attr", "stored_value"),
-    [
-        ("set_target_language", "english", "target_language", "English"),
-        (
-            "set_summarizing_model",
-            "GEMINI-3.8-FLASH",
-            "summarizing_model",
-            "gemini-3.8-flash",
-        ),
-        (
-            "set_prompt_strategy",
-            "Key_Points_For_Transcript",
-            "prompt_key_for_summary",
-            "key_points_for_transcript",
-        ),
-        ("set_thinking_level", "HIGH", "thinking_level", "high"),
-    ],
-)
-def test_set_setting_stores_normalized_value(
+def test_set_target_language_stores_normalized_value(
     user_repo,
     sqlite_session_factory,
-    setter,
-    value,
-    orm_attr,
-    stored_value,
 ):
-    """Test setters persist the canonical form, not the caller's casing.
-
-    Validation already normalizes before checking the allow-list, so storing the
-    raw input would let a non-canonical value through: PROMPTS[...] would raise
-    KeyError and a mis-cased model id would be rejected by the Gemini API.
-    """
+    """Test a typed language is stored in its canonical casing, not the caller's."""
     user_repo.register_user(123, "First", "Last", "user")
 
-    assert getattr(user_repo, setter)(123, value) is True
+    assert user_repo.set_target_language(123, "english") is True
     with sqlite_session_factory() as session:
         user = session.get(UsersOrm, 123)
         assert user is not None
-        assert getattr(user, orm_attr) == stored_value
+        assert user.target_language == "English"
+
+
+@pytest.mark.parametrize(
+    ("setter", "value"),
+    [
+        ("set_summarizing_model", "GEMINI-3.8-FLASH"),
+        ("set_prompt_strategy", "Key_Points_For_Transcript"),
+        ("set_thinking_level", "HIGH"),
+    ],
+)
+def test_set_setting_rejects_non_canonical_key(user_repo, setter, value):
+    """Test the key-valued setters take registry keys exactly, with no case folding."""
+    user_repo.register_user(123, "First", "Last", "user")
+
+    assert getattr(user_repo, setter)(123, value) is False
 
 
 def test_set_thinking_level_rejects_unknown_value(user_repo, sqlite_session_factory):

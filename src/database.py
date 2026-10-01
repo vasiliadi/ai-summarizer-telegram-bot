@@ -42,11 +42,6 @@ class UserRepository:
         first_name: str,
         last_name: str,
         username: str,
-        approved: bool = False,
-        target_language: str = DEFAULT_LANG,
-        summarizing_model: str = DEFAULT_MODEL_ID_FOR_SUMMARY,
-        prompt_key_for_summary: str = DEFAULT_PROMPT_KEY,
-        thinking_level: str = DEFAULT_THINKING_LEVEL,
     ) -> bool:
         """Register a new user; False on any IntegrityError.
 
@@ -61,11 +56,11 @@ class UserRepository:
                     first_name=first_name,
                     last_name=last_name,
                     username=username,
-                    approved=approved,
-                    target_language=target_language,
-                    summarizing_model=summarizing_model,
-                    prompt_key_for_summary=prompt_key_for_summary,
-                    thinking_level=thinking_level,
+                    approved=False,
+                    target_language=DEFAULT_LANG,
+                    summarizing_model=DEFAULT_MODEL_ID_FOR_SUMMARY,
+                    prompt_key_for_summary=DEFAULT_PROMPT_KEY,
+                    thinking_level=DEFAULT_THINKING_LEVEL,
                 )
                 session.add(stmt)
                 session.commit()
@@ -113,21 +108,22 @@ class UserRepository:
 
     def set_summarizing_model(self, user_id: int, summarizing_model: str) -> bool:
         """Set the user's summarizing model; False if unsupported or user unknown."""
-        normalized = summarizing_model.lower()
-        if normalized not in ALLOWED_MODELS_FOR_SUMMARY:
+        if summarizing_model not in ALLOWED_MODELS_FOR_SUMMARY:
             return False
-        return self._update_field(user_id, "summarizing_model", normalized)
+        return self._update_field(user_id, "summarizing_model", summarizing_model)
 
     def set_thinking_level(self, user_id: int, thinking_level: str) -> bool:
         """Set the user's thinking level; False if unsupported or user unknown."""
-        normalized = thinking_level.lower()
-        if normalized not in ALLOWED_THINKING_LEVELS:
+        if thinking_level not in ALLOWED_THINKING_LEVELS:
             return False
-        return self._update_field(user_id, "thinking_level", normalized)
+        return self._update_field(user_id, "thinking_level", thinking_level)
 
     def set_prompt_strategy(self, user_id: int, prompt_key_for_summary: str) -> bool:
         """Set the user's prompt strategy; False if unsupported or user unknown."""
-        normalized = prompt_key_for_summary.lower()
-        if normalized not in ALLOWED_PROMPT_KEYS:
+        if prompt_key_for_summary not in ALLOWED_PROMPT_KEYS:
             return False
-        return self._update_field(user_id, "prompt_key_for_summary", normalized)
+        return self._update_field(
+            user_id,
+            "prompt_key_for_summary",
+            prompt_key_for_summary,
+        )

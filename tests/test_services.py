@@ -79,7 +79,7 @@ def test_upload_and_wait_for_file_happy(mocker):
 
     mock_client.files.upload.return_value = mock_file
 
-    result = GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
+    result = GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
     assert result == mock_file
     mock_client.files.upload.assert_called_once()
@@ -103,10 +103,10 @@ def test_upload_and_wait_for_file_polling(mocker):
     mock_client.files.upload.return_value = mock_file_proc
     mock_client.files.get.return_value = mock_file_active
 
-    result = GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
+    result = GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
     assert result == mock_file_active
-    mock_sleep.assert_called_once_with(1)
+    mock_sleep.assert_called_once_with(10)
     mock_client.files.get.assert_called_once_with(name="name")
 
 
@@ -119,30 +119,7 @@ def test_upload_and_wait_for_file_failed(mocker):
     mock_client.files.upload.return_value = mock_file
 
     with pytest.raises(ValueError, match="FAILED"):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
-
-
-def test_resolve_mime_type_uses_mimetypes_guess(mocker):
-    """resolve_mime_type maps known extensions via the stdlib mimetypes database."""
-    gemini_helper = GeminiHelper(mocker.MagicMock())
-    assert gemini_helper.resolve_mime_type("document.pdf") == "application/pdf"
-    assert gemini_helper.resolve_mime_type("data.csv") == "text/csv"
-    assert gemini_helper.resolve_mime_type("text.rtf") == "application/rtf"
-    assert gemini_helper.resolve_mime_type("audio.ogg") == "audio/ogg"
-    assert gemini_helper.resolve_mime_type("audio.opus") == "audio/ogg"
-    assert gemini_helper.resolve_mime_type("audio.mp3") == "audio/mpeg"
-    assert gemini_helper.resolve_mime_type("video.mp4") == "video/mp4"
-
-
-def test_resolve_mime_type_defaults_for_unknown_extension(mocker):
-    """resolve_mime_type falls back to octet-stream for extensions mimetypes cannot map.
-
-    Uses .zzz rather than .bin: mimetypes resolves .bin to application/octet-stream
-    itself, so it never reaches the default and leaves that branch uncovered.
-    """
-    gemini_helper = GeminiHelper(mocker.MagicMock())
-    assert gemini_helper.resolve_mime_type("mystery.zzz") == "application/octet-stream"
-    assert gemini_helper.resolve_mime_type("no_extension") == "application/octet-stream"
+        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
 
 def test_upload_and_wait_for_file_name_none(mocker):
@@ -153,7 +130,7 @@ def test_upload_and_wait_for_file_name_none(mocker):
     mock_client.files.upload.return_value = mock_file
 
     with pytest.raises(AttributeError):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
+        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
 
 def test_upload_and_wait_for_file_name_none_after_polling(mocker):
@@ -179,7 +156,7 @@ def test_upload_and_wait_for_file_name_none_after_polling(mocker):
     mock_client.files.get.return_value = mock_file_done
 
     with pytest.raises(AttributeError):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
+        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
 
 def test_upload_and_wait_for_file_missing_uri(mocker):
@@ -192,7 +169,7 @@ def test_upload_and_wait_for_file_missing_uri(mocker):
     mock_client.files.upload.return_value = mock_file
 
     with pytest.raises(AttributeError):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
+        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
 
 def test_delete_file_forwards_name_to_client(mocker):

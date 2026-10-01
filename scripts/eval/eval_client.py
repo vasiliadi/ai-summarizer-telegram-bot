@@ -14,10 +14,8 @@ import _bootstrap
 
 REPO = _bootstrap.load()
 
-from pydantic_ai.models.openrouter import OpenRouterModel, OpenRouterModelSettings
-
 import config
-from llm import LLMClient, OpenRouterCostReporter
+from llm import LLMClient
 
 # One level for every run on purpose: candidates have to hold this axis fixed at
 # the same value or their numbers stop being about the model.
@@ -31,18 +29,10 @@ GENERATION_TIMEOUT = 600
 class EvalLLMClient(LLMClient):
     """`LLMClient` that builds any OpenRouter id, registered or not."""
 
-    def build_model(self, model_id: str) -> OpenRouterModel:
+    def build_model(self, model_id: str):
         """Build (and cache) an OpenRouter model without consulting the registry."""
         if model_id not in self._models:
-            self._models[model_id] = OpenRouterCostReporter(
-                OpenRouterModel(
-                    model_id,
-                    provider=self._openrouter_provider,
-                    settings=OpenRouterModelSettings(
-                        openrouter_usage={"include": True},
-                    ),
-                ),
-            )
+            self._models[model_id] = self._build_openrouter_model(model_id)
         return self._models[model_id]
 
     def close_openrouter_provider(self):

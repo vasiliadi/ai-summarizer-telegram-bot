@@ -1,7 +1,9 @@
 from types import SimpleNamespace
 
 import pytest
+from tenacity import RetryError
 
+from exceptions import LimitExceededError, WebParseError
 from helpers import make_app
 from main import BotApp, build_app
 
@@ -139,3 +141,184 @@ def test_shutdown_flushes_the_tracer_when_the_sweep_fails(mocker):
         app.shutdown()
 
     fakes.tracer.shutdown.assert_called_once_with()
+
+
+def test_unauthorized_user(message_factory, mocker):
+    """Test that unauthorized users receive an access denied message."""
+    msg = message_factory(content_type="text", text="Hello")
+    app, fakes = make_app(mocker)
+    fakes.user_repo.select_user.return_value = mocker.MagicMock(approved=False)
+
+    app.handle_message(msg)
+
+    fakes.bot.send_message.assert_called_once_with(msg.chat.id, "You are not approved.")
+
+
+def test_handle_message_missing_user(message_factory, mocker):
+    """Test handle_message rejects messages without Telegram user metadata."""
+    msg = message_factory(content_type="text", text="Hello")
+    msg.from_user = None
+    app, fakes = make_app(mocker)
+
+    app.handle_message(msg)
+
+    fakes.bot.reply_to.assert_called_once_with(msg, "User information is missing.")
+
+
+def test_process_message_content_dispatches_audio(message_factory, mocker):
+    """Test audio messages route to handle_audio."""
+    msg = message_factory(content_type="audio")
+    app, fakes = make_app(mocker)
+    user = mocker.MagicMock()
+
+    app.process_message_content(msg, user)
+
+    fakes.handlers.handle_audio.assert_called_once_with(msg, user)
+
+
+def test_process_message_content_dispatches_allowed_document(message_factory, mocker):
+    """Test supported document MIME types route to handle_document."""
+    msg = message_factory(content_type="document")
+    app, fakes = make_app(mocker)
+    user = mocker.MagicMock()
+
+    app.process_message_content(msg, user)
+
+    fakes.handlers.handle_document.assert_called_once_with(msg, user)
+
+
+def test_process_message_content_dispatches_video_note(message_factory, mocker):
+    """Test video note messages route to handle_video_note."""
+    msg = message_factory(content_type="video_note")
+    app, fakes = make_app(mocker)
+    user = mocker.MagicMock()
+
+    app.process_message_content(msg, user)
+
+    fakes.handlers.handle_video_note.assert_called_once_with(msg, user)
+
+
+def test_process_message_content_dispatches_voice(message_factory, mocker):
+    """Test voice messages route to handle_voice."""
+    msg = message_factory(content_type="voice")
+    app, fakes = make_app(mocker)
+    user = mocker.MagicMock()
+
+    app.process_message_content(msg, user)
+
+    fakes.handlers.handle_voice.assert_called_once_with(msg, user)
+
+
+def test_process_message_content_dispatches_video(message_factory, mocker):
+    """Test video messages route to handle_video."""
+    msg = message_factory(content_type="video")
+    app, fakes = make_app(mocker)
+    user = mocker.MagicMock()
+
+    app.process_message_content(msg, user)
+
+    fakes.handlers.handle_video.assert_called_once_with(msg, user)
+
+
+def test_process_message_content_dispatches_url(message_factory, mocker):
+    """Test text messages extract the first token and route to handle_url."""
+    msg = message_factory(
+        content_type="text",
+        text="https://example.com/article extra words",
+    )
+    app, fakes = make_app(mocker)
+    user = mocker.MagicMock()
+
+    app.process_message_content(msg, user)
+
+    fakes.handlers.handle_url.assert_called_once_with(
+        msg,
+        user,
+        "https://example.com/article",
+    )
+
+
+def test_process_message_content_sends_textless_fallback(message_factory, mocker):
+    """Test unsupported non-text messages produce a clear fallback response."""
+    msg = message_factory(content_type="document")
+    msg.document.mime_type = "application/zip"
+    msg.text = None
+    app, fakes = make_app(mocker)
+    user = mocker.MagicMock()
+
+    app.process_message_content(msg, user)
+
+    fakes.bot.send_message.assert_called_once_with(msg.chat.id, "No text to process.")
+
+
+def test_handle_message_limit_exceeded(message_factory, mocker):
+    """Test handle_message when rate limit is exceeded."""
+    msg = message_factory(content_type="text", text="http://youtube.com/watch?v=123")
+    app, fakes = make_app(mocker)
+    fakes.user_repo.select_user.return_value = mocker.MagicMock(approved=True)
+    mocker.patch.object(
+        app,
+        "process_message_content",
+        side_effect=LimitExceededError("Rate limit exceeded"),
+    )
+
+    app.handle_message(msg)
+
+    fakes.bot.reply_to.assert_called_once_with(
+        msg,
+        "Daily limit has been exceeded, try again tomorrow.",
+    )
+
+
+def test_handle_message_retry_error(message_factory, mocker):
+    """Test handle_message when retries are exhausted."""
+    msg = message_factory(content_type="text", text="http://youtube.com/watch?v=123")
+    app, fakes = make_app(mocker)
+    fakes.user_repo.select_user.return_value = mocker.MagicMock(approved=True)
+    mocker.patch.object(
+        app,
+        "process_message_content",
+        side_effect=RetryError(mocker.MagicMock()),
+    )
+
+    app.handle_message(msg)
+
+    fakes.bot.reply_to.assert_called_once_with(
+        msg,
+        "An error occurred during execution. Please try again in 10 minutes.",
+    )
+
+
+def test_handle_message_web_parse_error(message_factory, mocker):
+    """Test handle_message when a webpage URL cannot be parsed."""
+    msg = message_factory(content_type="text", text="http://example.com/dead")
+    app, fakes = make_app(mocker)
+    fakes.user_repo.select_user.return_value = mocker.MagicMock(approved=True)
+    mocker.patch.object(
+        app,
+        "process_message_content",
+        side_effect=WebParseError("Tavily could not extract content"),
+    )
+
+    app.handle_message(msg)
+
+    fakes.bot.reply_to.assert_called_once_with(
+        msg,
+        "Check provided URL, looks like the page is not available.",
+    )
+
+
+def test_handle_message_unexpected_error(message_factory, mocker):
+    """Test handle_message when an unexpected exception occurs."""
+    msg = message_factory(content_type="text", text="http://youtube.com/watch?v=123")
+    app, fakes = make_app(mocker)
+    fakes.user_repo.select_user.return_value = mocker.MagicMock(approved=True)
+    mocker.patch.object(
+        app,
+        "process_message_content",
+        side_effect=Exception("BOOM"),
+    )
+
+    app.handle_message(msg)
+
+    fakes.bot.reply_to.assert_called_once_with(msg, "Unexpected: Exception")
