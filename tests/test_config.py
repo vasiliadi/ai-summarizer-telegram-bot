@@ -156,8 +156,8 @@ def test_no_model_takes_audio_without_taking_files():
     summarize_with_document falls back when a model cannot take a file —
     summarize() checks supports_audio alone. A spec with audio but not files
     would upload, then raise from build_uploaded_file: unretried, unmapped, and
-    already paid for. The ModelSpec docstring warns against flipping the flags
-    to match a provider catalog; this is what makes that warning fail loudly.
+    already paid for. architecture.md warns against flipping the flags to match
+    a provider catalog; this is what makes that warning fail loudly.
     """
     broken = [
         model_id

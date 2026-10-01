@@ -1,33 +1,14 @@
 """Tier 1 deterministic scorers. Runs inside Langfuse as a code evaluator.
 
-Screens for outright breakage only — wrong language, letters from a foreign
-script, no list where a list was asked for. Every check restates a rule `src/prompts.py` states as an absolute,
-so each is binary; compression is a diagnostic that never gates.
-
-Two constraints on editing this file, both invisible at runtime:
-
-**Write portable Python.** The source is uploaded to Langfuse and executed on
-its infrastructure, whose interpreter version is neither controlled nor
-observed here. Syntax gated on a recent Python — PEP 758's `except A, B:`, for
-one, which a py314-targeted formatter will introduce if a tuple `except` is
-written — becomes a SyntaxError there: no scores, and indistinguishable from a
-rule that never fired. `install_tier1.py`'s preflight is the only thing that
-reports it.
-
-**`Score` and `EvaluationResult` are injected by that runtime** and must not be
-defined or imported, which is why every type checker calls them undefined. The
-per-line Pyright suppressions are deliberately narrow: a file-level one would
-also hide a typo'd local name.
+Write portable Python, and never define `Score` or `EvaluationResult`; see evals.md →
+*Write portable Python in `tier1_evaluator.py`*.
 """
 
 CYRILLIC_FLOOR = 0.70
 MIN_BULLETS = 5
 BULLET_MARKERS = ("-", "*", "•", "–", "—")
-# Letters a Cyrillic summary may legitimately carry: Latin for names and terms
-# (with its extensions, for diacritics), Greek for symbols such as μ or Δ, and
-# Cyrillic. Anything else — a stray 近 or 复杂 inside Cyrillic prose — is a
-# model leaking its training language. The Cyrillic share cannot see it: two
-# CJK characters in a 2,000-letter summary move that ratio by 0.1%.
+# Latin for names and terms, Greek for symbols, Cyrillic. See evals.md → *Tier 1:
+# binary sub-checks, never weighted points* (`t1_script_clean`).
 ALLOWED_LETTERS = (
     (0x0041, 0x024F),  # Latin, Latin-1, Extended-A/B
     (0x0370, 0x03FF),  # Greek
@@ -64,18 +45,7 @@ def _is_bullet(line):
 
 
 def _number(value):
-    """Coerce a metadata value to a float.
-
-    The experiment runtime hands item metadata to the evaluator with its values
-    stringified, so `char_length` arrives as "19845" even though the dataset
-    item stores the JSON number 19845. Dividing by it raises TypeError, which
-    discards every score built so far — the failure is silent from outside.
-
-    Catches `Exception` rather than `(TypeError, ValueError)` deliberately: a
-    tuple `except` is what a py314-targeted formatter rewrites into PEP 758
-    syntax, which does not parse on an older interpreter. See the module
-    docstring.
-    """
+    """Coerce a stringified metadata value to float; `except Exception` is portable."""
     try:
         return float(value)
     except Exception:
@@ -106,11 +76,8 @@ def evaluate(ctx):
         item_meta = ctx.experiment.item_metadata
     obs_meta = ctx.observation.metadata or {}
 
-    # An experiment applies ONE strategy to every item, so the item's own
-    # `prompt_key` — the strategy of the trace it was harvested from — is the
-    # wrong thing to branch on. The runner passes the strategy it actually used
-    # as `run_prompt_key` in the run metadata, which Langfuse merges into the
-    # observation metadata. Falling back to the item keeps older runs scoring.
+    # The run's strategy, not the harvested item's. See evals.md → *A code evaluator
+    # receives every metadata value as a string, and a crash inside it is silent*.
     prompt_key = str(
         obs_meta.get("run_prompt_key") or item_meta.get("prompt_key") or "",
     )

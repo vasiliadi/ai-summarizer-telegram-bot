@@ -113,9 +113,8 @@ class QuotaManager:
             raise LimitExceededError(msg)
         daily_rate = parse_rate_limit(f"{daily_limit} per day")
         daily_key = f"{DAILY_LIMIT_KEY}:{user_id}"
-        # quantity=0 is the non-consuming pre-check. hit(cost=0) increments by
-        # nothing, so an exhausted window still compares <= the limit and reads
-        # as open; test() asks whether one more unit would fit, without taking it.
+        # test(), not hit(cost=0), which reads an exhausted window as open. See
+        # architecture.md → *Quota model*.
         if quantity == 0:
             allowed = self._rate_limiter.test(daily_rate, daily_key)
         else:
@@ -213,17 +212,8 @@ class Tracer:
     ) -> Generator[None]:
         """Name and attribute whatever trace one Telegram message produces.
 
-        The settings go in as metadata because nothing else records them:
-        pydantic-ai exports only the six numeric OTel model settings, so the
-        thinking level — provider-specific and a string — never reaches a span,
-        and the rest would otherwise have to be parsed back out of the prompt
-        wording. Recording them keeps a trace filterable and replayable as an
-        evaluation dataset item. The model id needs no entry; it is already on
-        the generation span.
-
-        Opens no span itself, so a message whose model calls all carry an
-        uploaded file — which `LLMClient` leaves uninstrumented — produces no
-        trace at all. A no-op when Langfuse is not configured.
+        Opens no span itself, and is a no-op without Langfuse; see architecture.md
+        → *Tracing (optional), text input only*.
         """
         if self._client is None:
             yield

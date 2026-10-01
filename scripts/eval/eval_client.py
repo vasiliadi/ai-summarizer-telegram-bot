@@ -1,16 +1,6 @@
 """The bot's `LLMClient`, unbound from the model registry.
 
-A compare run summarises with a candidate model and needs exactly what the bot
-gets — the instrumented agent, the system instruction, the thinking level and
-the OpenRouter cost wrapper — for a model that is not in `config.MODEL_SPECS`
-and should not be until evaluation says so. That is the only difference:
-`build_model` is overridden and nothing else, so a run measures the path the bot
-takes rather than a hand-built HTTP call standing next to it.
-
-The judges in `judge.py` deliberately do **not** come through here. Opus needs
-structured output against a JSON schema, which is not a request the bot ever
-makes, JEV is not a chat model at all, and a judge's spend is a cost of running
-the evaluation rather than a property of the model under evaluation.
+See evals.md → *The candidate summarises through the bot's client; the judges do not*.
 """
 
 from __future__ import annotations
@@ -39,14 +29,7 @@ GENERATION_TIMEOUT = 600
 
 
 class EvalLLMClient(LLMClient):
-    """`LLMClient` that builds any OpenRouter id, registered or not.
-
-    Only `build_model` changes. The base class looks the id up in
-    `config.MODEL_SPECS` and raises `KeyError` for a candidate that is not
-    registered yet, which is exactly the model evaluation exists to judge.
-    Everything else — the instrumented agent, the system instruction, the
-    thinking-level settings and the cost wrapper — is inherited.
-    """
+    """`LLMClient` that builds any OpenRouter id, registered or not."""
 
     def build_model(self, model_id: str) -> OpenRouterModel:
         """Build (and cache) an OpenRouter model without consulting the registry."""
@@ -65,11 +48,7 @@ class EvalLLMClient(LLMClient):
     def close_openrouter_provider(self):
         """Close this thread's provider on this thread's event loop, then the loop.
 
-        `run_sync` never enters the model as a context manager, so pydantic-ai
-        never closes the provider's HTTP client, and it leaves the loop it made
-        open too; `summarize` starts a thread, so a provider and a loop, per
-        item. With no loop in this thread `run_sync` was never reached, so the
-        client never opened a connection to close.
+        `run_sync` closes neither; with no loop here it never ran, so nothing is open.
         """
         provider = getattr(self._local, "openrouter_provider", None)
         if provider is None:
@@ -89,21 +68,10 @@ LLM = EvalLLMClient(
 
 
 async def summarize(model_id, prompt, text, language):
-    """Summarise one dataset item, off the experiment's event loop.
+    """Summarise one dataset item on a worker thread, off the experiment's event loop.
 
-    **An experiment task that calls `LLM.run` directly fails on every item.**
-    `run_experiment` awaits the task inside its own running loop, while
-    `LLMClient.run` ends in pydantic-ai's `run_sync`, which drives a loop
-    itself — so it raises `RuntimeError: This event loop is already running`
-    before any request is sent. 150 items fail in about 15 seconds, each
-    recorded as an empty output, which is what a model returning nothing looks
-    like too.
-
-    A worker thread has no running loop, so `run_sync` builds its own there and
-    the bot's synchronous path is reused exactly as the bot runs it rather than
-    reimplemented asynchronously beside it. The context is copied into the
-    thread, so the generation span still nests under the experiment item and
-    `OpenRouterCostReporter` still finds it.
+    Calling `LLM.run` directly fails every item; see evals.md → *The candidate
+    summarises through the bot's client; the judges do not*.
     """
     # Mirrors summarize_text: prompt and content as two parts, and a blank text
     # drops its part rather than sending an empty one.
@@ -117,9 +85,8 @@ async def summarize(model_id, prompt, text, language):
             future.set_exception(error) if error else future.set_result(result)
 
     def post(result, error):
-        # A worker that outlives its timeout can find the experiment's loop
-        # already closed. Nobody awaits its answer any more, so it is dropped
-        # rather than killing the thread with `Event loop is closed`.
+        # A worker that outlives its timeout can find the loop closed; nobody awaits
+        # its answer, so drop it rather than die on `Event loop is closed`.
         with contextlib.suppress(RuntimeError):
             loop.call_soon_threadsafe(settle, result, error)
 
@@ -141,11 +108,8 @@ async def summarize(model_id, prompt, text, language):
             # still closes it whenever its run finally returns.
             LLM.close_openrouter_provider()
 
-    # A daemon thread rather than `asyncio.to_thread`: a sweep has hung forever
-    # on one item with its sockets in CLOSE_WAIT (evals.md, *The harness*), and
-    # the default executor's threads are joined at interpreter exit, so a
-    # timeout around `to_thread` would move the hang to shutdown instead of
-    # ending it. The stuck thread is abandoned; the item is stored as an error.
+    # A daemon thread, not `asyncio.to_thread`, so a hang ends at the timeout. See
+    # evals.md → *The harness*.
     threading.Thread(target=work, daemon=True).start()
     try:
         return await asyncio.wait_for(future, GENERATION_TIMEOUT)

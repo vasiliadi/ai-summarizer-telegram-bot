@@ -324,19 +324,22 @@ def test_task_summarises_with_the_bots_prompt(judge, mocker, item_input, languag
 
 
 def test_run_names_the_candidate_and_warns_about_failed_items(judge, mocker, capsys):
-    """The run carries its strategy as `run_prompt_key`, and failures are reported."""
+    """The run carries its strategy as `run_prompt_key`, and failures are reported.
+
+    A raised task is absent from `item_results` (the SDK drops it); an empty one is not.
+    """
     client = mocker.Mock()
-    client.get_dataset.return_value.items = ["item"]
+    client.get_dataset.return_value.items = ["raised", "empty", "fine"]
     client.run_experiment.return_value = SimpleNamespace(
         run_name="stage2 / vendor/m / key - now",
         item_results=[
             SimpleNamespace(
-                item=SimpleNamespace(id="item-1"),
-                output="Error: boom",
+                item=SimpleNamespace(id="item-2"),
+                output="",
                 evaluations=[],
             ),
             SimpleNamespace(
-                item=SimpleNamespace(id="item-2"),
+                item=SimpleNamespace(id="item-3"),
                 output="- summary",
                 evaluations=[SimpleNamespace(name="t2_jev_weakest", value=0.9)],
             ),
@@ -349,7 +352,7 @@ def test_run_names_the_candidate_and_warns_about_failed_items(judge, mocker, cap
 
     kwargs = client.run_experiment.call_args.kwargs
     assert kwargs["name"] == f"{judge.RUN_PREFIX}vendor/m / {judge.PROMPT_KEY}"
-    assert kwargs["data"] == ["item"]
+    assert kwargs["data"] == ["raised", "empty", "fine"]
     assert kwargs["evaluators"] == [judge.eval_fabricated]
     assert kwargs["metadata"]["run_prompt_key"] == judge.PROMPT_KEY
     assert "prompt_key" not in kwargs["metadata"]
@@ -358,5 +361,27 @@ def test_run_names_the_candidate_and_warns_about_failed_items(judge, mocker, cap
     assert kwargs["metadata"]["tier2_judge"] == "opus"
     client.flush.assert_called_once()
     output = capsys.readouterr().out
-    assert "WARNING: 1/2 items failed to generate" in output
-    assert "first: Error: boom" in output
+    assert "WARNING: 2/3 items failed to generate (1 raised" in output
+    assert "1 returned no summary" in output
+
+
+def test_run_is_quiet_when_every_item_generates(judge, mocker, capsys):
+    """No warning when every dataset item comes back with a summary."""
+    client = mocker.Mock()
+    client.get_dataset.return_value.items = ["fine"]
+    client.run_experiment.return_value = SimpleNamespace(
+        run_name="stage2 / vendor/m / key - now",
+        item_results=[
+            SimpleNamespace(
+                item=SimpleNamespace(id="item-1"),
+                output="- summary",
+                evaluations=[],
+            ),
+        ],
+    )
+    mocker.patch.object(judge, "Langfuse", return_value=client)
+    mocker.patch.object(judge.config, "langfuse_client", None)
+
+    judge.run("vendor/m", "dataset", judge.PROMPT_KEY)
+
+    assert "WARNING" not in capsys.readouterr().out

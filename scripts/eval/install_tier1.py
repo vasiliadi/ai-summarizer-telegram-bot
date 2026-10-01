@@ -1,20 +1,8 @@
 """Install `tier1_evaluator.py` into Langfuse as a new version of `tier1-on-experiments`.
 
-The evaluator is found by name and PATCHed with the full code definition, which
-creates a new version; evaluation rules always use an evaluator's latest
-version, so the rule bound to it follows with no edit. This script never
-creates an evaluator: `POST /v2/evaluators` always makes a new one at version 1,
-bound to no rule, which would upload the source and score nothing. The
-`unstable/evaluators` route this used to call — where posting an existing name
-made a new version — now returns 404.
-
-Run this after every edit to `tier1_evaluator.py`. It is also the only way to
-find out whether the evaluator actually runs: preflight executes the source
-against sample data, so a crash comes back here as an error with the exception
-and line number. At runtime the same crash is silent — the rule stays `active`,
-the experiment completes, and no score is ever written.
-
-    uv run python scripts/eval/install_tier1.py
+PATCHes the existing evaluator and never creates one; its preflight is the only place
+a crash shows. See evals.md → *A code evaluator receives every metadata value as a
+string, and a crash inside it is silent*.
 """
 
 from __future__ import annotations
