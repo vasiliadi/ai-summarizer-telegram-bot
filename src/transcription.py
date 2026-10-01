@@ -155,9 +155,8 @@ class ApiBackend(TranscriptBackend):
         except NoTranscriptFound:
             transcript_list = ytt_api.list(video_id)
             language_codes = [t.language_code for t in transcript_list]
-            # Deliberate cooldown between back-to-back requests: rapid calls get
-            # rate-limited/blocked by YouTube. Do not shorten or remove.
-            # See https://github.com/jdepoix/youtube-transcript-api/issues/572
+            # Deliberate; do not shorten. See architecture.md →
+            # *YouTube transcript cooldown*.
             time.sleep(60)
             transcript = ytt_api.fetch(video_id, languages=language_codes)
         return TextFormatter().format_transcript(transcript)
@@ -219,9 +218,7 @@ class YtDlpBackend(TranscriptBackend):
     def fetch_via_ytdlp(self, url: str) -> str:  # noqa: C901, PLR0912, PLR0915
         """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
-        Probes available tracks first, preferring genuine manual subtitles (English
-        when present) and otherwise the video's original-language automatic captions,
-        then converts to vtt via ffmpeg.
+        Prefers manual subtitles (English first), else original-language auto captions.
 
         Raises:
             DownloadError: If no subtitles are available or vtt conversion fails.
@@ -367,8 +364,8 @@ class YouTubeTranscriber:
     def _extract_video_id(url: str) -> str | None:
         """Extract the video id from any supported YouTube URL form.
 
-        Returns None when the host is not a known YouTube host or the id cannot
-        be located in the path/query.
+        Returns:
+            None if the host is not YouTube or the URL carries no id.
 
         """
         parts = urlsplit(url)
@@ -393,11 +390,7 @@ class YouTubeTranscriber:
         url: str,
         video_id: str,
     ) -> str:
-        """Fetch from a backend, treating an empty transcript as a failure.
-
-        An empty/whitespace result is a soft failure: raising lets the
-        orchestrator fall back to the other backend instead of returning a
-        useless empty transcript.
+        """Fetch from a backend; an empty transcript raises, so the caller falls back.
 
         Raises:
             FetchTranscriptError: If the backend returns empty content.
@@ -410,15 +403,10 @@ class YouTubeTranscriber:
         return text
 
     def get_transcript(self, url: str) -> PrefixedText:
-        """Retrieve the transcript from a YouTube video URL.
-
-        Tries the primary backend first, falling back to the secondary on any
-        failure (including an empty result). With the default wiring this means
-        the API first, then yt-dlp.
+        """Retrieve a YouTube video's transcript, falling back on any primary failure.
 
         Returns:
-            PrefixedText: The transcript and its display prefix — 📺 for
-                youtube_transcript_api, 📹 for yt-dlp.
+            PrefixedText: The transcript and the prefix of the backend that served it.
 
         Raises:
             ValueError: If the URL format is not recognized.

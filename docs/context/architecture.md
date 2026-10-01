@@ -103,7 +103,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummaryKwargs` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
 | `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a per-thread OpenRouter provider and a per-thread model cache keyed by id across providers (see *One OpenRouter provider per thread* below); model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`, Google and OpenRouter today); `build_settings` has no provider branch at all — every provider takes the agnostic `thinking` effort, so the one provider-specific setting there is (OpenRouter usage accounting) rides on the model instead. `OpenRouterCostReporter`, the wrapper `build_model` puts around every OpenRouter model, reports cost to the trace (see Tracing below). |
-| `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`). |
+| `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`; an empty or whitespace-only transcript counts as a backend failure, so it falls through too). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback; each backend's output is block-page checked by JEV. |
 | `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (MIME, file upload/poll), `Tracer` (names, tags and adds settings metadata to the Langfuse trace for a message, if one is opened). |
@@ -211,7 +211,9 @@ to Gemini — return the raw model text with **no** prefix.
   mirror of any provider's allowance: `check_quota` takes no provider, so a
   request costs one unit whichever model was chosen, and the cap stands whether
   or not that model is free. Providers bill failed calls, so quota is counted
-  per attempt by design — not a double-charge bug.
+  per attempt by design — not a double-charge bug. The pre-check calls `limits`' `test()`,
+  never `hit(cost=0)`: a zero-cost hit increments nothing, so an exhausted window still
+  compares ≤ the limit and reads as open.
 - **Retries.** Network/model calls use `tenacity` `@retry`; persistent failure
   surfaces as `RetryError`, which `handle_message` maps to a user-facing
   "try again later" message. Other mapped errors: `LimitExceededError`,
@@ -237,6 +239,10 @@ to Gemini — return the raw model text with **no** prefix.
   to `False` is **rejected**: it would turn many tolerable downloads into hard failures,
   while the rare truncated file that crashes the ffmpeg fixup is retryable — `download_yt`
   makes at most two attempts on `DownloadError` (`stop_after_attempt(2)`).
+- **YouTube transcript cooldown.** When `ApiBackend.fetch_via_api` finds no transcript in the
+  default languages, it lists the video's languages and sleeps 60 s before fetching again:
+  back-to-back requests get rate-limited or blocked by YouTube (youtube-transcript-api issue
+  #572). The sleep is deliberate — **do not shorten or remove it**.
 - **Every extraction is screened for block pages by JEV.** A refused parser (region block, bot
   check, login or paywall) still returns non-empty text. `WebParser` passes each backend's output to
   `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over the first 20k characters
@@ -276,7 +282,8 @@ to Gemini — return the raw model text with **no** prefix.
     `gen_ai.usage.cost`. It must wrap the model *inside* the instrumentation: the span closes before
     `run_sync` returns. Drop it and OpenRouter traces silently lose cost. A `:free` id reports
     `0.0` — OpenRouter's number, not a broken wrapper.
-  - **`Tracer.observe_message` opens no span.** It names the trace `handle_message`, tags it with
+  - **`Tracer.observe_message` opens no span**, so a message whose every model call carries an
+    uploaded file produces no trace at all. It names the trace `handle_message`, tags it with
     the content type, and adds `prompt_key`, `prompt_version`, `target_language` and
     `thinking_level` as metadata — values no span carries (pydantic-ai exports only numeric
     settings), kept so a trace is filterable and replayable as a dataset item (the model id is already on
