@@ -1,9 +1,4 @@
-"""Shared setup for the evaluation scripts.
-
-Every script here runs standalone from the repo root and needs the same three
-things: the repo path, `.env` loaded, and `src/` importable so the harness can
-reuse the bot's own prompts and model client rather than restating them.
-"""
+"""Shared setup for the evaluation scripts: repo path, `.env`, and `src/` on the path."""
 
 from __future__ import annotations
 
@@ -26,12 +21,7 @@ def load() -> Path:
 
 
 def langfuse_rest() -> tuple[str, tuple[str, str]]:
-    """Return the Langfuse base URL and basic-auth pair for direct REST calls.
-
-    The SDK covers datasets and experiments; scores, evaluators and evaluation
-    rules are reached over REST because the pieces this project needs live on
-    the unstable API or on routes the SDK does not wrap.
-    """
+    """Return the Langfuse base URL and basic-auth pair for direct REST calls."""
     base = os.environ["LANGFUSE_BASE_URL"].rstrip("/")
     auth = (os.environ["LANGFUSE_PUBLIC_KEY"], os.environ["LANGFUSE_SECRET_KEY"])
     return base, auth

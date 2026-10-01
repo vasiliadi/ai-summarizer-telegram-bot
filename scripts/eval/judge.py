@@ -1,27 +1,6 @@
 """Tier 2 judges and the compare-run task, imported by `stage2.py`.
 
-Runs outside Langfuse, though it could move — see `docs/context/evals.md` for
-what moving it would cost. The judges plug into `Langfuse.run_experiment` as
-evaluator functions, so scores attach to the run automatically.
-
-Two judges, chosen per run through `JUDGES`: JEV, the default, asks per bullet
-whether the source supports it for about two cents a run; Opus with the
-`FABRICATED` prompt sorts every unsupported claim into invented or compression
-for about $3 a run, and is spent on finalists only.
-
-Two model callers live here and only one of them is the bot's. The **candidate**
-summarises through `eval_client.summarize`, so a compare run records cost and
-applies the thinking level — quality alone always picks the most expensive
-configuration, so the price has to arrive beside the score. The **judges** keep
-their own HTTP calls: Opus needs structured output against a JSON schema, which
-`LLMClient` does not do and the bot never asks for, and what a judge spends is a
-cost of running the evaluation rather than a property of the model being ranked.
-
-Neither judge returns a verdict already reduced to one number: Opus enumerates
-its findings and the invented/compression split is counted here, and JEV
-returns a probability per bullet. Editing a prompt or schema moves its pin
-(`judge_prompt` in the score metadata), which unpins it from every score
-already banked.
+See evals.md → *Tier 2: the judges*; editing a prompt or schema moves its pin.
 """
 
 import json
@@ -47,29 +26,18 @@ CHAT_URL = f"{BASE}/v1/chat/completions"
 COMPARE_DATASET = "summarization-compare-v1"
 PROMPT_KEY = "key_points_for_transcript"
 
-# Compare runs carry a prefix because `GET /experiments` returns no metadata, so
-# which stage a run belongs to and which candidate produced it are readable only
-# from its name. What follows the prefix is `<model> / <prompt_key>`, because a
-# candidate is a model *and* a strategy.
+# Followed by `<model> / <prompt_key>`; the name is the only place a run's candidate
+# lives. See evals.md → *The report*.
 RUN_PREFIX = "stage2 / "
 
 # --- Opus: the finalists' judge ---------------------------------------------
-#
-# FABRICATED on Opus 5.5 since 2026-09-28. The user checked most of its 30
-# "invented" findings on 29 summaries against the full sources and agreed with
-# every one they checked; what they had rejected in earlier Opus verdicts had
-# been compression. Opus 5.5 rejects a forced tool call with a 400, so the
-# schema is asked for through `response_format`.
+# See evals.md → *Opus `FABRICATED`: the finalists' judge*.
 
 FABRICATED_MODEL = "anthropic/claude-opus-5.5"
 FABRICATED_EFFORT = "medium"  # pins depth; recorded in every score's metadata
 
-# A prompt asking only for invented facts flagged 23 of the 36 summaries the user
-# had labelled clean, and on reading them the user found a mix they could
-# neither accept nor reject as a set: real fabrications beside artefacts of
-# compressing a long source. What the filter must catch is a model that plainly
-# makes things up, so every finding is sorted into one of those two, and only
-# the first fails.
+# Two kinds, and only `invented` fails: a one-kind prompt flagged too many clean
+# summaries. See evals.md → *Rejected, and why* (`INVENTED`).
 FABRICATED = """Check whether the summary makes things up.
 
 SOURCE:
@@ -97,9 +65,8 @@ or how fully the summary covers the source.
 Return one entry per reported claim, with what the source actually says, and an
 empty list when there is nothing to report."""
 
-# No count or verdict field: a model that declares a number before its reasoning
-# commits to it before it has thought, and one that truncates loses the grounds
-# for a number already asserted. An enumerated list loses only its tail.
+# No count or verdict field: the judge enumerates and the runner counts. See
+# evals.md → *Opus `FABRICATED`: the finalists' judge*.
 FABRICATED_SCHEMA = {
     "type": "object",
     "properties": {
@@ -155,9 +122,8 @@ def ask_fabricated(source, summary):
         "model": FABRICATED_MODEL,
         "max_tokens": 8000,
         "reasoning": {"effort": FABRICATED_EFFORT},
-        # Ask OpenRouter to price the call. Without this the usage block counts
-        # tokens only, and what a judge actually cost has to be reconstructed
-        # from a price table that goes stale the week a vendor changes it.
+        # Ask OpenRouter to price the call. See evals.md →
+        # *Judge spend is measured, not estimated*.
         "usage": {"include": True},
         "messages": [
             {
@@ -201,11 +167,7 @@ def _text(value):
 
 
 def generation_failed(output):
-    """Whether an item's generation failed rather than produced a summary.
-
-    `run_experiment` stores a task that raised as `Error: ...`, and an item
-    killed mid-generation is stored empty.
-    """
+    """Whether an item's output is a failed generation (`Error: ...` or empty)."""
     return not output.strip() or output.startswith("Error:")
 
 
@@ -216,24 +178,13 @@ def _source_of(item_input):
 
 
 # --- JEV: the default Tier 2 judge -------------------------------------------
-#
-# TypeSafe's decisions model, reached on OpenRouter's /api/alpha/decisions with
-# the ordinary key. It returns a probability per yes/no question and writes no
-# text. Chosen on 2026-09-28 over Opus on cost, not on a calibration: no judge
-# could be certified against the user's labels (evals.md, *JEV*), and Opus
-# costs about $3 a candidate against JEV's two cents. Its number is read
-# comparatively across candidates, never against a floor.
+# See evals.md → *JEV: the cheap screen on every candidate*.
 
-# An alias that follows TypeSafe's newest JEV, so the pin in `jev_meta` names
-# only what was asked for. Even a versioned id such as `typesafe/jev-1.13` is an
-# alias for a dated snapshot, so every score also records the snapshot that
-# answered, as `judge_model_version` — that, not this, says whether two scores
-# came from the same judge.
+# An alias; `judge_model_version` on each score names the snapshot that answered.
 JEV_MODEL = "~typesafe/jev-latest"
 DECISIONS_URL = f"{BASE}/alpha/decisions"
-# The positive framing. Asked whether a claim is *invented*, JEV answered the
-# question and ignored the criteria's polarity (AUC 0.28), so the question
-# asks whether a claim is supported and `true` is the clean answer.
+# Positive framing on purpose: JEV ignores the criteria's polarity. See evals.md →
+# *JEV: the cheap screen on every candidate*.
 JEV_SUPPORTED = (
     "Is this claim supported by the source? The claim may be a translation. "
     "Claim: «{claim}»"
@@ -242,9 +193,8 @@ JEV_SUPPORTED_CRITERIA = {
     "true": "The source states or clearly implies the claim.",
     "false": "The source contradicts the claim or does not contain it.",
 }
-# A summary whose weakest bullet is below this is counted as possibly
-# fabricated. 0.6 was the best balance on 42 hand-labelled summaries (2 of 3
-# stepfun errors, 2 false alarms of 17); treat it as a reading aid, not a gate.
+# A reading aid for the report, not a gate. See evals.md →
+# *JEV: the cheap screen on every candidate*.
 JEV_FLAG_BELOW = 0.6
 
 
@@ -265,18 +215,10 @@ def jev_meta():
 
 
 def jev_probabilities(source, bullets):
-    """P(supported) per bullet, the cost, and the snapshot that answered.
+    """P(supported) per bullet, the cost, and the snapshot that answered (or `None`).
 
-    Raises on HTTP errors. The snapshot is the reply's `model`, such as
-    `typesafe/jev-1.13-20260917`; `None` if the alpha endpoint ever drops it.
-
-    The source goes whole into `state` and each bullet is its own question:
-    asked once whether a whole summary was faithful, JEV ranked barely above
-    chance, because finding one wrong claim in a long source is a search, not
-    a decision. All bullets go in one call: against one call per bullet, that
-    changes a bullet's probability by a median of 0.000 and cuts the bill about
-    ten times. The source is never truncated: a cut source makes every claim
-    from its missing half look unsupported.
+    Raises on HTTP errors. Never truncate the source; see evals.md →
+    *JEV: the cheap screen on every candidate*.
     """
     questions = {
         f"b{i:02d}": {
@@ -297,12 +239,7 @@ def jev_probabilities(source, bullets):
 
 
 def eval_jev(*, input, output, expected_output=None, metadata=None, **kw):  # noqa: A002, ARG001
-    """JEV's P(supported) for the summary's weakest bullet.
-
-    One number per summary: a single invented claim is enough to mislead, so
-    the weakest bullet stands for the summary, and an average would let ten
-    sound bullets hide one invented one.
-    """
+    """JEV's P(supported) for the weakest bullet, which stands for the summary."""
     source, summary = _source_of(input), _text(output)
     bullets = bullets_of(summary)
     if not source or not bullets:
@@ -321,10 +258,7 @@ def eval_jev(*, input, output, expected_output=None, metadata=None, **kw):  # no
 def eval_fabricated(*, input, output, expected_output=None, metadata=None, **kw):  # noqa: A002, ARG001
     """1 when Opus finds nothing invented in the summary, 0 when it finds any.
 
-    Compression findings are recorded in the comment and move nothing: they
-    are what squeezing a long source into a few bullets does, and the user
-    rejected them as errors while accepting every invented one they checked.
-    ~$0.06 a call.
+    Compression findings are recorded in the comment and move nothing.
     """
     source, summary = _source_of(input), _text(output)
     if not source or not summary:
@@ -349,9 +283,7 @@ def eval_fabricated(*, input, output, expected_output=None, metadata=None, **kw)
     )
 
 
-# Tier 2 judges selectable per run. JEV is the default and costs cents; Opus
-# with FABRICATED is for finalists, at ~$3 a 50-item run; `none` generates only,
-# so a judge can be added to the run later with `stage2.py judge`.
+# `none` generates only, so a judge can be added later with `stage2.py judge`.
 JUDGES = {"jev": [eval_jev], "opus": [eval_fabricated], "none": []}
 
 
@@ -359,13 +291,9 @@ JUDGES = {"jev": [eval_jev], "opus": [eval_fabricated], "none": []}
 
 
 def make_task(model_id, prompt_key):
-    """Summarise one dataset item with a candidate model.
+    """Summarise one dataset item with a candidate model, through the bot's own client.
 
-    Goes through `EvalLLMClient`, so the call is the bot's own: instrumented
-    agent, system instruction, thinking level, and the cost wrapper that puts a
-    price on the same trace as the quality scores. Nothing is caught here: a
-    task that raises is stored as `Error: ...` by `run_experiment`, which
-    `run` reports.
+    Nothing is caught here: `run_experiment` stores a task that raised as `Error: ...`.
     """
     prompt = dedent(PROMPTS[prompt_key]).strip()
 
@@ -378,12 +306,7 @@ def make_task(model_id, prompt_key):
 
 
 def run(model_id, dataset_name, prompt_key, *, tier2="jev"):
-    """One compare run over the whole dataset, with the Tier 2 judge named by `tier2`.
-
-    Every run gets the free Tier 1 scores from the Langfuse rule whatever the
-    judge. The run is always the whole dataset: the report reads the newest run
-    per candidate, so a short probe run would replace a full one there.
-    """
+    """One compare run over the whole dataset, with the Tier 2 judge named by `tier2`."""
     client = Langfuse()
     items = list(client.get_dataset(dataset_name).items)
     print(
@@ -401,11 +324,8 @@ def run(model_id, dataset_name, prompt_key, *, tier2="jev"):
             "stage": "compare",
             "candidate_model": model_id,
             "thinking_level": THINKING_LEVEL,
-            # `run_prompt_key`, not `prompt_key`: the Tier 1 rule fires on this
-            # experiment too, and it branches on the strategy the run applied.
-            # An item's own `prompt_key` is the strategy of the trace it was
-            # harvested from, and the datasets are mixed, so leaving this
-            # unnamed silently applied the bullet check to the wrong items.
+            # Not `prompt_key`: Tier 1 branches on this. See evals.md → *A code evaluator
+            # receives every metadata value as a string, and a crash inside it is silent*.
             "run_prompt_key": prompt_key,
             "prompt_version": prompt_version(prompt_key),
             "tier2_judge": tier2,
@@ -418,11 +338,8 @@ def run(model_id, dataset_name, prompt_key, *, tier2="jev"):
     for row in result.item_results:
         scores = {e.name: e.value for e in row.evaluations}
         print(f"  {str(row.item.id)[:18]:20s} {len(_text(row.output)):5d}ch  {scores}")
-    # A task that raises is not lost, it is *stored*: `run_experiment` writes
-    # `Error: {exc}` into the item's output and skips that item's Tier 2
-    # evaluators. The Tier 1 rule still fires, and it scores the English error
-    # text as a language failure — so a partly failed run reads as a plausible
-    # report about a bad model. Say so here, where there is still a sweep to stop.
+    # Tier 1 scores a stored `Error: ...` as a language failure; warn while a sweep
+    # can still be stopped. See evals.md → *API shapes that cost real time to rediscover*.
     failed = [r for r in result.item_results if generation_failed(_text(r.output))]
     if failed:
         print(

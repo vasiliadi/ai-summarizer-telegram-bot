@@ -1,20 +1,7 @@
 """Langfuse v4 read helpers shared by the evaluation scripts.
 
-Every read here uses a v4 endpoint. The v3 shapes these replaced are deprecated
-and Langfuse Cloud stops serving them on 2026-11-16:
-
-  * `GET /datasets/{name}/runs/{runName}` -> `GET /experiments` then
-    `GET /experiment-items`. Experiments are queried by dataset **id**, not
-    name, so the name has to be resolved through `GET /v2/datasets/{name}`.
-  * `GET /traces/{id}` -> `GET /experiment-items?fields=io`. Trace-level
-    input/output is deprecated product-wide; an experiment item's `output` is
-    the root observation's output, which is what the judge should read anyway.
-  * A per-item sweep of `GET /v3/scores` -> `fields=scores` on
-    `GET /experiment-items`, which returns each item's scores inline and
-    removes the trace join entirely.
-
-`fromStartTime` is **required** on both experiment endpoints, and both paginate
-on `meta.cursor`.
+See evals.md → *Working with the Langfuse API* and *API shapes that cost real time to
+rediscover*.
 """
 
 from __future__ import annotations
@@ -33,22 +20,8 @@ EPOCH = "2020-01-01T00:00:00Z"
 def score_value(row: dict) -> object:
     """The comparable value of a score row, chosen by its data type.
 
-    **The OpenAPI spec and the live API disagree here, and the live one wins.**
-    The spec declares `CategoricalScore.value` a number (the category mapping)
-    with the label in `stringValue`. Observed on `GET /v3/scores`, a categorical
-    score arrives as `value: "A"` with `stringValue` absent entirely — verified
-    against 25 hand labels. BOOLEAN behaves the same way: `value` is the
-    boolean, `stringValue` is absent.
-
-    So `value` carries what is wanted on this route today, and the
-    `stringValue` branch is what covers the spec's shape if the API ever starts
-    honouring it, or if another route already does — inline scores on
-    `GET /experiment-items` return a different envelope. Reading only one field
-    fails silently rather than raising: the wrong pick yields `None` or `0` for
-    every verdict, which looks exactly like a judge that never ran.
-
-    One decoder rather than one per call site, because the two rules diverging
-    is exactly how this goes wrong unnoticed.
+    The one decoder; the spec and the live API disagree. See evals.md → *API shapes
+    that cost real time to rediscover*.
     """
     if row.get("dataType") == "CATEGORICAL":
         string_value = row.get("stringValue")
@@ -65,13 +38,9 @@ class LangfuseAPI:
         self.auth = auth
 
     def get(self, path: str, params: dict | None = None, attempts: int = 8) -> dict:
-        """GET one path, honouring the documented rate limit.
+        """GET one path, obeying a 429's retry delay; raises rather than return empty.
 
-        The limit is 30 requests per window and a 429 carries
-        `details.retryAfterSeconds`. Obeying that is what makes this terminate —
-        blind backoff spends another request per retry. Failing loudly matters
-        too: an unchecked 429 falls through as an empty list, which is
-        indistinguishable from a model that genuinely scored nothing.
+        See evals.md → *Working with the Langfuse API*.
         """
         url = f"{self.base}/api/public/{path.lstrip('/')}"
         for attempt in range(attempts):
@@ -101,8 +70,7 @@ class LangfuseAPI:
             body = self.get(path, page)
             rows = body.get("data", [])
             out.extend(rows)
-            # meta.cursor, not meta.nextCursor — the latter does not exist and
-            # reading it silently truncates the sweep at the first page.
+            # meta.cursor; meta.nextCursor does not exist and would stop at page one.
             cursor = (body.get("meta") or {}).get("cursor")
             if not cursor or not rows:
                 return out
@@ -123,12 +91,7 @@ class LangfuseAPI:
         return sorted(rows, key=lambda r: r["startTime"], reverse=True)
 
     def experiment_items(self, experiment_id: str, fields: str) -> list[dict]:
-        """List an experiment's items.
-
-        `fields` selects the groups to include: `io` carries input, output and
-        expectedOutput; `scores` carries each item's scores inline. Groups that
-        are not requested are **absent** from the response rather than null.
-        """
+        """List an experiment's items with the requested `fields` groups."""
         return self.paginate(
             "experiment-items",
             {

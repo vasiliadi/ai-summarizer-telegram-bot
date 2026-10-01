@@ -1,29 +1,6 @@
-"""Compare stage: a candidate over the 50-item set, with Tier 1 and JEV.
+"""The harness command line: `sweep`, `report` and `judge` over the compare dataset.
 
-One run per candidate: the Langfuse rule scores Tier 1 on every compare run for
-free, and JEV is the default Tier 2 judge. Tier 1 is the only hard gate. JEV's
-weakest-bullet probability is a signal of plain fabrication, read against the
-other candidates and never against a floor; Opus is added on finalists. The
-harness is a filter, not a ranking: a person reads the survivors.
-
-    uv run python scripts/eval/stage2.py report [--all-pairs]           # free
-    uv run python scripts/eval/stage2.py sweep <model> ... [--judge=jev|opus|none]  # COSTS MONEY
-    uv run python scripts/eval/stage2.py judge jev [<model> ...]        # ~2 cents a run: add JEV to runs
-    uv run python scripts/eval/stage2.py judge jev --rescore [<model> ...]  # ~2 cents a run: JEV on every item again
-    uv run python scripts/eval/stage2.py judge opus <model> ...         # ~$3 a run: Opus FABRICATED on finalists
-
-Models are named by their OpenRouter id and passed as arguments; there is no
-default list and the registry is not consulted, because the point is to decide
-whether a model belongs in `config.MODEL_SPECS` at all.
-
-`report` prints one markdown table. **Its means do not rank models**: with 50
-items a few points between two means can be noise, and `--all-pairs` adds a
-sign test over per-item Tier 2 deltas for every pair of candidates, on the
-*same* items.
-
-A candidate is a model **and** a strategy, because `t1_pass` and the Tier 2
-means compare models only within one strategy. So runs are keyed by
-`<model> / <prompt_key>` throughout.
+Commands are in `scripts/eval/README.md`; the why is in evals.md → *The report*.
 """
 
 from __future__ import annotations
@@ -50,10 +27,8 @@ COMPARE = judge.COMPARE_DATASET
 RUN_PREFIX = judge.RUN_PREFIX
 CATALOG_URL = "https://openrouter.ai/api/v1/models"
 
-# Two failures in 50 are forgiven; a systematic defect is not. 70% suited checks
-# that only caught outright breakage, but `t1_script_clean` fails an item on a
-# single stray character, and hy3 leaked CJK into ~6% of summaries — enough to
-# be unusable, and well inside a 70% floor. Strong models score 100%.
+# Two failures in 50. See evals.md → *Tier 1: binary sub-checks, never weighted
+# points*.
 PASS_THRESHOLD = 0.95
 
 JEV = "t2_jev_weakest"
@@ -64,12 +39,7 @@ PAIRED_METRICS = (JEV, FABRICATED)
 
 
 def discover_runs(dataset_name):
-    """Candidate label -> newest compare experiment for it, from Langfuse itself.
-
-    `GET /experiments` returns seven fields and none of them is metadata, so the
-    candidate has to be read back out of the run name — which is the whole
-    reason `judge.run` writes the name it does.
-    """
+    """Candidate label -> newest compare experiment for it, parsed from run names."""
     runs = {}
     # experiments() returns newest first, so the first hit per candidate wins.
     for row in API.experiments(API.dataset_id(dataset_name), name_prefix=RUN_PREFIX):
@@ -96,21 +66,14 @@ def _seconds(item):
 
 
 def _tier2_scores(runs):
-    """Tier 2 scores by observation id, and the JEV snapshot behind each.
+    """Tier 2 scores by observation id, newest per score, and the JEV snapshot behind each.
 
-    Returns `({observation id: {score name: value}}, {observation id: snapshot})`.
-    The snapshot is the score's `judge_model_version`, `None` where it is not
-    recorded; it rides in the score metadata, which only the `details` field
-    group returns. An observation scored more than once — `judge --rescore` —
-    keeps its newest score, so a rescore supersedes without deleting.
+    Read from `v3/scores`, not the items: see evals.md → *API shapes that cost real
+    time to rediscover* (the seven-score cap).
 
-    **The experiment-items read returns at most seven scores per item.** An item
-    carrying five Tier 1 scores, a retired Tier 2 score, JEV and then
-    `t2_fabricated` came back with seven and the eighth silently missing, so the
-    report showed "-" for a judge that had scored every item.
-    Tier 2 scores are therefore read by name from `v3/scores` and merged in; the
-    inline scores still serve Tier 1. No score predates the run it scores, so
-    the read starts at the earliest of `runs`.
+    Returns:
+        `({observation id: {score name: value}}, {observation id: snapshot or None})`.
+
     """
     since = min((r["startTime"] for r in runs.values()), default=EPOCH)
     out: dict[str, dict] = {}
@@ -153,9 +116,7 @@ def _snapshots(counts):
 def _jev_snapshot_notes(items, jev_versions):
     """Say which JEV snapshots scored the report, and warn when they differ.
 
-    `JEV_MODEL` is an alias, so the snapshot recorded on each score is the only
-    thing that says whether two candidates were measured by the same judge. An
-    unrecorded snapshot is an unknown judge and counts as a snapshot of its own.
+    An unrecorded snapshot counts as a judge of its own.
     """
     by_candidate = {
         c: collections.Counter(
@@ -190,15 +151,9 @@ def _item_rows(items, tier2):
 
 
 def _run_cost(items):
-    """(dollars, items priced) OpenRouter charged for a run's summaries.
+    """(dollars, items priced) OpenRouter charged for a run's summaries, judges excluded.
 
-    The cost wrapper in `src/llm.py` puts what OpenRouter charged on each
-    generation as `gen_ai.usage.cost`, which Langfuse returns as `totalCost` —
-    but only when the `usage` field group is requested; without it the field
-    is simply absent. One paginated read over the run's time window, kept to
-    the run's own traces, rather than a request per trace: the bot's own
-    traffic in the same window is dropped by the trace filter. Judge calls are
-    not on these traces, so this is the candidate's bill alone.
+    See evals.md → *The report* (`run $`).
     """
     traces = {i["traceId"] for i in items}
     starts = [i["startTime"] for i in items if i.get("startTime")]
@@ -222,11 +177,7 @@ def _run_cost(items):
 
 
 def _sign_test(wins, losses):
-    """Two-sided exact binomial p for `wins` against `losses` under a fair coin.
-
-    Ties are dropped before this is called; that is what makes it a sign test
-    over per-item deltas rather than a comparison of two means.
-    """
+    """Two-sided exact binomial p for `wins` against `losses`; ties are dropped first."""
     n = wins + losses
     if n == 0:
         return 1.0
@@ -295,11 +246,7 @@ def _notes(row):
 
 
 def _table(summaries):  # noqa: C901
-    """Print kept candidates first, then incomplete candidates, then dropped ones.
-
-    Within each group, candidates Opus judged come first by invented share, the
-    rest by JEV median, so the finalists sit at the top of the table.
-    """
+    """Print kept, then incomplete, then dropped candidates, Opus-judged first in each."""
 
     def order(item):
         _, row = item
@@ -347,12 +294,7 @@ def _table(summaries):  # noqa: C901
 
 
 def _paired_tier2_table(rows_by_candidate, metric):
-    """Sign test on per-item Tier 2 deltas, for every pair sharing items.
-
-    It needs no judge call beyond the Tier 2 scores each run already banked,
-    and it answers the question the means table cannot — whether one candidate
-    beats another on the *same* item more often than not.
-    """
+    """Sign test on per-item Tier 2 deltas, for every pair sharing items."""
     header = (
         f"{'pair (better/worse is for the left candidate)':52s} "
         f"{'n':>3s} {'better':>7s} {'worse':>6s} {'median d':>9s} {'p':>7s}"
@@ -403,9 +345,7 @@ def _short(candidate):
 def report(dataset_name=COMPARE, *, all_pairs=False):
     """Print every compare run on one dataset as one table, Tier 1 gate applied.
 
-    `all_pairs` adds a sign test over per-item deltas for every pair of
-    candidates on each Tier 2 score — whether one beats another on the *same*
-    items more often than not, which a gap between two means cannot tell.
+    `all_pairs` adds a per-item sign test for every pair of candidates.
     """
     runs = discover_runs(dataset_name)
     if not runs:
@@ -437,16 +377,9 @@ def report(dataset_name=COMPARE, *, all_pairs=False):
 def backfill(tier2, models=(), dataset_name=COMPARE, *, rescore=False):
     """Score a Tier 2 judge on compare items that lack it, without regenerating.
 
-    `rescore` scores every item again instead — to move banked scores onto a
-    new judge snapshot. The old scores stay; the report reads the newest.
-
-    `tier2` names an entry of `judge.JUDGES` — `jev` at about two cents a run,
-    `opus` at about $3 — and `models` limits it to those candidates, which is
-    how Opus is spent on finalists only. The score is attached exactly as
-    `run_experiment` attaches an evaluator's: to the experiment item's
-    observation, whose id is the item's `id`. Anything else — the trace alone,
-    say — would be missing from the experiment-items read the report is built
-    on, and look like the judge never ran.
+    `rescore` scores every item again; `models` limits it to those candidates. Scores
+    anchor to the item's observation: see evals.md → *API shapes that cost real time
+    to rediscover*.
     """
     (evaluator,) = judge.JUDGES[tier2]
     client = Langfuse()
@@ -510,11 +443,8 @@ def backfill(tier2, models=(), dataset_name=COMPARE, *, rescore=False):
 def _resolve(model_ids):
     """Check every id against OpenRouter's catalog before anything is spent.
 
-    A typo or a wrongly guessed id would otherwise surface as a per-item error
-    partway through a paid sweep. Never *derive* an id by prefixing a vendor
-    name: the catalog carries `:free` and `:batch` siblings of the plain id, so
-    a computed id can silently select the wrong one. Exits naming the
-    near-misses.
+    Exits naming the near-misses. See evals.md → *Everything runs over OpenRouter, and
+    models are named by their OpenRouter id*.
     """
     catalog = requests.get(CATALOG_URL, timeout=60).json()["data"]
     names = {m["id"] for m in catalog}
@@ -529,11 +459,7 @@ def _resolve(model_ids):
 
 
 def sweep(model_ids, dataset_name=COMPARE, prompt_key=None, tier2="jev"):
-    """Produce a compare run for each model, over the whole dataset.
-
-    Ids are validated against the OpenRouter catalog up front, so the sixth
-    id's typo is not found after the first five are paid for.
-    """
+    """Produce a compare run for each model, after validating every id up front."""
     if not model_ids:
         sys.exit(
             "usage: stage2.py sweep <openrouter-model-id> [...]\n"

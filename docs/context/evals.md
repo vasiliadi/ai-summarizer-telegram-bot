@@ -87,7 +87,8 @@ single request leaves the machine. `summarize` hands the call to a worker thread
 running loop, so `run_sync` builds its own and the bot's synchronous path is reused rather than
 reimplemented. The context is copied into the thread, so the generation span still nests under
 the experiment item and the cost wrapper still finds it. The failure is cheap and looks
-expensive to diagnose: every item fails in seconds and is recorded as an error output.
+expensive to diagnose: every item fails in seconds (150 items in about 15 s) and is recorded as an
+error output.
 
 The **judges** stay on their own HTTP calls in `judge.py`, deliberately. Opus needs structured
 output against a JSON schema, which `LLMClient` does not do and the bot never asks for, and JEV
@@ -146,7 +147,8 @@ per thread, which removed every failure in the reproduction, so each harness thr
 fresh client, which `summarize` closes on that thread's loop, and then the loop, once the run
 returns — `run_sync` closes neither. The harness still guards against it: `eval_client.summarize` runs each
 generation on a **daemon** thread and waits `GENERATION_TIMEOUT` (600 s), so a stuck item is
-stored as a named `TimeoutError` and the run finishes. It had to be a daemon thread:
+stored as a named `TimeoutError` and the run finishes. Median generation is ~20 s and the slowest
+seen a few minutes, so the timeout only ever ends a hang. It had to be a daemon thread:
 `asyncio.to_thread` uses the default executor, whose threads are joined at interpreter exit, so a
 timeout around it would only move the hang to shutdown. A worker that returns after its item timed
 out may find the experiment's loop already closed; its answer is dropped quietly. A timed-out item shows in the run's
@@ -210,7 +212,9 @@ would go stale silently.
 What belongs here is only what the skill cannot know:
 
 - **`scripts/eval/langfuse_api.py` is the only place that calls the REST API**, apart from the
-  dataset rebuild. Add reads there rather than scattering `requests` through the scripts.
+  dataset rebuild. Add reads there rather than scattering `requests` through the scripts. The SDK
+  covers datasets and experiments; scores, evaluators and evaluation rules go over REST because
+  the SDK does not wrap the routes this project needs.
 - **This project is already on the v4 data model.** Ingestion is OTel via the pinned SDK, the
   one evaluation rule targets `experiment`, and no blob-storage, PostHog or Mixpanel export is
   configured, so the export migration does not apply. Trace-level input/output is deprecated
@@ -232,13 +236,15 @@ What belongs here is only what the skill cannot know:
 
 Two traps cost a session each and are worth carrying:
 
-- The public API **rate-limits** and answers with a retry delay that must be **obeyed**. Blind
+- The public API **rate-limits** — 30 requests per window, and a 429 carries
+  `details.retryAfterSeconds` — and that retry delay must be **obeyed**. Blind
   exponential backoff does not converge, because every retry spends another request. An
   unchecked rate-limit response also falls through `.json().get("data", [])` as an empty list,
   which is indistinguishable from a model that genuinely scored nothing — that produced a
   *different table on each run* until it was fixed.
-- Paginate on the cursor the response actually returns. Guessing a plausible field name yields
-  `None` and silently truncates a sweep at the first page.
+- Paginate on the cursor the response actually returns, `meta.cursor`. Guessing a plausible field
+  name (`meta.nextCursor` does not exist) yields `None` and silently truncates a sweep at the first
+  page.
 
 ## Running an experiment: UI vs script
 
@@ -359,8 +365,9 @@ models score 100%. Four judgements are deliberate:
 - **`t1_script_clean` catches what the ratio cannot: a stray foreign-script letter inside Cyrillic
   prose.** It fails on any letter outside Latin (with its extensions), Greek and Cyrillic.
   `tencent/hy3` wrote `近` and `复杂` into two of 32 summaries that the ratio passed at 0.973 and
-  0.928. On a sample of 326 summaries it fired 3 times, all real. Latin stays allowed by decision
-  — names and terms are legitimate — and Greek for symbols such as μ or Δ.
+  0.928 — two CJK characters in a 2,000-letter summary move the ratio by 0.1%. On a sample of
+  326 summaries it fired 3 times, all real. Latin stays allowed by decision — names and terms are
+  legitimate — and Greek for symbols such as μ or Δ.
 - `t1_compression` is a **diagnostic with no threshold**. Judges reward length, so the length
   column belongs beside every quality score; gating on it would let a model win by truncating.
 - `t1_bullet_count` is emitted **only** for `key_points_for_transcript`, the one strategy that
@@ -520,7 +527,7 @@ How it is asked, and why each choice holds:
   more; four wordings were measured.
 - **The weakest bullet stands for the summary**, since one invented claim is enough to mislead and
   an average would let ten sound bullets hide it. `JEV_FLAG_BELOW = 0.6` was the best balance on
-  the 42 labels and is a reading aid for the report's `jev<0.6` column, not a gate.
+  the 42 labels (2 of 3 stepfun errors, 2 false alarms of 17) and is a reading aid for the report's `jev<0.6` column, not a gate.
 
 **It is a coarse screen; Opus is what separates finalists.** Read comparatively, JEV ordered the
 top of a 13-model queue the way Opus did and separated a model that fabricates more from the
@@ -693,13 +700,19 @@ into one markdown table, readable in a terminal and pasteable into a document.
   Tier 1 scores, a retired Tier 2 score, JEV and then `t2_fabricated` came back without the eighth,
   and the report showed "-" for scores that existed. `stage2.py` reads Tier 2 scores by name from
   `v3/scores` and merges them in; inline scores still serve Tier 1.
+- **The experiment endpoints take a dataset id, not its name, and require `fromStartTime`.**
+  `GET /experiments` and `GET /experiment-items` both reject a call without `fromStartTime`, and
+  experiments are filtered by `datasetId`, so a name is resolved through `GET /v2/datasets/{name}`
+  first. A `fields` group that is not requested is **absent** from the response, not `null`.
 - **Nothing in v4 deletes an experiment.** `experiments` and `experiment-items` expose `list`
   only. The deprecated v3 `DELETE /datasets/{name}/runs/{runName}` returns **200** and clears the
   run from the v3 view, but the v4 experiment and its items survive. Plan for junk runs to be
   superseded by newer ones rather than removed.
 - **A score's value: the OpenAPI spec and the live API disagree, and the live one wins.** The spec
   declares `CategoricalScore.value` a *number* with the label in `stringValue`; `GET /v3/scores`
-  actually returns `value: "A"` with `stringValue` absent. BOOLEAN is the same shape. Reading only
+  actually returns `value: "A"` with `stringValue` absent (verified against 25 hand labels).
+  BOOLEAN is the same shape. The decoder still prefers `stringValue` for a categorical score, so
+  it keeps working if the API starts honouring the spec, or on a route that already does. Reading only
   one field yields `None` or `0` for every verdict, which looks exactly like a judge that never
   ran. `langfuse_api.score_value(row)` is the one decoder; do not read `value` off a score row
   directly, and do not "correct" it to match the spec.

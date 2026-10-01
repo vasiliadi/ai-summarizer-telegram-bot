@@ -1,16 +1,7 @@
 """Rebuild the evaluation dataset from a raw trace harvest.
 
-Screens the harvested generations, classifies each by stratum, applies the
-per-stratum quotas, and writes `summarization-compare-v1`.
-
-**Destructive**: it deletes every existing item in the dataset first, so it
-refuses to run without `--yes-wipe`.
-
-    uv run python scripts/eval/rebuild_datasets.py --yes-wipe path/to/obs.json
-
-`obs.json` is the raw harvest of traced generations (`langfuse-cli api
-observations list --type GENERATION --fields core,io --json`). It is tens of
-megabytes and deliberately not tracked; only this script's output is.
+Destructive: deletes every existing item in the dataset first, so it refuses to run
+without `--yes-wipe`.
 """
 
 import argparse
