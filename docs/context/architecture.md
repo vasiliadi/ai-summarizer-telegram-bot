@@ -48,7 +48,9 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   Adding a model from a registered provider is a registry row; adding a provider is a
   branch in `build_model` plus a dependency extra, not a rewrite of `summary.py`. Google
   and OpenRouter are registered. The `else` in `build_model` still raises for a provider
-  with no builder, and is covered by a test that fabricates a spec.
+  with no builder, and is covered by a test that fabricates a spec. `ModelSpec.provider` also
+  dispatches in `build_uploaded_file`, which serves the Gemini Files API only and raises for
+  any other provider, so a new provider must answer for both; `build_settings` has no branch.
   The Gemini Files API is still called directly (`services.GeminiHelper`), because
   base64-inlining a 20 MB Telegram file inflates it past the inline-request limit.
 - **Dropping or renaming a model id needs an Alembic data migration in the same PR** —
@@ -173,7 +175,8 @@ for every OpenRouter model.
 document that is not audio has no text-extraction path, and the upload only ever
 goes to Gemini, so the request is summarized by `DEFAULT_MODEL_ID_FOR_SUMMARY`
 instead — logged at WARNING, with no user-facing message and no change to the
-stored setting. The audio branch keeps precedence over it. `summarize` needs no
+stored setting, so `DEFAULT_MODEL_ID_FOR_SUMMARY` must stay a spec with `supports_files=True`
+(pinned by `test_default_summarizing_model_accepts_files`). The audio branch keeps precedence over it. `summarize` needs no
 such check: everything reaching its file branch is audio.
 
 ## Source-provenance prefixes

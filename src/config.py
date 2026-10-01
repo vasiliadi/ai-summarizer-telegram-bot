@@ -27,9 +27,7 @@ if os.environ.get("ENV") != "PROD":
 
 
 # Sentry.io config
-# capture_sentry_logs, off by default, is what forwards stdlib logging records
-# to Sentry Logs; sentry-sdk 2.68.0 made the enable_logs switch that used to do
-# it a no-op.
+# See architecture.md → *Sentry log collection is an explicit opt-in*.
 sentry_sdk.init(
     dsn=os.environ["SENTRY_DSN"],
     integrations=[LoggingIntegration(capture_sentry_logs=True)],
@@ -73,17 +71,13 @@ gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 # OpenRouter config
-# HTTP-Referer/X-Title are what OpenRouter attributes a call to; without them every
-# call lands under "Unknown" in the account's app ranking. Hardcoded rather than read
-# from the environment: the identity belongs to this repo, and pydantic-ai's own
-# OPENROUTER_APP_URL/OPENROUTER_APP_TITLE fallback would leave attribution silently
-# broken wherever those vars are not set.
+# Hardcoded, not read from env. See architecture.md →
+# *OpenRouter calls identify the app*.
 OPENROUTER_APP_URL = "https://github.com/vasiliadi/ai-summarizer-telegram-bot"
 OPENROUTER_APP_TITLE = "ai-summarizer-telegram-bot"
 OPENROUTER_API_KEY = os.environ["OPENROUTER_API_KEY"]
-# A factory, not a provider: its async HTTP pool is bound to the event loop that
-# opened each connection, and every thread that calls `run_sync` runs its own
-# loop, so `LLMClient` builds one provider per thread (see `llm.py`).
+# A factory, not a provider: `LLMClient` builds one per thread. See
+# architecture.md → *One OpenRouter provider per thread*.
 openrouter_provider_factory = partial(
     OpenRouterProvider,
     api_key=OPENROUTER_API_KEY,
@@ -101,21 +95,8 @@ BLOCK_DETECTOR_MODEL_ID = "~typesafe/jev-latest"
 class ModelSpec:
     """A selectable summarizing model: its label, provider, and input modalities.
 
-    `provider` names the pydantic-ai provider the model is reached through. It
-    dispatches in three places, all of which a new provider has to answer for:
-    `llm.LLMClient.build_model` (which raises for a provider it cannot build),
-    `llm.LLMClient.build_settings`, and `llm.LLMClient.build_uploaded_file`
-    (which serves the Gemini Files API only).
-
-    Both flags say what **this bot can deliver** to the model, not what the
-    model's catalog advertises. `supports_audio` False routes spoken content
-    through Replicate transcription instead of a native file upload;
-    `supports_files` False sends documents to `DEFAULT_MODEL_ID_FOR_SUMMARY`
-    instead. Every OpenRouter model is registered with both False on purpose:
-    OpenRouter has no file API, so files would have to be inlined as base64,
-    and several registered models do read those modalities upstream, some of
-    them both. Correcting the flags to match the catalog without first building
-    an inline path breaks the routing.
+    The flags say what this bot can deliver, not what the model's catalog
+    advertises; see architecture.md → *Modality routing*.
     """
 
     label: str
@@ -154,14 +135,11 @@ MODEL_LABELS: dict[str, str] = {k: v.label for k, v in MODEL_SPECS.items()}
 MODEL_LABELS_REVERSE: dict[str, str] = {v: k for k, v in MODEL_LABELS.items()}
 ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_SPECS.keys())
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
-# It also serves documents whose selected model has supports_files=False, so it
-# must stay a spec with supports_files=True.
+# It must keep supports_files=True: see architecture.md → *Modality routing*.
 DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.8-flash"
 DEFAULT_THINKING_LEVEL = "medium"
-# The keys are pydantic-ai's `ThinkingEffort`, which every provider's model maps
-# to its own vocabulary; nothing here translates them. The values exist only to
-# give the reply keyboard readable buttons — "xhigh" has no decent title-case.
-# Ordered low to high, which is the order the keyboard shows.
+# Keys are pydantic-ai's `ThinkingEffort`, untranslated here; values are only the
+# keyboard's button text, in the order shown (low to high).
 THINKING_LEVEL_LABELS: dict[str, str] = {
     "minimal": "Minimal",
     "low": "Low",
@@ -176,11 +154,8 @@ ALLOWED_THINKING_LEVELS = list(THINKING_LEVEL_LABELS.keys())
 
 
 # Langfuse config
-# Optional: tracing is enabled only when both keys are present, so local runs
-# and tests work without Langfuse. When enabled, this is the default: pydantic-ai
-# emits an OpenTelemetry span per model call, which the OTel-based Langfuse SDK
-# ingests. `llm.LLMClient` overrides it to off for runs whose content is an
-# uploaded file, so only text-input model calls get traced.
+# Optional, so local runs and tests work without it. See architecture.md →
+# *Tracing (optional), text input only*.
 LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_PUBLIC_KEY")
 LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY")
 LANGFUSE_BASE_URL = os.environ.get("LANGFUSE_BASE_URL")
