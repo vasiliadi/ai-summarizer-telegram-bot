@@ -122,10 +122,11 @@ def test_get_proxy_picks_from_list(mocker):
     assert utils.get_proxy() == "http://c:3"
 
 
-def test_clean_up_removes_an_unprotected_file(tmp_path):
+def test_clean_up_removes_an_unprotected_file(tmp_path, mocker):
     """Test that clean_up removes a single unprotected file."""
     file = tmp_path / "temp.mp3"
     file.touch()
+    mocker.patch("utils.PROTECTED_FILES", [])
 
     clean_up(file=str(file))
 
