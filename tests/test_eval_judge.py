@@ -361,7 +361,8 @@ def test_run_names_the_candidate_and_warns_about_failed_items(judge, mocker, cap
     assert kwargs["metadata"]["tier2_judge"] == "opus"
     client.flush.assert_called_once()
     output = capsys.readouterr().out
-    assert "WARNING: 2/3 items failed to generate" in output
+    assert "WARNING: 2/3 items failed to generate (1 raised" in output
+    assert "1 returned no summary" in output
 
 
 def test_run_is_quiet_when_every_item_generates(judge, mocker, capsys):

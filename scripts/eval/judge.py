@@ -340,12 +340,12 @@ def run(model_id, dataset_name, prompt_key, *, tier2="jev"):
         print(f"  {str(row.item.id)[:18]:20s} {len(_text(row.output)):5d}ch  {scores}")
     # A raised task is missing from `item_results`, not stored there. See evals.md →
     # *API shapes that cost real time to rediscover*.
+    raised = len(items) - len(result.item_results)
     empty = sum(generation_failed(_text(r.output)) for r in result.item_results)
-    failed = len(items) - len(result.item_results) + empty
-    if failed:
+    if raised or empty:
         print(
-            f"\n  WARNING: {failed}/{len(items)} items failed to generate (the SDK "
-            f"logged each as `Item N failed`). Their Tier 1 scores describe the error "
-            f"text, not a summary.",
+            f"\n  WARNING: {raised + empty}/{len(items)} items failed to generate "
+            f"({raised} raised, logged above as `Item N failed`; {empty} returned no "
+            f"summary). Their Tier 1 scores do not describe a summary.",
         )
     return result
