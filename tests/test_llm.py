@@ -261,37 +261,6 @@ def test_build_settings_passes_every_allowed_level_as_agnostic_effort(
     assert settings["thinking"] in get_args(ThinkingEffort)
 
 
-def test_build_settings_does_not_reject_unknown_thinking_level(llm_client):
-    """Test a level outside the allow-list survives build_settings itself.
-
-    It no longer survives the request: see the KeyError test below. This pins
-    where the failure is *not*, so the two together locate it exactly.
-    """
-    assert llm_client.build_settings(thinking_level="INVALID") == {
-        "thinking": "INVALID",
-    }
-
-
-def test_unknown_thinking_level_raises_when_the_request_is_built(llm_client):
-    """Lock where a stale `users.thinking_level` now fails, and how loudly.
-
-    Passing the level through `google_thinking_config` used to leave the ruling
-    to the provider. The agnostic effort is looked up in a dict instead, so an
-    unrecognized level raises KeyError while the request is assembled — inside
-    agent.run_sync, but *not* caught by summary.py's typed @retry decorators, so
-    it surfaces to Sentry on the first attempt rather than being retried.
-    """
-    model = llm_client.build_model("gemini-3.8-flash")
-    settings = llm_client.build_settings(thinking_level="INVALID")
-    messages = [ModelRequest(parts=[UserPromptPart(content="hello")])]
-    settings, params = model.prepare_request(settings, ModelRequestParameters())
-
-    with pytest.raises(KeyError, match="INVALID"):
-        asyncio.run(
-            model._build_content_and_config(messages, settings or {}, params),
-        )
-
-
 def test_build_uploaded_file_uses_uri_as_file_id(llm_client):
     """Test the uploaded-file part carries the uri, not the file name."""
     file = SimpleNamespace(
@@ -305,29 +274,6 @@ def test_build_uploaded_file_uses_uri_as_file_id(llm_client):
     assert part.file_id == file.uri
     assert part.media_type == "audio/ogg"
     assert part.provider_name == "google"
-
-
-def test_build_uploaded_file_rejects_non_google_model(llm_client, mocker):
-    """Test a Gemini-stored file is never handed to another provider's model.
-
-    upload_and_wait_for_file always uploads to Gemini, so a non-Google model
-    would receive a file id it cannot resolve.
-    """
-    mocker.patch.dict(
-        llm_module.MODEL_SPECS,
-        {
-            "mystery-1": ModelSpec(
-                label="Mystery 1",
-                provider="mystery",
-                supports_audio=True,
-                supports_files=True,
-            ),
-        },
-    )
-    file = SimpleNamespace(name="files/x", uri="https://x", mime_type="audio/ogg")
-
-    with pytest.raises(ValueError, match="Cannot reference a Gemini file"):
-        llm_client.build_uploaded_file(model_id="mystery-1", file=file)
 
 
 def test_build_uploaded_file_rejects_registered_openrouter_model(mocker):

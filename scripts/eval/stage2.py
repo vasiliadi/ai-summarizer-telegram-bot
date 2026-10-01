@@ -376,6 +376,7 @@ def backfill(tier2, models=(), *, rescore=False):
     to rediscover*.
     """
     (evaluator,) = judge.JUDGES[tier2]
+    name = {"jev": JEV, "opus": FABRICATED}[tier2]
     client = Langfuse()
     sources = {
         i.id: i.input  # the evaluator reads `content` off the item input
@@ -393,11 +394,8 @@ def backfill(tier2, models=(), *, rescore=False):
             summary = judge._text(item.get("output"))  # noqa: SLF001
             if judge.generation_failed(summary):
                 continue
-            todo.append((candidate, item, summary, names))
-    # The score name is only known from an evaluation, so skip on a probe.
-    probe = evaluator.__name__.removeprefix("eval_")
-    name = {"jev": JEV, "fabricated": FABRICATED}[probe]
-    todo = [(c, i, s) for c, i, s, names in todo if rescore or name not in names]
+            if rescore or name not in names:
+                todo.append((candidate, item, summary))
     print(f"{len(todo)} item(s) {'to rescore on' if rescore else 'without'} {name}")
 
     def one(job):

@@ -25,12 +25,16 @@ from transcription import (
     YtDlpBackend,
 )
 
+URL = "https://www.youtube.com/watch?v=test"
 
-def _install_mock_ydl(mocker, tmp_path, info, vtt_name, vtt_text):
+
+def _install_mock_ydl(mocker, tmp_path, info, vtt_name, vtt_text, probe_errors=()):
     """Patch YoutubeDL with a stub that probes `info` and writes one vtt file.
 
+    Each of `probe_errors` is raised by one probe before `info` is returned.
+
     Pins the temp basename so the fixture file can be named before the call —
-    fetch_via_ytdlp never returns it — and points Path.cwd at tmp_path so the
+    YtDlpBackend.fetch never returns it — and points Path.cwd at tmp_path so the
     production glob and the real clean_up both operate there.
 
     Returns:
@@ -38,6 +42,7 @@ def _install_mock_ydl(mocker, tmp_path, info, vtt_name, vtt_text):
 
     """
     download_calls: list[list[str]] = []
+    pending_errors = list(probe_errors)
     vtt_path = tmp_path / vtt_name
 
     class MockYDL:
@@ -51,6 +56,8 @@ def _install_mock_ydl(mocker, tmp_path, info, vtt_name, vtt_text):
             pass
 
         def extract_info(self, url: str, download: bool = True) -> dict:
+            if pending_errors:
+                raise pending_errors.pop(0)
             return info
 
         def download(self, url_list: list[str]) -> int:
@@ -70,7 +77,7 @@ def _install_mock_ydl(mocker, tmp_path, info, vtt_name, vtt_text):
 def _make_transcriber():
     """Return (transcriber, primary, fallback) wired to freshly constructed backends.
 
-    Callers patch fetch/fetch_via_api/fetch_via_ytdlp on the returned backends
+    Callers patch fetch on the returned backends
     so orchestration tests never touch the network or the module singletons.
     """
     primary = ApiBackend()
@@ -83,7 +90,7 @@ def test_get_yt_transcript_uses_api_primary(mocker):
     transcriber, primary, fallback = _make_transcriber()
     mock_api = mocker.patch.object(
         primary,
-        "fetch_via_api",
+        "fetch",
         return_value="from api",
     )
     mock_ytdlp = mocker.patch.object(fallback, "fetch")
@@ -92,7 +99,7 @@ def test_get_yt_transcript_uses_api_primary(mocker):
     result = transcriber.get_transcript(url)
 
     assert result == PrefixedText(text="from api", prefix="📺")
-    mock_api.assert_called_once_with("dQw4w9WgXcQ")
+    mock_api.assert_called_once_with(url, "dQw4w9WgXcQ")
     mock_ytdlp.assert_not_called()
 
 
@@ -113,19 +120,19 @@ def test_get_yt_transcript_falls_back_to_ytdlp(mocker, url):
     transcriber, primary, fallback = _make_transcriber()
     mocker.patch.object(
         primary,
-        "fetch_via_api",
+        "fetch",
         side_effect=TranscriptsDisabled("dQw4w9WgXcQ"),
     )
     mock_ytdlp = mocker.patch.object(
         fallback,
-        "fetch_via_ytdlp",
+        "fetch",
         return_value="from fallback",
     )
 
     result = transcriber.get_transcript(url)
 
     assert result == PrefixedText(text="from fallback", prefix="📹")
-    mock_ytdlp.assert_called_once_with(url)
+    mock_ytdlp.assert_called_once_with(url, "dQw4w9WgXcQ")
 
 
 def test_get_yt_transcript_falls_back_on_unexpected_primary_error(mocker):
@@ -137,12 +144,12 @@ def test_get_yt_transcript_falls_back_on_unexpected_primary_error(mocker):
     transcriber, primary, fallback = _make_transcriber()
     mocker.patch.object(
         primary,
-        "fetch_via_api",
+        "fetch",
         side_effect=ConnectionError("network down"),
     )
     mock_ytdlp = mocker.patch.object(
         fallback,
-        "fetch_via_ytdlp",
+        "fetch",
         return_value="from fallback",
     )
 
@@ -150,7 +157,7 @@ def test_get_yt_transcript_falls_back_on_unexpected_primary_error(mocker):
     result = transcriber.get_transcript(url)
 
     assert result == PrefixedText(text="from fallback", prefix="📹")
-    mock_ytdlp.assert_called_once_with(url)
+    mock_ytdlp.assert_called_once_with(url, "dQw4w9WgXcQ")
 
 
 def test_get_yt_transcript_falls_back_on_empty_primary(mocker):
@@ -158,12 +165,12 @@ def test_get_yt_transcript_falls_back_on_empty_primary(mocker):
     transcriber, primary, fallback = _make_transcriber()
     mocker.patch.object(
         primary,
-        "fetch_via_api",
+        "fetch",
         return_value="   \n  ",
     )
     mock_ytdlp = mocker.patch.object(
         fallback,
-        "fetch_via_ytdlp",
+        "fetch",
         return_value="from fallback",
     )
 
@@ -171,7 +178,7 @@ def test_get_yt_transcript_falls_back_on_empty_primary(mocker):
     result = transcriber.get_transcript(url)
 
     assert result == PrefixedText(text="from fallback", prefix="📹")
-    mock_ytdlp.assert_called_once_with(url)
+    mock_ytdlp.assert_called_once_with(url, "dQw4w9WgXcQ")
 
 
 def test_get_yt_transcript_both_backends_fail_raises_error(mocker):
@@ -181,12 +188,12 @@ def test_get_yt_transcript_both_backends_fail_raises_error(mocker):
     ytdlp_error = DownloadError("no subs")
     mocker.patch.object(
         primary,
-        "fetch_via_api",
+        "fetch",
         side_effect=api_error,
     )
     mocker.patch.object(
         fallback,
-        "fetch_via_ytdlp",
+        "fetch",
         side_effect=ytdlp_error,
     )
 
@@ -200,10 +207,10 @@ def test_get_yt_transcript_both_backends_fail_raises_error(mocker):
 def test_get_yt_transcript_both_empty_raises_error(mocker):
     """Test get_yt_transcript raises FetchTranscriptError when both backends return empty."""
     transcriber, primary, fallback = _make_transcriber()
-    mocker.patch.object(primary, "fetch_via_api", return_value="")
+    mocker.patch.object(primary, "fetch", return_value="")
     mocker.patch.object(
         fallback,
-        "fetch_via_ytdlp",
+        "fetch",
         return_value="  ",
     )
 
@@ -225,8 +232,8 @@ def test_get_yt_transcript_unknown_url(mocker):
     mock_ytdlp.assert_not_called()
 
 
-def test_fetch_via_api_falls_back_to_other_languages(mocker):
-    """Test fetch_via_api retries other languages on NoTranscriptFound."""
+def test_api_fetch_falls_back_to_other_languages(mocker):
+    """Test ApiBackend.fetch retries other languages on NoTranscriptFound."""
     mocker.patch("transcription.time.sleep")  # don't actually wait 60s
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
     mock_formatter = mocker.patch("transcription.TextFormatter")
@@ -243,7 +250,7 @@ def test_fetch_via_api_falls_back_to_other_languages(mocker):
 
     mock_formatter.return_value.format_transcript.return_value = "Hola"
 
-    result = ApiBackend().fetch_via_api("dQw4w9WgXcQ")
+    result = ApiBackend().fetch(URL, "dQw4w9WgXcQ")
 
     assert result == "Hola"
     # Verify it was called twice, once without languages, once with languages
@@ -349,8 +356,8 @@ def test_vtt_to_text_keeps_nonconsecutive_duplicates(tmp_path):
     assert result == "Hello\nWorld\nHello"
 
 
-def test_fetch_via_api_uses_proxy_when_configured(mocker):
-    """Test fetch_via_api passes GenericProxyConfig when PROXY is set."""
+def test_api_fetch_uses_proxy_when_configured(mocker):
+    """Test ApiBackend.fetch passes GenericProxyConfig when PROXY is set."""
     # get_proxy() reads config.PROXIES, which python-dotenv backfills from the
     # developer's real .env (conftest.py never sets PROXY) — patch it so the
     # test result does not depend on what happens to be in that file.
@@ -362,15 +369,15 @@ def test_fetch_via_api_uses_proxy_when_configured(mocker):
     ).return_value.format_transcript.return_value = "Hello"
     mock_ytt.return_value.fetch.return_value = []
 
-    result = ApiBackend().fetch_via_api("vid")
+    result = ApiBackend().fetch(URL, "vid")
 
     assert result == "Hello"
     mock_proxy_cfg.assert_called_once_with(https_url="http://proxy:8080")
     mock_ytt.assert_called_once_with(proxy_config=mock_proxy_cfg.return_value)
 
 
-def test_fetch_via_ytdlp_download_error_logged_and_retried(mocker, tmp_path):
-    """Test fetch_via_ytdlp retries DownloadError from yt-dlp twice then raises RetryError."""
+def test_ytdlp_fetch_download_error_logged_and_retried(mocker, tmp_path):
+    """Test YtDlpBackend.fetch retries DownloadError from yt-dlp twice then raises RetryError."""
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mocker.patch("time.sleep")
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
@@ -383,9 +390,7 @@ def test_fetch_via_ytdlp_download_error_logged_and_retried(mocker, tmp_path):
     mock_logger = mocker.patch("transcription.logger")
 
     with pytest.raises(RetryError):
-        YtDlpBackend().fetch_via_ytdlp(
-            "https://www.youtube.com/watch?v=test",
-        )
+        YtDlpBackend().fetch(URL, "test")
 
     assert ctx.download.call_count == 2
     mock_logger.warning.assert_any_call(
@@ -395,11 +400,11 @@ def test_fetch_via_ytdlp_download_error_logged_and_retried(mocker, tmp_path):
     )
 
 
-def test_fetch_via_ytdlp_unexpected_error_wrapped_and_retried(
+def test_ytdlp_fetch_unexpected_error_wrapped_and_retried(
     mocker,
     tmp_path,
 ):
-    """Test fetch_via_ytdlp wraps non-DownloadError exceptions and retries."""
+    """Test YtDlpBackend.fetch wraps non-DownloadError exceptions and retries."""
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mocker.patch("time.sleep")
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
@@ -412,9 +417,7 @@ def test_fetch_via_ytdlp_unexpected_error_wrapped_and_retried(
     mock_logger = mocker.patch("transcription.logger")
 
     with pytest.raises(RetryError):
-        YtDlpBackend().fetch_via_ytdlp(
-            "https://www.youtube.com/watch?v=test",
-        )
+        YtDlpBackend().fetch(URL, "test")
 
     assert ctx.download.call_count == 2
     mock_logger.warning.assert_any_call(
@@ -424,8 +427,8 @@ def test_fetch_via_ytdlp_unexpected_error_wrapped_and_retried(
     )
 
 
-def test_fetch_via_ytdlp_unexpected_error_preserves_cause(mocker, tmp_path):
-    """Test fetch_via_ytdlp preserves original cause through RetryError on exhaustion."""
+def test_ytdlp_fetch_unexpected_error_preserves_cause(mocker, tmp_path):
+    """Test YtDlpBackend.fetch preserves original cause through RetryError on exhaustion."""
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mocker.patch("time.sleep")
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
@@ -438,20 +441,18 @@ def test_fetch_via_ytdlp_unexpected_error_preserves_cause(mocker, tmp_path):
     ctx.download.side_effect = original_exc
 
     with pytest.raises(RetryError) as exc_info:
-        YtDlpBackend().fetch_via_ytdlp(
-            "https://www.youtube.com/watch?v=test",
-        )
+        YtDlpBackend().fetch(URL, "test")
 
     last_exc = exc_info.value.last_attempt.exception()
     assert isinstance(last_exc, TranscriptDownloadError)
     assert last_exc.__cause__ is original_exc
 
 
-def test_fetch_via_ytdlp_probe_download_error_logged_and_retried(
+def test_ytdlp_fetch_probe_download_error_logged_and_retried(
     mocker,
     tmp_path,
 ):
-    """Test fetch_via_ytdlp retries probe DownloadError twice then raises RetryError."""
+    """Test YtDlpBackend.fetch retries probe DownloadError twice then raises RetryError."""
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mocker.patch("time.sleep")
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
@@ -460,9 +461,7 @@ def test_fetch_via_ytdlp_probe_download_error_logged_and_retried(
     mock_logger = mocker.patch("transcription.logger")
 
     with pytest.raises(RetryError):
-        YtDlpBackend().fetch_via_ytdlp(
-            "https://www.youtube.com/watch?v=test",
-        )
+        YtDlpBackend().fetch(URL, "test")
 
     assert ctx.extract_info.call_count == 2
     mock_logger.warning.assert_any_call(
@@ -473,11 +472,11 @@ def test_fetch_via_ytdlp_probe_download_error_logged_and_retried(
     ctx.download.assert_not_called()
 
 
-def test_fetch_via_ytdlp_probe_unexpected_error_wrapped_and_retried(
+def test_ytdlp_fetch_probe_unexpected_error_wrapped_and_retried(
     mocker,
     tmp_path,
 ):
-    """Test fetch_via_ytdlp wraps and retries unexpected errors from extract_info."""
+    """Test YtDlpBackend.fetch wraps and retries unexpected errors from extract_info."""
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mocker.patch("time.sleep")
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
@@ -487,9 +486,7 @@ def test_fetch_via_ytdlp_probe_unexpected_error_wrapped_and_retried(
     mock_logger = mocker.patch("transcription.logger")
 
     with pytest.raises(RetryError) as exc_info:
-        YtDlpBackend().fetch_via_ytdlp(
-            "https://www.youtube.com/watch?v=test",
-        )
+        YtDlpBackend().fetch(URL, "test")
 
     last_exc = exc_info.value.last_attempt.exception()
     assert isinstance(last_exc, TranscriptDownloadError)
@@ -503,61 +500,35 @@ def test_fetch_via_ytdlp_probe_unexpected_error_wrapped_and_retried(
     ctx.download.assert_not_called()
 
 
-def test_fetch_via_ytdlp_succeeds_on_second_attempt(mocker, tmp_path):
-    """Test fetch_via_ytdlp returns transcript when first probe fails but second succeeds."""
-    # Fixed name kept: the vtt fixture below is written under this name by
-    # MockYDL.download(), so the name must be known before the call for the
-    # production glob to find it — fetch_via_ytdlp never returns the temp name.
-    mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
-    mocker.patch("transcription.Path.cwd", return_value=tmp_path)
+def test_ytdlp_fetch_succeeds_on_second_attempt(mocker, tmp_path):
+    """Test YtDlpBackend.fetch returns the transcript when only the first probe fails."""
     mocker.patch("time.sleep")
-
-    vtt_content = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nHello\n"
-    vtt_path = tmp_path / "fake-uuid.en.vtt"
-
-    class MockYDL:
-        attempt = 0
-
-        def __init__(self, opts: object) -> None:
-            self.opts = opts
-
-        def __enter__(self) -> MockYDL:
-            return self
-
-        def __exit__(self, *args: object) -> None:
-            pass
-
-        def extract_info(self, url: str, download: bool = True) -> dict:
-            MockYDL.attempt += 1
-            if MockYDL.attempt == 1:
-                raise DownloadError("transient network blip")
-            return {"subtitles": {"en": [{}]}, "automatic_captions": {}}
-
-        def download(self, url_list: list[str]) -> int:
-            vtt_path.write_text(vtt_content, encoding="utf-8")
-            return 0
-
-    mocker.patch("transcription.YoutubeDL", MockYDL)
-
-    result = YtDlpBackend().fetch_via_ytdlp(
-        "https://www.youtube.com/watch?v=test",
+    download_calls, vtt_path = _install_mock_ydl(
+        mocker,
+        tmp_path,
+        {"subtitles": {"en": [{}]}, "automatic_captions": {}},
+        "fake-uuid.en.vtt",
+        "Hello",
+        probe_errors=[DownloadError("transient network blip")],
     )
 
+    result = YtDlpBackend().fetch(URL, "test")
+
     assert result == "Hello"
-    assert MockYDL.attempt == 2
-    # Real clean_up runs (Path.cwd is patched to tmp_path above): the vtt
-    # fixture should be gone rather than merely asserting clean_up was called.
+    assert download_calls == [["en"]]
+    # Real clean_up runs (Path.cwd is patched to tmp_path): the vtt fixture
+    # should be gone rather than merely asserting clean_up was called.
     assert not vtt_path.exists()
 
 
-def test_fetch_via_api_propagates_non_retryable_error(mocker):
-    """Test fetch_via_api propagates CouldNotRetrieveTranscript subclasses."""
+def test_api_fetch_propagates_non_retryable_error(mocker):
+    """Test ApiBackend.fetch propagates CouldNotRetrieveTranscript subclasses."""
     mocker.patch("transcription.get_proxy", return_value="")
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
     mock_ytt.return_value.fetch.side_effect = TranscriptsDisabled("vid")
 
     with pytest.raises(TranscriptsDisabled):
-        ApiBackend().fetch_via_api("vid")
+        ApiBackend().fetch(URL, "vid")
 
 
 @pytest.mark.parametrize(
@@ -571,19 +542,19 @@ def test_fetch_via_api_propagates_non_retryable_error(mocker):
         ChunkedEncodingError(),
     ],
 )
-def test_fetch_via_api_retries_on_retryable_exception(mocker, exc):
-    """Test fetch_via_api retries on each retryable exception then raises RetryError."""
+def test_api_fetch_retries_on_retryable_exception(mocker, exc):
+    """Test ApiBackend.fetch retries on each retryable exception then raises RetryError."""
     mocker.patch("time.sleep")
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
     mock_ytt.return_value.fetch.side_effect = exc
 
     with pytest.raises(RetryError):
-        ApiBackend().fetch_via_api("vid")
+        ApiBackend().fetch(URL, "vid")
 
     assert mock_ytt.return_value.fetch.call_count == 2
 
 
-# Track selection, in the order fetch_via_ytdlp applies it: genuine manual
+# Track selection, in the order YtDlpBackend.fetch applies it: genuine manual
 # subtitles win (English first, else the video's original language, else the
 # first key), and only if there are none do automatic captions apply the same
 # preference — with a "*-orig" key standing in for a missing info["language"],
@@ -658,7 +629,7 @@ def test_fetch_via_api_retries_on_retryable_exception(mocker, exc):
         ),
     ],
 )
-def test_fetch_via_ytdlp_selects_subtitle_track(
+def test_ytdlp_fetch_selects_subtitle_track(
     mocker,
     tmp_path,
     info,
@@ -666,7 +637,7 @@ def test_fetch_via_ytdlp_selects_subtitle_track(
     expected_langs,
     expected_text,
 ):
-    """Test fetch_via_ytdlp requests the right subtitle track for each track mix."""
+    """Test YtDlpBackend.fetch requests the right subtitle track for each track mix."""
     download_calls, vtt_path = _install_mock_ydl(
         mocker,
         tmp_path,
@@ -675,7 +646,7 @@ def test_fetch_via_ytdlp_selects_subtitle_track(
         expected_text,
     )
 
-    result = YtDlpBackend().fetch_via_ytdlp("https://www.youtube.com/watch?v=test")
+    result = YtDlpBackend().fetch(URL, "test")
 
     assert result == expected_text
     assert download_calls == [expected_langs]
@@ -684,44 +655,40 @@ def test_fetch_via_ytdlp_selects_subtitle_track(
     assert not vtt_path.exists()
 
 
-def test_fetch_via_ytdlp_no_subtitles_skips_download(mocker, tmp_path):
-    """Test fetch_via_ytdlp raises without calling download when no subtitles exist."""
+def test_ytdlp_fetch_no_subtitles_skips_download(mocker, tmp_path):
+    """Test YtDlpBackend.fetch raises without calling download when no subtitles exist."""
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
     ctx = mock_ydl_cls.return_value.__enter__.return_value
     ctx.extract_info.return_value = {"subtitles": {}, "automatic_captions": {}}
 
     with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
-        YtDlpBackend().fetch_via_ytdlp(
-            "https://www.youtube.com/watch?v=test",
-        )
+        YtDlpBackend().fetch(URL, "test")
 
     ctx.download.assert_not_called()
 
 
-def test_fetch_via_ytdlp_extract_info_none_raises(mocker, tmp_path):
-    """Test fetch_via_ytdlp raises when extract_info returns None."""
+def test_ytdlp_fetch_extract_info_none_raises(mocker, tmp_path):
+    """Test YtDlpBackend.fetch raises when extract_info returns None."""
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
     ctx = mock_ydl_cls.return_value.__enter__.return_value
     ctx.extract_info.return_value = None
 
     with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
-        YtDlpBackend().fetch_via_ytdlp(
-            "https://www.youtube.com/watch?v=test",
-        )
+        YtDlpBackend().fetch(URL, "test")
 
     ctx.download.assert_not_called()
 
 
-def test_fetch_via_ytdlp_vtt_read_error_raises_download_error(
+def test_ytdlp_fetch_vtt_read_error_raises_download_error(
     mocker,
     tmp_path,
 ):
-    """Test fetch_via_ytdlp converts vtt_to_text OSError into DownloadError."""
+    """Test YtDlpBackend.fetch converts vtt_to_text OSError into DownloadError."""
     # Fixed name kept: the vtt fixture below is pre-created on disk before the
     # call, so the name must be known ahead of time (see the comment on
-    # test_fetch_via_ytdlp_succeeds_on_second_attempt for why it can't be
+    # test_YtDlpBackend.fetch_succeeds_on_second_attempt for why it can't be
     # obtained after the fact).
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
@@ -737,17 +704,15 @@ def test_fetch_via_ytdlp_vtt_read_error_raises_download_error(
     mocker.patch.object(YtDlpBackend, "_vtt_to_text", side_effect=OSError("disk full"))
 
     with pytest.raises(DownloadError, match="Failed to read downloaded VTT file"):
-        YtDlpBackend().fetch_via_ytdlp(
-            "https://www.youtube.com/watch?v=test",
-        )
+        YtDlpBackend().fetch(URL, "test")
 
     # Real clean_up runs (Path.cwd is patched to tmp_path above): the vtt
     # fixture should be gone rather than merely asserting clean_up was called.
     assert not vtt_path.exists()
 
 
-def test_fetch_via_ytdlp_no_vtt_after_download_raises(mocker, tmp_path):
-    """Test fetch_via_ytdlp raises when download writes no vtt file."""
+def test_ytdlp_fetch_no_vtt_after_download_raises(mocker, tmp_path):
+    """Test YtDlpBackend.fetch raises when download writes no vtt file."""
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
     ctx = mock_ydl_cls.return_value.__enter__.return_value
@@ -758,18 +723,16 @@ def test_fetch_via_ytdlp_no_vtt_after_download_raises(mocker, tmp_path):
     # download() succeeds but writes nothing to tmp_path
 
     with pytest.raises(DownloadError, match="No subtitles available via yt-dlp"):
-        YtDlpBackend().fetch_via_ytdlp(
-            "https://www.youtube.com/watch?v=test",
-        )
+        YtDlpBackend().fetch(URL, "test")
 
     ctx.download.assert_called_once()
 
 
-def test_fetch_via_ytdlp_pins_proxy_across_probe_and_download(
+def test_ytdlp_fetch_pins_proxy_across_probe_and_download(
     mocker,
     tmp_path,
 ):
-    """Test fetch_via_ytdlp resolves the proxy once and reuses it for both YoutubeDL instances."""
+    """Test YtDlpBackend.fetch resolves the proxy once and reuses it for both YoutubeDL instances."""
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
     mocker.patch("transcription.get_proxy", return_value="http://proxy.example:8080")
@@ -787,7 +750,7 @@ def test_fetch_via_ytdlp_pins_proxy_across_probe_and_download(
         "automatic_captions": {},
     }
 
-    YtDlpBackend().fetch_via_ytdlp("https://www.youtube.com/watch?v=test")
+    YtDlpBackend().fetch(URL, "test")
 
     assert mock_ydl_cls.call_count == 2
     probe_opts, download_opts = (call.args[0] for call in mock_ydl_cls.call_args_list)

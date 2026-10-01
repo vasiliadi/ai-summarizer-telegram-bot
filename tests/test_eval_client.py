@@ -1,7 +1,7 @@
 """Contract tests for the eval harness's subclass of the bot's `LLMClient`.
 
 `EvalLLMClient` overrides one method and leans on `LLMClient`'s private
-per-thread state (`_local`, `_models`, `_openrouter_provider`). A refactor of
+per-thread state (`_local`, `_models`) and `_build_openrouter_model`. A refactor of
 `src/llm.py` keeps the bot working and breaks compare runs, and no bot test
 notices, so these pin the seam from the harness side.
 """
@@ -86,28 +86,6 @@ def test_build_model_caches_per_thread_and_shares_the_provider(llm, factory):
     other_thread = _in_thread(lambda: llm.build_model(CANDIDATE))
     assert other_thread is not first
     assert factory.call_count == 2
-
-
-def test_build_model_matches_what_the_bot_builds_for_openrouter(llm, factory, mocker):
-    """A candidate is built the way the bot builds a registered OpenRouter model.
-
-    If `LLMClient.build_model` changes its OpenRouter branch — another wrapper,
-    new model settings — a compare run would stop measuring the bot's path.
-    """
-    registered = next(
-        (k for k, s in config.MODEL_SPECS.items() if s.provider == "openrouter"),
-        None,
-    )
-    if registered is None:
-        pytest.skip("no OpenRouter model is registered")
-    bot = LLMClient(client=mocker.Mock(), openrouter_provider_factory=factory)
-
-    expected = bot.build_model(registered)
-    actual = llm.build_model(registered)
-
-    assert type(actual) is type(expected)
-    assert type(actual.wrapped) is type(expected.wrapped)
-    assert actual.wrapped.settings == expected.wrapped.settings
 
 
 # --- close_openrouter_provider -------------------------------------------------

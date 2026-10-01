@@ -5,30 +5,6 @@ from typing import get_args
 from pydantic_ai.settings import ThinkingEffort
 
 import config
-import utils
-
-
-def test_get_proxy_returns_empty_when_no_proxies(mocker):
-    """Test get_proxy returns an empty string when no proxies are configured."""
-    mocker.patch.object(utils, "PROXIES", [])
-    assert utils.get_proxy() == ""
-
-
-def test_get_proxy_returns_single_value(mocker):
-    """Test get_proxy always returns the sole configured proxy."""
-    mocker.patch.object(utils, "PROXIES", ["http://only:1"])
-    for _ in range(5):
-        assert utils.get_proxy() == "http://only:1"
-
-
-def test_get_proxy_picks_from_list(mocker):
-    """Test get_proxy selects a proxy from the configured pool at random."""
-    pool = ["http://a:1", "http://b:2", "http://c:3"]
-    mocker.patch.object(utils, "PROXIES", pool)
-    mocker.patch("utils.random.choice", side_effect=pool)
-    assert utils.get_proxy() == "http://a:1"
-    assert utils.get_proxy() == "http://b:2"
-    assert utils.get_proxy() == "http://c:3"
 
 
 def test_proxy_env_parsing_trims_and_drops_empty(monkeypatch):

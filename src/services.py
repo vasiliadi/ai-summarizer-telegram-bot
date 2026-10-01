@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import mimetypes
 import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, ClassVar, cast
@@ -154,10 +153,6 @@ class GeminiHelper:
     def __init__(self, client: genai.Client) -> None:
         """Store the injected Gemini client."""
         self._client = client
-
-    def resolve_mime_type(self, file: str) -> str:
-        """Resolve the MIME type for a file path, defaulting to octet-stream."""
-        return mimetypes.guess_type(file)[0] or "application/octet-stream"
 
     def upload_and_wait_for_file(self, file: str, mime_type: str) -> types.File:
         """Upload a file to Gemini and wait for processing to finish."""

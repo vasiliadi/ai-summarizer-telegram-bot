@@ -1,5 +1,4 @@
-from pathlib import Path
-
+import utils
 from utils import classify_url, clean_up, compress_audio, generate_temporary_name
 
 
@@ -100,71 +99,68 @@ def test_compress_audio_calls_ffmpeg(mocker):
     )
 
 
-def test_clean_up_single_file_unprotected(mocker):
+def test_get_proxy_returns_empty_when_no_proxies(mocker):
+    """Test get_proxy returns an empty string when no proxies are configured."""
+    mocker.patch.object(utils, "PROXIES", [])
+    assert utils.get_proxy() == ""
+
+
+def test_get_proxy_returns_single_value(mocker):
+    """Test get_proxy always returns the sole configured proxy."""
+    mocker.patch.object(utils, "PROXIES", ["http://only:1"])
+    for _ in range(5):
+        assert utils.get_proxy() == "http://only:1"
+
+
+def test_get_proxy_picks_from_list(mocker):
+    """Test get_proxy selects a proxy from the configured pool at random."""
+    pool = ["http://a:1", "http://b:2", "http://c:3"]
+    mocker.patch.object(utils, "PROXIES", pool)
+    mocker.patch("utils.random.choice", side_effect=pool)
+    assert utils.get_proxy() == "http://a:1"
+    assert utils.get_proxy() == "http://b:2"
+    assert utils.get_proxy() == "http://c:3"
+
+
+def test_clean_up_removes_an_unprotected_file(tmp_path):
     """Test that clean_up removes a single unprotected file."""
-    mock_path = mocker.MagicMock(spec=Path)
-    mock_path.is_file.return_value = True
-    mock_path.name = "unprotected_temp.mp3"
+    file = tmp_path / "temp.mp3"
+    file.touch()
 
-    # We patch Path instantiation to return our mock path
-    mocker.patch("utils.Path", return_value=mock_path)
-    # We also need to patch Path.unlink since it's called on the class/instance
-    mock_unlink = mocker.patch("utils.Path.unlink")
+    clean_up(file=str(file))
 
-    clean_up(file="unprotected_temp.mp3")
-
-    # It should have unlinked our mock_path object
-    mock_unlink.assert_called_once_with(mock_path)
+    assert not file.exists()
 
 
-def test_clean_up_single_file_protected(mocker):
-    """Test that clean_up does not remove a protected file."""
-    mock_path = mocker.MagicMock(spec=Path)
-    mock_path.is_file.return_value = True
-    mock_path.name = "utils.py"
+def test_clean_up_keeps_a_protected_file(tmp_path, mocker):
+    """Test that clean_up does not remove a file from the startup snapshot."""
+    file = tmp_path / "utils.py"
+    file.touch()
+    mocker.patch("utils.PROTECTED_FILES", ["utils.py"])
 
-    mocker.patch("utils.Path", return_value=mock_path)
-    mock_unlink = mocker.patch("utils.Path.unlink")
+    clean_up(file=str(file))
 
-    mocker.patch("utils.PROTECTED_FILES", [mock_path.name])
-
-    clean_up(file=mock_path.name)
-
-    # It should NOT have unlinked
-    mock_unlink.assert_not_called()
+    assert file.exists()
 
 
-def test_clean_up_no_args_is_noop(mocker):
-    """Test that clean_up() with no arguments does nothing."""
-    mock_unlink = mocker.patch("utils.Path.unlink")
+def test_clean_up_no_args_is_noop(tmp_path, monkeypatch):
+    """Test that clean_up() with no arguments removes nothing."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "temp.mp3").touch()
 
     clean_up()
 
-    mock_unlink.assert_not_called()
+    assert (tmp_path / "temp.mp3").exists()
 
 
-def test_clean_up_all_downloads(mocker):
-    """Test that clean_up(all_downloads=True) only deletes unprotected files."""
-    # Create mock paths
-    file1 = mocker.MagicMock(spec=Path)
-    file1.is_file.return_value = True
-    file1.name = "unprotected1.mp3"
-
-    file2 = mocker.MagicMock(spec=Path)
-    file2.is_file.return_value = True
-    file2.name = "protected.py"
-
-    file3 = mocker.MagicMock(spec=Path)
-    file3.is_file.return_value = False  # Not a file (e.g. directory)
-    file3.name = "dir"
-
-    mock_cwd = mocker.patch("utils.Path.cwd")
-    mock_cwd.return_value.iterdir.return_value = [file1, file2, file3]
-
+def test_clean_up_all_downloads(tmp_path, monkeypatch, mocker):
+    """Test that the sweep deletes only unprotected regular files in the CWD."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "temp.mp3").touch()
+    (tmp_path / "protected.py").touch()
+    (tmp_path / "dir").mkdir()
     mocker.patch("utils.PROTECTED_FILES", ["protected.py"])
-    mock_unlink = mocker.patch("utils.Path.unlink")
 
     clean_up(all_downloads=True)
 
-    # Only file1 should have been unlinked
-    mock_unlink.assert_called_once_with(file1)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["dir", "protected.py"]

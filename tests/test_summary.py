@@ -1,4 +1,5 @@
 import logging
+from dataclasses import replace
 from textwrap import dedent
 from types import SimpleNamespace
 
@@ -8,7 +9,7 @@ from telebot.types import File
 from tenacity import RetryError
 
 from config import DEFAULT_MODEL_ID_FOR_SUMMARY
-from domain import PrefixedText
+from domain import PrefixedText, SummarySettings
 from exceptions import FetchTranscriptError, LimitExceededError
 from prompts import PROMPTS
 from summary import Summarizer
@@ -16,6 +17,15 @@ from summary import Summarizer
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+SETTINGS = SummarySettings(
+    model="gemini-3.8-flash",
+    prompt_key="basic_prompt_for_transcript",
+    target_language="English",
+    user_id=123,
+    daily_limit=10,
+    thinking_level="minimal",
+)
 
 
 def _make_summarizer(mocker):
@@ -59,7 +69,6 @@ def test_summarize_with_file_upload_and_model_call(mocker):
     """Test the complete summarize_with_file flow with the file API and model mocked."""
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
-    fakes.gemini_helper.resolve_mime_type.return_value = "audio/ogg"
     mock_uploaded_file = SimpleNamespace(
         name="files/mock123",
         uri="https://generativelanguage.googleapis.com/v1beta/files/mock123",
@@ -72,12 +81,7 @@ def test_summarize_with_file_upload_and_model_call(mocker):
 
     result = summarizer.summarize_with_file(
         file="test_audio.ogg",
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result == "This is a mocked summary of the file."
@@ -115,12 +119,7 @@ def test_summarize_with_file_retries_on_empty_response(mocker):
     with pytest.raises(RetryError):
         summarizer.summarize_with_file(
             file="test_audio.ogg",
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="minimal",
+            settings=SETTINGS,
         )
 
 
@@ -136,12 +135,7 @@ def test_summarize_text_from_webpage(mocker):
 
     result = summarizer.summarize_text(
         text="Parsed page content.",
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result == "Webpage summary."
@@ -167,12 +161,7 @@ def test_summarize_text_drops_the_content_part_when_text_is_blank(mocker, blank)
 
     summarizer.summarize_text(
         text=blank,
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert fakes.llm_client.run.call_args.kwargs["content"] == [
@@ -191,12 +180,7 @@ def test_summarize_with_file_upload_failure(mocker):
     with pytest.raises(Exception, match="Upload failed"):
         summarizer.summarize_with_file(
             file="test_audio.ogg",
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="minimal",
+            settings=SETTINGS,
         )
 
 
@@ -214,12 +198,7 @@ def test_summarize_model_api_exception(mocker):
     with pytest.raises(RetryError):
         summarizer.summarize_text(
             text="Hello",
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="minimal",
+            settings=SETTINGS,
         )
 
 
@@ -248,13 +227,8 @@ def test_summarize_with_document_polling(mocker):
 
     result = summarizer.summarize_with_document(
         file=mock_tg_file,
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
         mime_type="application/pdf",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result == "Document summary"
@@ -279,13 +253,8 @@ def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
     with pytest.raises(ValueError, match="FAILED"):
         summarizer.summarize_with_document(
             file=mocker.MagicMock(),
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
             mime_type="application/pdf",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="minimal",
+            settings=SETTINGS,
         )
 
     mock_clean_up.assert_called_once_with(file="temp_doc.pdf")
@@ -311,24 +280,14 @@ def test_summarize_youtube_transcript_carries_the_backend_prefix(mocker, prefix)
 
     result = summarizer.summarize(
         data=url,
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result == f"{prefix}\n\n- first point\n- second point"
     fakes.yt_transcriber.get_transcript.assert_called_once_with(url)
     mock_sum_transcript.assert_called_once_with(
         text="YT Transcript content",
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
 
@@ -348,12 +307,7 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
     with pytest.raises(RetryError):
         summarizer.summarize(
             data=url,
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="minimal",
+            settings=SETTINGS,
         )
 
     fakes.downloader.download_yt.assert_not_called()
@@ -388,12 +342,7 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(
 
     result = summarizer.summarize(
         data=url,
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result == "File summary"
@@ -426,12 +375,7 @@ def test_summarize_fallback_to_transcription(mocker):
 
     result = summarizer.summarize(
         data="local_audio.ogg",
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result.startswith("📝")
@@ -465,12 +409,7 @@ def test_summarize_routes_audio_around_a_model_that_cannot_read_it(mocker):
 
     result = summarizer.summarize(
         data="local_audio.ogg",
-        model="x-ai/grok-4.7",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=replace(SETTINGS, model="x-ai/grok-4.7"),
     )
 
     assert result == "📝\n\n- transcript point"
@@ -505,13 +444,8 @@ def test_summarize_with_document_routes_audio_document_to_transcription(mocker):
 
     result = summarizer.summarize_with_document(
         file=mock_tg_file,
-        model="x-ai/grok-4.7",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
         mime_type="audio/ogg",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=replace(SETTINGS, model="x-ai/grok-4.7"),
     )
 
     assert result == "📝\n\n- transcript point"
@@ -547,13 +481,8 @@ def test_summarize_with_document_falls_back_when_model_takes_no_file(mocker, cap
     with caplog.at_level(logging.WARNING, logger="summary"):
         result = summarizer.summarize_with_document(
             file=mocker.MagicMock(),
-            model="openai/gpt-6-luna",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
             mime_type="application/pdf",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="minimal",
+            settings=replace(SETTINGS, model="openai/gpt-6-luna"),
         )
 
     assert result == "Document summary"
@@ -582,13 +511,8 @@ def test_summarize_with_document_keeps_a_model_that_takes_files(mocker):
 
     summarizer.summarize_with_document(
         file=mocker.MagicMock(),
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
         mime_type="application/pdf",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert fakes.llm_client.run.call_args.kwargs["model_id"] == "gemini-3.8-flash"
@@ -610,12 +534,7 @@ def test_summarize_fallback_cleans_up_temp_file_when_compress_fails(mocker):
     with pytest.raises(RuntimeError):
         summarizer.summarize(
             data="local_audio.ogg",
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="minimal",
+            settings=SETTINGS,
         )
 
     mock_clean_up.assert_any_call(file="temp.ogg")
@@ -636,12 +555,7 @@ def test_summarize_castro(mocker):
 
     result = summarizer.summarize(
         data=url,
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result == "Castro summary"
@@ -666,12 +580,7 @@ def test_summarize_castro_www_host(mocker):
 
     result = summarizer.summarize(
         data="https://www.castro.fm/episode/123",
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result == "Castro summary"
@@ -699,12 +608,7 @@ def test_summarize_youtube_uppercase_host_uses_transcript(mocker):
 
     result = summarizer.summarize(
         data=url,
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result == "📺\n\nYT summary"
@@ -720,12 +624,7 @@ def test_summarize_preflight_blocks_before_download(mocker):
     with pytest.raises(LimitExceededError):
         summarizer.summarize(
             data="https://castro.fm/episode/123",
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=1,
-            daily_limit=0,
-            thinking_level="minimal",
+            settings=replace(SETTINGS, user_id=1, daily_limit=0),
         )
 
     fakes.quota_manager.check_quota.assert_called_once_with(
@@ -751,12 +650,7 @@ def test_summarize_with_file_deletes_gemini_file_when_quota_check_fails(mocker):
     with pytest.raises(LimitExceededError):
         summarizer.summarize_with_file(
             file="test_audio.ogg",
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=1,
-            daily_limit=5,
-            thinking_level="minimal",
+            settings=replace(SETTINGS, user_id=1, daily_limit=5),
         )
 
     assert fakes.quota_manager.check_quota.call_count == 2
@@ -781,13 +675,8 @@ def test_summarize_with_document_preflight_blocks_before_download(mocker):
     with pytest.raises(LimitExceededError):
         summarizer.summarize_with_document(
             file=mocker.MagicMock(),
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
             mime_type="application/pdf",
-            user_id=1,
-            daily_limit=0,
-            thinking_level="minimal",
+            settings=replace(SETTINGS, user_id=1, daily_limit=0),
         )
 
     fakes.quota_manager.check_quota.assert_called_once_with(
@@ -814,12 +703,7 @@ def test_summarize_with_file_logs_warning_on_delete_failure(mocker):
 
     result = summarizer.summarize_with_file(
         file="test_audio.ogg",
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result == "summary text"
@@ -837,12 +721,7 @@ def test_summarize_text_raises_on_empty_response(mocker):
     with pytest.raises(RetryError):
         summarizer.summarize_text(
             text="Hello world",
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="minimal",
+            settings=SETTINGS,
         )
 
 
@@ -865,13 +744,8 @@ def test_summarize_with_document_raises_when_upload_metadata_incomplete(mocker):
     with pytest.raises(RetryError):
         summarizer.summarize_with_document(
             file=mocker.MagicMock(),
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
             mime_type="application/pdf",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="minimal",
+            settings=SETTINGS,
         )
 
     fakes.gemini_helper.delete_file.assert_not_called()
@@ -895,13 +769,8 @@ def test_summarize_with_document_raises_on_empty_response(mocker):
     with pytest.raises(RetryError):
         summarizer.summarize_with_document(
             file=mocker.MagicMock(),
-            model="gemini-3.8-flash",
-            prompt_key="basic_prompt_for_transcript",
-            target_language="English",
             mime_type="application/pdf",
-            user_id=123,
-            daily_limit=10,
-            thinking_level="minimal",
+            settings=SETTINGS,
         )
 
 
@@ -923,13 +792,8 @@ def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
 
     result = summarizer.summarize_with_document(
         file=mocker.MagicMock(),
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
         mime_type="application/pdf",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result == "document summary"
@@ -952,12 +816,7 @@ def test_summarize_with_telegram_file(mocker):
 
     result = summarizer.summarize(
         data=mock_tg_file,
-        model="gemini-3.8-flash",
-        prompt_key="basic_prompt_for_transcript",
-        target_language="English",
-        user_id=123,
-        daily_limit=10,
-        thinking_level="minimal",
+        settings=SETTINGS,
     )
 
     assert result == "Telegram file summary"

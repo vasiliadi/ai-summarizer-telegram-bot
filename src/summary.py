@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
+from dataclasses import replace
 from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
@@ -26,6 +28,7 @@ from utils import classify_url, clean_up, compress_audio, generate_temporary_nam
 if TYPE_CHECKING:
     from tenacity import _utils as tenacity_utils
 
+    from domain import SummarySettings
     from download import Downloader
     from llm import LLMClient
     from services import GeminiHelper, QuotaManager
@@ -59,12 +62,7 @@ class Summarizer:
         self,
         file: str,
         mime_type: str,
-        model: str,
-        prompt_key: str,
-        target_language: str,
-        user_id: int,
-        daily_limit: int,
-        thinking_level: str,
+        settings: SummarySettings,
     ) -> str:
         """Upload a local file to the provider, summarize it, then delete the upload.
 
@@ -72,7 +70,7 @@ class Summarizer:
         has already run the non-consuming quota pre-check, and carries the
         `@retry` this runs under — so this method must stay undecorated.
         """
-        prompt = dedent(PROMPTS[prompt_key]).strip()
+        prompt = dedent(PROMPTS[settings.prompt_key]).strip()
         uploaded = self._gemini_helper.upload_and_wait_for_file(
             file=file,
             mime_type=mime_type,
@@ -80,21 +78,21 @@ class Summarizer:
         uploaded_name = cast("str", uploaded.name)
         try:
             self._quota_manager.check_quota(
-                user_id=user_id,
-                daily_limit=daily_limit,
+                user_id=settings.user_id,
+                daily_limit=settings.daily_limit,
                 quantity=1,
             )
             return self._llm_client.run(
                 content=[
                     prompt,
                     self._llm_client.build_uploaded_file(
-                        model_id=model,
+                        model_id=settings.model,
                         file=uploaded,
                     ),
                 ],
-                model_id=model,
-                target_language=target_language,
-                thinking_level=thinking_level,
+                model_id=settings.model,
+                target_language=settings.target_language,
+                thinking_level=settings.thinking_level,
             )
         finally:
             try:
@@ -118,12 +116,7 @@ class Summarizer:
     def summarize_with_file(
         self,
         file: str,
-        model: str,
-        prompt_key: str,
-        target_language: str,
-        user_id: int,
-        daily_limit: int,
-        thinking_level: str,
+        settings: SummarySettings,
     ) -> str:
         """Summarize audio content by uploading it to the provider's file API.
 
@@ -136,19 +129,14 @@ class Summarizer:
 
         """
         self._quota_manager.check_quota(
-            user_id=user_id,
-            daily_limit=daily_limit,
+            user_id=settings.user_id,
+            daily_limit=settings.daily_limit,
             quantity=0,
         )
         return self._summarize_uploaded_file(
             file=file,
-            mime_type=self._gemini_helper.resolve_mime_type(file),
-            model=model,
-            prompt_key=prompt_key,
-            target_language=target_language,
-            user_id=user_id,
-            daily_limit=daily_limit,
-            thinking_level=thinking_level,
+            mime_type=mimetypes.guess_type(file)[0] or "application/octet-stream",
+            settings=settings,
         )
 
     @retry(
@@ -163,12 +151,7 @@ class Summarizer:
     def summarize_text(
         self,
         text: str,
-        model: str,
-        prompt_key: str,
-        target_language: str,
-        user_id: int,
-        daily_limit: int,
-        thinking_level: str,
+        settings: SummarySettings,
     ) -> str:
         """Summarize already-extracted text (a transcript or webpage content).
 
@@ -185,21 +168,21 @@ class Summarizer:
                 for it is retried and then wrapped, never re-raised.
 
         """
-        prompt = dedent(PROMPTS[prompt_key]).strip()
+        prompt = dedent(PROMPTS[settings.prompt_key]).strip()
         # Silent or music-only audio gives WhisperX no segments, so the rescue
         # path can hand us "". Sending that as its own part would put an empty
         # text part in the request; the concatenated form used to swallow it.
         content = [prompt, text] if text.strip() else [prompt]
         self._quota_manager.check_quota(
-            user_id=user_id,
-            daily_limit=daily_limit,
+            user_id=settings.user_id,
+            daily_limit=settings.daily_limit,
             quantity=1,
         )
         return self._llm_client.run(
             content=content,
-            model_id=model,
-            target_language=target_language,
-            thinking_level=thinking_level,
+            model_id=settings.model,
+            target_language=settings.target_language,
+            thinking_level=settings.thinking_level,
         )
 
     @retry(
@@ -220,13 +203,8 @@ class Summarizer:
     def summarize_with_document(
         self,
         file: File,
-        model: str,
-        prompt_key: str,
-        target_language: str,
         mime_type: str,
-        user_id: int,
-        daily_limit: int,
-        thinking_level: str,
+        settings: SummarySettings,
     ) -> str:
         """Summarize document content by uploading it to the provider's file API.
 
@@ -244,42 +222,35 @@ class Summarizer:
 
         """
         self._quota_manager.check_quota(
-            user_id=user_id,
-            daily_limit=daily_limit,
+            user_id=settings.user_id,
+            daily_limit=settings.daily_limit,
             quantity=0,
         )
-        if mime_type.startswith("audio/") and not MODEL_SPECS[model].supports_audio:
+        if (
+            mime_type.startswith("audio/")
+            and not MODEL_SPECS[settings.model].supports_audio
+        ):
             data = self._downloader.download_tg(file, ext=".ogg")
             try:
                 return self._summarize_via_transcription(
                     data=data,
-                    model=model,
-                    prompt_key=prompt_key,
-                    target_language=target_language,
-                    user_id=user_id,
-                    daily_limit=daily_limit,
-                    thinking_level=thinking_level,
+                    settings=settings,
                 )
             finally:
                 clean_up(file=data)
-        if not MODEL_SPECS[model].supports_files:
+        if not MODEL_SPECS[settings.model].supports_files:
             logger.warning(
                 "%s takes no uploaded file, summarizing this document with %s",
-                model,
+                settings.model,
                 DEFAULT_MODEL_ID_FOR_SUMMARY,
             )
-            model = DEFAULT_MODEL_ID_FOR_SUMMARY
+            settings = replace(settings, model=DEFAULT_MODEL_ID_FOR_SUMMARY)
         data = self._downloader.download_tg(file)
         try:
             return self._summarize_uploaded_file(
                 file=data,
                 mime_type=mime_type,
-                model=model,
-                prompt_key=prompt_key,
-                target_language=target_language,
-                user_id=user_id,
-                daily_limit=daily_limit,
-                thinking_level=thinking_level,
+                settings=settings,
             )
         finally:
             clean_up(file=data)
@@ -287,12 +258,7 @@ class Summarizer:
     def summarize(
         self,
         data: str | File,
-        model: str,
-        prompt_key: str,
-        target_language: str,
-        user_id: int,
-        daily_limit: int,
-        thinking_level: str,
+        settings: SummarySettings,
     ) -> str:
         """Generate a summary from a YouTube/Castro URL, a Telegram file, or a path.
 
@@ -305,8 +271,8 @@ class Summarizer:
 
         """
         self._quota_manager.check_quota(
-            user_id=user_id,
-            daily_limit=daily_limit,
+            user_id=settings.user_id,
+            daily_limit=settings.daily_limit,
             quantity=0,
         )
         if isinstance(data, str):
@@ -326,12 +292,7 @@ class Summarizer:
                         transcript_result.prefix,
                         self.summarize_text(
                             text=transcript_result.text,
-                            model=model,
-                            prompt_key=prompt_key,
-                            target_language=target_language,
-                            user_id=user_id,
-                            daily_limit=daily_limit,
-                            thinking_level=thinking_level,
+                            settings=settings,
                         ),
                     )
                 data = self._downloader.download_yt(data)
@@ -339,38 +300,23 @@ class Summarizer:
             data = self._downloader.download_tg(data, ext=".ogg")
 
         try:
-            if not MODEL_SPECS[model].supports_audio:
+            if not MODEL_SPECS[settings.model].supports_audio:
                 return self._summarize_via_transcription(
                     data=data,
-                    model=model,
-                    prompt_key=prompt_key,
-                    target_language=target_language,
-                    user_id=user_id,
-                    daily_limit=daily_limit,
-                    thinking_level=thinking_level,
+                    settings=settings,
                 )
             # Nested so that a RetryError raised by the transcription path itself
             # propagates instead of re-entering it.
             try:
                 return self.summarize_with_file(
                     file=data,
-                    model=model,
-                    prompt_key=prompt_key,
-                    target_language=target_language,
-                    user_id=user_id,
-                    daily_limit=daily_limit,
-                    thinking_level=thinking_level,
+                    settings=settings,
                 )
             except RetryError as e:
                 logger.warning("Error occurred while summarizing with file: %s", e)
                 return self._summarize_via_transcription(
                     data=data,
-                    model=model,
-                    prompt_key=prompt_key,
-                    target_language=target_language,
-                    user_id=user_id,
-                    daily_limit=daily_limit,
-                    thinking_level=thinking_level,
+                    settings=settings,
                 )
         finally:
             clean_up(file=data)
@@ -378,12 +324,7 @@ class Summarizer:
     def _summarize_via_transcription(
         self,
         data: str,
-        model: str,
-        prompt_key: str,
-        target_language: str,
-        user_id: int,
-        daily_limit: int,
-        thinking_level: str,
+        settings: SummarySettings,
     ) -> str:
         """Transcribe an audio file with Replicate, then summarize the transcript.
 
@@ -399,12 +340,7 @@ class Summarizer:
                 "📝",
                 self.summarize_text(
                     text=transcription,
-                    model=model,
-                    prompt_key=prompt_key,
-                    target_language=target_language,
-                    user_id=user_id,
-                    daily_limit=daily_limit,
-                    thinking_level=thinking_level,
+                    settings=settings,
                 ),
             )
         finally:

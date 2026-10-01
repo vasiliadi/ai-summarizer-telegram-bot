@@ -122,29 +122,6 @@ def test_upload_and_wait_for_file_failed(mocker):
         GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
 
-def test_resolve_mime_type_uses_mimetypes_guess(mocker):
-    """resolve_mime_type maps known extensions via the stdlib mimetypes database."""
-    gemini_helper = GeminiHelper(mocker.MagicMock())
-    assert gemini_helper.resolve_mime_type("document.pdf") == "application/pdf"
-    assert gemini_helper.resolve_mime_type("data.csv") == "text/csv"
-    assert gemini_helper.resolve_mime_type("text.rtf") == "application/rtf"
-    assert gemini_helper.resolve_mime_type("audio.ogg") == "audio/ogg"
-    assert gemini_helper.resolve_mime_type("audio.opus") == "audio/ogg"
-    assert gemini_helper.resolve_mime_type("audio.mp3") == "audio/mpeg"
-    assert gemini_helper.resolve_mime_type("video.mp4") == "video/mp4"
-
-
-def test_resolve_mime_type_defaults_for_unknown_extension(mocker):
-    """resolve_mime_type falls back to octet-stream for extensions mimetypes cannot map.
-
-    Uses .zzz rather than .bin: mimetypes resolves .bin to application/octet-stream
-    itself, so it never reaches the default and leaves that branch uncovered.
-    """
-    gemini_helper = GeminiHelper(mocker.MagicMock())
-    assert gemini_helper.resolve_mime_type("mystery.zzz") == "application/octet-stream"
-    assert gemini_helper.resolve_mime_type("no_extension") == "application/octet-stream"
-
-
 def test_upload_and_wait_for_file_name_none(mocker):
     """upload_and_wait_for_file raises AttributeError when upload returns no name."""
     mock_client = mocker.MagicMock()
