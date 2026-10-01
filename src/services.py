@@ -4,7 +4,7 @@ import logging
 import mimetypes
 import time
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from langfuse import propagate_attributes
 from limits import parse as parse_rate_limit
@@ -148,6 +148,9 @@ class QuotaManager:
 class GeminiHelper:
     """Utilities for Gemini file management."""
 
+    # How long to wait between polls of the upload's processing state.
+    _POLL_SECONDS: ClassVar[int] = 10
+
     def __init__(self, client: genai.Client) -> None:
         """Store the injected Gemini client."""
         self._client = client
@@ -156,16 +159,8 @@ class GeminiHelper:
         """Resolve the MIME type for a file path, defaulting to octet-stream."""
         return mimetypes.guess_type(file)[0] or "application/octet-stream"
 
-    def upload_and_wait_for_file(
-        self,
-        file: str,
-        mime_type: str,
-        sleep_time: int = 10,
-    ) -> types.File:
-        """Upload a file to Gemini and wait for processing to finish.
-
-        `sleep_time` is the interval between polls of the processing state.
-        """
+    def upload_and_wait_for_file(self, file: str, mime_type: str) -> types.File:
+        """Upload a file to Gemini and wait for processing to finish."""
         uploaded = self._client.files.upload(
             file=file,
             config={"mime_type": mime_type},
@@ -174,7 +169,7 @@ class GeminiHelper:
             raise AttributeError
         file_name = uploaded.name
         while uploaded.state == "PROCESSING":
-            time.sleep(sleep_time)
+            time.sleep(self._POLL_SECONDS)
             uploaded = self._client.files.get(name=file_name)
         if uploaded.state == "FAILED":
             raise ValueError(uploaded.state)

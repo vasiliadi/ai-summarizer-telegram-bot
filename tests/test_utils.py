@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from config import PROTECTED_FILES
 from utils import classify_url, clean_up, compress_audio, generate_temporary_name
 
 
@@ -122,17 +121,11 @@ def test_clean_up_single_file_protected(mocker):
     """Test that clean_up does not remove a protected file."""
     mock_path = mocker.MagicMock(spec=Path)
     mock_path.is_file.return_value = True
-    # Choose a file that is typically in PROTECTED_FILES
-    if PROTECTED_FILES:
-        mock_path.name = PROTECTED_FILES[0]
-    else:
-        # Fallback if list is empty in test environment
-        mock_path.name = "utils.py"
+    mock_path.name = "utils.py"
 
     mocker.patch("utils.Path", return_value=mock_path)
     mock_unlink = mocker.patch("utils.Path.unlink")
 
-    # We force PROTECTED_FILES to have our mock_path.name so the check fails
     mocker.patch("utils.PROTECTED_FILES", [mock_path.name])
 
     clean_up(file=mock_path.name)

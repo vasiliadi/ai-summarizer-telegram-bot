@@ -117,10 +117,8 @@ class LLMClient:
         return self._local.models
 
     @staticmethod
-    def _is_text_only(content: str | Sequence[UserContent]) -> bool:
-        """Broader than `isinstance(content, str)`: a multi-part text prompt counts."""
-        if isinstance(content, str):
-            return True
+    def _is_text_only(content: Sequence[UserContent]) -> bool:
+        """Whether every part is text, so the run carries no uploaded file."""
         return all(isinstance(part, str) for part in content)
 
     def build_model(self, model_id: str) -> Model:
@@ -204,15 +202,14 @@ class LLMClient:
 
     def run(
         self,
-        content: str | Sequence[UserContent],
+        content: Sequence[UserContent],
         model_id: str,
         target_language: str,
         thinking_level: str,
     ) -> str:
         """Run one summarization request and return the model's text output.
 
-        `content` is the prompt on its own, or the prompt followed by the file
-        parts it refers to.
+        `content` is the prompt followed by the text or file parts it refers to.
 
         Raises:
             AttributeError: If the model returns an empty response.

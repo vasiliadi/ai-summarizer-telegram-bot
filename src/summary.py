@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, cast
 from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
 from curl_cffi.requests.exceptions import SSLError as CurlSSLError
 from pydantic_ai.exceptions import ModelAPIError, UnexpectedModelBehavior
-from requests.exceptions import SSLError
 from telebot.types import File
 from tenacity import (
     RetryError,
@@ -111,7 +110,7 @@ class Summarizer:
         stop=stop_after_attempt(2),
         wait=wait_fixed(30),
         retry=retry_if_exception_type(
-            (ModelAPIError, AttributeError, UnexpectedModelBehavior, SSLError),
+            (ModelAPIError, AttributeError, UnexpectedModelBehavior),
         ),
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
@@ -211,7 +210,6 @@ class Summarizer:
                 ModelAPIError,
                 AttributeError,
                 UnexpectedModelBehavior,
-                SSLError,
                 CurlSSLError,
                 CurlConnectionError,
             ),

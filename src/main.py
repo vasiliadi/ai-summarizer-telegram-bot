@@ -126,7 +126,7 @@ class BotApp:
         self._prompt_choice(
             message,
             "Select target language 👇",
-            [lang.title() for lang in SUPPORTED_LANGUAGES],
+            SUPPORTED_LANGUAGES,
             self.proceed_set_target_language,
         )
 

@@ -376,14 +376,14 @@ def test_run_drives_a_real_agent_run(llm_client, mocker):
     )
 
     result = llm_client.run(
-        content="Summarize this.",
+        content=["Summarize this."],
         model_id="gemini-3.8-flash",
         target_language="Ukrainian",
         thinking_level="medium",
     )
 
     assert result == "A summary."
-    assert seen["prompt"] == "Summarize this."
+    assert seen["prompt"] == ["Summarize this."]
     assert "Ukrainian" in seen["instructions"]
     assert seen["thinking"] == "medium"
 
@@ -440,7 +440,7 @@ def test_run_passes_model_and_instructions(llm_client, mocker):
     )
 
     result = llm_client.run(
-        content="Summarize this.",
+        content=["Summarize this."],
         model_id="gemini-3.8-flash",
         target_language="Ukrainian",
         thinking_level="medium",
@@ -448,7 +448,7 @@ def test_run_passes_model_and_instructions(llm_client, mocker):
 
     assert result == "A summary."
     call = mock_run_sync.call_args
-    assert call.args[0] == "Summarize this."
+    assert call.args[0] == ["Summarize this."]
     assert call.kwargs["model"].model_name == "gemini-3.8-flash"
     assert "Ukrainian" in call.kwargs["instructions"]
 
@@ -462,7 +462,7 @@ def test_run_instructions_are_dedented(llm_client, mocker):
     )
 
     llm_client.run(
-        content="Summarize this.",
+        content=["Summarize this."],
         model_id="gemini-3.8-flash",
         target_language="English",
         thinking_level="high",
@@ -484,7 +484,7 @@ def test_run_raises_on_empty_output(llm_client, mocker, output):
 
     with pytest.raises(AttributeError):
         llm_client.run(
-            content="Summarize this.",
+            content=["Summarize this."],
             model_id="gemini-3.8-flash",
             target_language="English",
             thinking_level="high",
@@ -492,34 +492,7 @@ def test_run_raises_on_empty_output(llm_client, mocker, output):
 
 
 def test_run_uses_traced_agent_for_text_content(llm_client, mocker):
-    """Test a plain-text run goes through the traced agent, not the untraced one."""
-    mock_run_sync = mocker.patch.object(
-        llm_client._agent,
-        "run_sync",
-        return_value=SimpleNamespace(output="A summary."),
-    )
-    mock_untraced_run_sync = mocker.patch.object(
-        llm_client._untraced_agent,
-        "run_sync",
-    )
-
-    result = llm_client.run(
-        content="Summarize this.",
-        model_id="gemini-3.8-flash",
-        target_language="English",
-        thinking_level="high",
-    )
-
-    assert result == "A summary."
-    # Unset, so the agent inherits the instrument_all() default. Pinned here
-    # because switching it off would silently stop every trace.
-    assert llm_client._agent.instrument is None
-    mock_run_sync.assert_called_once()
-    mock_untraced_run_sync.assert_not_called()
-
-
-def test_run_uses_traced_agent_for_multipart_text_content(llm_client, mocker):
-    """Test an all-text multi-part prompt is traced, not just a bare string."""
+    """Test an all-text prompt goes through the traced agent, not the untraced one."""
     mock_run_sync = mocker.patch.object(
         llm_client._agent,
         "run_sync",
@@ -538,6 +511,9 @@ def test_run_uses_traced_agent_for_multipart_text_content(llm_client, mocker):
     )
 
     assert result == "A summary."
+    # Unset, so the agent inherits the instrument_all() default. Pinned here
+    # because switching it off would silently stop every trace.
+    assert llm_client._agent.instrument is None
     mock_run_sync.assert_called_once()
     mock_untraced_run_sync.assert_not_called()
 

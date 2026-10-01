@@ -195,7 +195,7 @@ def _summary(rows, cost):
     fabricated = [s[FABRICATED] for s in scores if s.get(FABRICATED) is not None]
     incomplete = not rows or len(passes) != len(rows)
     t1_pass = sum(passes) / len(passes) if not incomplete else None
-    dollars, priced = cost or (None, 0)
+    dollars, priced = cost
     return {
         "t1_pass": t1_pass,
         "jev_median": statistics.median(jev) if jev else None,
@@ -319,16 +319,10 @@ def _paired_tier2_table(rows_by_candidate, metric):
         print(f"  no candidate pair shares an item scored on {metric}")
 
 
-def _shared_items(rows_by_candidate, left, right):
-    if left not in rows_by_candidate or right not in rows_by_candidate:
-        return set()
-    return set(rows_by_candidate[left]) & set(rows_by_candidate[right])
-
-
 def _deltas(rows_by_candidate, left, right, metric):
     """Per-item `metric` difference, left minus right, on shared items."""
     out = []
-    for item in sorted(_shared_items(rows_by_candidate, left, right)):
+    for item in sorted(set(rows_by_candidate[left]) & set(rows_by_candidate[right])):
         a = rows_by_candidate[left][item][0].get(metric)
         b = rows_by_candidate[right][item][0].get(metric)
         if a is not None and b is not None:
@@ -374,7 +368,7 @@ def report(dataset_name=COMPARE, *, all_pairs=False):
             _paired_tier2_table(rows_by_candidate, metric)
 
 
-def backfill(tier2, models=(), dataset_name=COMPARE, *, rescore=False):
+def backfill(tier2, models=(), *, rescore=False):
     """Score a Tier 2 judge on compare items that lack it, without regenerating.
 
     `rescore` scores every item again; `models` limits it to those candidates. Scores
@@ -385,10 +379,10 @@ def backfill(tier2, models=(), dataset_name=COMPARE, *, rescore=False):
     client = Langfuse()
     sources = {
         i.id: i.input  # the evaluator reads `content` off the item input
-        for i in client.get_dataset(dataset_name).items
+        for i in client.get_dataset(COMPARE).items
     }
     todo = []
-    runs = discover_runs(dataset_name)
+    runs = discover_runs(COMPARE)
     scores, _ = _tier2_scores(runs)
     for candidate, run in sorted(runs.items()):
         if models and _split(candidate)[0] not in models:
@@ -458,19 +452,18 @@ def _resolve(model_ids):
         sys.exit("nothing run")
 
 
-def sweep(model_ids, dataset_name=COMPARE, prompt_key=None, tier2="jev"):
+def sweep(model_ids, tier2="jev"):
     """Produce a compare run for each model, after validating every id up front."""
     if not model_ids:
         sys.exit(
             "usage: stage2.py sweep <openrouter-model-id> [...]\n"
             "  ids are OpenRouter ids, e.g. vendor/model",
         )
-    prompt_key = prompt_key or judge.PROMPT_KEY
     _resolve(model_ids)
-    print(f"{len(model_ids)} model(s) over {dataset_name}, {prompt_key}\n")
+    print(f"{len(model_ids)} model(s) over {COMPARE}, {judge.PROMPT_KEY}\n")
     for index, model_id in enumerate(model_ids, 1):
         print(f"[{index}/{len(model_ids)}] {model_id}")
-        judge.run(model_id, dataset_name, prompt_key, tier2=tier2)
+        judge.run(model_id, COMPARE, judge.PROMPT_KEY, tier2=tier2)
         print()
     print("done - `stage2.py report` next")
 

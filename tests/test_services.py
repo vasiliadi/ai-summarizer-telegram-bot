@@ -79,7 +79,7 @@ def test_upload_and_wait_for_file_happy(mocker):
 
     mock_client.files.upload.return_value = mock_file
 
-    result = GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
+    result = GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
     assert result == mock_file
     mock_client.files.upload.assert_called_once()
@@ -103,10 +103,10 @@ def test_upload_and_wait_for_file_polling(mocker):
     mock_client.files.upload.return_value = mock_file_proc
     mock_client.files.get.return_value = mock_file_active
 
-    result = GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
+    result = GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
     assert result == mock_file_active
-    mock_sleep.assert_called_once_with(1)
+    mock_sleep.assert_called_once_with(10)
     mock_client.files.get.assert_called_once_with(name="name")
 
 
@@ -119,7 +119,7 @@ def test_upload_and_wait_for_file_failed(mocker):
     mock_client.files.upload.return_value = mock_file
 
     with pytest.raises(ValueError, match="FAILED"):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
+        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
 
 def test_resolve_mime_type_uses_mimetypes_guess(mocker):
@@ -153,7 +153,7 @@ def test_upload_and_wait_for_file_name_none(mocker):
     mock_client.files.upload.return_value = mock_file
 
     with pytest.raises(AttributeError):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
+        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
 
 def test_upload_and_wait_for_file_name_none_after_polling(mocker):
@@ -179,7 +179,7 @@ def test_upload_and_wait_for_file_name_none_after_polling(mocker):
     mock_client.files.get.return_value = mock_file_done
 
     with pytest.raises(AttributeError):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
+        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
 
 def test_upload_and_wait_for_file_missing_uri(mocker):
@@ -192,7 +192,7 @@ def test_upload_and_wait_for_file_missing_uri(mocker):
     mock_client.files.upload.return_value = mock_file
 
     with pytest.raises(AttributeError):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg", 1)
+        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
 
 
 def test_delete_file_forwards_name_to_client(mocker):

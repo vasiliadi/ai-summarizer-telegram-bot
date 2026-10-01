@@ -27,13 +27,17 @@ from parsing import (
 def _make_parser(mocker, detector=None):
     """Return (parser, mock_exa_client, mock_tavily_client).
 
-    Injects a stub resolver that passes the URL through unchanged so the
-    orchestration tests never touch the network.
+    Injects a stub resolver that passes the URL through unchanged, and by
+    default a detector that blocks nothing, so the orchestration tests never
+    touch the network.
     """
     mock_exa = mocker.MagicMock()
     mock_tavily = mocker.MagicMock()
     resolver = mocker.Mock()
     resolver.resolve.side_effect = lambda url: url
+    if detector is None:
+        detector = mocker.Mock()
+        detector.is_blocked.return_value = False
     parser = WebParser(
         ExaBackend(mock_exa),
         TavilyBackend(mock_tavily),
@@ -240,7 +244,14 @@ def test_parse_resolves_url_before_extracting(mocker):
     mock_tavily = mocker.MagicMock()
     resolver = mocker.Mock()
     resolver.resolve.return_value = "https://example.com/final"
-    parser = WebParser(ExaBackend(mock_exa), TavilyBackend(mock_tavily), resolver)
+    detector = mocker.Mock()
+    detector.is_blocked.return_value = False
+    parser = WebParser(
+        ExaBackend(mock_exa),
+        TavilyBackend(mock_tavily),
+        resolver,
+        detector,
+    )
     mock_exa.get_contents.return_value = mocker.Mock(
         results=[mocker.Mock(text="Hi.")],
     )
@@ -408,9 +419,9 @@ def test_resolve_omits_proxy_when_none_configured(mocker):
     assert mock_get.call_args.kwargs["proxy"] is None
 
 
-def test_resolve_passes_configured_timeout(mocker):
-    """Test resolve forwards the instance timeout to requests.get."""
-    resolver = UrlResolver(timeout=3)
+def test_resolve_passes_its_timeout(mocker):
+    """Test resolve bounds the request with a timeout."""
+    resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
     mocker.patch("parsing.get_proxy", return_value="")
     mock_resp = mocker.Mock(url="https://example.com/article")
@@ -418,7 +429,7 @@ def test_resolve_passes_configured_timeout(mocker):
 
     resolver.resolve("https://example.com/article")
 
-    assert mock_get.call_args.kwargs["timeout"] == 3
+    assert mock_get.call_args.kwargs["timeout"] == 10
 
 
 def test_resolve_blocks_non_public_initial_url(mocker, caplog):
@@ -591,14 +602,14 @@ def test_is_blocked_true_at_threshold_logs_probability(mocker, caplog):
     """Test is_blocked flags a probability at the threshold and logs it."""
     mocker.patch(
         "parsing.requests.post",
-        return_value=_decisions_response(mocker, 0.97),
+        return_value=_decisions_response(mocker, 0.5),
     )
-    detector = BlockedPageDetector("key", threshold=0.97)
+    detector = BlockedPageDetector("key")
 
     with caplog.at_level(logging.WARNING, logger="parsing"):
         assert detector.is_blocked("Access Denied", "https://e.com")
 
-    assert "JEV flagged https://e.com as a block page (p=0.97)" in caplog.text
+    assert "JEV flagged https://e.com as a block page (p=0.50)" in caplog.text
 
 
 def _http_error(mocker):
@@ -633,12 +644,12 @@ def test_is_blocked_fails_open(mocker, caplog, failure):
 
 
 def test_is_blocked_caps_state_at_max_chars(mocker):
-    """Test is_blocked sends only the first max_chars of the page to JEV."""
+    """Test is_blocked sends only the first 20 000 characters of the page to JEV."""
     mock_post = mocker.patch(
         "parsing.requests.post",
         return_value=_decisions_response(mocker, 0.02),
     )
 
-    BlockedPageDetector("key", max_chars=5).is_blocked("0123456789", "https://e.com")
+    BlockedPageDetector("key").is_blocked("a" * 20000 + "tail", "https://e.com")
 
-    assert mock_post.call_args.kwargs["json"]["state"] == "01234"
+    assert mock_post.call_args.kwargs["json"]["state"] == "a" * 20000
