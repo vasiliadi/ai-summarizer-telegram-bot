@@ -271,8 +271,15 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   has one serves it whole in the static page, inside `<div class="transcript transcript-content">`
   — one `<p class="transcript-paragraph">` per utterance, holding a `transcript-ts` timestamp
   span, a `transcript-speaker` span (often the generic `Speaker:`) and the text. An episode
-  without one has no such `div` at all. `CastroTranscriber` drops the timestamps and keeps the
-  speakers, one paragraph per line. Any failure — no `div`, no text, an HTTP or network error
+  without one has no such `div` at all. The text is the publisher's, not Castro's: it comes
+  from the feed's `<podcast:transcript>` (an SRT on the episode checked), one paragraph per
+  cue, so wording, line length and speaker names vary by podcast, and a feed without the tag
+  gives no transcript. The markup is Castro's own. Castro takes a cue's text up to its first
+  colon as the speaker and writes `Speaker:` where there is none, so a turn's continuation
+  lines all read `Speaker:`, and a cue such as `… a 4:58 email` is split at `4:`.
+  `CastroTranscriber` drops the timestamps and passes the rest through, one paragraph per
+  line. Merging the `Speaker:` lines into turns was considered and **not done**: one episode
+  is too little to build a heuristic on. Any failure — no `div`, no text, an HTTP or network error
   — is a `FetchTranscriptError`, so a markup change on Castro's side degrades to the audio
   download instead of an error. The fallback fetches the page a second time, for its
   `<source>`: sharing one fetch between `CastroTranscriber` and `Downloader` was not worth the
