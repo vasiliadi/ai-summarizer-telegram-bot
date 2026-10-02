@@ -72,6 +72,27 @@ def _blob(seed, chars=2000):
 
 
 def _row(text, summary="Краткое изложение источника на русском.", language="Russian"):
+    """A traced generation as the `openai` SDK's Langfuse drop-in records it."""
+    return {
+        "input": json.dumps(
+            [
+                {"role": "system", "content": "INSTRUCTIONS"},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "PROMPT"},
+                        {"type": "text", "text": text},
+                    ],
+                },
+            ],
+        ),
+        "output": json.dumps({"role": "assistant", "content": summary}),
+        "metadata": {"target_language": language},
+    }
+
+
+def _legacy_row(text, summary):
+    """The same generation in the shape pydantic-ai traced."""
     return {
         "input": json.dumps(
             [{"role": "system"}, {"parts": [{"content": "PROMPT"}, {"content": text}]}],
@@ -86,22 +107,35 @@ def _row(text, summary="Краткое изложение источника н�
                 },
             ],
         ),
-        "metadata": {"target_language": language},
     }
 
 
 def test_content_of_reads_the_second_part(rebuild):
     """The source is the second part of the user message."""
     assert rebuild.content_of(_row("the source")) == "the source"
-    only_prompt = {"input": json.dumps([{}, {"parts": [{"content": "PROMPT"}]}])}
+    only_prompt = {
+        "input": json.dumps(
+            [{}, {"role": "user", "content": [{"type": "text", "text": "PROMPT"}]}],
+        ),
+    }
     assert rebuild.content_of(only_prompt) == ""
     assert rebuild.content_of({"input": "not json"}) is None
 
 
-def test_summary_of_drops_thinking_parts(rebuild):
-    """Only text parts count as the summary."""
+def test_summary_of_reads_the_assistant_message(rebuild):
+    """The summary is the reply's content; a reply without one counts as empty."""
     assert rebuild.summary_of(_row("x")) == "Краткое изложение источника на русском."
+    assert rebuild.summary_of(_row("x", summary=None)) == ""
     assert rebuild.summary_of({"output": "not json"}) == ""
+
+
+def test_legacy_traces_are_still_read(rebuild):
+    """A harvest reaching back before the SDK switch holds pydantic-ai's shape too."""
+    row = _legacy_row("the source", "the summary")
+    assert rebuild.content_of(row) == "the source"
+    assert rebuild.summary_of(row) == "the summary"
+    only_prompt = {"input": json.dumps([{}, {"parts": [{"content": "PROMPT"}]}])}
+    assert rebuild.content_of(only_prompt) == ""
 
 
 @pytest.mark.parametrize(

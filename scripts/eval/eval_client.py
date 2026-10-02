@@ -1,4 +1,4 @@
-"""The bot's `LLMClient`, unbound from the model registry.
+"""The bot's `LLMClient`, as the compare runs use it.
 
 See evals.md → *The candidate summarises through the bot's client; the judges do not*.
 """
@@ -26,42 +26,13 @@ THINKING_LEVEL = config.DEFAULT_THINKING_LEVEL
 GENERATION_TIMEOUT = 600
 
 
-class EvalLLMClient(LLMClient):
-    """`LLMClient` that builds any OpenRouter id, registered or not."""
-
-    def build_model(self, model_id: str):
-        """Build (and cache) an OpenRouter model without consulting the registry."""
-        if model_id not in self._models:
-            self._models[model_id] = self._build_openrouter_model(model_id)
-        return self._models[model_id]
-
-    def close_openrouter_provider(self):
-        """Close this thread's provider on this thread's event loop, then the loop.
-
-        `run_sync` closes neither; with no loop here it never ran, so nothing is open.
-        """
-        provider = getattr(self._local, "openrouter_provider", None)
-        if provider is None:
-            return
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            return
-        loop.run_until_complete(provider.client.close())
-        loop.close()
-
-
-LLM = EvalLLMClient(
-    client=config.gemini_client,
-    openrouter_provider_factory=config.openrouter_provider_factory,
-)
+LLM = LLMClient(config.openrouter_client)
 
 
 async def summarize(model_id, prompt, text, language):
     """Summarise one dataset item on a worker thread, off the experiment's event loop.
 
-    Calling `LLM.run` directly fails every item; see evals.md → *The candidate
-    summarises through the bot's client; the judges do not*.
+    `LLM.run` blocks, so calling it directly would stall every other item.
     """
     # Mirrors summarize_text: prompt and content as two parts, and a blank text
     # drops its part rather than sending an empty one.
@@ -93,10 +64,6 @@ async def summarize(model_id, prompt, text, language):
             post(None, exc)
         else:
             post(result, None)
-        finally:
-            # After settling, so the item is not held up; a timed-out worker
-            # still closes it whenever its run finally returns.
-            LLM.close_openrouter_provider()
 
     # A daemon thread, not `asyncio.to_thread`, so a hang ends at the timeout. See
     # evals.md → *The harness*.

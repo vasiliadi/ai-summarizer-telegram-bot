@@ -22,7 +22,7 @@ Do not use Conventional Commit types (`feat`, `fix`, `chore`, …) and do not ad
 
 ```text
 summary: handle empty transcript
-deps: bump google-genai to 2.8.0
+deps: bump openai to 3.20.0
 ci: update codecov action
 ```
 

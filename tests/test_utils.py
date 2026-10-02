@@ -14,7 +14,7 @@ def test_classify_url_strips_www_prefix():
     Regression: routing used to be duplicated, and the second classifier matched
     three literal lowercase prefixes. A www-prefixed Castro or youtu.be link was
     classified as media in handlers, then failed the second check and reached the
-    Gemini file upload with the URL string as its file path.
+    file upload with the URL string as its file path.
     """
     assert classify_url("https://www.castro.fm/episode/123") == "castro"
     assert classify_url("https://www.youtu.be/dQw4w9WgXcQ") == "youtube"

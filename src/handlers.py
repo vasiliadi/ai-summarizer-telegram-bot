@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
-from config import TG_MAX_FILE_SIZE
+from config import DEFAULT_MODEL_ID_FOR_SUMMARY, MODEL_SPECS, TG_MAX_FILE_SIZE
 from domain import SummarySettings, format_prefixed_summary
-from utils import classify_url, clean_up, compress_audio, generate_temporary_name
+from utils import classify_url, clean_up
 
 if TYPE_CHECKING:
     import telebot
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
     from summary import Summarizer
 
     _SizedMedia = Audio | Voice | Video | VideoNote | Document
+
+logger = logging.getLogger(__name__)
 
 
 class MessageHandlers:
@@ -42,8 +45,18 @@ class MessageHandlers:
     @staticmethod
     def _settings(user: UsersOrm) -> SummarySettings:
         """Build the summarization settings sourced from a user record."""
+        model = user.summarizing_model
+        # A row can outlive its model id. See architecture.md → *Dropping or
+        # renaming a model id*.
+        if model not in MODEL_SPECS:
+            logger.warning(
+                "%s is not registered, summarizing with %s",
+                model,
+                DEFAULT_MODEL_ID_FOR_SUMMARY,
+            )
+            model = DEFAULT_MODEL_ID_FOR_SUMMARY
         return SummarySettings(
-            model=user.summarizing_model,
+            model=model,
             prompt_key=user.prompt_key_for_summary,
             target_language=user.target_language,
             user_id=user.user_id,
@@ -94,19 +107,16 @@ class MessageHandlers:
         self._messenger.send_answer(message, answer)
 
     def _handle_video_like(self, message: Message, user: UsersOrm, data: File) -> None:
-        """Shared video / video-note pipeline: download, compress, summarize."""
+        """Shared video / video-note pipeline: download, then summarize."""
         downloaded_file = self._downloader.download_tg(data, ext=".mp4")
-        compressed_file = generate_temporary_name(ext=".ogg")
         try:
-            compress_audio(input_file=downloaded_file, output_file=compressed_file)
             answer = self._summarizer.summarize(
-                data=compressed_file,
+                data=downloaded_file,
                 settings=self._settings(user),
             )
             self._messenger.send_answer(message, answer)
         finally:
             clean_up(file=downloaded_file)
-            clean_up(file=compressed_file)
 
     def handle_video_note(self, message: Message, user: UsersOrm) -> None:
         """Handle video note file processing."""

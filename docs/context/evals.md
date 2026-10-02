@@ -32,10 +32,8 @@ invert the tool.
 steady state a new model shows up on its own — vendors do not ship on the same day — so the
 normal invocation is one id, and a constant would be stale the week after it was written.
 
-One route for every model also keeps results comparable, and the price of that is accepted
-deliberately: a model the bot reaches through its own provider is evaluated over OpenRouter
-instead, so its numbers sit very slightly off the bot's real behaviour. Comparing models to
-each other is unaffected.
+The bot reaches every model over OpenRouter as well, through the same client, so a candidate
+is measured on the route it would be served on.
 
 **Never derive an OpenRouter id by prefixing a vendor name.** The catalog carries `:free` and
 `:batch` siblings next to the plain id, so a computed id can silently select a different model
@@ -48,7 +46,7 @@ Nothing below needs the model to be in `config.MODEL_SPECS`, and it should not b
 the end:
 
 1. **One compare run.** `stage2.py sweep <openrouter-id> ...` summarises the 50 items of
-   `summarization-compare-v1` through `eval_client.EvalLLMClient`. The run gets the Tier 1 scores
+   `summarization-compare-v1` through `eval_client.summarize`. The run gets the Tier 1 scores
    from the Langfuse rule for free and JEV's `t2_jev_weakest` from the default Tier 2 evaluator,
    about two cents. The summaries themselves cost roughly $0.02–$1.10 a run, depending on the
    model's price.
@@ -62,8 +60,8 @@ the end:
 4. **Read the survivors live**, weighing the invented share against `run $` and compression. A
    longer summary that keeps more detail counts in a model's favour.
 5. **Then decide, and only then edit `config.py`.** Adding an id needs no migration; removing
-   or renaming one does — see the registry bullet in `architecture.md`. A model registered under
-   the `google` provider keeps its native id there, without the vendor prefix.
+   or renaming one does — see the registry bullet in `architecture.md`. Set `supports_files`
+   from a document probe, not from the catalog (`architecture.md`, *Modality routing*).
 6. **Sweep thinking levels** on the chosen model only, and expect to decide it on cost and
    latency rather than quality, because adjacent levels rarely separate.
 
@@ -73,22 +71,19 @@ afterwards as a regression gate for prompt edits, not only for model launches.
 
 ### The candidate summarises through the bot's client; the judges do not
 
-`eval_client.py` holds `EvalLLMClient` and the one `THINKING_LEVEL` every run uses. It
-subclasses `LLMClient` and overrides only `build_model`, so a run goes through the instrumented
-path and records cost and thinking level while the base class's registry lookup (which would
-raise `KeyError` for a candidate) is bypassed. A candidate's cost and latency are half of the
-question, so they have to be produced on the bot's own terms.
+`eval_client.py` holds `LLM`, an `LLMClient` on the bot's own `config.openrouter_client`, and
+the one `THINKING_LEVEL` every run uses. `LLMClient` never consults the model registry, so an
+unregistered candidate runs on it unchanged, through the same traced call the bot makes: the
+generation records what OpenRouter charged, and the request carries the bot's instructions and
+thinking level. A candidate's cost and latency are half of the question, so they have to be
+produced on the bot's own terms.
 
 **An experiment task must be `async def` and reach the model through
 `eval_client.summarize`.** `run_experiment` awaits the task inside its own running event loop,
-while `LLMClient.run` ends in pydantic-ai's `run_sync`, which drives a loop itself — calling it
-from there raises `RuntimeError: This event loop is already running` on *every* item, before a
-single request leaves the machine. `summarize` hands the call to a worker thread, which has no
-running loop, so `run_sync` builds its own and the bot's synchronous path is reused rather than
-reimplemented. The context is copied into the thread, so the generation span still nests under
-the experiment item and the cost wrapper still finds it. The failure is cheap and looks
-expensive to diagnose: every item fails in seconds (150 items in about 15 s) and is recorded as an
-error output.
+and `LLMClient.run` is a blocking call: made directly, it would hold the loop for the whole
+generation, so items would run one at a time and no timeout could end a hang. `summarize` hands
+the call to a worker thread and awaits its answer. The context is copied into the thread, so the
+generation still nests under the experiment item.
 
 The **judges** stay on their own HTTP calls in `judge.py`, deliberately. Opus needs structured
 output against a JSON schema, which `LLMClient` does not do and the bot never asks for, and JEV
@@ -98,7 +93,7 @@ property of the model being ranked, so it does not belong on the candidate's tra
 Skipping `LLMClient` also skips its OpenRouter attribution, so `judge._post` sets
 `HTTP-Referer`/`X-Title` by hand from `config.OPENROUTER_APP_URL`/`OPENROUTER_APP_TITLE`
 (`architecture.md`, *OpenRouter calls identify the app*); any new direct OpenRouter call must
-do the same. The candidate path inherits them from `config.openrouter_provider_factory`. Eval
+do the same. The candidate path inherits them from `config.openrouter_client`. Eval
 spend is deliberately *not* separated from the bot's in OpenRouter's app ranking — it is this
 repo's spend, and a second referer would split it into a second Top Apps entry.
 
@@ -107,7 +102,7 @@ repo's spend, and a second referer would split it into a second Top Apps entry.
 | File | Purpose |
 |---|---|
 | `_bootstrap.py` | Loads `.env`, puts `src/` on the import path, returns Langfuse REST credentials |
-| `eval_client.py` | `EvalLLMClient`, `summarize` with its generation timeout, and `THINKING_LEVEL` |
+| `eval_client.py` | `LLM`, `summarize` with its generation timeout, and `THINKING_LEVEL` |
 | `langfuse_api.py` | The only place that calls the Langfuse REST API. v4 endpoints, rate-limit aware |
 | `tier1_evaluator.py` | Tier 1 deterministic scorers. Uploaded to Langfuse, **executed there** |
 | `install_tier1.py` | Uploads the above. Its preflight is the only way to see the evaluator crash |
@@ -118,7 +113,7 @@ repo's spend, and a second referer would split it into a second Top Apps entry.
 The commands are in `scripts/eval/README.md`.
 
 **The harness is tested but sits outside the 100% coverage rule.** `tests/test_eval_*.py` cover
-what fails silently — the seam with `src/` (`EvalLLMClient` against `LLMClient`), the Tier 1
+what fails silently — the seam with `src/` (`eval_client` on `LLMClient`), the Tier 1
 checks and their portability, how each judge's answer becomes a score, and the report's
 arithmetic — and the pytest hook runs them on any change under `scripts/eval/`. The CLI entry
 points and thin network wrappers (`install_tier1.py`, `main()`, `wipe`/`push`, `report`/`sweep`)
@@ -132,27 +127,21 @@ uv run pytest tests/test_eval_*.py --cov=scripts/eval
 **A run is always the whole dataset.** The report reads the newest run per candidate, so a short
 probe run made after a full one would replace it there; there is no item limit to pass.
 
-**A sweep could hang forever on one item, so generation still times out after 10 minutes.** Sweeps have
-stopped at 49 of 50 items, on sources of very different lengths, with every socket in
-`CLOSE_WAIT` and CPU at zero. A `py-spy dump` of the live process (`sudo "$(which uvx)" py-spy
-dump --pid <pid>`; macOS needs `sudo`) showed one worker thread in `LLM.run` → `agent.run_sync` →
-pydantic-ai's own event loop, idle in `select()` — the **candidate generation**, not the judge.
-The cause is an OpenRouter provider shared across event loops (`architecture.md`, *One
-OpenRouter provider per thread*): each item's thread runs its own loop, and a kept-alive
-connection opened by one loop and reused by another fails the call. In reproduction
-it failed at once with `RuntimeError: ... is bound to a different event loop` (about half of
-200 calls); the silent hang is the same reuse when the other loop is idle and never reads the
-socket, and was **not** reproduced — assumed, not confirmed. `LLMClient` now builds one provider
-per thread, which removed every failure in the reproduction, so each harness thread gets a
-fresh client, which `summarize` closes on that thread's loop, and then the loop, once the run
-returns — `run_sync` closes neither. The harness still guards against it: `eval_client.summarize` runs each
-generation on a **daemon** thread and waits `GENERATION_TIMEOUT` (600 s), so a stuck item is
-stored as a named `TimeoutError` and the run finishes. Median generation is ~20 s and the slowest
-seen a few minutes, so the timeout only ever ends a hang. It had to be a daemon thread:
-`asyncio.to_thread` uses the default executor, whose threads are joined at interpreter exit, so a
-timeout around it would only move the hang to shutdown. A worker that returns after its item timed
-out may find the experiment's loop already closed; its answer is dropped quietly. A timed-out item shows in the run's
-failed-items warning and fails Tier 1, like any other failed item.
+**A sweep could hang forever on one item, so generation times out after 10 minutes.** Under
+pydantic-ai, sweeps stopped at 49 of 50 items with every socket in `CLOSE_WAIT` and CPU at zero:
+one worker thread sat in `LLM.run`, idle in `select()` — the **candidate generation**, not the
+judge. The cause found then was an OpenRouter provider shared across the event loops of
+different threads, which the synchronous `openai` client has none of; whether a hang can still
+happen on it is untested, and the SDK's own request timeout is 600 s per attempt. So the guard
+stays: `eval_client.summarize` runs each generation on a **daemon** thread and waits
+`GENERATION_TIMEOUT` (600 s), so a stuck item is stored as a named `TimeoutError` and the run
+finishes. Median generation is ~20 s and the slowest seen a few minutes, so the timeout only
+ever ends a hang. It has to be a daemon thread: `asyncio.to_thread` uses the default executor,
+whose threads are joined at interpreter exit, so a timeout around it would only move the hang
+to shutdown. A worker that returns after its item timed out may find the experiment's loop
+already closed; its answer is dropped quietly. A timed-out item shows in the run's
+failed-items warning and fails Tier 1, like any other failed item. To see where a live sweep is
+stuck: `sudo "$(which uvx)" py-spy dump --pid <pid>` (macOS needs `sudo`).
 
 **Wait a minute after a run before reading its report.** Langfuse ingests experiment items and
 scores asynchronously — a posted score was absent six seconds after `flush()` and present twenty
@@ -257,14 +246,14 @@ the script, your code does.**
 | Who calls the model | Langfuse, via an LLM Connection | your code, locally |
 | Prompt source | the Langfuse mirror | `src/prompts.py` directly |
 | Code path | Langfuse's request builder | `llm.LLMClient` — the bot's path |
-| Thinking level | not applied | `build_settings` applies it |
-| Cost | Langfuse's own pricing | `OpenRouterCostReporter`, what OpenRouter charged |
+| Thinking level | not applied | sent as `reasoning.effort` |
+| Cost | Langfuse's own pricing | what OpenRouter charged, from the reply's `usage.cost` |
 | `environment` | `langfuse-prompt-experiment` | `sdk-experiment` |
 | Tier 1 | fires | fires |
 | Tier 2 | not possible | `run_experiment(evaluators=[…])` |
 | In git | no | yes |
 
-A UI run has no cost wrapper and no thinking level — it measures a call the bot never makes. Use
+A UI run has neither OpenRouter's cost nor a thinking level — it measures a call the bot never makes. Use
 it to eyeball prompt wording; use the script for anything that feeds a decision. If a UI run is
 compared against a script run, check first that the prompt mirror has not drifted from
 `src/prompts.py`: the mirror stores `prompt_version` in its `config` for exactly this. UI runs are
@@ -311,8 +300,8 @@ over every item, so the originating trace's strategy fills no variable.
 **Only traces whose own summary is in Cyrillic are harvested**: `t1_language_match` measures
 the Cyrillic share, so an item in another language would fail Tier 1 on a correct summary.
 `rebuild_datasets.py` applies Tier 1's own test (`_cyrillic_ratio` against `CYRILLIC_FLOOR`) to
-the `text` parts of the trace's output — the `thinking` parts are skipped, since they are often
-in English — and skips a trace with no `target_language`. No language is named, so any
+the trace's summary — never to the model's thinking, which is often in English — and skips a
+trace with no `target_language`. No language is named, so any
 Cyrillic-script target qualifies, while the `FABRICATED` prompt still states one fixed language.
 
 **The Tier 1 rule fires only on the datasets its filter names.** `tier1-on-experiments` filters
@@ -325,7 +314,7 @@ only.
 
 The trap when harvesting: a trace's tag is the **Telegram** `content_type`, which is `text` for
 a URL as much as for a pasted paragraph. A YouTube transcript, a web article and a
-Replicate-rescued audio transcript are therefore all tagged `text`, and no field distinguishes
+Replicate audio transcript are therefore all tagged `text`, and no field distinguishes
 them — the stratum has to be inferred from the content, by **two** tests, not one. A YouTube
 transcript arrives in subtitle format, hard-wrapped to ~34-character lines. The other two are
 both single blobs, so line width cannot separate them; what does is that `parsing.py` returns
@@ -338,6 +327,17 @@ mostly transcripts, so `web_article` gets 5 items, under the ≥8–10 per cell 
 *web-article-specific* claim is anecdote until the stratum is seeded, while `yt_transcript` and
 `audio_transcript` carry enough items to rank models. A rebuild needs a fresh harvest: traces
 older than 30 days are outside the API window.
+
+### A harvest holds two trace shapes
+
+`rebuild_datasets.py` reads a generation's `input` and `output` as JSON, and what is in them
+depends on what traced the call. Langfuse's `openai` drop-in records the request's `messages` —
+`[system, user]`, the user `content` a list of `{"type": "text", "text": …}` parts — and the
+reply as one `{"role": "assistant", "content": …}` object, with no thinking in it (observed
+2026-10-02). pydantic-ai recorded `parts` with a `content` key on both sides, thinking parts
+included. `content_of` and `summary_of` read both, because a harvest's 30-day window can span
+the switch; a row in neither shape is skipped without a word, like any unparsable row. The
+`parts` branch is dead once no pydantic-ai trace is left inside the window.
 
 Two screening filters earn their keep on real traffic: content under ~1500 characters, and
 degenerate output from `AudioTranscriber.transcribe` when WhisperX mis-decodes audio — a
@@ -498,7 +498,7 @@ yes/no — each with a probability, and generates no text. **$0.042 per M input 
 free.** It cannot be called on `chat/completions` (400: *"is a decisions model … Use the
 /api/alpha/decisions endpoint"*), but **OpenRouter accepts TypeSafe's protocol on
 `POST /api/alpha/decisions`** with the ordinary key, so the harness reaches it with `urllib` and
-needs no pydantic-ai bump. The body is `{model, state, questions}`; each question is
+needs no SDK support. The body is `{model, state, questions}`; each question is
 `{type: "noul", instructions, criteria: {true, false}}` and the reply is `answers[name].noul`, the
 probability of true. **Identical calls do not return identical probabilities** (they once did).
 On 2026-09-30, three identical calls to `typesafe/jev-1.13-20260917` moved single bullets by up to

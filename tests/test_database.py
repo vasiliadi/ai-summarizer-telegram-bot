@@ -113,9 +113,9 @@ def test_check_auth_unknown_user(user_repo):
         ("set_target_language", "English", "target_language", "English"),
         (
             "set_summarizing_model",
-            "gemini-3.8-flash",
+            "openai/gpt-6-luna",
             "summarizing_model",
-            "gemini-3.8-flash",
+            "openai/gpt-6-luna",
         ),
         (
             "set_prompt_strategy",
@@ -178,7 +178,7 @@ def test_set_target_language_stores_normalized_value(
 @pytest.mark.parametrize(
     ("setter", "value"),
     [
-        ("set_summarizing_model", "GEMINI-3.8-FLASH"),
+        ("set_summarizing_model", "OPENAI/GPT-6-LUNA"),
         ("set_prompt_strategy", "Key_Points_For_Transcript"),
         ("set_thinking_level", "HIGH"),
     ],
@@ -210,7 +210,7 @@ def test_set_thinking_level_rejects_unknown_value(user_repo, sqlite_session_fact
     ("setter", "value"),
     [
         ("set_target_language", "English"),
-        ("set_summarizing_model", "gemini-3.8-flash"),
+        ("set_summarizing_model", "openai/gpt-6-luna"),
         ("set_prompt_strategy", "key_points_for_transcript"),
         ("set_thinking_level", "high"),
     ],

@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 import logging
-import mimetypes
 from dataclasses import replace
 from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
 from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
 from curl_cffi.requests.exceptions import SSLError as CurlSSLError
-from pydantic_ai.exceptions import ModelAPIError, UnexpectedModelBehavior
+from openai import APIError
 from telebot.types import File
 from tenacity import (
-    RetryError,
     before_sleep_log,
     retry,
     retry_if_exception_type,
@@ -31,7 +29,7 @@ if TYPE_CHECKING:
     from domain import SummarySettings
     from download import Downloader
     from llm import LLMClient
-    from services import GeminiHelper, QuotaManager
+    from services import OpenRouterFiles, QuotaManager
     from transcription import AudioTranscriber, YouTubeTranscriber
 
 logger = logging.getLogger(__name__)
@@ -44,7 +42,7 @@ class Summarizer:
     def __init__(
         self,
         quota_manager: QuotaManager,
-        gemini_helper: GeminiHelper,
+        openrouter_files: OpenRouterFiles,
         llm_client: LLMClient,
         downloader: Downloader,
         audio_transcriber: AudioTranscriber,
@@ -52,7 +50,7 @@ class Summarizer:
     ) -> None:
         """Store the injected collaborators used to build a summary."""
         self._quota_manager = quota_manager
-        self._gemini_helper = gemini_helper
+        self._openrouter_files = openrouter_files
         self._llm_client = llm_client
         self._downloader = downloader
         self._audio_transcriber = audio_transcriber
@@ -64,18 +62,14 @@ class Summarizer:
         mime_type: str,
         settings: SummarySettings,
     ) -> str:
-        """Upload a local file to the provider, summarize it, then delete the upload.
+        """Upload a local document to OpenRouter, summarize it, then delete the upload.
 
-        Shared by the audio and document paths; the caller owns `file` on disk,
-        has already run the non-consuming quota pre-check, and carries the
-        `@retry` this runs under — so this method must stay undecorated.
+        The caller owns `file` on disk, has already run the non-consuming quota
+        pre-check, and carries the `@retry` this runs under — so this method must
+        stay undecorated.
         """
         prompt = dedent(PROMPTS[settings.prompt_key]).strip()
-        uploaded = self._gemini_helper.upload_and_wait_for_file(
-            file=file,
-            mime_type=mime_type,
-        )
-        uploaded_name = cast("str", uploaded.name)
+        file_id = self._openrouter_files.upload(file=file, mime_type=mime_type)
         try:
             self._quota_manager.check_quota(
                 user_id=settings.user_id,
@@ -83,68 +77,25 @@ class Summarizer:
                 quantity=1,
             )
             return self._llm_client.run(
-                content=[
-                    prompt,
-                    self._llm_client.build_uploaded_file(
-                        model_id=settings.model,
-                        file=uploaded,
-                    ),
-                ],
+                content=[prompt, self._llm_client.build_file_part(file_id)],
                 model_id=settings.model,
                 target_language=settings.target_language,
                 thinking_level=settings.thinking_level,
             )
         finally:
             try:
-                self._gemini_helper.delete_file(uploaded_name)
+                self._openrouter_files.delete(file_id)
             except Exception as e:
                 logger.warning(
-                    "Failed to delete Gemini file %s: %s",
-                    uploaded_name,
+                    "Failed to delete OpenRouter file %s: %s",
+                    file_id,
                     e,
                 )
 
     @retry(
         stop=stop_after_attempt(2),
         wait=wait_fixed(30),
-        retry=retry_if_exception_type(
-            (ModelAPIError, AttributeError, UnexpectedModelBehavior),
-        ),
-        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
-        reraise=False,
-    )
-    def summarize_with_file(
-        self,
-        file: str,
-        settings: SummarySettings,
-    ) -> str:
-        """Summarize audio content by uploading it to the provider's file API.
-
-        Raises:
-            ValueError: If the provider reports a failed processing state.
-            RetryError: If transient model or network errors persist, or the
-                model keeps returning an empty response, or the upload helper
-                keeps reporting incomplete file metadata. Those three surface as
-                `AttributeError`, which the decorator retries and then wraps.
-
-        """
-        self._quota_manager.check_quota(
-            user_id=settings.user_id,
-            daily_limit=settings.daily_limit,
-            quantity=0,
-        )
-        return self._summarize_uploaded_file(
-            file=file,
-            mime_type=mimetypes.guess_type(file)[0] or "application/octet-stream",
-            settings=settings,
-        )
-
-    @retry(
-        stop=stop_after_attempt(2),
-        wait=wait_fixed(30),
-        retry=retry_if_exception_type(
-            (ModelAPIError, AttributeError, UnexpectedModelBehavior),
-        ),
+        retry=retry_if_exception_type((APIError, AttributeError)),
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
@@ -158,9 +109,8 @@ class Summarizer:
         The prompt and the content go in as two parts rather than one
         concatenated string, so a trace records them as separate fields — an
         evaluator can then swap either one without parsing them apart. A
-        multi-part text prompt is still text-only, so this stays on
-        `LLMClient`'s instrumented agent. Blank `text` drops its part instead
-        of sending an empty one.
+        multi-part text prompt is still text-only, so the run stays traced.
+        Blank `text` drops its part instead of sending an empty one.
 
         Raises:
             RetryError: If transient model errors persist, or the model keeps
@@ -169,9 +119,8 @@ class Summarizer:
 
         """
         prompt = dedent(PROMPTS[settings.prompt_key]).strip()
-        # Silent or music-only audio gives WhisperX no segments, so the rescue
-        # path can hand us "". Sending that as its own part would put an empty
-        # text part in the request; the concatenated form used to swallow it.
+        # Silent or music-only audio gives WhisperX no segments, so a transcript
+        # can be "", and an empty text part is not worth sending.
         content = [prompt, text] if text.strip() else [prompt]
         self._quota_manager.check_quota(
             user_id=settings.user_id,
@@ -189,13 +138,7 @@ class Summarizer:
         stop=stop_after_attempt(2),
         wait=wait_fixed(30),
         retry=retry_if_exception_type(
-            (
-                ModelAPIError,
-                AttributeError,
-                UnexpectedModelBehavior,
-                CurlSSLError,
-                CurlConnectionError,
-            ),
+            (APIError, AttributeError, CurlSSLError, CurlConnectionError),
         ),
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
@@ -206,19 +149,16 @@ class Summarizer:
         mime_type: str,
         settings: SummarySettings,
     ) -> str:
-        """Summarize document content by uploading it to the provider's file API.
+        """Summarize document content by uploading it to OpenRouter's Files API.
 
-        Audio documents sent to a model that cannot read audio take the Replicate
-        transcription path instead, and so carry the 📝 prefix. Any other document
-        sent to a model this bot cannot hand a file to is summarized by
-        `DEFAULT_MODEL_ID_FOR_SUMMARY`, because the upload only ever goes to
-        Gemini and no text-extraction path exists for a PDF.
+        Audio documents take the Replicate transcription path instead, and so
+        carry the 📝 prefix. Any other document sent to a model that takes no
+        file is summarized by `DEFAULT_MODEL_ID_FOR_SUMMARY`.
 
         Raises:
-            ValueError: If the document processing fails on the provider's side.
             RetryError: If the operation fails after all retry attempts —
-                including incomplete file metadata and an empty model response,
-                which arrive as a retried, then wrapped, `AttributeError`.
+                including a failed upload and an empty model response, which
+                arrives as a retried, then wrapped, `AttributeError`.
 
         """
         self._quota_manager.check_quota(
@@ -226,10 +166,7 @@ class Summarizer:
             daily_limit=settings.daily_limit,
             quantity=0,
         )
-        if (
-            mime_type.startswith("audio/")
-            and not MODEL_SPECS[settings.model].supports_audio
-        ):
+        if mime_type.startswith("audio/"):
             data = self._downloader.download_tg(file, ext=".ogg")
             try:
                 return self._summarize_via_transcription(
@@ -263,8 +200,8 @@ class Summarizer:
         """Generate a summary from a YouTube/Castro URL, a Telegram file, or a path.
 
         Returns:
-            str: The summary, carrying a source-provenance prefix on the
-                transcript and Replicate-transcription paths only.
+            str: The summary, prefixed with the source-provenance emoji of the
+                transcript or the Replicate transcription it was made from.
 
         Raises:
             RetryError: If all summarization attempts fail after retries.
@@ -300,24 +237,10 @@ class Summarizer:
             data = self._downloader.download_tg(data, ext=".ogg")
 
         try:
-            if not MODEL_SPECS[settings.model].supports_audio:
-                return self._summarize_via_transcription(
-                    data=data,
-                    settings=settings,
-                )
-            # Nested so that a RetryError raised by the transcription path itself
-            # propagates instead of re-entering it.
-            try:
-                return self.summarize_with_file(
-                    file=data,
-                    settings=settings,
-                )
-            except RetryError as e:
-                logger.warning("Error occurred while summarizing with file: %s", e)
-                return self._summarize_via_transcription(
-                    data=data,
-                    settings=settings,
-                )
+            return self._summarize_via_transcription(
+                data=data,
+                settings=settings,
+            )
         finally:
             clean_up(file=data)
 
@@ -328,8 +251,7 @@ class Summarizer:
     ) -> str:
         """Transcribe an audio file with Replicate, then summarize the transcript.
 
-        Serves both the rescue path, when the provider's file API fails, and
-        models that cannot read audio at all. The caller owns `data`; only the
+        The only route for spoken content. The caller owns `data`; only the
         compressed copy made here is cleaned up.
         """
         new_file = generate_temporary_name(ext=".ogg")

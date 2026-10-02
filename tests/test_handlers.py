@@ -1,8 +1,10 @@
+import logging
 from types import SimpleNamespace
 
 import pytest
 from telebot import types
 
+from config import DEFAULT_MODEL_ID_FOR_SUMMARY
 from domain import PrefixedText
 from exceptions import LimitExceededError, WebParseError
 from handlers import MessageHandlers
@@ -236,42 +238,44 @@ def test_handle_voice_missing_info(message_factory, mocker):
     ("content_type", "handler_name"),
     [("video", "handle_video"), ("video_note", "handle_video_note")],
 )
-def test_handle_video_like_cleans_up_both_temp_files(
+def test_handle_video_like_summarizes_the_download_and_cleans_it_up(
     message_factory,
     mocker,
     content_type,
     handler_name,
 ):
-    """Test video and video note both clean up the download and the compressed copy."""
+    """Test video and video note hand the raw download to summarize(), uncompressed.
+
+    summarize() compresses what it is given, so compressing here as well would
+    encode the audio twice.
+    """
     msg = message_factory(content_type=content_type)
     handlers, fakes = _make_handlers(mocker)
     user = mocker.MagicMock(
         approved=True,
-        summarizing_model="model",
+        summarizing_model="openai/gpt-6-luna",
         prompt_key_for_summary="prompt",
         target_language="English",
     )
     mock_file = mocker.MagicMock(spec=types.File)
     fakes.messenger.get_file_with_retry.return_value = mock_file
     fakes.downloader.download_tg.return_value = "downloaded.mp4"
-    mocker.patch("handlers.generate_temporary_name", return_value="compressed.ogg")
-    mocker.patch("handlers.compress_audio")
     fakes.summarizer.summarize.return_value = "summary"
     mock_clean_up = mocker.patch("handlers.clean_up")
 
     getattr(handlers, handler_name)(msg, user)
 
-    assert mock_clean_up.call_args_list == [
-        mocker.call(file="downloaded.mp4"),
-        mocker.call(file="compressed.ogg"),
-    ]
+    fakes.downloader.download_tg.assert_called_once_with(mock_file, ext=".mp4")
+    assert fakes.summarizer.summarize.call_args.kwargs["data"] == "downloaded.mp4"
+    fakes.messenger.send_answer.assert_called_once_with(msg, "summary")
+    mock_clean_up.assert_called_once_with(file="downloaded.mp4")
 
 
-def test_handle_video_cleans_up_compressed_file_when_summarize_raises(
+def test_handle_video_cleans_up_the_download_when_summarize_raises(
     message_factory,
     mocker,
 ):
-    """Test the compressed temp file is removed even if summarize() raises early.
+    """Test the downloaded file is removed even if summarize() raises early.
 
     summarize()'s preflight quota check can raise LimitExceededError before its
     own cleanup runs, so _handle_video_like must clean up the file it created.
@@ -280,22 +284,45 @@ def test_handle_video_cleans_up_compressed_file_when_summarize_raises(
     handlers, fakes = _make_handlers(mocker)
     user = mocker.MagicMock(
         approved=True,
-        summarizing_model="model",
+        summarizing_model="openai/gpt-6-luna",
         prompt_key_for_summary="prompt",
         target_language="English",
     )
     mock_file = mocker.MagicMock(spec=types.File)
     fakes.messenger.get_file_with_retry.return_value = mock_file
     fakes.downloader.download_tg.return_value = "downloaded.mp4"
-    mocker.patch("handlers.generate_temporary_name", return_value="compressed.ogg")
-    mocker.patch("handlers.compress_audio")
     fakes.summarizer.summarize.side_effect = LimitExceededError("blocked")
     mock_clean_up = mocker.patch("handlers.clean_up")
 
     with pytest.raises(LimitExceededError):
         handlers.handle_video(msg, user)
 
-    assert mock_clean_up.call_args_list == [
-        mocker.call(file="downloaded.mp4"),
-        mocker.call(file="compressed.ogg"),
-    ]
+    mock_clean_up.assert_called_once_with(file="downloaded.mp4")
+
+
+def test_settings_replace_a_model_that_left_the_registry(mocker, caplog):
+    """Test a stored id outside MODEL_SPECS is summarized by the default model.
+
+    A row written by the previous release after a data migration ran keeps the
+    dropped id; without this it fails every message that user sends.
+    """
+    handlers, _ = _make_handlers(mocker)
+    user = mocker.MagicMock(summarizing_model="gemini-3.8-flash")
+
+    with caplog.at_level(logging.WARNING, logger="handlers"):
+        settings = handlers._settings(user)
+
+    assert settings.model == DEFAULT_MODEL_ID_FOR_SUMMARY
+    assert "gemini-3.8-flash" in caplog.text
+
+
+def test_settings_keep_a_registered_model(mocker, caplog):
+    """Test a registered id passes through untouched and unlogged."""
+    handlers, _ = _make_handlers(mocker)
+    user = mocker.MagicMock(summarizing_model="x-ai/grok-4.7")
+
+    with caplog.at_level(logging.WARNING, logger="handlers"):
+        settings = handlers._settings(user)
+
+    assert settings.model == "x-ai/grok-4.7"
+    assert not caplog.records
