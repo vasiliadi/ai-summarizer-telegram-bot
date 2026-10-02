@@ -6,7 +6,6 @@ from functools import partial
 from pathlib import Path
 from typing import Literal
 
-import replicate
 import sentry_sdk
 import telebot
 from exa_py import Exa
@@ -184,7 +183,6 @@ ALLOWED_PROMPT_KEYS = list(PROMPT_STRATEGY_LABELS.keys())
 
 # Replicate.com config
 REPLICATE_API_TOKEN = os.environ["REPLICATE_API_TOKEN"]
-replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
 
 
 # Tavily config

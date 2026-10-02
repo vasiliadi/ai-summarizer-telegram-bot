@@ -271,7 +271,7 @@ in [Langfuse](https://langfuse.com). Setup and usage are in [scripts/eval/README
 [Google Gen AI SDK](https://github.com/googleapis/python-genai) \
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) \
 [beautifulsoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) \
-[Replicate](https://github.com/replicate/replicate-python) \
+[Replicate HTTP API](https://replicate.com/docs/reference/http) \
 [telegramify_markdown](https://github.com/sudoskys/telegramify-markdown) \
 [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \

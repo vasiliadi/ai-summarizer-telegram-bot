@@ -22,7 +22,6 @@ dependencies = [
     { name = "pydantic-ai-slim", extra = ["google", "openrouter"] },
     { name = "pytelegrambotapi" },
     { name = "redis" },
-    { name = "replicate" },
     { name = "requests" },
     { name = "sentry-sdk" },
     { name = "sqlalchemy" },
@@ -72,7 +71,6 @@ requires-dist = [
     { name = "pydantic-ai-slim", extras = ["google", "openrouter"], specifier = "==2.51.0" },
     { name = "pytelegrambotapi", specifier = "==4.37.0" },
     { name = "redis", specifier = "==8.1.0" },
-    { name = "replicate", specifier = "==1.0.7" },
     { name = "requests", specifier = "==2.34.2" },
     { name = "sentry-sdk", specifier = "==2.71.0" },
     { name = "sqlalchemy", specifier = "==2.1.1" },
@@ -1965,21 +1963,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/51/37a194df7707f92f33173260ba7b221d4ec376419a53babaec50019a2804/regex-2026.9.10-cp315-cp315t-win32.whl", hash = "sha256:5bef622850cf760154719d4e0d74b0a855962432995168e250069899ae12fe8f", size = 274780, upload-time = "2026-09-09T21:00:14.003Z" },
     { url = "https://files.pythonhosted.org/packages/77/12/3227a52970d90908b230f15b2c86df903f49ac72c9eedf4f6e8b5bb5e1a7/regex-2026.9.10-cp315-cp315t-win_amd64.whl", hash = "sha256:07b45ba5c94b8fcb30cb6c56a11f715c57533a3017964504322ea52690a27b72", size = 283936, upload-time = "2026-09-09T21:00:16.275Z" },
     { url = "https://files.pythonhosted.org/packages/f3/bc/c567c5a61671f04d30e83f20b496b465432879196574d051007285576205/regex-2026.9.10-cp315-cp315t-win_arm64.whl", hash = "sha256:f70b9f0e39c2dba1d9da6bf7ef7c377cad7277f8440e9a69be05ede529ff024c", size = 283747, upload-time = "2026-09-09T21:00:19.113Z" },
-]
-
-[[package]]
-name = "replicate"
-version = "1.0.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "httpx" },
-    { name = "packaging" },
-    { name = "pydantic" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4b/fd/caf6c59a6b8007366bd52ab5a320bf8d828f3860a60039309cfc0e375ec9/replicate-1.0.7.tar.gz", hash = "sha256:d88cb2c37ba39fb370c87fc3291601c67aae64bb918a20a85b5ce399c23ee84c", size = 62226, upload-time = "2025-05-27T11:29:08.111Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/5a/b3aa02a11a33de08e7771579154af3193decfb9d923b30b14c17b4e8bbce/replicate-1.0.7-py3-none-any.whl", hash = "sha256:667c50a9eb83be17de6278ff89483102b3b50f49a2c7fbcaa2e2b14df13816f9", size = 48626, upload-time = "2025-05-27T11:29:06.801Z" },
 ]
 
 [[package]]
