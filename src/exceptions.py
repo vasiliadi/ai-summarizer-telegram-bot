@@ -12,3 +12,16 @@ class TranscriptDownloadError(Exception):
 
 class FetchTranscriptError(Exception):
     """Exception raised when transcript retrieval fails via all backends."""
+
+
+class ReplicateError(Exception):
+    """Exception raised when the Replicate API answers with an HTTP 4xx/5xx."""
+
+    def __init__(self, status: int, message: str) -> None:
+        """Keep the HTTP status so the caller can tell a transient error apart."""
+        self.status = status
+        super().__init__(message)
+
+
+class TranscriptionError(Exception):
+    """Exception raised when a transcription fails or returns invalid output."""

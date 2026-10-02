@@ -52,7 +52,7 @@ would have held `python-dotenv` and nothing else. Install the harness with a pla
 
 **`requests` is a production dependency**, not a transitive one to rely on. `src/transcription.py`
 and `src/services.py` both catch `requests.exceptions`; it reached them through
-`exa-py`/`tavily-python`/`replicate` for a long time before being declared. Anything `src/`
+`exa-py`/`tavily-python` for a long time before being declared. Anything `src/`
 imports belongs in `[project.dependencies]`, however reliably some other package drags it in.
 
 **Do not swap `requests.exceptions` for `curl_cffi.requests.exceptions`.** The names all exist on

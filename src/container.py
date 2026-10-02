@@ -55,7 +55,7 @@ def build_container() -> Container:
         UrlResolver(),
         BlockedPageDetector(config.OPENROUTER_API_KEY),
     )
-    audio_transcriber = AudioTranscriber(config.replicate_client)
+    audio_transcriber = AudioTranscriber(config.REPLICATE_API_TOKEN)
     yt_transcriber = YouTubeTranscriber(ApiBackend(), YtDlpBackend())
     summarizer = Summarizer(
         quota_manager,

@@ -106,14 +106,14 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummarySettings` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
 | `llm.py` | `LLMClient` — the provider seam. Each instance holds two pydantic-ai `Agent`s — one traced, one with instrumentation off for uploaded-file runs (see Tracing below) — plus a per-thread OpenRouter provider and a per-thread model cache keyed by id across providers (see *One OpenRouter provider per thread* below); model, instructions and settings are resolved per run. Provider dispatch lives in `build_model` (keyed on `config.MODEL_SPECS[...].provider`, Google and OpenRouter today); `build_settings` has no provider branch at all — every provider takes the agnostic `thinking` effort, so the one provider-specific setting there is (OpenRouter usage accounting) rides on the model instead. `OpenRouterCostReporter`, the wrapper `build_model` puts around every OpenRouter model, reports cost to the trace (see Tracing below). |
-| `transcription.py` | `AudioTranscriber` (Replicate WhisperX) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`; an empty or whitespace-only transcript counts as a backend failure, so it falls through too). |
+| `transcription.py` | `AudioTranscriber` (Replicate WhisperX, over plain HTTP) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`; an empty or whitespace-only transcript counts as a backend failure, so it falls through too). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback; each backend's output is block-page checked by JEV. |
 | `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `GeminiHelper` (file upload/poll), `Tracer` (names, tags and adds settings metadata to the Langfuse trace for a message, if one is opened). |
 | `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator to `config`'s clients. `Container` carries only the five roots `BotApp` holds (`bot`, `quota_manager`, `tracer`, `user_repo`, `handlers`); the rest of the graph is reached through `handlers`. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
-| `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`. |
+| `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`, `ReplicateError`, `TranscriptionError`. |
 | `config.py` | All third-party clients (by design — see Cross-cutting patterns) + the `MODEL_SPECS` registry, labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION` + `prompt_version` (short hash over both, for trace metadata). |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. `SummarySettings` — the per-request settings every `Summarizer` entry point takes. |
@@ -259,6 +259,20 @@ to Gemini — return the raw model text with **no** prefix.
   page. Settled: **fail open** (a detector error logs a warning and keeps the text), **no retry on
   a block page** (outside the backends' `@retry`), **not metered** by `QuotaManager`. A bare
   marketing shell with no block wording is not a block page and is not caught.
+- **Replicate over plain HTTP.** `AudioTranscriber` calls `https://api.replicate.com/v1` with
+  `curl-cffi`, not the `replicate` SDK, which was dropped as unmaintained: no stable release
+  since 2025-05-27 (observed 2026-10). One `transcribe` is four requests — `GET /models/{owner}/{name}`
+  for `latest_version.id` (a community model takes a version id, and it is resolved on every
+  call rather than pinned), a multipart `POST /files` whose part is named `content`,
+  `POST /predictions` with the upload's `urls.get` as `audio_file`, then `GET /predictions/{id}`
+  every 10 s. Two retries, nested on purpose: `_poll` repeats its own GET on 429/503/504 and on
+  a network error, because the outer `@retry` reruns the whole `transcribe` — a second upload
+  and a second billed prediction — so it must not be what absorbs a blip on a status check.
+  The outer one covers `ReplicateError` (any HTTP 4xx/5xx) only; a network error on the model
+  lookup, the upload or the create is **not** retried and reaches `handle_message` as
+  `Unexpected: ...`. `TranscriptionError` (status `failed`, `canceled` or `aborted`, or output
+  without a `segments` list) is not retried either. The loop has no overall deadline: a
+  prediction stuck in `starting` is polled until Replicate ends it.
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
 - **One OpenRouter provider per thread.** `LLMClient.run` ends in pydantic-ai's `run_sync`, which

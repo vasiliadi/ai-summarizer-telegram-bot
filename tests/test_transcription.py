@@ -1,8 +1,8 @@
 import textwrap
 
 import pytest
+from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
 from defusedxml.ElementTree import ParseError
-from replicate.exceptions import ModelError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import RetryError
 from youtube_transcript_api._errors import (
@@ -16,7 +16,9 @@ from yt_dlp.utils import DownloadError
 from domain import PrefixedText
 from exceptions import (
     FetchTranscriptError,
+    ReplicateError,
     TranscriptDownloadError,
+    TranscriptionError,
 )
 from transcription import (
     ApiBackend,
@@ -768,81 +770,206 @@ def test_ytdlp_fetch_pins_proxy_across_probe_and_download(
     assert not vtt_path.exists()
 
 
-def test_transcribe_happy_path(mocker):
-    """Test transcribing an audio file successfully via Replicate."""
-    mock_replicate = mocker.MagicMock()
-    mocker.patch("transcription.Path.open", mocker.mock_open())
-    mocker.patch("transcription.time.sleep")  # Don't actually wait
-
-    # Mock the prediction object and its lifecycle
-    mock_prediction = mocker.MagicMock()
-    mock_prediction.status = "processing"
-    # sequence of statuses: processing -> succeeded
-    # status is checked twice per loop (while condition and inside if)
-    type(mock_prediction).status = mocker.PropertyMock(
-        side_effect=["processing", "processing", "succeeded", "succeeded"],
+def _replicate_response(mocker, body, status=200):
+    """Build a stand-in for one curl-cffi response from the Replicate API."""
+    return mocker.MagicMock(
+        ok=status < 400,
+        status_code=status,
+        text=str(body),
+        json=mocker.MagicMock(return_value=body),
     )
-    mock_prediction.output = {"segments": [{"text": "Hello "}, {"text": "world!"}]}
 
-    mock_replicate.models.get.return_value.versions.list.return_value = [
-        mocker.MagicMock(id="v1"),
+
+def _install_mock_replicate(mocker, tmp_path, predictions):
+    """Patch the HTTP layer to serve the model, the upload, then `predictions`.
+
+    Each of `predictions` is a response body, a `(body, status)` pair, or an
+    exception to raise; the first answers the create call, the rest the polls.
+
+    Returns:
+        The patched `request` mock and the path of a real audio fixture file.
+
+    """
+    audio = tmp_path / "test.ogg"
+    audio.write_bytes(b"OggS")
+    mocker.patch("transcription.time.sleep")  # Don't actually wait
+    mocker.patch("tenacity.nap.time.sleep")
+    responses = [
+        _replicate_response(mocker, {"latest_version": {"id": "v1"}}),
+        _replicate_response(mocker, {"urls": {"get": "https://files.test/audio"}}),
     ]
-    mock_replicate.predictions.create.return_value = mock_prediction
+    for prediction in predictions:
+        if isinstance(prediction, Exception):
+            responses.append(prediction)
+        elif isinstance(prediction, tuple):
+            responses.append(_replicate_response(mocker, *prediction))
+        else:
+            responses.append(_replicate_response(mocker, prediction))
+    request = mocker.patch(
+        "transcription.curl_requests.request",
+        side_effect=responses,
+    )
+    return request, str(audio)
 
-    result = AudioTranscriber(mock_replicate).transcribe("test.ogg")
+
+def test_transcribe_happy_path(mocker, tmp_path):
+    """Test transcribing an audio file successfully via Replicate."""
+    request, audio = _install_mock_replicate(
+        mocker,
+        tmp_path,
+        [
+            {"id": "p1", "status": "starting"},
+            {"id": "p1", "status": "processing"},
+            {
+                "id": "p1",
+                "status": "succeeded",
+                "output": {"segments": [{"text": "Hello "}, {"text": "world!"}]},
+            },
+        ],
+    )
+
+    result = AudioTranscriber("token").transcribe(audio)
 
     assert result == "Hello world!"
-    mock_prediction.reload.assert_called_once()
+    calls = [(c.args[0], c.args[1]) for c in request.call_args_list]
+    api = "https://api.replicate.com/v1"
+    assert calls == [
+        ("GET", f"{api}/models/victor-upmeet/whisperx"),
+        ("POST", f"{api}/files"),
+        ("POST", f"{api}/predictions"),
+        ("GET", f"{api}/predictions/p1"),
+        ("GET", f"{api}/predictions/p1"),
+    ]
+    assert all(
+        c.kwargs["headers"] == {"Authorization": "Bearer token"}
+        for c in request.call_args_list
+    )
+    assert request.call_args_list[1].kwargs["multipart"] is not None
+    assert request.call_args_list[2].kwargs["json"] == {
+        "version": "v1",
+        "input": {"audio_file": "https://files.test/audio"},
+    }
 
 
-def test_transcribe_failed_prediction(mocker):
-    """Test transcribe raises ModelError when prediction fails."""
-    mock_replicate = mocker.MagicMock()
-    mocker.patch("transcription.Path.open", mocker.mock_open())
+@pytest.mark.parametrize("status", ["failed", "canceled", "aborted"])
+def test_transcribe_failed_prediction(mocker, tmp_path, status):
+    """Test transcribe raises TranscriptionError when the prediction does not finish."""
+    request, audio = _install_mock_replicate(
+        mocker,
+        tmp_path,
+        [{"id": "p1", "status": status, "error": "boom"}],
+    )
 
-    mock_prediction = mocker.MagicMock()
-    mock_prediction.status = "failed"
-    mock_replicate.predictions.create.return_value = mock_prediction
-    mock_replicate.models.get.return_value.versions.list.return_value = [
-        mocker.MagicMock(id="v1"),
+    with pytest.raises(TranscriptionError, match=f"{status}: boom"):
+        AudioTranscriber("token").transcribe(audio)
+
+    assert request.call_count == 3
+
+
+def test_transcribe_null_output(mocker, tmp_path):
+    """Test transcribe raises TranscriptionError when prediction output is None."""
+    _, audio = _install_mock_replicate(
+        mocker,
+        tmp_path,
+        [{"id": "p1", "status": "succeeded", "output": None}],
+    )
+
+    with pytest.raises(TranscriptionError):
+        AudioTranscriber("token").transcribe(audio)
+
+
+def test_transcribe_invalid_segments_raises_transcription_error(mocker, tmp_path):
+    """Test transcribe raises TranscriptionError when output segments is not a list."""
+    _, audio = _install_mock_replicate(
+        mocker,
+        tmp_path,
+        [{"id": "p1", "status": "succeeded", "output": {"segments": "not-a-list"}}],
+    )
+
+    with pytest.raises(TranscriptionError):
+        AudioTranscriber("token").transcribe(audio)
+
+
+def test_transcribe_retries_http_errors_then_raises_retry_error(mocker):
+    """Test transcribe reruns on an HTTP error and ends in RetryError."""
+    mocker.patch("tenacity.nap.time.sleep")
+    request = mocker.patch(
+        "transcription.curl_requests.request",
+        return_value=_replicate_response(mocker, {"detail": "bad token"}, 401),
+    )
+
+    with pytest.raises(RetryError) as exc_info:
+        AudioTranscriber("token").transcribe("test.ogg")
+
+    assert request.call_count == 3
+    error = exc_info.value.last_attempt.exception()
+    assert isinstance(error, ReplicateError)
+    assert error.status == 401
+
+
+@pytest.mark.parametrize(
+    "blip",
+    [
+        ({"detail": "throttled"}, 429),
+        ({"detail": "unavailable"}, 503),
+        CurlConnectionError("connection reset"),
+    ],
+)
+def test_transcribe_poll_survives_transient_failure(mocker, tmp_path, blip):
+    """Test a transient poll failure is repeated without a second upload."""
+    request, audio = _install_mock_replicate(
+        mocker,
+        tmp_path,
+        [
+            {"id": "p1", "status": "starting"},
+            blip,
+            {"id": "p1", "status": "succeeded", "output": {"segments": []}},
+        ],
+    )
+
+    assert AudioTranscriber("token").transcribe(audio) == ""
+
+    methods = [c.args[0] for c in request.call_args_list]
+    assert methods == ["GET", "POST", "POST", "GET", "GET"]
+
+
+def test_transcribe_poll_does_not_repeat_permanent_error(mocker, tmp_path):
+    """Test a non-transient poll error skips the poll retry and reruns transcribe."""
+    request, audio = _install_mock_replicate(
+        mocker,
+        tmp_path,
+        [
+            {"id": "p1", "status": "starting"},
+            ({"detail": "not found"}, 404),
+        ],
+    )
+    # The second attempt of the whole transcribe.
+    request.side_effect = [
+        *request.side_effect,
+        _replicate_response(mocker, {"latest_version": {"id": "v1"}}),
+        _replicate_response(mocker, {"urls": {"get": "https://files.test/audio"}}),
+        _replicate_response(
+            mocker,
+            {"id": "p2", "status": "succeeded", "output": {"segments": []}},
+        ),
     ]
 
-    with pytest.raises(ModelError):
-        AudioTranscriber(mock_replicate).transcribe("test.ogg")
+    assert AudioTranscriber("token").transcribe(audio) == ""
+
+    assert request.call_count == 7
 
 
-def test_transcribe_null_output(mocker):
-    """Test transcribe raises ModelError when prediction output is None."""
-    mock_replicate = mocker.MagicMock()
-    mocker.patch("transcription.Path.open", mocker.mock_open())
+def test_transcribe_network_error_outside_poll_propagates(mocker):
+    """Test a network error on a non-poll request is raised as is, not retried."""
+    request = mocker.patch(
+        "transcription.curl_requests.request",
+        side_effect=CurlConnectionError("connection reset"),
+    )
 
-    mock_prediction = mocker.MagicMock()
-    mock_prediction.status = "succeeded"
-    mock_prediction.output = None
-    mock_replicate.predictions.create.return_value = mock_prediction
-    mock_replicate.models.get.return_value.versions.list.return_value = [
-        mocker.MagicMock(id="v1"),
-    ]
+    with pytest.raises(CurlConnectionError):
+        AudioTranscriber("token").transcribe("test.ogg")
 
-    with pytest.raises(ModelError):
-        AudioTranscriber(mock_replicate).transcribe("test.ogg")
-
-
-def test_transcribe_invalid_segments_raises_model_error(mocker):
-    """Test transcribe raises ModelError when output segments is not a list."""
-    mock_replicate = mocker.MagicMock()
-    mocker.patch("transcription.Path.open", mocker.mock_open())
-
-    mock_prediction = mocker.MagicMock()
-    mock_prediction.status = "succeeded"
-    mock_prediction.output = {"segments": "not-a-list"}
-    mock_replicate.predictions.create.return_value = mock_prediction
-    mock_replicate.models.get.return_value.versions.list.return_value = [
-        mocker.MagicMock(id="v1"),
-    ]
-
-    with pytest.raises(ModelError):
-        AudioTranscriber(mock_replicate).transcribe("test.ogg")
+    request.assert_called_once()
 
 
 def test_extract_video_id_uppercase_host():
