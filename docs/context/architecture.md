@@ -278,8 +278,10 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   colon as the speaker and writes `Speaker:` where there is none, so a turn's continuation
   lines all read `Speaker:`, and a cue such as `… a 4:58 email` is split at `4:`.
   `CastroTranscriber` drops the timestamps and passes the rest through, one paragraph per
-  line. Merging the `Speaker:` lines into turns was considered and **not done**: one episode
-  is too little to build a heuristic on. Any failure — no `div`, no text, an HTTP or network error
+  line. Merging the `Speaker:` lines into turns is **rejected**: across six episodes of six
+  podcasts the markup was identical, but the labels were real names per turn, machine labels
+  (`SPEAKER_00:`), or `Speaker:` beside `Speaker 2:`, where a filler `Speaker:` cannot be told
+  from a real one. One episode had empty timestamp spans. Any failure — no `div`, no text, an HTTP or network error
   — is a `FetchTranscriptError`, so a markup change on Castro's side degrades to the audio
   download instead of an error. The fallback fetches the page a second time, for its
   `<source>`: sharing one fetch between `CastroTranscriber` and `Downloader` was not worth the
