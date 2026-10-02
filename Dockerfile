@@ -7,7 +7,7 @@ ARG MODAL_TOKEN_ID
 ARG MODAL_TOKEN_SECRET
 WORKDIR /app
 COPY . .
-COPY --from=ghcr.io/astral-sh/uv:latest@sha256:e85be844203885286c60ffad8a858d48afb6c5a5c237ca0e67f12e74b8f174b1 /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc /uv /bin/
 RUN uv sync \
     --frozen \
     --only-group build \
@@ -29,7 +29,7 @@ ENV SENTRY_ENVIRONMENT=${ENV} \
     LANGFUSE_TRACING_ENVIRONMENT=prod
 WORKDIR /app
 RUN apk add --no-cache ffmpeg deno
-COPY --from=ghcr.io/astral-sh/uv:latest@sha256:e85be844203885286c60ffad8a858d48afb6c5a5c237ca0e67f12e74b8f174b1 /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc /uv /bin/
 COPY pyproject.toml uv.lock .python-version LICENSE NOTICE ./
 RUN uv sync \
     --frozen \
