@@ -244,16 +244,6 @@ Webpage URLs are parsed into clean text before being passed to the model. This g
 
 Parsing runs a fixed two-stage flow: [Exa.ai](https://exa.ai) is tried first, and [Tavily](https://tavily.com) is used as an automatic fallback when Exa.ai returns no usable content or a detected block page; other Exa.ai errors are not retried on Tavily. Each result is checked by TypeSafe's JEV model (through OpenRouter) for block pages — bot checks, region blocks, logins, paywalls — so a blocked page falls through to the fallback, or ends in "page is not available", instead of being summarized. If that check itself fails, the text is kept.
 
-## Audio summaries
-
-Audio and video are always summarized from a transcript, never from the sound itself, so what a
-transcript drops — intonation, emphasis, pauses, speaker turns, non-verbal cues like laughter —
-does not reach the summary.
-
-For YouTube and Castro the bot tries the video's or episode's own transcript first and
-downloads the audio for transcription only when there is none: the transcript path is faster
-and cheaper.
-
 ## Evaluating models
 
 `scripts/eval/` is an optional harness for deciding whether a new model belongs in `MODEL_SPECS`:
