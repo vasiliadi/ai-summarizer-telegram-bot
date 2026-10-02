@@ -55,12 +55,16 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   lifted and a Langfuse integration exists. The SDK retries on its own — twice by default, on
   connection errors and 408/409/429/5xx — inside one `@retry` attempt, so those repeats
   consume no extra quota unit.
-- **Dropping or renaming a model id needs an Alembic data migration in the same PR** —
-  `summarize_with_document` reads `MODEL_SPECS[model_id]` unguarded, so a user whose stored
-  `summarizing_model` left the registry gets a `KeyError` on every document, and on every other
-  message OpenRouter answers 400 for the unknown id, which ends in "try again later"; the
-  migration rewrites those rows onto a surviving id. That rewrite alone changes no schema,
-  so `uv-guide.md`'s schema-change rule is not what requires it. *Adding* an id needs no
+- **Dropping or renaming a model id needs an Alembic data migration in the same PR** — the
+  migration rewrites rows whose stored `summarizing_model` left the registry onto a surviving
+  id, so `/myinfo` and the user's real model agree. It cannot be the only guard: the
+  `Dockerfile` runs `alembic upgrade head` at image build, while the previous container is
+  still serving and still writes its own default into every new row, so a user registered in
+  that window (or after a rollback) keeps the dropped id. `MessageHandlers._settings` therefore
+  substitutes `DEFAULT_MODEL_ID_FOR_SUMMARY` for an id outside `MODEL_SPECS`, logged at
+  WARNING; the stored row is left alone, and `/myinfo` shows its raw id. The migration's
+  rewrite alone changes no schema, so `uv-guide.md`'s schema-change rule is not what requires
+  it. *Adding* an id needs no
   migration. Moving `DEFAULT_MODEL_ID_FOR_SUMMARY` also moves `models.UsersOrm`'s
   `server_default` (pinned by `test_orm_server_defaults_match_config`) and the column's own
   default.
@@ -150,7 +154,7 @@ Telegram update
                                                                │
   handlers.py:                                                 ▼
     audio / voice ───────────────► summarize(File)
-    video / video_note ──────────► download_tg(.mp4) → compress_audio(.ogg) → summarize(path)
+    video / video_note ──────────► download_tg(.mp4) → summarize(path)
     document ────────────────────► summarize_with_document(File, mime)
     text (treated as URL) ── classify_url ──┬─ "youtube" / "castro" ► summarize(url)
                                             └─ "web"  ► WebParser.parse → summarize_text

@@ -20,10 +20,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # OpenRouter is the only provider left, so gemini-3.8-flash leaves
-    # MODEL_SPECS. A stored id outside the registry is a KeyError in
-    # summary.summarize_with_document and a 400 from OpenRouter everywhere else,
-    # so every such row moves to the new default, which also serves documents
-    # for models with supports_files=False.
+    # MODEL_SPECS. Every row holding an id outside the registry moves to the new
+    # default, which also serves documents for models with supports_files=False.
+    # A row the previous release writes after this ran is not caught here:
+    # handlers.MessageHandlers._settings substitutes the default for it.
     op.execute(
         "UPDATE users SET summarizing_model = 'openai/gpt-6-luna' "
         "WHERE summarizing_model NOT IN ("
