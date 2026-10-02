@@ -244,10 +244,14 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   the explicit flag rather than switching back. `logging.basicConfig(force=True)` after `init` does not unhook the
   integration: it patches `logging.Logger.callHandlers` rather than adding a root handler.
 - **A failed delete leaks an uploaded file for good.** `_summarize_uploaded_file` deletes
-  the upload in a `finally`, whatever the model call did; a delete that itself fails is
-  logged at WARNING and not retried. OpenRouter never expires a file, so each such failure
-  stays in the workspace and counts toward its 10 GiB quota until removed by hand. An upload
-  that fails returns no id, so there is nothing to delete.
+  the upload in a `finally`, whatever the model call did. A transient failure there is
+  repeated by the SDK's own retries (pinned by a test, so `config.openrouter_client` must not
+  be built with `max_retries=0`); a delete that still fails is logged at WARNING. A `@retry`
+  around the delete is **rejected**: it would cover no failure the SDK does not already retry
+  except a 4xx, which repeating cannot fix, and its wait would hold back a summary that is
+  already written. OpenRouter never expires a file, so each such failure stays in the
+  workspace and counts toward its 10 GiB quota until removed by hand. An upload that fails
+  returns no id, so there is nothing to delete.
 - **Temp-file hygiene.** Downloads/compression write UUID-named temp files in the
   CWD; `clean_up` removes them, guarded by a `PROTECTED_FILES` snapshot taken at
   startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest.

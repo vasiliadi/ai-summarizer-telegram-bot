@@ -6,17 +6,18 @@ from limits.strategies import FixedWindowRateLimiter
 from limits.util import WindowStats
 from openai import APIStatusError, OpenAI
 
+import config
 from exceptions import LimitExceededError
 from prompts import prompt_version
 from services import Messenger, OpenRouterFiles, QuotaManager, Tracer
 
 
-def _make_openrouter_files(handler):
+def _make_openrouter_files(handler, max_retries=0):
     """Return an OpenRouterFiles on a real `openai` client answered by `handler`."""
     client = OpenAI(
         api_key="mock_openrouter_key",
         base_url="https://openrouter.ai/api/v1",
-        max_retries=0,
+        max_retries=max_retries,
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
     return OpenRouterFiles(client)
@@ -148,6 +149,31 @@ def test_delete_removes_the_file_by_id():
     (request,) = requests
     assert request.method == "DELETE"
     assert request.url == "https://openrouter.ai/api/v1/files/or_file_mock123"
+
+
+def test_delete_survives_a_transient_failure_on_the_clients_own_retries():
+    """Test a delete that hits a transient error is repeated by the SDK itself.
+
+    OpenRouter never expires a file, so a delete lost to one 503 would leak it.
+    The summarizer adds no retry of its own; the bot's client must keep the
+    SDK's, which this pins alongside the count.
+    """
+    statuses = [503, 200]
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(
+            statuses[len(requests) - 1],
+            headers={"retry-after-ms": "1"},
+            json={"id": "or_file_mock123", "object": "file", "deleted": True},
+        )
+
+    retries = config.openrouter_client.max_retries
+    _make_openrouter_files(handler, max_retries=retries).delete("or_file_mock123")
+
+    assert retries > 0
+    assert [request.method for request in requests] == ["DELETE", "DELETE"]
 
 
 def test_get_remaining_quota(mocker):
