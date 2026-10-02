@@ -911,6 +911,7 @@ def test_transcribe_retries_http_errors_then_raises_retry_error(mocker):
     "blip",
     [
         ({"detail": "throttled"}, 429),
+        ({"detail": "bad gateway"}, 502),
         ({"detail": "unavailable"}, 503),
         CurlConnectionError("connection reset"),
     ],
@@ -959,16 +960,17 @@ def test_transcribe_poll_does_not_repeat_permanent_error(mocker, tmp_path):
     assert request.call_count == 7
 
 
-def test_transcribe_network_error_outside_poll_propagates(mocker):
-    """Test a network error on a non-poll request is raised as is, not retried."""
+def test_transcribe_network_error_raises_transcription_error(mocker):
+    """Test a network error becomes TranscriptionError, so no caller retries it."""
     request = mocker.patch(
         "transcription.curl_requests.request",
         side_effect=CurlConnectionError("connection reset"),
     )
 
-    with pytest.raises(CurlConnectionError):
+    with pytest.raises(TranscriptionError) as exc_info:
         AudioTranscriber("token").transcribe("test.ogg")
 
+    assert isinstance(exc_info.value.__cause__, CurlConnectionError)
     request.assert_called_once()
 
 

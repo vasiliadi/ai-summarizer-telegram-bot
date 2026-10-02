@@ -265,13 +265,16 @@ to Gemini — return the raw model text with **no** prefix.
   for `latest_version.id` (a community model takes a version id, and it is resolved on every
   call rather than pinned), a multipart `POST /files` whose part is named `content`,
   `POST /predictions` with the upload's `urls.get` as `audio_file`, then `GET /predictions/{id}`
-  every 10 s. Two retries, nested on purpose: `_poll` repeats its own GET on 429/503/504 and on
-  a network error, because the outer `@retry` reruns the whole `transcribe` — a second upload
-  and a second billed prediction — so it must not be what absorbs a blip on a status check.
-  The outer one covers `ReplicateError` (any HTTP 4xx/5xx) only; a network error on the model
-  lookup, the upload or the create is **not** retried and reaches `handle_message` as
-  `Unexpected: ...`. `TranscriptionError` (status `failed`, `canceled` or `aborted`, or output
-  without a `segments` list) is not retried either. The loop has no overall deadline: a
+  every 10 s. Two retries, nested on purpose: `_poll` repeats its own GET on
+  429/500/502/503/504 and on a network error, because the outer `@retry` reruns the whole
+  `transcribe` — a second upload and a second billed prediction — so it must not be what
+  absorbs a blip on a status check. The outer one covers `ReplicateError` (any HTTP 4xx/5xx)
+  only. A network error anywhere else, or one that outlasts the poll retry, is re-raised as
+  `TranscriptionError` and is **not** retried. **Do not let a raw `curl-cffi` exception leave
+  `transcribe`**: `Summarizer.summarize_with_document` retries on `CurlConnectionError` and
+  `CurlSSLError` for its own download, and would rerun the transcription too.
+  `TranscriptionError` (also status `failed`, `canceled` or `aborted`, or output without a
+  `segments` list) reaches `handle_message` as `Unexpected: ...`. The loop has no overall deadline: a
   prediction stuck in `starting` is polled until Replicate ends it.
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.

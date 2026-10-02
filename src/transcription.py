@@ -63,7 +63,7 @@ class AudioTranscriber:
     _UPLOAD_TIMEOUT: ClassVar[int] = 300
     # How long to wait between polls of the prediction's status.
     _POLL_SECONDS: ClassVar[int] = 10
-    _TRANSIENT_STATUSES: ClassVar[frozenset[int]] = frozenset({429, 503, 504})
+    _TRANSIENT_STATUSES: ClassVar[frozenset[int]] = frozenset({429, 500, 502, 503, 504})
 
     def __init__(self, api_token: str) -> None:
         """Store the injected Replicate API token."""
@@ -151,28 +151,33 @@ class AudioTranscriber:
 
         Raises:
             TranscriptionError: If the transcription fails, is canceled or
-                aborted, or its output is invalid.
+                aborted, its output is invalid, or the network fails.
             RetryError: If Replicate errors persist after all retry attempts.
 
         """
-        model = self._request("GET", f"/models/{self._MODEL}")
-        prediction = self._request(
-            "POST",
-            "/predictions",
-            json={
-                "version": model["latest_version"]["id"],
-                "input": {"audio_file": self._upload(file)},
-            },
-        )
-        while prediction["status"] != "succeeded":
-            if prediction["status"] in ("failed", "canceled", "aborted"):
-                msg = (
-                    f"Replicate prediction {prediction['status']}: "
-                    f"{prediction.get('error')}"
-                )
-                raise TranscriptionError(msg)
-            time.sleep(self._POLL_SECONDS)
-            prediction = self._poll(prediction["id"])
+        # See architecture.md → *Replicate over plain HTTP*.
+        try:
+            model = self._request("GET", f"/models/{self._MODEL}")
+            prediction = self._request(
+                "POST",
+                "/predictions",
+                json={
+                    "version": model["latest_version"]["id"],
+                    "input": {"audio_file": self._upload(file)},
+                },
+            )
+            while prediction["status"] != "succeeded":
+                if prediction["status"] in ("failed", "canceled", "aborted"):
+                    msg = (
+                        f"Replicate prediction {prediction['status']}: "
+                        f"{prediction.get('error')}"
+                    )
+                    raise TranscriptionError(msg)
+                time.sleep(self._POLL_SECONDS)
+                prediction = self._poll(prediction["id"])
+        except RequestException as e:
+            msg = "Replicate request failed"
+            raise TranscriptionError(msg) from e
         output = prediction.get("output")
         segments = output.get("segments") if isinstance(output, dict) else None
         if not isinstance(segments, list):
