@@ -281,7 +281,11 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   line. Merging the `Speaker:` lines into turns is **rejected**: across six episodes of six
   podcasts the markup was identical, but the labels were real names per turn, machine labels
   (`SPEAKER_00:`), or `Speaker:` beside `Speaker 2:`, where a filler `Speaker:` cannot be told
-  from a real one. One episode had empty timestamp spans. Any failure — no `div`, no text, an HTTP or network error
+  from a real one. One episode had empty timestamp spans. Two review findings are **rejected**
+  as well. Catching bs4's `ParserRejectedMarkup` would buy no fallback: `download_castro`
+  parses the same page with the same parser and would raise it too. Treating a transcript of
+  speaker labels with no speech as empty needs the label parsing this class avoids, for a
+  page none of the six episodes produced. Any failure — no `div`, no text, an HTTP or network error
   — is a `FetchTranscriptError`, so a markup change on Castro's side degrades to the audio
   download instead of an error. The fallback fetches the page a second time, for its
   `<source>`: sharing one fetch between `CastroTranscriber` and `Downloader` was not worth the
