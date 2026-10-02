@@ -276,7 +276,8 @@ in [Langfuse](https://langfuse.com). Setup and usage are in [scripts/eval/README
 [tavily-python](https://docs.tavily.com/welcome) \
 [exa-py](https://github.com/exa-labs/exa-py) \
 [curl_cffi](https://github.com/lexiforest/curl_cffi) \
-[langfuse](https://langfuse.com/docs/observability/sdk/overview), [OpenRouter API](https://openrouter.ai/docs/api-reference/overview)
+[langfuse](https://langfuse.com/docs/observability/sdk/overview) \
+[OpenRouter API](https://openrouter.ai/docs/api-reference/overview)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
