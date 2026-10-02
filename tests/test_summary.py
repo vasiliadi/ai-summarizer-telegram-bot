@@ -38,6 +38,7 @@ def _make_summarizer(mocker):
         downloader=mocker.MagicMock(),
         audio_transcriber=mocker.MagicMock(),
         yt_transcriber=mocker.MagicMock(),
+        castro_transcriber=mocker.MagicMock(),
     )
     summarizer = Summarizer(
         fakes.quota_manager,
@@ -46,6 +47,7 @@ def _make_summarizer(mocker):
         fakes.downloader,
         fakes.audio_transcriber,
         fakes.yt_transcriber,
+        fakes.castro_transcriber,
     )
     return summarizer, fakes
 
@@ -447,18 +449,52 @@ def test_summarize_cleans_up_temp_file_when_compress_fails(mocker):
     mock_clean_up.assert_any_call(file="temp.ogg")
 
 
-def test_summarize_castro(mocker):
-    """Test summarize() with Castro.fm URL."""
+def test_summarize_castro_transcript_skips_the_audio_download(mocker):
+    """Test summarize() summarizes Castro's own transcript when the page has one."""
     summarizer, fakes = _make_summarizer(mocker)
     url = "https://castro.fm/episode/123"
     fakes.quota_manager.check_quota.return_value = True
+    fakes.castro_transcriber.get_transcript.return_value = PrefixedText(
+        text="Castro transcript content",
+        prefix="🎙️",
+    )
+    mock_summarize_text = mocker.patch.object(
+        summarizer,
+        "summarize_text",
+        return_value="Castro summary",
+    )
+
+    result = summarizer.summarize(
+        data=url,
+        settings=SETTINGS,
+    )
+
+    assert result == "🎙️\n\nCastro summary"
+    fakes.castro_transcriber.get_transcript.assert_called_once_with(url)
+    mock_summarize_text.assert_called_once_with(
+        text="Castro transcript content",
+        settings=SETTINGS,
+    )
+    fakes.yt_transcriber.get_transcript.assert_not_called()
+    fakes.downloader.download_castro.assert_not_called()
+    fakes.audio_transcriber.transcribe.assert_not_called()
+
+
+def test_summarize_castro_without_transcript_falls_back_to_download(mocker):
+    """Test summarize() downloads the Castro audio when the page has no transcript."""
+    summarizer, fakes = _make_summarizer(mocker)
+    url = "https://castro.fm/episode/123"
+    fakes.quota_manager.check_quota.return_value = True
+    fakes.castro_transcriber.get_transcript.side_effect = FetchTranscriptError(
+        "no transcript",
+    )
     fakes.downloader.download_castro.return_value = "downloaded.mp3"
-    mocker.patch.object(
+    mock_via_transcription = mocker.patch.object(
         summarizer,
         "_summarize_via_transcription",
         return_value="Castro summary",
     )
-    mocker.patch("summary.clean_up")
+    mock_clean_up = mocker.patch("summary.clean_up")
 
     result = summarizer.summarize(
         data=url,
@@ -466,6 +502,13 @@ def test_summarize_castro(mocker):
     )
 
     assert result == "Castro summary"
+    fakes.downloader.download_castro.assert_called_once_with(url)
+    fakes.downloader.download_yt.assert_not_called()
+    mock_via_transcription.assert_called_once_with(
+        data="downloaded.mp3",
+        settings=SETTINGS,
+    )
+    mock_clean_up.assert_called_once_with(file="downloaded.mp3")
 
 
 def test_summarize_castro_www_host(mocker):
@@ -477,6 +520,9 @@ def test_summarize_castro_www_host(mocker):
     """
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
+    fakes.castro_transcriber.get_transcript.side_effect = FetchTranscriptError(
+        "no transcript",
+    )
     fakes.downloader.download_castro.return_value = "dl.mp3"
     mock_via_transcription = mocker.patch.object(
         summarizer,
@@ -538,6 +584,7 @@ def test_summarize_preflight_blocks_before_download(mocker):
         daily_limit=0,
         quantity=0,
     )
+    fakes.castro_transcriber.get_transcript.assert_not_called()
     fakes.downloader.download_castro.assert_not_called()
 
 

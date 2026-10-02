@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from download import Downloader
     from llm import LLMClient
     from services import OpenRouterFiles, QuotaManager
-    from transcription import AudioTranscriber, YouTubeTranscriber
+    from transcription import AudioTranscriber, CastroTranscriber, YouTubeTranscriber
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
@@ -47,6 +47,7 @@ class Summarizer:
         downloader: Downloader,
         audio_transcriber: AudioTranscriber,
         yt_transcriber: YouTubeTranscriber,
+        castro_transcriber: CastroTranscriber,
     ) -> None:
         """Store the injected collaborators used to build a summary."""
         self._quota_manager = quota_manager
@@ -55,6 +56,7 @@ class Summarizer:
         self._downloader = downloader
         self._audio_transcriber = audio_transcriber
         self._yt_transcriber = yt_transcriber
+        self._castro_transcriber = castro_transcriber
 
     def _summarize_uploaded_file(
         self,
@@ -214,11 +216,14 @@ class Summarizer:
         )
         if isinstance(data, str):
             kind = classify_url(data)
-            if kind == "castro":
-                data = self._downloader.download_castro(data)
-            elif kind == "youtube":
+            if kind in ("youtube", "castro"):
+                transcriber = (
+                    self._yt_transcriber
+                    if kind == "youtube"
+                    else self._castro_transcriber
+                )
                 try:
-                    transcript_result = self._yt_transcriber.get_transcript(data)
+                    transcript_result = transcriber.get_transcript(data)
                 except (FetchTranscriptError, ValueError) as e:
                     logger.warning(
                         "get_transcript failed, falling back to download: %s",
@@ -232,7 +237,11 @@ class Summarizer:
                             settings=settings,
                         ),
                     )
-                data = self._downloader.download_yt(data)
+                data = (
+                    self._downloader.download_yt(data)
+                    if kind == "youtube"
+                    else self._downloader.download_castro(data)
+                )
         if isinstance(data, File):
             data = self._downloader.download_tg(data, ext=".ogg")
 

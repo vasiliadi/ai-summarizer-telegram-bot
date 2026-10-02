@@ -128,8 +128,8 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummarySettings` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
 | `llm.py` | `LLMClient` — the one place a model is called. `run` turns the instructions, the user's thinking level and the content parts into a single chat-completions request on the injected `openai` client; `build_file_part` references an uploaded document by id. A text run goes through `chat.completions.create`, a run carrying a file through the client's generic `post` (see Tracing below). It never consults `MODEL_SPECS`, so the eval harness runs unregistered ids on it as is. |
-| `transcription.py` | `AudioTranscriber` (Replicate WhisperX, over plain HTTP) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`; an empty or whitespace-only transcript counts as a backend failure, so it falls through too). |
-| `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3), Telegram file fetch. |
+| `transcription.py` | `AudioTranscriber` (Replicate WhisperX, over plain HTTP) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`; an empty or whitespace-only transcript counts as a backend failure, so it falls through too) + `CastroTranscriber` (scrapes the transcript off a Castro episode page). |
+| `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3, the fallback for an episode without a transcript), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback; each backend's output is block-page checked by JEV. |
 | `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `OpenRouterFiles` (document upload/delete on OpenRouter's Files API), `Tracer` (names, tags and adds settings metadata to the Langfuse trace for a message, if one is opened). |
 | `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator to `config`'s clients. `Container` carries only the five roots `BotApp` holds (`bot`, `quota_manager`, `tracer`, `user_repo`, `handlers`); the rest of the graph is reached through `handlers`. |
@@ -171,14 +171,16 @@ the file upload with the URL string as their file path.
 - **YouTube URL** → try transcript (`YouTubeTranscriber.get_transcript`); on
   success summarize the transcript. On failure → `Downloader.download_yt`
   audio, then the file path below.
-- **Castro URL** → `Downloader.download_castro` audio → file path.
+- **Castro URL** → try transcript (`CastroTranscriber.get_transcript`); on
+  success summarize the transcript. On failure → `Downloader.download_castro`
+  audio, then the file path below.
 - **Telegram File** → `Downloader.download_tg(.ogg)` → file path.
 - **File path** → `_summarize_via_transcription`: `compress_audio` →
   `AudioTranscriber.transcribe` (Replicate) → `summarize_text` with the user's model.
 
-Spoken content therefore has one route — a transcript — and one fallback: YouTube's
-own transcript first, Replicate when there is none. All audio and video load lands on
-Replicate, so its cost and latency apply to every such message.
+Spoken content therefore has one route — a transcript — and one fallback: the source's
+own transcript first (YouTube, Castro), Replicate when there is none. Every other audio
+and video message lands on Replicate, so its cost and latency apply to it.
 
 ### Modality routing
 
@@ -209,7 +211,8 @@ where the content came from (`format_prefixed_summary`). Only a document summari
 |--------|--------|
 | 📺 | YouTube transcript via `youtube_transcript_api` (primary) |
 | 📹 | YouTube transcript via yt-dlp (fallback) |
-| 📝 | Audio transcription via Replicate — audio, voice, video, video notes, Castro, and YouTube without a transcript |
+| 🎙️ | Castro's own transcript, scraped from the episode page |
+| 📝 | Audio transcription via Replicate — audio, voice, video, video notes, and Castro or YouTube without a transcript |
 | 🌐 | Webpage via Exa |
 | 🕸️ | Webpage via Tavily (fallback) |
 
@@ -264,6 +267,16 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   default languages, it lists the video's languages and sleeps 60 s before fetching again:
   back-to-back requests get rate-limited or blocked by YouTube (youtube-transcript-api issue
   #572). The sleep is deliberate — **do not shorten or remove it**.
+- **Castro's transcript is in the episode page's HTML.** Observed 2026-10-02: an episode that
+  has one serves it whole in the static page, inside `<div class="transcript transcript-content">`
+  — one `<p class="transcript-paragraph">` per utterance, holding a `transcript-ts` timestamp
+  span, a `transcript-speaker` span (often the generic `Speaker:`) and the text. An episode
+  without one has no such `div` at all. `CastroTranscriber` drops the timestamps and keeps the
+  speakers, one paragraph per line. Any failure — no `div`, no text, an HTTP or network error
+  — is a `FetchTranscriptError`, so a markup change on Castro's side degrades to the audio
+  download instead of an error. The fallback fetches the page a second time, for its
+  `<source>`: sharing one fetch between `CastroTranscriber` and `Downloader` was not worth the
+  coupling for a page of a few kilobytes.
 - **Every extraction is screened for block pages by JEV.** A refused parser (region block, bot
   check, login or paywall) still returns non-empty text. `WebParser` passes each backend's output to
   `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over the first 20k characters
