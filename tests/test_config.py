@@ -124,6 +124,15 @@ def test_default_summarizing_model_accepts_files():
     assert default.supports_files
 
 
+def test_no_model_claims_audio_before_a_native_route_exists():
+    """Test supports_audio stays False while spoken content is always transcribed.
+
+    Nothing reads the flag, so a True here would promise native audio and
+    silently change nothing.
+    """
+    assert not any(spec.supports_audio for spec in config.MODEL_SPECS.values())
+
+
 def test_default_thinking_level_is_selectable():
     """Test the default survives the allow-list every writer validates against.
 

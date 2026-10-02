@@ -88,25 +88,29 @@ BLOCK_DETECTOR_MODEL_ID = "~typesafe/jev-latest"
 class ModelSpec:
     """A selectable summarizing model, keyed in `MODEL_SPECS` by its OpenRouter id.
 
-    `supports_files` says whether a document is handed to this model; see
-    architecture.md → *Modality routing*.
+    `supports_files` says whether a document is handed to this model. Nothing
+    reads `supports_audio` yet; see architecture.md → *Modality routing*.
     """
 
     label: str
+    supports_audio: bool
     supports_files: bool
 
 
 MODEL_SPECS: dict[str, ModelSpec] = {
     "deepseek/deepseek-v4.1-flash": ModelSpec(
         label="DeepSeek V4.1 Flash",
+        supports_audio=False,
         supports_files=False,
     ),
     "openai/gpt-6-luna": ModelSpec(
         label="GPT-6 Luna",
+        supports_audio=False,
         supports_files=True,
     ),
     "x-ai/grok-4.7": ModelSpec(
         label="Grok 4.7",
+        supports_audio=False,
         supports_files=True,
     ),
 }

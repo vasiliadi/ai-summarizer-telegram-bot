@@ -83,8 +83,9 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   - **Audio by `file_id` is refused by OpenRouter itself** (`400 Unsupported file type
     audio/…` for WAV, MP3 and OGG), even on an audio-capable model. Native audio does work
     inline (`input_audio`, base64, `format: "ogg"`), and is **deliberately unused**: spoken
-    content is always transcribed. Offering it would bring back a per-model audio flag, a
-    request-size cap and a transcription fallback for long recordings.
+    content is always transcribed. Offering it needs an inline delivery path, a request-size
+    cap and a transcription fallback for long recordings; `ModelSpec.supports_audio` is kept
+    for that day (see *Modality routing*).
   - A model without the `file` modality still answers from a PDF, because OpenRouter parses
     it — at what looked like about $0.002 a page on `deepseek/deepseek-v4.1-flash` (inferred
     from one request's cost, tariff not checked). That is why such a model is registered
@@ -180,6 +181,9 @@ Replicate, so its cost and latency apply to every such message.
 Audio is routed by content, not by model: `summarize` and the `audio/` branch of
 `summarize_with_document` (`SUPPORTED_DOCUMENT_MIME_TYPES` accepts `audio/ogg`) always
 transcribe, and the transcript is summarized by the model the user chose.
+`ModelSpec.supports_audio` is kept for a future native-audio route and is **read by
+nothing**: it is `False` on every model, and setting it `True` changes no routing (pinned by
+`test_no_model_claims_audio_before_a_native_route_exists`).
 
 `ModelSpec.supports_files` decides who summarizes any other document. A model with the
 flag is handed the document by `file_id`: download → `OpenRouterFiles.upload` → summarize →
