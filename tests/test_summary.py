@@ -3,8 +3,9 @@ from dataclasses import replace
 from textwrap import dedent
 from types import SimpleNamespace
 
+import httpx
 import pytest
-from pydantic_ai.exceptions import ModelHTTPError
+from openai import APIStatusError
 from telebot.types import File
 from tenacity import RetryError
 
@@ -19,7 +20,7 @@ from summary import Summarizer
 # ---------------------------------------------------------------------------
 
 SETTINGS = SummarySettings(
-    model="gemini-3.8-flash",
+    model="openai/gpt-6-luna",
     prompt_key="basic_prompt_for_transcript",
     target_language="English",
     user_id=123,
@@ -32,7 +33,7 @@ def _make_summarizer(mocker):
     """Return (summarizer, fakes) with every collaborator injected as a MagicMock."""
     fakes = SimpleNamespace(
         quota_manager=mocker.MagicMock(),
-        gemini_helper=mocker.MagicMock(),
+        openrouter_files=mocker.MagicMock(),
         llm_client=mocker.MagicMock(),
         downloader=mocker.MagicMock(),
         audio_transcriber=mocker.MagicMock(),
@@ -40,7 +41,7 @@ def _make_summarizer(mocker):
     )
     summarizer = Summarizer(
         fakes.quota_manager,
-        fakes.gemini_helper,
+        fakes.openrouter_files,
         fakes.llm_client,
         fakes.downloader,
         fakes.audio_transcriber,
@@ -49,78 +50,30 @@ def _make_summarizer(mocker):
     return summarizer, fakes
 
 
+def _api_error(status_code=400):
+    """An `openai` SDK error as OpenRouter's HTTP failures surface."""
+    request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+    return APIStatusError(
+        "Model unavailable",
+        response=httpx.Response(status_code, request=request),
+        body=None,
+    )
+
+
 def test_only_the_public_entry_points_carry_retry():
     """Lock the retry topology: the shared helper must stay undecorated.
 
-    Both callers of _summarize_uploaded_file are themselves @retry-wrapped, so a
+    The caller of _summarize_uploaded_file is itself @retry-wrapped, so a
     decorator here would nest a second layer. On a mixed failure sequence — one
     the inner predicate skips and the outer retries, then one the inner retries —
     the upload and its consuming quota check would run three times instead of
-    two, and Gemini bills failed calls. No behavioral test catches this: for a
+    two, and providers bill failed calls. No behavioral test catches this: for a
     single repeated exception type both topologies produce identical counts.
     """
     assert not hasattr(Summarizer._summarize_uploaded_file, "retry")
-    assert hasattr(Summarizer.summarize_with_file, "retry")
+    assert not hasattr(Summarizer._summarize_via_transcription, "retry")
     assert hasattr(Summarizer.summarize_with_document, "retry")
     assert hasattr(Summarizer.summarize_text, "retry")
-
-
-def test_summarize_with_file_upload_and_model_call(mocker):
-    """Test the complete summarize_with_file flow with the file API and model mocked."""
-    summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
-    mock_uploaded_file = SimpleNamespace(
-        name="files/mock123",
-        uri="https://generativelanguage.googleapis.com/v1beta/files/mock123",
-        mime_type="audio/ogg",
-        state="ACTIVE",
-    )
-    fakes.gemini_helper.upload_and_wait_for_file.return_value = mock_uploaded_file
-    fakes.llm_client.build_uploaded_file.return_value = "uploaded-file-sentinel"
-    fakes.llm_client.run.return_value = "This is a mocked summary of the file."
-
-    result = summarizer.summarize_with_file(
-        file="test_audio.ogg",
-        settings=SETTINGS,
-    )
-
-    assert result == "This is a mocked summary of the file."
-    fakes.gemini_helper.upload_and_wait_for_file.assert_called_once_with(
-        file="test_audio.ogg",
-        mime_type="audio/ogg",
-    )
-    fakes.gemini_helper.delete_file.assert_called_once_with("files/mock123")
-    fakes.llm_client.build_uploaded_file.assert_called_once_with(
-        model_id="gemini-3.8-flash",
-        file=mock_uploaded_file,
-    )
-    call_kwargs = fakes.llm_client.run.call_args.kwargs
-    assert call_kwargs["model_id"] == "gemini-3.8-flash"
-    assert call_kwargs["target_language"] == "English"
-    assert call_kwargs["thinking_level"] == "minimal"
-    prompt, uploaded = call_kwargs["content"]
-    assert "detailed summary" in prompt
-    assert uploaded == "uploaded-file-sentinel"
-
-
-def test_summarize_with_file_retries_on_empty_response(mocker):
-    """Test summarize_with_file raises RetryError on repeated empty model responses."""
-    summarizer, fakes = _make_summarizer(mocker)
-    mocker.patch("tenacity.nap.time.sleep")
-    fakes.quota_manager.check_quota.return_value = True
-    mock_audio_file = SimpleNamespace(
-        name="files/mock123",
-        uri="https://mock.uri",
-        mime_type="audio/ogg",
-    )
-    fakes.gemini_helper.upload_and_wait_for_file.return_value = mock_audio_file
-    fakes.llm_client.run.side_effect = AttributeError
-
-    with pytest.raises(RetryError):
-        summarizer.summarize_with_file(
-            file="test_audio.ogg",
-            settings=SETTINGS,
-        )
 
 
 def test_summarize_text_from_webpage(mocker):
@@ -145,14 +98,14 @@ def test_summarize_text_from_webpage(mocker):
     prompt, content = call_kwargs["content"]
     assert content == "Parsed page content."
     assert prompt == dedent(PROMPTS["basic_prompt_for_transcript"]).strip()
-    assert call_kwargs["model_id"] == "gemini-3.8-flash"
+    assert call_kwargs["model_id"] == "openai/gpt-6-luna"
 
 
 @pytest.mark.parametrize("blank", ["", "   \n  "])
 def test_summarize_text_drops_the_content_part_when_text_is_blank(mocker, blank):
     """Test summarize_text sends the prompt alone rather than an empty part.
 
-    The Replicate rescue path yields "" for audio WhisperX finds no segments
+    The Replicate transcription yields "" for audio WhisperX finds no segments
     in — silence or music — and an empty text part is not worth sending.
     """
     summarizer, fakes = _make_summarizer(mocker)
@@ -169,31 +122,12 @@ def test_summarize_text_drops_the_content_part_when_text_is_blank(mocker, blank)
     ]
 
 
-def test_summarize_with_file_upload_failure(mocker):
-    """Test summarize_with_file raises when file upload fails."""
-    summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
-    fakes.gemini_helper.upload_and_wait_for_file.side_effect = Exception(
-        "Upload failed",
-    )
-
-    with pytest.raises(Exception, match="Upload failed"):
-        summarizer.summarize_with_file(
-            file="test_audio.ogg",
-            settings=SETTINGS,
-        )
-
-
 def test_summarize_model_api_exception(mocker):
     """Test summarize_text raises RetryError when the provider returns an error."""
     summarizer, fakes = _make_summarizer(mocker)
     mocker.patch("tenacity.nap.time.sleep")
     fakes.quota_manager.check_quota.return_value = True
-    fakes.llm_client.run.side_effect = ModelHTTPError(
-        status_code=400,
-        model_name="gemini-3.8-flash",
-        body={"error": {"message": "Model unavailable"}},
-    )
+    fakes.llm_client.run.side_effect = _api_error()
 
     with pytest.raises(RetryError):
         summarizer.summarize_text(
@@ -202,27 +136,15 @@ def test_summarize_model_api_exception(mocker):
         )
 
 
-def test_summarize_with_document_polling(mocker):
-    """Test summarize_with_document reaches the model with the uploaded file.
-
-    Gemini's PROCESSING -> ACTIVE polling loop lives inside GeminiHelper (an
-    injected collaborator here) and is covered by
-    tests/test_services.py::test_upload_and_wait_for_file_polling; this test
-    only proves Summarizer wires the uploaded file's uri/mime_type through to
-    the model call and deletes it afterward.
-    """
+def test_summarize_with_document_uploads_summarizes_and_deletes(mocker):
+    """Test a document reaches the user's model by file id and is deleted afterward."""
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
-    fakes.downloader.download_tg.return_value = "temp_doc.pdf"
-    mock_file_active = SimpleNamespace(
-        state="ACTIVE",
-        name="files/doc123",
-        uri="https://mock.uri",
-        mime_type="application/pdf",
-    )
-    fakes.gemini_helper.upload_and_wait_for_file.return_value = mock_file_active
-    fakes.llm_client.build_uploaded_file.return_value = "uploaded-file-sentinel"
+    fakes.downloader.download_tg.return_value = "temp_doc"
+    fakes.openrouter_files.upload.return_value = "or_file_doc123"
+    fakes.llm_client.build_file_part.return_value = "file-part-sentinel"
     fakes.llm_client.run.return_value = "Document summary"
+    mock_clean_up = mocker.patch("summary.clean_up")
     mock_tg_file = mocker.MagicMock()
 
     result = summarizer.summarize_with_document(
@@ -232,25 +154,33 @@ def test_summarize_with_document_polling(mocker):
     )
 
     assert result == "Document summary"
-    fakes.gemini_helper.delete_file.assert_called_once_with("files/doc123")
-    _, uploaded = fakes.llm_client.run.call_args.kwargs["content"]
-    assert uploaded == "uploaded-file-sentinel"
-    fakes.llm_client.build_uploaded_file.assert_called_once_with(
-        model_id="gemini-3.8-flash",
-        file=mock_file_active,
+    fakes.downloader.download_tg.assert_called_once_with(mock_tg_file)
+    fakes.openrouter_files.upload.assert_called_once_with(
+        file="temp_doc",
+        mime_type="application/pdf",
     )
+    fakes.llm_client.build_file_part.assert_called_once_with("or_file_doc123")
+    call_kwargs = fakes.llm_client.run.call_args.kwargs
+    prompt, uploaded = call_kwargs["content"]
+    assert "detailed summary" in prompt
+    assert uploaded == "file-part-sentinel"
+    assert call_kwargs["model_id"] == "openai/gpt-6-luna"
+    assert call_kwargs["target_language"] == "English"
+    assert call_kwargs["thinking_level"] == "minimal"
+    fakes.openrouter_files.delete.assert_called_once_with("or_file_doc123")
+    mock_clean_up.assert_called_once_with(file="temp_doc")
 
 
-def test_summarize_with_document_cleans_up_on_failed_processing(mocker):
+def test_summarize_with_document_cleans_up_on_unretried_upload_failure(mocker):
     """Test summarize_with_document cleans up the downloaded file on failure."""
     summarizer, fakes = _make_summarizer(mocker)
     mocker.patch("tenacity.nap.time.sleep")
     fakes.quota_manager.check_quota.return_value = True
     fakes.downloader.download_tg.return_value = "temp_doc.pdf"
     mock_clean_up = mocker.patch("summary.clean_up")
-    fakes.gemini_helper.upload_and_wait_for_file.side_effect = ValueError("FAILED")
+    fakes.openrouter_files.upload.side_effect = KeyError("id")
 
-    with pytest.raises(ValueError, match="FAILED"):
+    with pytest.raises(KeyError, match="id"):
         summarizer.summarize_with_document(
             file=mocker.MagicMock(),
             mime_type="application/pdf",
@@ -301,7 +231,6 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
         text="YT Transcript content",
         prefix="📹",
     )
-    mock_file_summary = mocker.patch.object(summarizer, "summarize_with_file")
     mocker.patch.object(summarizer, "summarize_text", side_effect=retry_error)
 
     with pytest.raises(RetryError):
@@ -311,7 +240,6 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
         )
 
     fakes.downloader.download_yt.assert_not_called()
-    mock_file_summary.assert_not_called()
     fakes.audio_transcriber.transcribe.assert_not_called()
 
 
@@ -332,10 +260,10 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(
     fakes.quota_manager.check_quota.return_value = True
     fakes.yt_transcriber.get_transcript.side_effect = transcript_error
     fakes.downloader.download_yt.return_value = "downloaded.ogg"
-    mocker.patch.object(
+    mock_via_transcription = mocker.patch.object(
         summarizer,
-        "summarize_with_file",
-        return_value="File summary",
+        "_summarize_via_transcription",
+        return_value="Audio summary",
     )
     mock_clean_up = mocker.patch("summary.clean_up")
     mock_logger = mocker.patch("summary.logger")
@@ -345,8 +273,12 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(
         settings=SETTINGS,
     )
 
-    assert result == "File summary"
+    assert result == "Audio summary"
     fakes.downloader.download_yt.assert_called_once_with(url)
+    mock_via_transcription.assert_called_once_with(
+        data="downloaded.ogg",
+        settings=SETTINGS,
+    )
     mock_clean_up.assert_called_once_with(file="downloaded.ogg")
     mock_logger.warning.assert_called_once_with(
         "get_transcript failed, falling back to download: %s",
@@ -354,32 +286,41 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(
     )
 
 
-def test_summarize_fallback_to_transcription(mocker):
-    """Test summarize() fallback to transcription (📝 prefix) when file summary fails."""
+def test_summarize_transcribes_audio_and_summarizes_with_the_users_model(mocker):
+    """Test summarize() sends audio through Replicate, then to the chosen model.
+
+    Transcription is the only route for spoken content, so every such summary
+    carries the 📝 prefix.
+    """
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
-    mocker.patch.object(
-        summarizer,
-        "summarize_with_file",
-        side_effect=RetryError(mocker.MagicMock()),
-    )
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
-    mocker.patch("summary.compress_audio")
+    mock_compress = mocker.patch("summary.compress_audio")
     fakes.audio_transcriber.transcribe.return_value = "Transcription text"
-    mocker.patch.object(
+    mock_summarize_text = mocker.patch.object(
         summarizer,
         "summarize_text",
         return_value="- transcript point\n- follow-up point",
     )
     mock_clean_up = mocker.patch("summary.clean_up")
+    settings = replace(SETTINGS, model="x-ai/grok-4.7")
 
     result = summarizer.summarize(
         data="local_audio.ogg",
-        settings=SETTINGS,
+        settings=settings,
     )
 
-    assert result.startswith("📝")
     assert result == "📝\n\n- transcript point\n- follow-up point"
+    mock_compress.assert_called_once_with(
+        input_file="local_audio.ogg",
+        output_file="temp.ogg",
+    )
+    fakes.audio_transcriber.transcribe.assert_called_once_with("temp.ogg")
+    mock_summarize_text.assert_called_once_with(
+        text="Transcription text",
+        settings=settings,
+    )
+    fakes.openrouter_files.upload.assert_not_called()
     mock_clean_up.assert_has_calls(
         [
             mocker.call(file="temp.ogg"),
@@ -388,45 +329,13 @@ def test_summarize_fallback_to_transcription(mocker):
     )
 
 
-def test_summarize_routes_audio_around_a_model_that_cannot_read_it(mocker):
-    """Test a text-only model transcribes audio instead of uploading it.
-
-    Every OpenRouter model is registered text-only, so this is the live path for
-    audio whenever one of them is selected.
-    """
-    summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
-    mock_with_file = mocker.patch.object(summarizer, "summarize_with_file")
-    mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
-    mock_compress = mocker.patch("summary.compress_audio")
-    fakes.audio_transcriber.transcribe.return_value = "Transcription text"
-    mocker.patch.object(
-        summarizer,
-        "summarize_text",
-        return_value="- transcript point",
-    )
-    mocker.patch("summary.clean_up")
-
-    result = summarizer.summarize(
-        data="local_audio.ogg",
-        settings=replace(SETTINGS, model="x-ai/grok-4.7"),
-    )
-
-    assert result == "📝\n\n- transcript point"
-    mock_with_file.assert_not_called()
-    mock_compress.assert_called_once_with(
-        input_file="local_audio.ogg",
-        output_file="temp.ogg",
-    )
-
-
 def test_summarize_with_document_routes_audio_document_to_transcription(mocker):
-    """Test an audio document reaches the transcription path on a text-only model.
+    """Test an audio document is transcribed, whichever model is selected.
 
-    SUPPORTED_DOCUMENT_MIME_TYPES accepts audio/ogg, so the document path needs
-    the same modality check as summarize(). The chosen model also has
-    supports_files=False, so this pins the precedence: transcription wins over
-    the Gemini document fallback, keeping the user's own model on the summary.
+    SUPPORTED_DOCUMENT_MIME_TYPES accepts audio/ogg, and OpenRouter refuses audio
+    by file id. The chosen model has supports_files=False, so this also pins the
+    precedence: transcription wins over the document failover, keeping the
+    user's own model on the summary.
     """
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
@@ -434,22 +343,27 @@ def test_summarize_with_document_routes_audio_document_to_transcription(mocker):
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
     mocker.patch("summary.compress_audio")
     fakes.audio_transcriber.transcribe.return_value = "Transcription text"
-    mocker.patch.object(
+    mock_summarize_text = mocker.patch.object(
         summarizer,
         "summarize_text",
         return_value="- transcript point",
     )
     mock_clean_up = mocker.patch("summary.clean_up")
     mock_tg_file = mocker.MagicMock()
+    settings = replace(SETTINGS, model="deepseek/deepseek-v4.1-flash")
 
     result = summarizer.summarize_with_document(
         file=mock_tg_file,
         mime_type="audio/ogg",
-        settings=replace(SETTINGS, model="x-ai/grok-4.7"),
+        settings=settings,
     )
 
     assert result == "📝\n\n- transcript point"
-    fakes.gemini_helper.upload_and_wait_for_file.assert_not_called()
+    mock_summarize_text.assert_called_once_with(
+        text="Transcription text",
+        settings=settings,
+    )
+    fakes.openrouter_files.upload.assert_not_called()
     fakes.downloader.download_tg.assert_called_once_with(mock_tg_file, ext=".ogg")
     mock_clean_up.assert_has_calls(
         [
@@ -460,21 +374,15 @@ def test_summarize_with_document_routes_audio_document_to_transcription(mocker):
 
 
 def test_summarize_with_document_falls_back_when_model_takes_no_file(mocker, caplog):
-    """Test a PDF on an OpenRouter model is summarized by the default Gemini one.
+    """Test a PDF on a model that takes no file is summarized by the default one.
 
-    The upload only ever goes to Gemini and there is no text-extraction path for
-    a PDF, so the model is substituted for this request alone.
+    There is no text-extraction path for a PDF, so the model is substituted for
+    this request alone.
     """
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
-    fakes.downloader.download_tg.return_value = "temp_doc.pdf"
-    mock_file_active = SimpleNamespace(
-        state="ACTIVE",
-        name="files/doc123",
-        uri="https://mock.uri",
-        mime_type="application/pdf",
-    )
-    fakes.gemini_helper.upload_and_wait_for_file.return_value = mock_file_active
+    fakes.downloader.download_tg.return_value = "temp_doc"
+    fakes.openrouter_files.upload.return_value = "or_file_doc123"
     fakes.llm_client.run.return_value = "Document summary"
     mocker.patch("summary.clean_up")
 
@@ -482,51 +390,50 @@ def test_summarize_with_document_falls_back_when_model_takes_no_file(mocker, cap
         result = summarizer.summarize_with_document(
             file=mocker.MagicMock(),
             mime_type="application/pdf",
-            settings=replace(SETTINGS, model="openai/gpt-6-luna"),
+            settings=replace(SETTINGS, model="deepseek/deepseek-v4.1-flash"),
         )
 
     assert result == "Document summary"
     assert fakes.llm_client.run.call_args.kwargs["model_id"] == (
         DEFAULT_MODEL_ID_FOR_SUMMARY
     )
-    assert fakes.llm_client.build_uploaded_file.call_args.kwargs["model_id"] == (
-        DEFAULT_MODEL_ID_FOR_SUMMARY
-    )
-    assert "openai/gpt-6-luna" in caplog.text
+    (record,) = caplog.records
+    assert record.levelno == logging.WARNING
+    assert "deepseek/deepseek-v4.1-flash" in caplog.text
+    assert DEFAULT_MODEL_ID_FOR_SUMMARY in caplog.text
 
 
-def test_summarize_with_document_keeps_a_model_that_takes_files(mocker):
-    """Test the fallback leaves a file-capable model alone."""
+@pytest.mark.parametrize(
+    "mime_type",
+    ["application/pdf", "text/plain", "text/csv", "application/rtf"],
+)
+def test_summarize_with_document_keeps_a_model_that_takes_files(mocker, mime_type):
+    """Test every document type stays on a file-capable model the user chose."""
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
-    fakes.downloader.download_tg.return_value = "temp_doc.pdf"
-    fakes.gemini_helper.upload_and_wait_for_file.return_value = SimpleNamespace(
-        state="ACTIVE",
-        name="files/doc123",
-        uri="https://mock.uri",
-        mime_type="application/pdf",
-    )
+    fakes.downloader.download_tg.return_value = "temp_doc"
+    fakes.openrouter_files.upload.return_value = "or_file_doc123"
     fakes.llm_client.run.return_value = "Document summary"
     mocker.patch("summary.clean_up")
 
     summarizer.summarize_with_document(
         file=mocker.MagicMock(),
-        mime_type="application/pdf",
-        settings=SETTINGS,
+        mime_type=mime_type,
+        settings=replace(SETTINGS, model="x-ai/grok-4.7"),
     )
 
-    assert fakes.llm_client.run.call_args.kwargs["model_id"] == "gemini-3.8-flash"
+    fakes.openrouter_files.upload.assert_called_once_with(
+        file="temp_doc",
+        mime_type=mime_type,
+    )
+    assert fakes.llm_client.run.call_args.kwargs["model_id"] == "x-ai/grok-4.7"
+    fakes.openrouter_files.delete.assert_called_once_with("or_file_doc123")
 
 
-def test_summarize_fallback_cleans_up_temp_file_when_compress_fails(mocker):
+def test_summarize_cleans_up_temp_file_when_compress_fails(mocker):
     """Test summarize() cleans up the temp file even if compress_audio raises."""
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
-    mocker.patch.object(
-        summarizer,
-        "summarize_with_file",
-        side_effect=RetryError(mocker.MagicMock()),
-    )
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
     mocker.patch("summary.compress_audio", side_effect=RuntimeError("ffmpeg failed"))
     mock_clean_up = mocker.patch("summary.clean_up")
@@ -548,7 +455,7 @@ def test_summarize_castro(mocker):
     fakes.downloader.download_castro.return_value = "downloaded.mp3"
     mocker.patch.object(
         summarizer,
-        "summarize_with_file",
+        "_summarize_via_transcription",
         return_value="Castro summary",
     )
     mocker.patch("summary.clean_up")
@@ -562,18 +469,18 @@ def test_summarize_castro(mocker):
 
 
 def test_summarize_castro_www_host(mocker):
-    """Test summarize() downloads a www-prefixed Castro URL instead of uploading it.
+    """Test summarize() downloads a www-prefixed Castro URL before summarizing it.
 
     Regression: the URL used to be re-classified with a literal
     "https://castro.fm/episode/" prefix check, so a www-prefixed link skipped
-    download_castro and was passed to summarize_with_file as a file path.
+    download_castro and was passed on as a file path.
     """
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
     fakes.downloader.download_castro.return_value = "dl.mp3"
-    mock_with_file = mocker.patch.object(
+    mock_via_transcription = mocker.patch.object(
         summarizer,
-        "summarize_with_file",
+        "_summarize_via_transcription",
         return_value="Castro summary",
     )
     mocker.patch("summary.clean_up")
@@ -587,7 +494,7 @@ def test_summarize_castro_www_host(mocker):
     fakes.downloader.download_castro.assert_called_once_with(
         "https://www.castro.fm/episode/123",
     )
-    assert mock_with_file.call_args.kwargs["file"] == "dl.mp3"
+    assert mock_via_transcription.call_args.kwargs["data"] == "dl.mp3"
 
 
 def test_summarize_youtube_uppercase_host_uses_transcript(mocker):
@@ -604,7 +511,6 @@ def test_summarize_youtube_uppercase_host_uses_transcript(mocker):
         prefix="📺",
     )
     mocker.patch.object(summarizer, "summarize_text", return_value="YT summary")
-    mock_with_file = mocker.patch.object(summarizer, "summarize_with_file")
 
     result = summarizer.summarize(
         data=url,
@@ -613,7 +519,7 @@ def test_summarize_youtube_uppercase_host_uses_transcript(mocker):
 
     assert result == "📺\n\nYT summary"
     fakes.yt_transcriber.get_transcript.assert_called_once_with(url)
-    mock_with_file.assert_not_called()
+    fakes.downloader.download_yt.assert_not_called()
 
 
 def test_summarize_preflight_blocks_before_download(mocker):
@@ -635,36 +541,27 @@ def test_summarize_preflight_blocks_before_download(mocker):
     fakes.downloader.download_castro.assert_not_called()
 
 
-def test_summarize_with_file_deletes_gemini_file_when_quota_check_fails(mocker):
-    """Test summarize_with_file cleans up the uploaded Gemini file if consuming check fails."""
+def test_summarize_with_document_deletes_the_upload_when_quota_check_fails(mocker):
+    """Test the uploaded file is deleted if the consuming quota check fails."""
     summarizer, fakes = _make_summarizer(mocker)
-    mock_audio_file = SimpleNamespace(
-        name="files/audio123",
-        uri="https://mock.uri",
-        mime_type="audio/ogg",
-    )
-    fakes.gemini_helper.upload_and_wait_for_file.return_value = mock_audio_file
-    mocker.patch("tenacity.nap.time.sleep")
+    fakes.downloader.download_tg.return_value = "temp_doc"
+    fakes.openrouter_files.upload.return_value = "or_file_doc123"
+    mocker.patch("summary.clean_up")
     fakes.quota_manager.check_quota.side_effect = [True, LimitExceededError]
 
     with pytest.raises(LimitExceededError):
-        summarizer.summarize_with_file(
-            file="test_audio.ogg",
+        summarizer.summarize_with_document(
+            file=mocker.MagicMock(),
+            mime_type="application/pdf",
             settings=replace(SETTINGS, user_id=1, daily_limit=5),
         )
 
-    assert fakes.quota_manager.check_quota.call_count == 2
-    fakes.quota_manager.check_quota.assert_any_call(
-        user_id=1,
-        daily_limit=5,
-        quantity=0,
-    )
-    fakes.quota_manager.check_quota.assert_any_call(
-        user_id=1,
-        daily_limit=5,
-        quantity=1,
-    )
-    fakes.gemini_helper.delete_file.assert_called_with("files/audio123")
+    assert fakes.quota_manager.check_quota.call_args_list == [
+        mocker.call(user_id=1, daily_limit=5, quantity=0),
+        mocker.call(user_id=1, daily_limit=5, quantity=1),
+    ]
+    fakes.llm_client.run.assert_not_called()
+    fakes.openrouter_files.delete.assert_called_once_with("or_file_doc123")
 
 
 def test_summarize_with_document_preflight_blocks_before_download(mocker):
@@ -687,30 +584,6 @@ def test_summarize_with_document_preflight_blocks_before_download(mocker):
     fakes.downloader.download_tg.assert_not_called()
 
 
-def test_summarize_with_file_logs_warning_on_delete_failure(mocker):
-    """Test summarize_with_file logs a warning when Gemini file deletion fails but still returns the result."""
-    summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
-    mock_audio_file = SimpleNamespace(
-        name="files/audio123",
-        uri="https://mock.uri",
-        mime_type="audio/ogg",
-    )
-    fakes.gemini_helper.upload_and_wait_for_file.return_value = mock_audio_file
-    fakes.llm_client.run.return_value = "summary text"
-    fakes.gemini_helper.delete_file.side_effect = Exception("delete failed")
-    mock_logger = mocker.patch("summary.logger")
-
-    result = summarizer.summarize_with_file(
-        file="test_audio.ogg",
-        settings=SETTINGS,
-    )
-
-    assert result == "summary text"
-    fakes.gemini_helper.delete_file.assert_called_once_with("files/audio123")
-    mock_logger.warning.assert_called_once()
-
-
 def test_summarize_text_raises_on_empty_response(mocker):
     """Test summarize_text raises RetryError on repeated empty model responses."""
     summarizer, fakes = _make_summarizer(mocker)
@@ -725,21 +598,14 @@ def test_summarize_text_raises_on_empty_response(mocker):
         )
 
 
-def test_summarize_with_document_raises_when_upload_metadata_incomplete(mocker):
-    """Test summarize_with_document raises RetryError and skips delete on bad metadata.
-
-    Which field was missing — name, uri or mime_type — is GeminiHelper's
-    concern, covered by tests/test_services.py::test_upload_and_wait_for_file_*.
-    All three surface here as one AttributeError, so this proves the only thing
-    Summarizer decides: it becomes a RetryError, and delete_file is never called
-    because document_file_name was never assigned.
-    """
+def test_summarize_with_document_retries_a_failing_upload(mocker):
+    """Test a refused upload is retried once, then wrapped, with nothing to delete."""
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
-    fakes.downloader.download_tg.return_value = "temp_doc.pdf"
+    fakes.downloader.download_tg.return_value = "temp_doc"
     mocker.patch("summary.clean_up")
     mocker.patch("tenacity.nap.time.sleep")
-    fakes.gemini_helper.upload_and_wait_for_file.side_effect = AttributeError
+    fakes.openrouter_files.upload.side_effect = _api_error(413)
 
     with pytest.raises(RetryError):
         summarizer.summarize_with_document(
@@ -748,22 +614,19 @@ def test_summarize_with_document_raises_when_upload_metadata_incomplete(mocker):
             settings=SETTINGS,
         )
 
-    fakes.gemini_helper.delete_file.assert_not_called()
+    assert fakes.openrouter_files.upload.call_count == 2
+    fakes.llm_client.run.assert_not_called()
+    fakes.openrouter_files.delete.assert_not_called()
 
 
 def test_summarize_with_document_raises_on_empty_response(mocker):
-    """Test summarize_with_document raises RetryError when the model returns nothing."""
+    """Test an empty model response is retried, and each attempt's upload deleted."""
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
-    fakes.downloader.download_tg.return_value = "temp_doc.pdf"
+    fakes.downloader.download_tg.return_value = "temp_doc"
     mocker.patch("summary.clean_up")
     mocker.patch("tenacity.nap.time.sleep")
-    fakes.gemini_helper.upload_and_wait_for_file.return_value = SimpleNamespace(
-        state="ACTIVE",
-        name="files/doc123",
-        uri="https://mock.uri",
-        mime_type="application/pdf",
-    )
+    fakes.openrouter_files.upload.side_effect = ["or_file_first", "or_file_second"]
     fakes.llm_client.run.side_effect = AttributeError
 
     with pytest.raises(RetryError):
@@ -773,21 +636,21 @@ def test_summarize_with_document_raises_on_empty_response(mocker):
             settings=SETTINGS,
         )
 
+    assert fakes.openrouter_files.delete.call_args_list == [
+        mocker.call("or_file_first"),
+        mocker.call("or_file_second"),
+    ]
+
 
 def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
-    """Test summarize_with_document logs a warning when Gemini file deletion fails but still returns the result."""
+    """Test a failed delete is logged at WARNING and the summary still returned."""
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
-    fakes.downloader.download_tg.return_value = "temp_doc.pdf"
+    fakes.downloader.download_tg.return_value = "temp_doc"
     mocker.patch("summary.clean_up")
-    fakes.gemini_helper.upload_and_wait_for_file.return_value = SimpleNamespace(
-        state="ACTIVE",
-        name="files/doc123",
-        uri="https://mock.uri",
-        mime_type="application/pdf",
-    )
+    fakes.openrouter_files.upload.return_value = "or_file_doc123"
     fakes.llm_client.run.return_value = "document summary"
-    fakes.gemini_helper.delete_file.side_effect = Exception("delete failed")
+    fakes.openrouter_files.delete.side_effect = Exception("delete failed")
     mock_logger = mocker.patch("summary.logger")
 
     result = summarizer.summarize_with_document(
@@ -797,7 +660,7 @@ def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
     )
 
     assert result == "document summary"
-    fakes.gemini_helper.delete_file.assert_called_once_with("files/doc123")
+    fakes.openrouter_files.delete.assert_called_once_with("or_file_doc123")
     mock_logger.warning.assert_called_once()
 
 
@@ -808,7 +671,7 @@ def test_summarize_with_telegram_file(mocker):
     fakes.downloader.download_tg.return_value = "downloaded.ogg"
     mocker.patch.object(
         summarizer,
-        "summarize_with_file",
+        "_summarize_via_transcription",
         return_value="Telegram file summary",
     )
     mocker.patch("summary.clean_up")

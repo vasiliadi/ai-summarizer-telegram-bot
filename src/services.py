@@ -3,7 +3,8 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, ClassVar, cast
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 from langfuse import propagate_attributes
 from limits import parse as parse_rate_limit
@@ -26,11 +27,10 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
     import telebot
-    from google import genai
-    from google.genai import types
     from langfuse import Langfuse
     from limits import RateLimitItem
     from limits.strategies import FixedWindowRateLimiter
+    from openai import OpenAI
     from telebot.types import File, Message
     from tenacity import _utils as tenacity_utils
 
@@ -144,39 +144,26 @@ class QuotaManager:
         return max(0, stats.remaining)
 
 
-class GeminiHelper:
-    """Utilities for Gemini file management."""
+class OpenRouterFiles:
+    """Uploads documents to OpenRouter's Files API and deletes them afterwards."""
 
-    # How long to wait between polls of the upload's processing state.
-    _POLL_SECONDS: ClassVar[int] = 10
-
-    def __init__(self, client: genai.Client) -> None:
-        """Store the injected Gemini client."""
+    def __init__(self, client: OpenAI) -> None:
+        """Store the injected `openai` client, pointed at OpenRouter."""
         self._client = client
 
-    def upload_and_wait_for_file(self, file: str, mime_type: str) -> types.File:
-        """Upload a file to Gemini and wait for processing to finish."""
-        uploaded = self._client.files.upload(
-            file=file,
-            config={"mime_type": mime_type},
-        )
-        if uploaded.name is None:
-            raise AttributeError
-        file_name = uploaded.name
-        while uploaded.state == "PROCESSING":
-            time.sleep(self._POLL_SECONDS)
-            uploaded = self._client.files.get(name=file_name)
-        if uploaded.state == "FAILED":
-            raise ValueError(uploaded.state)
-        # Re-check name on the polled object, not just the upload response:
-        # callers rely on name/uri/mime_type all being set on what is returned.
-        if uploaded.name is None or uploaded.uri is None or uploaded.mime_type is None:
-            raise AttributeError
-        return uploaded
+    def upload(self, file: str, mime_type: str) -> str:
+        """Upload a local file and return its `or_file_…` id."""
+        path = Path(file)
+        with path.open("rb") as handle:
+            uploaded = self._client.files.create(
+                file=(path.name, handle, mime_type),
+                purpose="user_data",
+            )
+        return uploaded.id
 
-    def delete_file(self, name: str) -> None:
-        """Delete a file from the provider's file API."""
-        self._client.files.delete(name=name)
+    def delete(self, file_id: str) -> None:
+        """Delete an uploaded file; OpenRouter never expires one on its own."""
+        self._client.files.delete(file_id)
 
 
 class Tracer:

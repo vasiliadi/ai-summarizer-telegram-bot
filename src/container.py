@@ -18,7 +18,7 @@ from parsing import (
     UrlResolver,
     WebParser,
 )
-from services import GeminiHelper, Messenger, QuotaManager, Tracer
+from services import Messenger, OpenRouterFiles, QuotaManager, Tracer
 from summary import Summarizer
 from transcription import ApiBackend, AudioTranscriber, YouTubeTranscriber, YtDlpBackend
 
@@ -46,8 +46,8 @@ def build_container() -> Container:
     bot = config.bot
     messenger = Messenger(bot)
     quota_manager = QuotaManager(config.rate_limiter, config.per_minute_rate)
-    gemini_helper = GeminiHelper(config.gemini_client)
-    llm_client = LLMClient(config.gemini_client, config.openrouter_provider_factory)
+    openrouter_files = OpenRouterFiles(config.openrouter_client)
+    llm_client = LLMClient(config.openrouter_client)
     downloader = Downloader(config.TG_API_TOKEN)
     web_parser = WebParser(
         ExaBackend(config.exa_client),
@@ -59,7 +59,7 @@ def build_container() -> Container:
     yt_transcriber = YouTubeTranscriber(ApiBackend(), YtDlpBackend())
     summarizer = Summarizer(
         quota_manager,
-        gemini_helper,
+        openrouter_files,
         llm_client,
         downloader,
         audio_transcriber,

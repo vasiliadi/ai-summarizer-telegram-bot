@@ -2,20 +2,17 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from functools import partial
+from importlib import import_module
 from pathlib import Path
-from typing import Literal
 
 import sentry_sdk
 import telebot
 from exa_py import Exa
-from google import genai
 from langfuse import Langfuse
 from limits import parse as parse_rate_limit
 from limits.storage import RedisStorage
 from limits.strategies import FixedWindowRateLimiter
-from pydantic_ai import Agent
-from pydantic_ai.providers.openrouter import OpenRouterProvider
+from openai import OpenAI
 from sentry_sdk.integrations.logging import LoggingIntegration
 from tavily import TavilyClient
 
@@ -64,27 +61,24 @@ TG_API_TOKEN = os.environ["TG_API_TOKEN"]
 bot = telebot.TeleBot(token=TG_API_TOKEN, disable_web_page_preview=True)
 
 
-# Gemini config
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-
-
 # OpenRouter config
 # Hardcoded, not read from env. See architecture.md →
 # *OpenRouter calls identify the app*.
 OPENROUTER_APP_URL = "https://github.com/vasiliadi/ai-summarizer-telegram-bot"
 OPENROUTER_APP_TITLE = "ai-summarizer-telegram-bot"
 OPENROUTER_API_KEY = os.environ["OPENROUTER_API_KEY"]
-# A factory, not a provider: `LLMClient` builds one per thread. See
-# architecture.md → *One OpenRouter provider per thread*.
-openrouter_provider_factory = partial(
-    OpenRouterProvider,
+# The global endpoint: the Files API answers 403 on the regional ones.
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+openrouter_client = OpenAI(
     api_key=OPENROUTER_API_KEY,
-    app_url=OPENROUTER_APP_URL,
-    app_title=OPENROUTER_APP_TITLE,
+    base_url=OPENROUTER_BASE_URL,
+    default_headers={
+        "HTTP-Referer": OPENROUTER_APP_URL,
+        "X-Title": OPENROUTER_APP_TITLE,
+    },
 )
 # JEV is a decisions model, not a chat model: OpenRouter serves it only on this
-# endpoint, which pydantic-ai does not speak (see parsing.BlockedPageDetector).
+# endpoint, outside the chat-completions API.
 OPENROUTER_DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions"
 BLOCK_DETECTOR_MODEL_ID = "~typesafe/jev-latest"
 
@@ -92,42 +86,28 @@ BLOCK_DETECTOR_MODEL_ID = "~typesafe/jev-latest"
 # Summarizing model registry
 @dataclass(frozen=True)
 class ModelSpec:
-    """A selectable summarizing model: its label, provider, and input modalities.
+    """A selectable summarizing model, keyed in `MODEL_SPECS` by its OpenRouter id.
 
-    The flags say what this bot can deliver, not what the model's catalog
-    advertises; see architecture.md → *Modality routing*.
+    `supports_files` says whether a document is handed to this model; see
+    architecture.md → *Modality routing*.
     """
 
     label: str
-    provider: Literal["google", "openrouter"]
-    supports_audio: bool
     supports_files: bool
 
 
 MODEL_SPECS: dict[str, ModelSpec] = {
     "deepseek/deepseek-v4.1-flash": ModelSpec(
         label="DeepSeek V4.1 Flash",
-        provider="openrouter",
-        supports_audio=False,
         supports_files=False,
-    ),
-    "gemini-3.8-flash": ModelSpec(
-        label="Gemini 3.8 Flash",
-        provider="google",
-        supports_audio=True,
-        supports_files=True,
     ),
     "openai/gpt-6-luna": ModelSpec(
         label="GPT-6 Luna",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
+        supports_files=True,
     ),
     "x-ai/grok-4.7": ModelSpec(
         label="Grok 4.7",
-        provider="openrouter",
-        supports_audio=False,
-        supports_files=False,
+        supports_files=True,
     ),
 }
 MODEL_LABELS: dict[str, str] = {k: v.label for k, v in MODEL_SPECS.items()}
@@ -135,10 +115,10 @@ MODEL_LABELS_REVERSE: dict[str, str] = {v: k for k, v in MODEL_LABELS.items()}
 ALLOWED_MODELS_FOR_SUMMARY = list(MODEL_SPECS.keys())
 # If you change DEFAULT_MODEL_ID_FOR_SUMMARY, also change it in models.py.
 # It must keep supports_files=True: see architecture.md → *Modality routing*.
-DEFAULT_MODEL_ID_FOR_SUMMARY = "gemini-3.8-flash"
+DEFAULT_MODEL_ID_FOR_SUMMARY = "openai/gpt-6-luna"
 DEFAULT_THINKING_LEVEL = "medium"
-# Keys are pydantic-ai's `ThinkingEffort`, untranslated here; values are only the
-# keyboard's button text, in the order shown (low to high).
+# Keys are sent to OpenRouter as `reasoning.effort`, untranslated; values are only
+# the keyboard's button text, in the order shown (low to high).
 THINKING_LEVEL_LABELS: dict[str, str] = {
     "minimal": "Minimal",
     "low": "Low",
@@ -165,7 +145,8 @@ if LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY:
         secret_key=LANGFUSE_SECRET_KEY,
         base_url=LANGFUSE_BASE_URL,
     )
-    Agent.instrument_all()
+    # Importing the drop-in is what patches the `openai` SDK, process-wide.
+    import_module("langfuse.openai")
 
 
 # Prompts
@@ -230,7 +211,6 @@ PROTECTED_FILES = os.listdir(Path.cwd())  # noqa: PTH208
 
 # Translation
 DEFAULT_LANG = "English"
-# https://ai.google.dev/gemini-api/docs/models/gemini#available-languages
 SUPPORTED_LANGUAGES = [
     "Arabic",
     "Bengali",

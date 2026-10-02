@@ -65,7 +65,7 @@ are not raised by `curl-cffi` at those sites anyway — `pyTelegramBotAPI` and
 exceptions, and that is an API contract of those libraries rather than an implementation detail.
 `summary.py` is the reverse case and catches only the `curl-cffi` side, in
 `summarize_with_document`: that method downloads through `curl-cffi`, and nothing under the
-`Summarizer` retries transports over `requests` — the Gemini upload and pydantic-ai both use httpx.
+`Summarizer` retries transports over `requests` — the `openai` SDK uses httpx.
 Dropping `requests` means replacing those two libraries, not rewriting an import.
 
 `redis` is declared twice on purpose — once in `[project.dependencies]` for the bot and once in

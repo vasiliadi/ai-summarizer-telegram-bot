@@ -32,17 +32,27 @@ COMPARE_QUOTA = {"yt_transcript": 25, "audio_transcript": 20, "web_article": 5}
 
 
 def content_of(row):
+    """The summarised source: the second part of the traced user message.
+
+    Reads both trace shapes; see evals.md → *A harvest holds two trace shapes*.
+    """
     try:
-        parts = json.loads(row["input"])[1]["parts"]
+        message = json.loads(row["input"])[1]
+        parts = message["parts"] if "parts" in message else message["content"]
+        if len(parts) < 2:
+            return ""
+        return parts[1]["content"] if "parts" in message else parts[1]["text"]
     except Exception:
         return None
-    return parts[1]["content"] if len(parts) > 1 else ""
 
 
 def summary_of(row):
     """The summary the traced generation produced, without its thinking parts."""
     try:
-        parts = json.loads(row["output"])[0]["parts"]
+        output = json.loads(row["output"])
+        if isinstance(output, dict):
+            return output["content"] or ""
+        parts = output[0]["parts"]
     except Exception:
         return ""
     return "\n".join(p["content"] for p in parts if p.get("type") == "text")

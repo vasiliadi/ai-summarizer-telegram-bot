@@ -12,13 +12,13 @@
 
 ## About
 
-A bot designed to summarize webpages, YouTube videos (via audio or transcripts), Castro.fm podcasts, and various Telegram content, including voice messages, videos, and files (PDF, RTF, CSV, etc.). Each user picks a summarizing model — Gemini directly or a text model through OpenRouter — a prompt strategy, a thinking level, and the language of the summary.
+A bot designed to summarize webpages, YouTube videos (via audio or transcripts), Castro.fm podcasts, and various Telegram content, including voice messages, videos, and files (PDF, RTF, CSV, etc.). Each user picks a summarizing model, served through OpenRouter, a prompt strategy, a thinking level, and the language of the summary.
 
 ## Usage
 
 ### General settings
 
-1. Get API keys: [@BotFather](https://t.me/BotFather), [Gemini](https://ai.google.dev/), [OpenRouter](https://openrouter.ai/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/), [Exa](https://dashboard.exa.ai/)
+1. Get API keys: [@BotFather](https://t.me/BotFather), [OpenRouter](https://openrouter.ai/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/), [Exa](https://dashboard.exa.ai/)
 2. Set up PostgreSQL and Valkey (or Redis). For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
 4. Set up the [Modal Secrets](https://modal.com/secrets) with name `resetlimit-secrets`. Only `REDIS_URL` from `.env` needed.
@@ -43,7 +43,6 @@ Example of `.env` file:
 
 ```env
 TG_API_TOKEN="your_api_key"
-GEMINI_API_KEY="your_api_key"
 OPENROUTER_API_KEY="your_api_key"
 REPLICATE_API_TOKEN="your_api_key"
 TAVILY_API_KEY="your_api_key"
@@ -63,9 +62,10 @@ LANGFUSE_BASE_URL=""
 
 `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are optional — set both to trace
 model calls to [Langfuse](https://langfuse.com); leave them unset to disable
-tracing. Only calls whose input is text (webpages and transcripts) are traced:
-audio, video and documents reach the model as a file reference, which Langfuse
-would record as token usage with no readable content. `LANGFUSE_BASE_URL`
+tracing. Only calls whose input is text (webpages and transcripts, including
+the transcript of an audio or video message) are traced: a document reaches the
+model as a file reference, which Langfuse would record as token usage with no
+readable content. `LANGFUSE_BASE_URL`
 defaults to Langfuse Cloud (EU); use
 `https://us.cloud.langfuse.com` for the US region or your self-hosted URL.
 
@@ -216,31 +216,27 @@ Modal Image Builder Version must be `2025.06`, otherwise the image may fail to b
 
 ## Summarizing models
 
-`/set_summarizing_model` offers models from two providers: Gemini directly, and text-only models through [OpenRouter](https://openrouter.ai/). Both `GEMINI_API_KEY` and `OPENROUTER_API_KEY` are required — the bot will not start without either.
-
-The OpenRouter models are registered as text-only on purpose: OpenRouter has no file API,
-so a file would have to be base64-inlined, which a 20MB Telegram file does not fit inside.
-That shapes what happens to non-text content when one of them is selected:
+`/set_summarizing_model` offers the models registered in `MODEL_SPECS`. All of them are served
+through [OpenRouter](https://openrouter.ai/), so `OPENROUTER_API_KEY` is the only model key the
+bot needs. What reaches the model depends on the content:
 
 - **Audio, voice, video, video notes, and podcast/YouTube audio** are transcribed by
   Replicate first, then summarized by the model you chose (the 📝 prefix marks this).
-- **Documents that are not audio** — PDF, RTF, CSV, plain text — are summarized by Gemini
-  for that one message, since the file upload only ever goes to Gemini. Your saved model
-  is not changed, and `/myinfo` keeps reporting it.
+- **Documents** — PDF, RTF, CSV, plain text — are uploaded to OpenRouter's Files API, handed
+  to the model you chose, and deleted afterwards. A model registered as unable to read files
+  is replaced by the default model for that one message. Your saved model is not changed, and
+  `/myinfo` keeps reporting it.
 - **Webpages and YouTube transcripts** are text already, so they always go to the model
   you chose.
 
-Picking a Gemini model sends everything to Gemini, with no detour.
-
 ### Prompt data and training
 
-Retention and training are each provider's policy, not this project's. Gemini's
-[terms](https://ai.google.dev/gemini-api/terms) split by tier — unpaid content is used to improve
-Google's products and may be read by human reviewers, paid content is not — while OpenRouter's
+Retention and training are each provider's policy, not this project's. OpenRouter's
 [privacy setting](https://openrouter.ai/docs/features/privacy-and-logging) only filters out upstream
 providers that train, so check the endpoint behind any model you register in `MODEL_SPECS`. The rest
-of the pipeline sees content too: Replicate receives the audio it transcribes, Exa and Tavily only
-the URL. If you run this bot for anyone other than yourself, that content is theirs.
+of the pipeline sees content too: Replicate receives the audio it transcribes, OpenRouter's Files API
+holds a document until the bot deletes it, Exa and Tavily only the URL. If you run this bot for
+anyone other than yourself, that content is theirs.
 
 ## Webpage parsing
 
@@ -248,14 +244,14 @@ Webpage URLs are parsed into clean text before being passed to the model. This g
 
 Parsing runs a fixed two-stage flow: [Exa.ai](https://exa.ai) is tried first, and [Tavily](https://tavily.com) is used as an automatic fallback when Exa.ai returns no usable content or a detected block page; other Exa.ai errors are not retried on Tavily. Each result is checked by TypeSafe's JEV model (through OpenRouter) for block pages — bot checks, region blocks, logins, paywalls — so a blocked page falls through to the fallback, or ends in "page is not available", instead of being summarized. If that check itself fails, the text is kept.
 
-## Audio vs text summaries
+## Audio summaries
 
-Audio carries what a transcript drops — intonation, emphasis, pauses, speaker turns, and non-verbal
-cues like laughter — so a summary built from audio can be richer than one built from the same words
-as text.
+Audio and video are always summarized from a transcript, never from the sound itself, so what a
+transcript drops — intonation, emphasis, pauses, speaker turns, non-verbal cues like laughter —
+does not reach the summary.
 
-The bot still tries the YouTube transcript first and downloads audio only when that fails: the
-transcript path is faster and cheaper, and for most content the difference is small.
+For YouTube the bot tries the video's own transcript first and downloads the audio for
+transcription only when there is none: the transcript path is faster and cheaper.
 
 ## Evaluating models
 
@@ -268,7 +264,7 @@ in [Langfuse](https://langfuse.com). Setup and usage are in [scripts/eval/README
 [pyTelegramBotAPI](https://pytba.readthedocs.io/en/latest/) \
 [SQLAlchemy 2.0](https://docs.sqlalchemy.org/en/20/contents.html) \
 [Alembic](https://alembic.sqlalchemy.org/en/latest/tutorial.html) \
-[Google Gen AI SDK](https://github.com/googleapis/python-genai) \
+[OpenAI Python SDK](https://github.com/openai/openai-python) \
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) \
 [beautifulsoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) \
 [Replicate HTTP API](https://replicate.com/docs/reference/http) \
@@ -280,8 +276,7 @@ in [Langfuse](https://langfuse.com). Setup and usage are in [scripts/eval/README
 [tavily-python](https://docs.tavily.com/welcome) \
 [exa-py](https://github.com/exa-labs/exa-py) \
 [curl_cffi](https://github.com/lexiforest/curl_cffi) \
-[langfuse](https://langfuse.com/docs/observability/sdk/overview) \
-[Pydantic AI](https://pydantic.dev/docs/ai/overview/)
+[langfuse](https://langfuse.com/docs/observability/sdk/overview), [OpenRouter API](https://openrouter.ai/docs/api-reference/overview)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
 [Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
@@ -290,7 +285,6 @@ in [Langfuse](https://langfuse.com). Setup and usage are in [scripts/eval/README
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), [Conventional Commits cheatsheet](https://cheatsheets.zip/conventional-commits), [gitmoji](https://gitmoji.dev/), [Stop Using Conventional Commits](https://sumnerevans.com/posts/software-engineering/stop-using-conventional-commits/) \
 [Renovate bot](https://docs.renovatebot.com/), [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) \
 [crontab guru](https://crontab.guru/) \
-[Gemini API Cookbook](https://github.com/google-gemini/cookbook/) \
 [Best practices for Claude Code](https://code.claude.com/docs/en/best-practices)
 
 ### Cloud DBs

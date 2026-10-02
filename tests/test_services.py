@@ -1,12 +1,25 @@
+import httpx
 import pytest
 from limits import parse as parse_rate_limit
 from limits.storage import MemoryStorage
 from limits.strategies import FixedWindowRateLimiter
 from limits.util import WindowStats
+from openai import APIStatusError, OpenAI
 
 from exceptions import LimitExceededError
 from prompts import prompt_version
-from services import GeminiHelper, Messenger, QuotaManager, Tracer
+from services import Messenger, OpenRouterFiles, QuotaManager, Tracer
+
+
+def _make_openrouter_files(handler):
+    """Return an OpenRouterFiles on a real `openai` client answered by `handler`."""
+    client = OpenAI(
+        api_key="mock_openrouter_key",
+        base_url="https://openrouter.ai/api/v1",
+        max_retries=0,
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    return OpenRouterFiles(client)
 
 
 @pytest.mark.parametrize("entities", [[], [{"type": "bold"}]])
@@ -68,117 +81,73 @@ def test_send_answer_multi_chunk(mocker):
     assert mock_reply.call_count == 2
 
 
-def test_upload_and_wait_for_file_happy(mocker):
-    """Test uploading file to Gemini when it's immediately ACTIVE."""
-    mock_client = mocker.MagicMock()
-    mock_file = mocker.MagicMock()
-    mock_file.name = "name"
-    mock_file.state = "ACTIVE"
-    mock_file.uri = "uri"
-    mock_file.mime_type = "audio/ogg"
+def test_upload_posts_the_file_and_returns_its_id(tmp_path):
+    """Test upload sends the file as multipart and returns its `or_file_…` id."""
+    document = tmp_path / "report"
+    document.write_bytes(b"%PDF-1.7 mock")
+    requests = []
 
-    mock_client.files.upload.return_value = mock_file
+    def handler(request):
+        requests.append((request, request.read()))
+        return httpx.Response(
+            200,
+            json={
+                "id": "or_file_mock123",
+                "object": "file",
+                "bytes": 13,
+                "created_at": 1790951515,
+                "filename": "report",
+                "purpose": "user_data",
+                "status": "processed",
+            },
+        )
 
-    result = GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
+    file_id = _make_openrouter_files(handler).upload(
+        file=str(document),
+        mime_type="application/pdf",
+    )
 
-    assert result == mock_file
-    mock_client.files.upload.assert_called_once()
-
-
-def test_upload_and_wait_for_file_polling(mocker):
-    """Test uploading file to Gemini with polling (PROCESSING -> ACTIVE)."""
-    mock_client = mocker.MagicMock()
-    mock_sleep = mocker.patch("services.time.sleep")
-
-    mock_file_proc = mocker.MagicMock()
-    mock_file_proc.name = "name"
-    mock_file_proc.state = "PROCESSING"
-
-    mock_file_active = mocker.MagicMock()
-    mock_file_active.name = "name"
-    mock_file_active.state = "ACTIVE"
-    mock_file_active.uri = "uri"
-    mock_file_active.mime_type = "audio/ogg"
-
-    mock_client.files.upload.return_value = mock_file_proc
-    mock_client.files.get.return_value = mock_file_active
-
-    result = GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
-
-    assert result == mock_file_active
-    mock_sleep.assert_called_once_with(10)
-    mock_client.files.get.assert_called_once_with(name="name")
+    assert file_id == "or_file_mock123"
+    ((request, body),) = requests
+    assert request.method == "POST"
+    assert request.url == "https://openrouter.ai/api/v1/files"
+    assert request.headers["Content-Type"].startswith("multipart/form-data; boundary=")
+    assert b'name="purpose"\r\n\r\nuser_data' in body
+    assert b'name="file"; filename="report"' in body
+    assert b"Content-Type: application/pdf" in body
+    assert b"%PDF-1.7 mock" in body
 
 
-def test_upload_and_wait_for_file_failed(mocker):
-    """Test upload_and_wait_for_file raises ValueError on FAILED state."""
-    mock_client = mocker.MagicMock()
-    mock_file = mocker.MagicMock()
-    mock_file.name = "name"
-    mock_file.state = "FAILED"
-    mock_client.files.upload.return_value = mock_file
+def test_upload_raises_the_sdk_error_on_a_refused_file(tmp_path):
+    """Test a refused upload surfaces as the `openai` error the summarizer retries."""
+    document = tmp_path / "report"
+    document.write_bytes(b"mock")
 
-    with pytest.raises(ValueError, match="FAILED"):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
+    refused = httpx.Response(413, json={"error": {"message": "File too large"}})
 
-
-def test_upload_and_wait_for_file_name_none(mocker):
-    """upload_and_wait_for_file raises AttributeError when upload returns no name."""
-    mock_client = mocker.MagicMock()
-    mock_file = mocker.MagicMock()
-    mock_file.name = None
-    mock_client.files.upload.return_value = mock_file
-
-    with pytest.raises(AttributeError):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
+    with pytest.raises(APIStatusError):
+        _make_openrouter_files(lambda _: refused).upload(
+            file=str(document),
+            mime_type="application/pdf",
+        )
 
 
-def test_upload_and_wait_for_file_name_none_after_polling(mocker):
-    """upload_and_wait_for_file raises AttributeError when the polled file has no name.
+def test_delete_removes_the_file_by_id():
+    """Test delete calls DELETE on the uploaded file's own path."""
+    requests = []
 
-    The pre-loop check only sees the upload response; callers cast .name on the
-    returned object, so the polled result must be validated too.
-    """
-    mock_client = mocker.MagicMock()
-    mocker.patch("services.time.sleep")
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={"id": "or_file_mock123", "object": "file", "deleted": True},
+        )
 
-    mock_file_proc = mocker.MagicMock()
-    mock_file_proc.name = "name"
-    mock_file_proc.state = "PROCESSING"
+    _make_openrouter_files(handler).delete("or_file_mock123")
 
-    mock_file_done = mocker.MagicMock()
-    mock_file_done.name = None
-    mock_file_done.state = "ACTIVE"
-    mock_file_done.uri = "uri"
-    mock_file_done.mime_type = "audio/ogg"
-
-    mock_client.files.upload.return_value = mock_file_proc
-    mock_client.files.get.return_value = mock_file_done
-
-    with pytest.raises(AttributeError):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
-
-
-def test_upload_and_wait_for_file_missing_uri(mocker):
-    """upload_and_wait_for_file raises AttributeError when uri or mime_type is None."""
-    mock_client = mocker.MagicMock()
-    mock_file = mocker.MagicMock()
-    mock_file.name = "name"
-    mock_file.state = "ACTIVE"
-    mock_file.uri = None
-    mock_client.files.upload.return_value = mock_file
-
-    with pytest.raises(AttributeError):
-        GeminiHelper(mock_client).upload_and_wait_for_file("path", "audio/ogg")
-
-
-def test_delete_file_forwards_name_to_client(mocker):
-    """Test delete_file passes the file name through to the client's files.delete."""
-    mock_client = mocker.MagicMock()
-
-    GeminiHelper(mock_client).delete_file("files/mock123")
-
-    mock_client.files.delete.assert_called_once_with(name="files/mock123")
+    (request,) = requests
+    assert request.method == "DELETE"
+    assert request.url == "https://openrouter.ai/api/v1/files/or_file_mock123"
 
 
 def test_get_remaining_quota(mocker):

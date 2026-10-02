@@ -1,8 +1,7 @@
 import importlib
 import logging
-from typing import get_args
 
-from pydantic_ai.settings import ThinkingEffort
+from openai.resources.chat.completions import Completions
 
 import config
 
@@ -125,36 +124,6 @@ def test_default_summarizing_model_accepts_files():
     assert default.supports_files
 
 
-def test_no_model_takes_audio_without_taking_files():
-    """Test supports_audio implies supports_files across the whole registry.
-
-    Native audio is delivered by the same Gemini upload as documents, but only
-    summarize_with_document falls back when a model cannot take a file —
-    summarize() checks supports_audio alone. A spec with audio but not files
-    would upload, then raise from build_uploaded_file: unretried, unmapped, and
-    already paid for. architecture.md warns against flipping the flags to match
-    a provider catalog; this is what makes that warning fail loudly.
-    """
-    broken = [
-        model_id
-        for model_id, spec in config.MODEL_SPECS.items()
-        if spec.supports_audio and not spec.supports_files
-    ]
-    assert not broken
-
-
-def test_thinking_levels_are_pydantic_ais_vocabulary():
-    """Test the allow-list is exactly pydantic-ai's ThinkingEffort.
-
-    Nothing in this codebase translates a thinking level — each provider's model
-    does. That only holds while the offered levels are the ones pydantic-ai
-    knows: a level it does not recognize raises KeyError as the request is
-    built. Set equality, so a pydantic-ai bump that adds or drops an effort
-    fails here rather than silently leaving the keyboard out of date.
-    """
-    assert set(config.ALLOWED_THINKING_LEVELS) == set(get_args(ThinkingEffort))
-
-
 def test_default_thinking_level_is_selectable():
     """Test the default survives the allow-list every writer validates against.
 
@@ -164,8 +133,26 @@ def test_default_thinking_level_is_selectable():
     assert config.DEFAULT_THINKING_LEVEL in config.ALLOWED_THINKING_LEVELS
 
 
-def test_openrouter_provider_identifies_the_app():
+def test_openrouter_client_identifies_the_app():
     """Test OpenRouter calls carry app attribution instead of landing under "Unknown"."""
-    headers = config.openrouter_provider_factory().client.default_headers
+    headers = config.openrouter_client.default_headers
     assert headers["HTTP-Referer"] == config.OPENROUTER_APP_URL
     assert headers["X-Title"] == config.OPENROUTER_APP_TITLE
+
+
+def test_openrouter_client_uses_the_global_endpoint():
+    """Test the client stays off the regional hosts, where the Files API is 403."""
+    assert config.openrouter_client.base_url == "https://openrouter.ai/api/v1/"
+
+
+def test_langfuse_patches_the_openai_sdk_when_enabled():
+    """Test enabling Langfuse wraps chat completions, the only source of traces.
+
+    Nothing else instruments a model call, so dropping the drop-in's import
+    breaks nothing loudly — the traces just stop arriving.
+
+    Reloads first: the blank-key test above leaves `config` with tracing off.
+    """
+    importlib.reload(config)
+    assert config.langfuse_client is not None
+    assert hasattr(Completions.create, "__wrapped__")
