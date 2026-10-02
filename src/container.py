@@ -20,7 +20,13 @@ from parsing import (
 )
 from services import Messenger, OpenRouterFiles, QuotaManager, Tracer
 from summary import Summarizer
-from transcription import ApiBackend, AudioTranscriber, YouTubeTranscriber, YtDlpBackend
+from transcription import (
+    ApiBackend,
+    AudioTranscriber,
+    CastroTranscriber,
+    YouTubeTranscriber,
+    YtDlpBackend,
+)
 
 if TYPE_CHECKING:
     import telebot
@@ -64,6 +70,7 @@ def build_container() -> Container:
         downloader,
         audio_transcriber,
         yt_transcriber,
+        CastroTranscriber(),
     )
     return Container(
         bot=bot,

@@ -12,7 +12,7 @@
 
 ## About
 
-A bot designed to summarize webpages, YouTube videos (via audio or transcripts), Castro.fm podcasts, and various Telegram content, including voice messages, videos, and files (PDF, RTF, CSV, etc.). Each user picks a summarizing model, served through OpenRouter, a prompt strategy, a thinking level, and the language of the summary.
+A bot designed to summarize webpages, YouTube videos and Castro.fm podcasts (via transcripts or audio), and various Telegram content, including voice messages, videos, and files (PDF, RTF, CSV, etc.). Each user picks a summarizing model, served through OpenRouter, a prompt strategy, a thinking level, and the language of the summary.
 
 ## Usage
 
@@ -226,8 +226,8 @@ bot needs. What reaches the model depends on the content:
   to the model you chose, and deleted afterwards. A model registered as unable to read files
   is replaced by the default model for that one message. Your saved model is not changed, and
   `/myinfo` keeps reporting it.
-- **Webpages and YouTube transcripts** are text already, so they always go to the model
-  you chose.
+- **Webpages and YouTube or Castro transcripts** are text already, so they always go to the
+  model you chose.
 
 ### Prompt data and training
 
@@ -243,15 +243,6 @@ anyone other than yourself, that content is theirs.
 Webpage URLs are parsed into clean text before being passed to the model. This gives every model identical, well-structured input and removes the variability of a provider's server-side URL tools.
 
 Parsing runs a fixed two-stage flow: [Exa.ai](https://exa.ai) is tried first, and [Tavily](https://tavily.com) is used as an automatic fallback when Exa.ai returns no usable content or a detected block page; other Exa.ai errors are not retried on Tavily. Each result is checked by TypeSafe's JEV model (through OpenRouter) for block pages — bot checks, region blocks, logins, paywalls — so a blocked page falls through to the fallback, or ends in "page is not available", instead of being summarized. If that check itself fails, the text is kept.
-
-## Audio summaries
-
-Audio and video are always summarized from a transcript, never from the sound itself, so what a
-transcript drops — intonation, emphasis, pauses, speaker turns, non-verbal cues like laughter —
-does not reach the summary.
-
-For YouTube the bot tries the video's own transcript first and downloads the audio for
-transcription only when there is none: the transcript path is faster and cheaper.
 
 ## Evaluating models
 

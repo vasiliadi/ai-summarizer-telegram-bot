@@ -2,6 +2,7 @@ import textwrap
 
 import pytest
 from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
+from curl_cffi.requests.exceptions import HTTPError as CurlHTTPError
 from defusedxml.ElementTree import ParseError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import RetryError
@@ -23,6 +24,7 @@ from exceptions import (
 from transcription import (
     ApiBackend,
     AudioTranscriber,
+    CastroTranscriber,
     YouTubeTranscriber,
     YtDlpBackend,
 )
@@ -1007,3 +1009,93 @@ def test_extract_video_id_unrecognized_path():
         is None
     )
     assert YouTubeTranscriber._extract_video_id("https://youtube.com/") is None
+
+
+CASTRO_URL = "https://castro.fm/episode/oZxdoA"
+
+# Trimmed from a real episode page: the transcript sits in a collapsed <details>,
+# and the page also carries the <source> the audio fallback reads.
+CASTRO_PAGE_WITH_TRANSCRIPT = b"""
+<html><body>
+<details class="transcript-details">
+  <summary class="transcript-header">
+    <span class="episode-title">Transcript</span>
+  </summary>
+  <div class="transcript transcript-content">
+    <p class="transcript-paragraph">
+  <span class="transcript-ts">[00:16]</span>
+  <span class="transcript-speaker">Matt Heinz:</span><br>
+  All right.
+</p>
+<br>
+
+<p class="transcript-paragraph">
+  <span class="transcript-ts">[00:20]</span>
+  <span class="transcript-speaker">Speaker:</span><br>
+  I&#39;m your host, Matt Heinz.
+</p>
+<br>
+  </div>
+</details>
+<audio><source src="https://audio.link/file.mp3" type="audio/mp3"></audio>
+</body></html>
+"""
+
+
+def _mock_castro_page(mocker, content):
+    """Patch the page fetch to answer with `content`, returning the response mock."""
+    response = mocker.MagicMock()
+    response.content = content
+    mocker.patch("transcription.curl_requests.get", return_value=response)
+    return response
+
+
+def test_castro_transcript_keeps_speakers_and_drops_timestamps(mocker):
+    """Test the transcript is one line per paragraph, without its timestamps."""
+    response = _mock_castro_page(mocker, CASTRO_PAGE_WITH_TRANSCRIPT)
+
+    result = CastroTranscriber().get_transcript(CASTRO_URL)
+
+    assert result == PrefixedText(
+        text="Matt Heinz: All right.\nSpeaker: I'm your host, Matt Heinz.",
+        prefix="🎙️",
+    )
+    response.close.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        b'<html><audio><source src="https://audio.link/file.mp3"></audio></html>',
+        b'<html><div class="transcript transcript-content"> </div></html>',
+    ],
+    ids=["no transcript block", "empty transcript block"],
+)
+def test_castro_transcript_missing_raises_fetch_error(mocker, content):
+    """Test a page with no transcript text raises, so the caller downloads audio."""
+    _mock_castro_page(mocker, content)
+
+    with pytest.raises(FetchTranscriptError, match="has no transcript"):
+        CastroTranscriber().get_transcript(CASTRO_URL)
+
+
+def test_castro_transcript_http_error_raises_fetch_error(mocker):
+    """Test an HTTP error on the page is wrapped and the response is still closed."""
+    response = _mock_castro_page(mocker, b"")
+    response.raise_for_status.side_effect = CurlHTTPError("404")
+
+    with pytest.raises(FetchTranscriptError, match="Failed to fetch"):
+        CastroTranscriber().get_transcript(CASTRO_URL)
+
+    response.close.assert_called_once()
+
+
+def test_castro_transcript_connection_error_raises_fetch_error(mocker):
+    """Test a network failure is wrapped rather than leaving as a curl-cffi error."""
+    mocker.patch(
+        "transcription.curl_requests.get",
+        side_effect=CurlConnectionError("connection reset"),
+    )
+
+    with pytest.raises(FetchTranscriptError, match="Failed to fetch"):
+        CastroTranscriber().get_transcript(CASTRO_URL)

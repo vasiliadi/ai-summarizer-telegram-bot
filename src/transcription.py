@@ -9,9 +9,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 from urllib.parse import parse_qs, urlsplit
 
+from bs4 import BeautifulSoup
 from curl_cffi import CurlMime
 from curl_cffi import requests as curl_requests
 from curl_cffi.requests.exceptions import RequestException
+from curl_cffi.requests.utils import requote_uri
 from defusedxml.ElementTree import ParseError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
@@ -529,3 +531,43 @@ class YouTubeTranscriber:
                 raise FetchTranscriptError(msg) from fallback_error
             return PrefixedText(text=text, prefix=self._fallback.prefix)
         return PrefixedText(text=text, prefix=self._primary.prefix)
+
+
+class CastroTranscriber:
+    """Reads the transcript Castro publishes on an episode page."""
+
+    prefix = "🎙️"
+    _TIMEOUT: ClassVar[int] = 30
+
+    def get_transcript(self, url: str) -> PrefixedText:
+        """Scrape a Castro episode page for its transcript, dropping the timestamps.
+
+        Raises:
+            FetchTranscriptError: If the page cannot be fetched or has no transcript.
+
+        """
+        try:
+            response = curl_requests.get(
+                requote_uri(url),
+                impersonate="chrome",
+                verify=True,
+                timeout=self._TIMEOUT,
+            )
+            try:
+                response.raise_for_status()
+                soup = BeautifulSoup(response.content, "html.parser")
+            finally:
+                response.close()
+        except RequestException as e:
+            msg = "Failed to fetch the Castro episode page"
+            raise FetchTranscriptError(msg) from e
+        for timestamp in soup.select("div.transcript-content .transcript-ts"):
+            timestamp.decompose()
+        text = "\n".join(
+            paragraph.get_text(" ", strip=True)
+            for paragraph in soup.select("div.transcript-content p")
+        )
+        if not text.strip():
+            msg = "Castro episode page has no transcript"
+            raise FetchTranscriptError(msg)
+        return PrefixedText(text=text, prefix=self.prefix)
