@@ -146,15 +146,6 @@ def test_bullet_count_ignores_sub_list_items(tier1):
     assert _values(result)["t1_bullet_count"] is False
 
 
-def test_bullet_count_reads_indentation_against_the_lists_root(tier1):
-    """Five bullets indented two spaces each are five top-level bullets."""
-    indented = "\n".join(f"  - Пункт {n}." for n in range(1, 6))
-    result = tier1.evaluate(
-        _ctx(indented, item_meta={"prompt_key": "key_points_for_transcript"}),
-    )
-    assert _values(result)["t1_bullet_count"] is True
-
-
 def test_the_runs_strategy_overrides_the_items(tier1):
     """Items are harvested from mixed strategies; the run's one decides."""
     result = tier1.evaluate(

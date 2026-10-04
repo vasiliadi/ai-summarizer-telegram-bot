@@ -202,7 +202,7 @@ def bullets_of(summary):
     """The summary's bullets, markers stripped; a sub-item joins the bullet above.
 
     A sub-item is a line indented past the list's root, the smallest indentation of
-    a marked line, so a uniformly indented list stays flat. Only the list marker is
+    any line, so a uniformly indented list stays flat. Only the list marker is
     stripped, so a bold lead keeps its opening `**`, and a sub-list item reaches JEV
     with its parent rather than as a fragment.
     """
@@ -224,10 +224,7 @@ def bullets_of(summary):
         return 0
 
     lines = [line for line in summary.splitlines() if line.strip()]
-    root = min(
-        (indent(line) for line in lines if marker(line.strip())),
-        default=min((indent(line) for line in lines), default=0),
-    )
+    root = min((indent(line) for line in lines), default=0)
     bullets = []
     for line in lines:
         text = line.strip()

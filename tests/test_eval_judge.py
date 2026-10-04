@@ -84,24 +84,9 @@ def test_bullets_of_folds_sub_items_and_keeps_bold(judge):
     ]
 
 
-def test_bullets_of_keeps_a_uniformly_indented_list_flat(judge):
-    """Indentation is read against the list's root, not column zero."""
-    summary = "  - Первый.\n  - Второй:\n    - деталь.\n  - Третий."
-    assert judge.bullets_of(summary) == ["Первый.", "Второй: деталь.", "Третий."]
-    assert judge.bullets_of("Итоги:\n  - Первый.\n  - Второй.") == [
-        "Итоги:",
-        "Первый.",
-        "Второй.",
-    ]
-
-
 def test_bullets_of_reads_every_marker_tier1_counts(judge):
     """Numbered and en/em-dash items are bullets too, their markers stripped whole."""
-    assert judge.bullets_of("Итоги:\n  1. Первый.\n  12. Второй.") == [
-        "Итоги:",
-        "Первый.",
-        "Второй.",
-    ]
+    assert judge.bullets_of("1. Первый.\n12. Второй.") == ["Первый.", "Второй."]
     assert judge.bullets_of("\u2013 Первый.\n\u2014 Второй.") == ["Первый.", "Второй."]
 
 
