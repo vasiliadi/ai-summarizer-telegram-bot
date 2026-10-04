@@ -125,9 +125,13 @@ Network constraints behind those choices (sandbox egress proxy, observed 2026-09
 
 ## Pixi
 
-`pyproject.toml` contains a `[tool.pixi.*]` workspace config and `pixi.lock` exists. Pixi manages
-system-level dependencies `uv` cannot install from PyPI — specifically `ffmpeg` and `deno`. Do not
-invoke `pixi` for Python or project work; use `uv` for all of that.
+`pyproject.toml` contains a `[tool.pixi.*]` workspace config. Pixi manages system-level
+dependencies `uv` cannot install from PyPI — specifically `ffmpeg` and `deno`. Do not invoke `pixi`
+for Python or project work; use `uv` for all of that.
+
+`pixi.lock` is **not tracked** (it is in `.gitignore`). Pixi is used only locally and rarely, `pixi`
+regenerates the lock on its next run, and a tracked lock kept colliding with Renovate's
+lock-maintenance PRs. Do not commit it back.
 
 ## Database
 

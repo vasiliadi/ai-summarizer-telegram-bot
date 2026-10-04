@@ -197,6 +197,7 @@ docs/summaries/
 CLAUDE.local.md
 AGENTS.override.md
 
-# pixi environments
+# pixi environments; the lock is regenerated locally, not tracked
 .pixi/*
 !.pixi/config.toml
+pixi.lock
