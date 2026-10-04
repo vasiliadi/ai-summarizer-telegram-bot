@@ -485,8 +485,10 @@ How it is asked, and why each choice holds:
 - **All bullets in one call.** It gives practically the same probabilities as one call per bullet
   at about a tenth of the bill, since every call pays for the source again.
 - **The shortest positive question** (`JEV_SUPPORTED`: *"Is this claim supported by the source?
-  The claim may be a translation."*). JEV ignores polarity — asked whether a claim is *invented*,
-  it answered as if asked whether it was supported — and longer instructions only made it doubt
+  The claim may be a translation."*). JEV follows the question's wording and ignores the
+  criteria: asked whether a claim is *invented*, with criteria mapping `true` to supported, it
+  answered the question as worded, so its probabilities came out inverted. Keep the question and
+  the criteria pointing the same way. Longer instructions only made it doubt
   every bullet more without catching more errors.
 - **The weakest bullet stands for the summary**, since one invented claim is enough to mislead and
   an average would let ten sound bullets hide it. `JEV_FLAG_BELOW = 0.6` was the best balance on
