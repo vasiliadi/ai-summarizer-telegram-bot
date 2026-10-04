@@ -210,19 +210,28 @@ def bullets_of(summary):
     def indent(line):
         return len(line) - len(line.lstrip())
 
-    def marked(text):
-        return text[:1] in "-*•" and text[1:2] == " "
+    def marker(text):
+        """Length of the list marker and its space; the markers Tier 1 counts."""
+        if text[:1] in "-*•–—" and text[1:2] == " ":
+            return 2
+        head = text.split(".", 1)[0]
+        if (
+            head.isdigit()
+            and len(head) <= 2
+            and text[len(head) + 1 : len(head) + 2] == " "
+        ):
+            return len(head) + 2
+        return 0
 
     lines = [line for line in summary.splitlines() if line.strip()]
     root = min(
-        (indent(line) for line in lines if marked(line.strip())),
+        (indent(line) for line in lines if marker(line.strip())),
         default=min((indent(line) for line in lines), default=0),
     )
     bullets = []
     for line in lines:
         text = line.strip()
-        if marked(text):
-            text = text[2:].strip()
+        text = text[marker(text) :].strip()
         if indent(line) > root and bullets:
             bullets[-1] += f" {text}"
         else:

@@ -95,6 +95,16 @@ def test_bullets_of_keeps_a_uniformly_indented_list_flat(judge):
     ]
 
 
+def test_bullets_of_reads_every_marker_tier1_counts(judge):
+    """Numbered and en/em-dash items are bullets too, their markers stripped whole."""
+    assert judge.bullets_of("Итоги:\n  1. Первый.\n  12. Второй.") == [
+        "Итоги:",
+        "Первый.",
+        "Второй.",
+    ]
+    assert judge.bullets_of("\u2013 Первый.\n\u2014 Второй.") == ["Первый.", "Второй."]
+
+
 # --- pins --------------------------------------------------------------------
 
 
