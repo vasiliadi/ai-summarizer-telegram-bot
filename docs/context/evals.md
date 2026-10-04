@@ -357,13 +357,12 @@ sat at 27% on its most common character and slipped a 30% threshold, while both 
 
 Every rule in `prompts.py` is stated as an absolute — "Respond in {language}" has no
 60%-credit reading — so a weighted composite would invent numbers and hide *which* rule broke.
-The Langfuse code evaluator `tier1-on-experiments` emits `t1_language_match`, `t1_script_clean`
-and `t1_bullet_count` (BOOLEAN), `t1_compression` (NUMERIC) and the derived `t1_pass`, which ANDs
-the applicable binary checks. The report drops a model scoring `t1_pass` on under **95%** of
+The Langfuse code evaluator `tier1-on-experiments` emits `t1_language_match` and `t1_script_clean`
+(BOOLEAN), `t1_compression` (NUMERIC) and the derived `t1_pass`, which ANDs the binary checks. The report drops a model scoring `t1_pass` on under **95%** of
 items (`stage2.PASS_THRESHOLD`) — at most two failures in 50. A 70% floor suits checks that only
 catch outright breakage, but `t1_script_clean` fails an item on one stray character, and 70% would
 pass `tencent/hy3`, which leaked CJK into ~6% of its summaries — enough to be unusable. Strong
-models score 100%. Four judgements are deliberate:
+models score 100%. Three judgements are deliberate:
 
 - The language check passes at **70%** Cyrillic letters, not 95%. Correct output still carries
   Latin proper nouns, so a stricter floor rejects good summaries while adding nothing against a
@@ -376,10 +375,6 @@ models score 100%. Four judgements are deliberate:
   legitimate — and Greek for symbols such as μ or Δ.
 - `t1_compression` is a **diagnostic with no threshold**. Judges reward length, so the length
   column belongs beside every quality score; gating on it would let a model win by truncating.
-- `t1_bullet_count` is emitted **only** for `key_points_for_transcript`, the one strategy that
-  asks for bullets. Scoring `basic_prompt_for_transcript` zero there would penalise it for
-  obeying its own prompt. So `t1_pass` ranks models **within** a strategy and must never be used
-  to compare the two strategies.
 
 **A failed generation fails Tier 1, and that is not the model's fault.** `run_experiment` stores
 a task that raised as `Error: {exc}` and the Tier 1 rule scores that English string as a language
@@ -387,7 +382,7 @@ failure, so one errored item costs a model 2 points of `t1_pass`, and a provider
 few items can push a good model under the floor. `judge.run` prints a warning with the count;
 read it, and the report's footnotes, before believing a Tier 1 failure.
 
-### Three checks were removed, deliberately
+### Four checks were removed, deliberately
 
 **`t1_no_preamble`, `t1_no_artifacts` and `t1_bullet_purity` were removed** and should not be
 reinstated without new evidence. Across 150 scored items they produced three hits and none of
@@ -395,7 +390,15 @@ them changed a decision: a markdown heading before the list, and two substring m
 ordinary words. The false positive is the general lesson — a check that greps for the word
 "transcript" fires on any summary whose *subject* is transcription, so a Tier 1 check must key
 on something the content cannot legitimately contain. Tier 1 screens for outright breakage only
-— wrong language, wrong script, no list where a list was asked for.
+— wrong language, wrong script.
+
+**`t1_bullet_count` (at least five bullets under `key_points_for_transcript`) was removed on
+2026-10-03.** Across 692 summaries from 14 compare runs it failed 0 real summaries; its 8
+failures were all failed generations (`Error: …`), which `t1_language_match` already fails.
+Every model writes a list, so the check could not change a decision, and keeping it meant
+maintaining a list parser — the readable-format prompt's nested sub-lists had just needed a fix
+to stop sub-items counting toward the minimum. A model that answers in prose is visible the
+moment its summaries are read. Without it `t1_pass` no longer depends on the strategy.
 
 ### Write portable Python in `tier1_evaluator.py`
 
@@ -432,15 +435,14 @@ and means a rule that went active earlier is **not** evidence the code still run
 
 Two consequences for scoring runs:
 
-- **Branch on `run_prompt_key` from the run metadata, not the item's `prompt_key`.** An
+- **A check that depends on the strategy must branch on `run_prompt_key` from the run
+  metadata, not the item's `prompt_key`.** No check does now (`t1_bullet_count` was the one;
+  see *Four checks were removed*), but `judge.run` still records `run_prompt_key`. An
   experiment applies one strategy to every item, while an item's `prompt_key` records the
   strategy of the trace it was *harvested* from; the dataset mixes strategies, so the two
-  disagree and the bullet check silently applies to the wrong items. The evaluator prefers
-  `run_prompt_key` and falls back to the item. So any runner calling `run_experiment` must put
-  `run_prompt_key` in its run metadata; spelling it `prompt_key` there neither works nor fails —
-  the evaluator reads run metadata off `ctx.observation` and item metadata off `ctx.experiment`,
-  so a misnamed key overrides nothing and leaves a plausible `t1_bullet_count` computed against
-  the wrong strategy.
+  disagree. Spelling it `prompt_key` in run metadata neither works nor fails — the evaluator
+  reads run metadata off `ctx.observation` and item metadata off `ctx.experiment`, so a
+  misnamed key overrides nothing and the check silently uses the wrong strategy.
 - **Evaluators live on `v2/evaluators`; the old `unstable/evaluators` route returns 404.**
   `POST /v2/evaluators` always creates a *new* evaluator at version 1, bound to no rule, so
   re-posting the name would upload the code and score nothing. A new version is a `PATCH` of the

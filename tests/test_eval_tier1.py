@@ -91,11 +91,10 @@ def test_clean_russian_bullets_pass_every_check(tier1):
     assert values == {
         "t1_language_match": True,
         "t1_script_clean": True,
-        "t1_bullet_count": True,
         "t1_compression": pytest.approx(len(RUSSIAN_BULLETS) / 1000),
         "t1_pass": True,
     }
-    assert _scores(result)["t1_pass"].comment == "All 3 applicable checks passed."
+    assert _scores(result)["t1_pass"].comment == "All 2 applicable checks passed."
 
 
 def test_english_summary_fails_language_and_the_pass(tier1):
@@ -121,58 +120,6 @@ def test_latin_greek_and_diacritics_are_allowed(tier1):
     """Names, symbols and diacritics are not a script leak."""
     result = tier1.evaluate(_ctx(RUSSIAN_BULLETS + " OpenAI, Δ, μ, café, Łódź"))
     assert _values(result)["t1_script_clean"] is True
-
-
-def test_bullet_count_applies_only_to_the_bullet_strategy(tier1):
-    """Scoring another strategy on bullets would penalise it for obeying its prompt."""
-    short = "- Один пункт.\n- Второй пункт."
-    bulleted = tier1.evaluate(
-        _ctx(short, item_meta={"prompt_key": "key_points_for_transcript"}),
-    )
-    assert _values(bulleted)["t1_bullet_count"] is False
-    assert _values(bulleted)["t1_pass"] is False
-
-    prose = tier1.evaluate(_ctx(short, item_meta={"prompt_key": "other_strategy"}))
-    assert "t1_bullet_count" not in _values(prose)
-    assert _values(prose)["t1_pass"] is True
-
-
-def test_bullet_count_ignores_sub_list_items(tier1):
-    """Three points with a three-item sub-list are three bullets, not six."""
-    nested = "- Один.\n- Два:\n  - первое;\n  - второе;\n  - третье.\n- Три."
-    result = tier1.evaluate(
-        _ctx(nested, item_meta={"prompt_key": "key_points_for_transcript"}),
-    )
-    assert _values(result)["t1_bullet_count"] is False
-
-
-def test_the_runs_strategy_overrides_the_items(tier1):
-    """Items are harvested from mixed strategies; the run's one decides."""
-    result = tier1.evaluate(
-        _ctx(
-            "- Один пункт.",
-            item_meta={"prompt_key": "other_strategy"},
-            obs_meta={"run_prompt_key": "key_points_for_transcript"},
-        ),
-    )
-    assert _values(result)["t1_bullet_count"] is False
-
-
-@pytest.mark.parametrize(
-    ("line", "is_bullet"),
-    [
-        ("- dash", True),
-        ("• dot", True),
-        ("— em dash", True),
-        ("1. numbered", True),
-        ("12. numbered", True),
-        ("2024. a year, not a bullet", False),
-        ("plain sentence", False),
-    ],
-)
-def test_bullet_markers(tier1, line, is_bullet):
-    """Dashes, dots and short numbers are bullets; a year is not."""
-    assert tier1._is_bullet(line) is is_bullet
 
 
 @pytest.mark.parametrize(

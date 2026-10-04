@@ -211,7 +211,7 @@ def bullets_of(summary):
         return len(line) - len(line.lstrip())
 
     def marker(text):
-        """Length of the list marker and its space; the markers Tier 1 counts."""
+        """Length of the list marker and its space: a dash, a dot or a short number."""
         if text[:1] in "-*•–—" and text[1:2] == " ":
             return 2
         head = text.split(".", 1)[0]
@@ -355,8 +355,9 @@ def run(model_id, dataset_name, prompt_key, *, tier2="jev"):
             "stage": "compare",
             "candidate_model": model_id,
             "thinking_level": THINKING_LEVEL,
-            # Not `prompt_key`: Tier 1 branches on this. See evals.md → *A code evaluator
-            # receives every metadata value as a string, and a crash inside it is silent*.
+            # Not `prompt_key`, which an evaluator would read off the harvested item. See
+            # evals.md → *A code evaluator receives every metadata value as a string, and a
+            # crash inside it is silent*.
             "run_prompt_key": prompt_key,
             "prompt_version": prompt_version(prompt_key),
             "tier2_judge": tier2,
