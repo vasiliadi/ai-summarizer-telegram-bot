@@ -40,4 +40,4 @@ Before the first tracked-file edit, branch from `main` with `git checkout -b <sc
 - `AGENTS.md` — session process.
 - `docs/summaries/` — handoffs written by `/handoff` (`handoff-*.md`). **(gitignored)**
 - `docs/archive/` — superseded handoffs, kept flat. Read only when explicitly told. **(gitignored)**
-- `.claude/commands/handoff.md` — the `/handoff` routine and its template.
+- `.claude/commands/handoff.md` — the `/handoff` routine and its template; agents without slash commands follow its steps directly.

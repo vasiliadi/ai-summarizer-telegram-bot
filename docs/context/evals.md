@@ -571,7 +571,7 @@ rebuild one without new evidence.
 - **Cheaper Opus substitutes**: Sonnet 5 under-reports real errors; `gpt-5.6-sol-pro` invents
   them and costs the same; `gpt-6-luna` is cheap and wrong. JEV as a whole-summary judge ranks
   near chance.
-- **A one-question "anything invented?" prompt.** It caught every error but flagged most clean
+- **A one-question "anything invented?" prompt (`INVENTED`).** It caught every error but flagged most clean
   summaries too, mixing real fabrications with compression — what `FABRICATED`'s two kinds sort.
 - **Certifying a judge per summary against hand labels.** Labellers did not converge on
   distortion versus compression, so no judge sets a floor. If labels are made again, adjudicate
