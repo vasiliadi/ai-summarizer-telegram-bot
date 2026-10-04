@@ -33,10 +33,6 @@ def _text(value):
     return str(value)
 
 
-def _lines(text):
-    return [line.strip() for line in text.splitlines() if line.strip()]
-
-
 def _is_bullet(line):
     if line.startswith(BULLET_MARKERS):
         return True
@@ -82,7 +78,6 @@ def evaluate(ctx):
         obs_meta.get("run_prompt_key") or item_meta.get("prompt_key") or "",
     )
     source_chars = _number(item_meta.get("char_length"))
-    lines = _lines(output)
 
     scores = []
     binary = {}
@@ -115,7 +110,12 @@ def evaluate(ctx):
     # The bullet guidelines belong to one strategy; scoring the other 0 would
     # penalise it for obeying its own prompt.
     if prompt_key == "key_points_for_transcript":
-        bullets = [line for line in lines if _is_bullet(line)]
+        # Top-level only: an indented sub-list item is part of its parent's point.
+        bullets = [
+            line
+            for line in output.splitlines()
+            if line[:1].strip() and _is_bullet(line)
+        ]
         add(
             "t1_bullet_count",
             len(bullets) >= MIN_BULLETS,

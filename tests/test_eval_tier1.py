@@ -137,6 +137,15 @@ def test_bullet_count_applies_only_to_the_bullet_strategy(tier1):
     assert _values(prose)["t1_pass"] is True
 
 
+def test_bullet_count_ignores_sub_list_items(tier1):
+    """Three points with a three-item sub-list are three bullets, not six."""
+    nested = "- Один.\n- Два:\n  - первое;\n  - второе;\n  - третье.\n- Три."
+    result = tier1.evaluate(
+        _ctx(nested, item_meta={"prompt_key": "key_points_for_transcript"}),
+    )
+    assert _values(result)["t1_bullet_count"] is False
+
+
 def test_the_runs_strategy_overrides_the_items(tier1):
     """Items are harvested from mixed strategies; the run's one decides."""
     result = tier1.evaluate(

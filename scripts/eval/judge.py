@@ -199,10 +199,23 @@ JEV_FLAG_BELOW = 0.6
 
 
 def bullets_of(summary):
-    """The summary's bullets, markers stripped; every non-empty line is one."""
-    return [
-        line.lstrip("-*• ").strip() for line in summary.splitlines() if line.strip()
-    ]
+    """The summary's bullets, markers stripped; an indented line joins the one above.
+
+    Only the list marker is stripped, so a bold lead keeps its opening `**`, and a
+    sub-list item reaches JEV with its parent rather than as a fragment.
+    """
+    bullets = []
+    for line in summary.splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        if text[:1] in "-*•" and text[1:2] == " ":
+            text = text[2:].strip()
+        if line[:1].isspace() and bullets:
+            bullets[-1] += f" {text}"
+        else:
+            bullets.append(text)
+    return bullets
 
 
 def jev_meta():

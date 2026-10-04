@@ -75,6 +75,15 @@ def test_bullets_of_strips_markers_and_blank_lines(judge):
     ]
 
 
+def test_bullets_of_folds_sub_items_and_keeps_bold(judge):
+    """A sub-list item joins its parent; only the marker is stripped."""
+    summary = "- **Кэш.** Изменения:\n  - TTL 30 минут;\n  - явные точки.\n- Итог."
+    assert judge.bullets_of(summary) == [
+        "**Кэш.** Изменения: TTL 30 минут; явные точки.",
+        "Итог.",
+    ]
+
+
 # --- pins --------------------------------------------------------------------
 
 
