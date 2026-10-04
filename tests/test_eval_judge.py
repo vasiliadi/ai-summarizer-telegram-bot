@@ -84,6 +84,17 @@ def test_bullets_of_folds_sub_items_and_keeps_bold(judge):
     ]
 
 
+def test_bullets_of_keeps_a_uniformly_indented_list_flat(judge):
+    """Indentation is read against the list's root, not column zero."""
+    summary = "  - Первый.\n  - Второй:\n    - деталь.\n  - Третий."
+    assert judge.bullets_of(summary) == ["Первый.", "Второй: деталь.", "Третий."]
+    assert judge.bullets_of("Итоги:\n  - Первый.\n  - Второй.") == [
+        "Итоги:",
+        "Первый.",
+        "Второй.",
+    ]
+
+
 # --- pins --------------------------------------------------------------------
 
 

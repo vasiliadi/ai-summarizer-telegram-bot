@@ -110,12 +110,15 @@ def evaluate(ctx):
     # The bullet guidelines belong to one strategy; scoring the other 0 would
     # penalise it for obeying its own prompt.
     if prompt_key == "key_points_for_transcript":
-        # Top-level only: an indented sub-list item is part of its parent's point.
-        bullets = [
-            line
+        # Top-level only: a sub-list item, indented past the list's own root, is
+        # part of its parent's point. A uniformly indented list is still top-level.
+        marked = [
+            (len(line) - len(line.lstrip()), line)
             for line in output.splitlines()
-            if line[:1].strip() and _is_bullet(line)
+            if _is_bullet(line.strip())
         ]
+        root = min((indent for indent, _ in marked), default=0)
+        bullets = [line for indent, line in marked if indent == root]
         add(
             "t1_bullet_count",
             len(bullets) >= MIN_BULLETS,

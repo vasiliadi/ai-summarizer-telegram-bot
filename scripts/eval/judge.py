@@ -199,19 +199,31 @@ JEV_FLAG_BELOW = 0.6
 
 
 def bullets_of(summary):
-    """The summary's bullets, markers stripped; an indented line joins the one above.
+    """The summary's bullets, markers stripped; a sub-item joins the bullet above.
 
-    Only the list marker is stripped, so a bold lead keeps its opening `**`, and a
-    sub-list item reaches JEV with its parent rather than as a fragment.
+    A sub-item is a line indented past the list's root, the smallest indentation of
+    a marked line, so a uniformly indented list stays flat. Only the list marker is
+    stripped, so a bold lead keeps its opening `**`, and a sub-list item reaches JEV
+    with its parent rather than as a fragment.
     """
+
+    def indent(line):
+        return len(line) - len(line.lstrip())
+
+    def marked(text):
+        return text[:1] in "-*•" and text[1:2] == " "
+
+    lines = [line for line in summary.splitlines() if line.strip()]
+    root = min(
+        (indent(line) for line in lines if marked(line.strip())),
+        default=min((indent(line) for line in lines), default=0),
+    )
     bullets = []
-    for line in summary.splitlines():
+    for line in lines:
         text = line.strip()
-        if not text:
-            continue
-        if text[:1] in "-*•" and text[1:2] == " ":
+        if marked(text):
             text = text[2:].strip()
-        if line[:1].isspace() and bullets:
+        if indent(line) > root and bullets:
             bullets[-1] += f" {text}"
         else:
             bullets.append(text)
