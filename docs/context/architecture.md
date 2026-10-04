@@ -46,13 +46,11 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   swappable summarization model.
 - **The `openai` SDK, pointed at OpenRouter** — `config.openrouter_client` is one
   `openai.OpenAI` on `https://openrouter.ai/api/v1`, and every model call goes through
-  `llm.py` on it. With a single provider there is no seam left for a framework to own, so
-  pydantic-ai was dropped: it also refused OpenRouter file ids (`UploadedFile` rejects
-  `provider_name='openrouter'`) and inline OGG audio. OpenRouter's own Python SDK was
-  **rejected** (checked 2026-10-01): it caps `pydantic` below 2.13, which downgrades this
-  project's; it is auto-generated with several releases a day; and it has no Langfuse
-  integration, so spans, usage and cost would be written by hand. Revisit only if the cap is
-  lifted and a Langfuse integration exists. The SDK retries on its own — twice by default, on
+  `llm.py` on it. With a single provider there is no seam left for a framework to own;
+  pydantic-ai was dropped, and it also refused OpenRouter file ids. OpenRouter's own Python SDK
+  was **rejected** (checked 2026-10-01): it caps `pydantic` below 2.13 and has no Langfuse
+  integration. Revisit only if the cap is lifted and a Langfuse integration exists. The SDK
+  retries on its own — twice by default, on
   connection errors and 408/409/429/5xx — inside one `@retry` attempt, so those repeats
   consume no extra quota unit.
 - **Dropping or renaming a model id needs an Alembic data migration in the same PR** — the
@@ -164,9 +162,9 @@ Telegram update
 
 `utils.classify_url` is the **single** source of URL routing: `handlers.handle_url`
 calls it to pick the summarize path and `summarize` calls it again to pick the
-download path. Neither may re-derive the kind on its own — a second, narrower
-classifier here previously let www-prefixed and uppercase-host media URLs reach
-the file upload with the URL string as their file path.
+download path. Neither may re-derive the kind on its own: a second classifier
+drifts from the first, and a media URL it misses (www-prefixed, uppercase host)
+reaches the file upload with the URL string as its file path.
 
 - **YouTube URL** → try transcript (`YouTubeTranscriber.get_transcript`); on
   success summarize the transcript. On failure → `Downloader.download_yt`
@@ -277,11 +275,10 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   gives no transcript. The markup is Castro's own. Castro takes a cue's text up to its first
   colon as the speaker and writes `Speaker:` where there is none, so a turn's continuation
   lines all read `Speaker:`, and a cue such as `… a 4:58 email` is split at `4:`.
-  `CastroTranscriber` drops the timestamps and passes the rest through, one paragraph per
-  line. Merging the `Speaker:` lines into turns is **rejected**: across six episodes of six
-  podcasts the markup was identical, but the labels were real names per turn, machine labels
-  (`SPEAKER_00:`), or `Speaker:` beside `Speaker 2:`, where a filler `Speaker:` cannot be told
-  from a real one. One episode had empty timestamp spans. Any failure — no `div`, no text, an HTTP or network error
+  `CastroTranscriber` drops the timestamps (which can be empty) and passes the rest through,
+  one paragraph per line. Merging the `Speaker:` lines into turns is **rejected**: labels vary
+  by podcast — real names, machine labels (`SPEAKER_00:`), or `Speaker:` beside `Speaker 2:` —
+  so a filler `Speaker:` cannot be told from a real one. Any failure — no `div`, no text, an HTTP or network error
   — is a `FetchTranscriptError`, so a markup change on Castro's side degrades to the audio
   download instead of an error. The fallback fetches the page a second time, for its
   `<source>`: sharing one fetch between `CastroTranscriber` and `Downloader` was not worth the
@@ -320,8 +317,7 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
 - **One `openai` client for every thread.** `config.openrouter_client` is the synchronous
   client, whose HTTP pool is safe to share, so every telebot worker and eval-harness thread
-  uses the same one. The per-thread provider this replaced existed only because pydantic-ai's
-  `run_sync` ran a separate event loop in each thread.
+  uses the same one.
 - **Tracing (optional), text input only.** Enabled only when `LANGFUSE_PUBLIC_KEY` and
   `LANGFUSE_SECRET_KEY` are set (`config.langfuse_client`, else `None`). `config` then imports
   `langfuse.openai`, Langfuse's drop-in for the `openai` SDK, and that import is the whole
@@ -336,8 +332,7 @@ where the content came from (`format_prefixed_summary`). Only a document summari
     message is traced all the same, since it is summarized from a transcript — a plain string.
   - **Cost is OpenRouter's own.** The drop-in copies `usage.cost` from the reply onto the
     generation, so the trace shows what was charged; nothing in this codebase reports cost, and
-    no `usage: {include: true}` is needed. It matched OpenRouter's figure exactly on all three
-    registered models (2026-10-01).
+    no `usage: {include: true}` is needed.
   - **A generation's model parameters are not what was sent.** The drop-in lists its own
     defaults (`temperature: 1`, `max_tokens: Infinity`, …) for parameters the request never
     carried, and does not record `reasoning.effort`, which travels in `extra_body`. The
