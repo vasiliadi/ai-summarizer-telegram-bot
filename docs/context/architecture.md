@@ -164,7 +164,7 @@ Telegram update
 calls it to pick the summarize path and `summarize` calls it again to pick the
 download path. Neither may re-derive the kind on its own: a second classifier
 drifts from the first, and a media URL it misses (www-prefixed, uppercase host)
-reaches the file upload with the URL string as its file path.
+skips the download and reaches `compress_audio` with the URL string as its file path.
 
 - **YouTube URL** → try transcript (`YouTubeTranscriber.get_transcript`); on
   success summarize the transcript. On failure → `Downloader.download_yt`
