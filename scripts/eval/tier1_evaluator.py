@@ -5,8 +5,6 @@ Write portable Python, and never define `Score` or `EvaluationResult`; see evals
 """
 
 CYRILLIC_FLOOR = 0.70
-MIN_BULLETS = 5
-BULLET_MARKERS = ("-", "*", "•", "–", "—")
 # Latin for names and terms, Greek for symbols, Cyrillic. See evals.md → *Tier 1:
 # binary sub-checks, never weighted points* (`t1_script_clean`).
 ALLOWED_LETTERS = (
@@ -31,17 +29,6 @@ def _text(value):
     if isinstance(value, (list, tuple)):
         return "\n".join(_text(v) for v in value)
     return str(value)
-
-
-def _lines(text):
-    return [line.strip() for line in text.splitlines() if line.strip()]
-
-
-def _is_bullet(line):
-    if line.startswith(BULLET_MARKERS):
-        return True
-    head = line.split(".", 1)[0]
-    return head.isdigit() and len(head) <= 2
 
 
 def _number(value):
@@ -74,15 +61,7 @@ def evaluate(ctx):
     item_meta = {}
     if ctx.experiment is not None and ctx.experiment.item_metadata:
         item_meta = ctx.experiment.item_metadata
-    obs_meta = ctx.observation.metadata or {}
-
-    # The run's strategy, not the harvested item's. See evals.md → *A code evaluator
-    # receives every metadata value as a string, and a crash inside it is silent*.
-    prompt_key = str(
-        obs_meta.get("run_prompt_key") or item_meta.get("prompt_key") or "",
-    )
     source_chars = _number(item_meta.get("char_length"))
-    lines = _lines(output)
 
     scores = []
     binary = {}
@@ -111,16 +90,6 @@ def evaluate(ctx):
             else "No letters outside Latin, Greek and Cyrillic."
         ),
     )
-
-    # The bullet guidelines belong to one strategy; scoring the other 0 would
-    # penalise it for obeying its own prompt.
-    if prompt_key == "key_points_for_transcript":
-        bullets = [line for line in lines if _is_bullet(line)]
-        add(
-            "t1_bullet_count",
-            len(bullets) >= MIN_BULLETS,
-            f"{len(bullets)} bullets (minimum {MIN_BULLETS}).",
-        )
 
     compression = min(len(output) / source_chars, 1.0) if source_chars else 0.0
     scores.append(

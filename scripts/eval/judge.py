@@ -199,10 +199,41 @@ JEV_FLAG_BELOW = 0.6
 
 
 def bullets_of(summary):
-    """The summary's bullets, markers stripped; every non-empty line is one."""
-    return [
-        line.lstrip("-*• ").strip() for line in summary.splitlines() if line.strip()
-    ]
+    """The summary's bullets, markers stripped; a sub-item joins the bullet above.
+
+    A sub-item is a line indented past the list's root, the smallest indentation of
+    any line, so a uniformly indented list stays flat. Only the list marker is
+    stripped, so a bold lead keeps its opening `**`, and a sub-list item reaches JEV
+    with its parent rather than as a fragment.
+    """
+
+    def indent(line):
+        return len(line) - len(line.lstrip())
+
+    def marker(text):
+        """Length of the list marker and its space: a dash, a dot or a short number."""
+        if text[:1] in "-*•–—" and text[1:2] == " ":
+            return 2
+        head = text.split(".", 1)[0]
+        if (
+            head.isdigit()
+            and len(head) <= 2
+            and text[len(head) + 1 : len(head) + 2] == " "
+        ):
+            return len(head) + 2
+        return 0
+
+    lines = [line for line in summary.splitlines() if line.strip()]
+    root = min((indent(line) for line in lines), default=0)
+    bullets = []
+    for line in lines:
+        text = line.strip()
+        text = text[marker(text) :].strip()
+        if indent(line) > root and bullets:
+            bullets[-1] += f" {text}"
+        else:
+            bullets.append(text)
+    return bullets
 
 
 def jev_meta():
@@ -324,8 +355,9 @@ def run(model_id, dataset_name, prompt_key, *, tier2="jev"):
             "stage": "compare",
             "candidate_model": model_id,
             "thinking_level": THINKING_LEVEL,
-            # Not `prompt_key`: Tier 1 branches on this. See evals.md → *A code evaluator
-            # receives every metadata value as a string, and a crash inside it is silent*.
+            # Not `prompt_key`, which an evaluator would read off the harvested item. See
+            # evals.md → *A code evaluator receives every metadata value as a string, and a
+            # crash inside it is silent*.
             "run_prompt_key": prompt_key,
             "prompt_version": prompt_version(prompt_key),
             "tier2_judge": tier2,

@@ -75,6 +75,21 @@ def test_bullets_of_strips_markers_and_blank_lines(judge):
     ]
 
 
+def test_bullets_of_folds_sub_items_and_keeps_bold(judge):
+    """A sub-list item joins its parent; only the marker is stripped."""
+    summary = "- **Кэш.** Изменения:\n  - TTL 30 минут;\n  - явные точки.\n- Итог."
+    assert judge.bullets_of(summary) == [
+        "**Кэш.** Изменения: TTL 30 минут; явные точки.",
+        "Итог.",
+    ]
+
+
+def test_bullets_of_strips_numbered_and_dash_markers(judge):
+    """Numbered and en/em-dash items are bullets too, their markers stripped whole."""
+    assert judge.bullets_of("1. Первый.\n12. Второй.") == ["Первый.", "Второй."]
+    assert judge.bullets_of("\u2013 Первый.\n\u2014 Второй.") == ["Первый.", "Второй."]
+
+
 # --- pins --------------------------------------------------------------------
 
 
