@@ -61,7 +61,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = "==4.15.0" },
     { name = "curl-cffi", specifier = "==0.16.3" },
     { name = "exa-py", specifier = "==2.23.0" },
-    { name = "langfuse", specifier = "==4.15.6" },
+    { name = "langfuse", specifier = "==4.16.0" },
     { name = "limits", specifier = "==5.8.0" },
     { name = "openai", specifier = "==3.20.0" },
     { name = "psycopg2-binary", specifier = "==2.9.13" },
@@ -932,7 +932,7 @@ wheels = [
 
 [[package]]
 name = "langfuse"
-version = "4.15.6"
+version = "4.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "backoff" },
@@ -945,9 +945,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "wrapt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4a/19/59253a357d77147e8cd3ad97817519e158af5d3336654656c92c2fc922f1/langfuse-4.15.6.tar.gz", hash = "sha256:af80ed1199e57c2641c9f228066bf9dc324657c06ce6e68660118fa46b237e35", size = 392968, upload-time = "2026-09-24T13:32:47.032Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/97/cd74695a112e68afcfdabe11ad1a61fe4cd65ddf46fa0fd4dc62a7de46ec/langfuse-4.16.0.tar.gz", hash = "sha256:cf6908af52a0a43345bcbe4a34fe7d5f07cbaa959439dfec694ab7f5bb00353b", size = 393515, upload-time = "2026-09-30T09:55:56.083Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1a/c5/927a01c47c0adf53832c6e5e35951e3d4998072ef955f3bb8e87e6d10517/langfuse-4.15.6-py3-none-any.whl", hash = "sha256:2364d5f17342301a8651ef166abb5bb260aaadd94d1ac72aa30c298b3a395d85", size = 706806, upload-time = "2026-09-24T13:32:48.577Z" },
+    { url = "https://files.pythonhosted.org/packages/01/22/214b2af3d3b9523e222112425f94618b377a476e8b916ea27a7a74488cbe/langfuse-4.16.0-py3-none-any.whl", hash = "sha256:60de8ea29230f8550694b53e6c0e238e90c6657e59ffbc9ea390b0894d828697", size = 707377, upload-time = "2026-09-30T09:55:54.423Z" },
 ]
 
 [[package]]
