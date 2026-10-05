@@ -16,6 +16,7 @@ PROMPTS = {
         - Each bullet must capture a distinct, significant idea — no overlap, no filler.
         - Briefly explain a specialized term, benchmark or abbreviation in parentheses where it first appears, using what the content says about it.
         - When a point lists several parallel items, put them in a nested sub-list.
+        - Retell what the content says, not what the page or document is: no "the article discusses", and nothing about navigation, ads, related links or placeholder text.
         - Output a markdown bulleted list, one key point per bullet, nothing else. In each bullet, bold the few words that carry its point. Use emphasis sparingly, so that it stands out.
 
         Here is the provided content:
