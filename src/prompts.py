@@ -14,13 +14,9 @@ PROMPTS = {
         Guidelines:
         - Produce at least 5 bullets. For content that is broad or detailed, use as many bullets as needed to cover it faithfully. Do not pad with filler to reach 5.
         - Each bullet must capture a distinct, significant idea — no overlap, no filler.
-        - Open each bullet with its main point as a short bold phrase, then give the supporting details.
-        - Write short sentences. Do not chain clauses with semicolons.
-        - When the content gives an example or a figure for a point, keep it in that point's bullet.
         - Briefly explain a specialized term, benchmark or abbreviation in parentheses where it first appears, using what the content says about it.
         - When a point lists several parallel items, put them in a nested sub-list.
-        - Retell what the content says, not what the page or document is: no "the article discusses", and nothing about navigation, ads, related links or placeholder text.
-        - Output a markdown bulleted list, one key point per bullet, nothing else.
+        - Output a markdown bulleted list, one key point per bullet, nothing else. In each bullet, bold the few words that carry its point. Use emphasis sparingly, so that it stands out.
 
         Here is the provided content:
         """,
