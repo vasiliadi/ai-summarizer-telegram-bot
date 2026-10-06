@@ -540,7 +540,7 @@ class CastroTranscriber:
     _TIMEOUT: ClassVar[int] = 30
 
     def get_transcript(self, url: str) -> PrefixedText:
-        """Scrape a Castro episode page for its transcript, dropping the timestamps.
+        """Scrape a Castro episode page for its transcript, timestamps included.
 
         Raises:
             FetchTranscriptError: If the page cannot be fetched or has no transcript.
@@ -561,8 +561,6 @@ class CastroTranscriber:
         except RequestException as e:
             msg = "Failed to fetch the Castro episode page"
             raise FetchTranscriptError(msg) from e
-        for timestamp in soup.select("div.transcript-content .transcript-ts"):
-            timestamp.decompose()
         text = "\n".join(
             paragraph.get_text(" ", strip=True)
             for paragraph in soup.select("div.transcript-content p")

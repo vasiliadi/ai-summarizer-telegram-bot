@@ -325,8 +325,8 @@ with a leading space. Testing only for wrapping silently files every audio trans
 A Castro transcript is a fourth source with **no stratum of its own**: it is one line per
 utterance, and the one episode measured (2026-10-02) averaged 64 characters a line — just over
 the 60 that marks a YouTube transcript. `stratum_of` therefore files it under `audio_transcript`
-or `yt_transcript` depending on the episode. Each line opens with a speaker label
-(`Speaker: …`), which neither other transcript shape has, if a rebuild needs to tell them apart.
+or `yt_transcript` depending on the episode. Each line opens with a timestamp, when
+Castro has one, and a speaker label (`[00:16] Speaker: …`), which neither other transcript shape has, if a rebuild needs to tell them apart.
 
 The strata are not balanced and that is **accepted**, not an oversight to fix: real traffic is
 mostly transcripts, so `web_article` gets 5 items, under the ≥8–10 per cell a ranking needs. A
