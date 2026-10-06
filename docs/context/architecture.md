@@ -77,11 +77,11 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   - The `openai` SDK's own `files.create(purpose="user_data")` and `files.delete` work against
     it: OpenRouter replies in OpenAI's shape, and an upload is `processed` at once, so there is
     no state to poll.
-  - `openai/gpt-6-luna` and `x-ai/grok-4.7` read PDF, TXT, CSV and RTF by `file_id`; the
-    extension-less temp names `download_tg` produces were enough for `gpt-6-luna` on all four
-    and for Grok on a PDF. RTF is stored as `text/plain`, so the model sees raw RTF markup
-    (quality on large files untested). Grok adds 1 300–2 300 prompt tokens to any request with
-    a file, against 63–208 for `gpt-6-luna`.
+  - `openai/gpt-6-luna` reads PDF, TXT, CSV and RTF by `file_id`, and
+    `anthropic/claude-opus-5.5` read a PDF (probed 2026-10-06, the only type tried); the
+    extension-less temp names `download_tg` produces were enough for both. RTF is stored as
+    `text/plain`, so the model sees raw RTF markup (quality on large files untested). Opus
+    took ~1 600 prompt tokens for a one-line PDF page, against 63–208 for `gpt-6-luna`.
   - **Audio by `file_id` is refused by OpenRouter itself** (`400 Unsupported file type
     audio/…` for WAV, MP3 and OGG), even on an audio-capable model. Native audio does work
     inline (`input_audio`, base64, `format: "ogg"`), and is **deliberately unused**: spoken

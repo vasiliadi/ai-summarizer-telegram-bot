@@ -91,7 +91,7 @@ def test_run_sends_the_expected_file_request():
 
     result = llm_client.run(
         content=["Summarize this.", FILE_PART],
-        model_id="x-ai/grok-4.7",
+        model_id="anthropic/claude-opus-5.5",
         target_language="English",
         thinking_level="high",
     )
@@ -101,7 +101,10 @@ def test_run_sends_the_expected_file_request():
     assert request.url == "https://openrouter.ai/api/v1/chat/completions"
     body = json.loads(request.content)
     system, user = body.pop("messages")
-    assert body == {"model": "x-ai/grok-4.7", "reasoning": {"effort": "high"}}
+    assert body == {
+        "model": "anthropic/claude-opus-5.5",
+        "reasoning": {"effort": "high"},
+    }
     assert system["role"] == "system"
     assert user["content"] == [{"type": "text", "text": "Summarize this."}, FILE_PART]
 

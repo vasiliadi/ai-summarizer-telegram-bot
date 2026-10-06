@@ -108,8 +108,9 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         supports_audio=False,
         supports_files=True,
     ),
-    "x-ai/grok-4.7": ModelSpec(
-        label="Grok 4.7",
+    # Reference summaries only; kept out of evaluation. See evals.md.
+    "anthropic/claude-opus-5.5": ModelSpec(
+        label="Claude Opus 5.5",
         supports_audio=False,
         supports_files=True,
     ),

@@ -19,6 +19,7 @@ def stage2(monkeypatch):
         SimpleNamespace(
             COMPARE_DATASET="test-dataset",
             RUN_PREFIX="stage2 / ",
+            FABRICATED_MODEL="judge/model",
             JEV_FLAG_BELOW=0.6,
             PROMPT_KEY="key_points_for_transcript",
             _text=str,
@@ -187,6 +188,28 @@ def test_discover_runs_keeps_the_newest_run_per_candidate(stage2, mocker):
     runs = stage2.discover_runs("dataset")
     assert {k: v["id"] for k, v in runs.items()} == {"a / s": "new", "b / s": "b"}
     experiments.assert_called_once_with("ds-1", name_prefix=stage2.RUN_PREFIX)
+
+
+def test_discover_runs_skips_the_judge_model(stage2, mocker):
+    """A run of the Opus judge as a candidate never reaches report or backfill."""
+    mocker.patch.object(stage2.API, "dataset_id", return_value="ds-1")
+    mocker.patch.object(
+        stage2.API,
+        "experiments",
+        return_value=[
+            {"name": f"stage2 / {stage2.judge.FABRICATED_MODEL} / s - 2026-09-29"},
+            {"name": "stage2 / b / s - 2026-09-28", "id": "b"},
+        ],
+    )
+    assert list(stage2.discover_runs("dataset")) == ["b / s"]
+
+
+def test_sweep_refuses_the_judge_model(stage2, mocker):
+    """Opus is refused before the catalog check or any spend."""
+    resolve = mocker.patch.object(stage2, "_resolve")
+    with pytest.raises(SystemExit, match="never a candidate"):
+        stage2.sweep(["vendor/model", stage2.judge.FABRICATED_MODEL])
+    resolve.assert_not_called()
 
 
 @pytest.mark.parametrize(

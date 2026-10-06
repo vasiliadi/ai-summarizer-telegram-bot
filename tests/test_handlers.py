@@ -319,10 +319,10 @@ def test_settings_replace_a_model_that_left_the_registry(mocker, caplog):
 def test_settings_keep_a_registered_model(mocker, caplog):
     """Test a registered id passes through untouched and unlogged."""
     handlers, _ = _make_handlers(mocker)
-    user = mocker.MagicMock(summarizing_model="x-ai/grok-4.7")
+    user = mocker.MagicMock(summarizing_model="anthropic/claude-opus-5.5")
 
     with caplog.at_level(logging.WARNING, logger="handlers"):
         settings = handlers._settings(user)
 
-    assert settings.model == "x-ai/grok-4.7"
+    assert settings.model == "anthropic/claude-opus-5.5"
     assert not caplog.records
