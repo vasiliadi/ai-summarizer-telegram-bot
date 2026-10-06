@@ -43,7 +43,12 @@ def discover_runs(dataset_name):
     runs = {}
     # experiments() returns newest first, so the first hit per candidate wins.
     for row in API.experiments(API.dataset_id(dataset_name), name_prefix=RUN_PREFIX):
-        runs.setdefault(_candidate(row["name"]), row)
+        candidate = _candidate(row["name"])
+        # Never a candidate. See evals.md → *`anthropic/claude-opus-5.5` in the
+        # registry is never evaluated*.
+        if _split(candidate)[0] == judge.FABRICATED_MODEL:
+            continue
+        runs.setdefault(candidate, row)
     return runs
 
 
@@ -456,6 +461,11 @@ def sweep(model_ids, tier2="jev"):
         sys.exit(
             "usage: stage2.py sweep <openrouter-model-id> [...]\n"
             "  ids are OpenRouter ids, e.g. vendor/model",
+        )
+    if judge.FABRICATED_MODEL in model_ids:
+        sys.exit(
+            f"{judge.FABRICATED_MODEL} is the FABRICATED judge and is never a "
+            "candidate - see evals.md",
         )
     _resolve(model_ids)
     print(f"{len(model_ids)} model(s) over {COMPARE}, {judge.PROMPT_KEY}\n")
