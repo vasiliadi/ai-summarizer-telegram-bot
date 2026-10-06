@@ -22,6 +22,14 @@ cost, length and a fabrication signal beside the rest; a person decides between 
 reading them. Only Tier 1 — deterministic — drops a model. No judge sets a floor, because no
 judge could be certified per summary against a human reader (see *Rejected*).
 
+### `anthropic/claude-opus-5.5` in the registry is never evaluated
+
+It is registered for the rare reference summary a user picks by hand, not as a production
+candidate, and it is expensive. Do not sweep it, judge it, or put it in a report or a
+comparison; leave it out of any re-check of the registered models. It is also the
+`FABRICATED` judge, and a judge scoring its own output fails the family rule under *Choosing
+a judge model*.
+
 ### Everything runs over OpenRouter, and models are named by their OpenRouter id
 
 The harness never consults `config.MODEL_SPECS`. Model ids are passed as arguments, always,

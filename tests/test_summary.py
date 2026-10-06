@@ -305,7 +305,7 @@ def test_summarize_transcribes_audio_and_summarizes_with_the_users_model(mocker)
         return_value="- transcript point\n- follow-up point",
     )
     mock_clean_up = mocker.patch("summary.clean_up")
-    settings = replace(SETTINGS, model="x-ai/grok-4.7")
+    settings = replace(SETTINGS, model="anthropic/claude-opus-5.5")
 
     result = summarizer.summarize(
         data="local_audio.ogg",
@@ -421,14 +421,16 @@ def test_summarize_with_document_keeps_a_model_that_takes_files(mocker, mime_typ
     summarizer.summarize_with_document(
         file=mocker.MagicMock(),
         mime_type=mime_type,
-        settings=replace(SETTINGS, model="x-ai/grok-4.7"),
+        settings=replace(SETTINGS, model="anthropic/claude-opus-5.5"),
     )
 
     fakes.openrouter_files.upload.assert_called_once_with(
         file="temp_doc",
         mime_type=mime_type,
     )
-    assert fakes.llm_client.run.call_args.kwargs["model_id"] == "x-ai/grok-4.7"
+    assert (
+        fakes.llm_client.run.call_args.kwargs["model_id"] == "anthropic/claude-opus-5.5"
+    )
     fakes.openrouter_files.delete.assert_called_once_with("or_file_doc123")
 
 
