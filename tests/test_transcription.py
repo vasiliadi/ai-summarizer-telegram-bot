@@ -1050,14 +1050,17 @@ def _mock_castro_page(mocker, content):
     return response
 
 
-def test_castro_transcript_keeps_speakers_and_drops_timestamps(mocker):
-    """Test the transcript is one line per paragraph, without its timestamps."""
+def test_castro_transcript_keeps_timestamps_and_speakers(mocker):
+    """Test the transcript is one line per paragraph, as scraped."""
     response = _mock_castro_page(mocker, CASTRO_PAGE_WITH_TRANSCRIPT)
 
     result = CastroTranscriber().get_transcript(CASTRO_URL)
 
     assert result == PrefixedText(
-        text="Matt Heinz: All right.\nSpeaker: I'm your host, Matt Heinz.",
+        text=(
+            "[00:16] Matt Heinz: All right.\n"
+            "[00:20] Speaker: I'm your host, Matt Heinz."
+        ),
         prefix="🎙️",
     )
     response.close.assert_called_once()

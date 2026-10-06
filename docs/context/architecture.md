@@ -275,8 +275,8 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   gives no transcript. The markup is Castro's own. Castro takes a cue's text up to its first
   colon as the speaker and writes `Speaker:` where there is none, so a turn's continuation
   lines all read `Speaker:`, and a cue such as `… a 4:58 email` is split at `4:`.
-  `CastroTranscriber` drops the timestamps (which can be empty) and passes the rest through,
-  one paragraph per line. Merging the `Speaker:` lines into turns is **rejected**: labels vary
+  `CastroTranscriber` passes the text through as scraped, timestamps included (they can be
+  empty, and the model makes sense of them), one paragraph per line. Merging the `Speaker:` lines into turns is **rejected**: labels vary
   by podcast — real names, machine labels (`SPEAKER_00:`), or `Speaker:` beside `Speaker 2:` —
   so a filler `Speaker:` cannot be told from a real one. Any failure — no `div`, no text, an HTTP or network error
   — is a `FetchTranscriptError`, so a markup change on Castro's side degrades to the audio
