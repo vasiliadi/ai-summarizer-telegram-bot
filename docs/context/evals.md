@@ -324,9 +324,9 @@ with a leading space. Testing only for wrapping silently files every audio trans
 
 A Castro transcript is a fourth source with **no stratum of its own**: it is one line per
 utterance, and the one episode measured (2026-10-02) averaged 64 characters a line without
-timestamps — just over the 60 that marks a YouTube transcript. Timestamps, when Castro has
-them, add about 8 characters a line, so `stratum_of` files such an episode under
-`yt_transcript`, and one without them under either stratum. Each line opens with that
+timestamps — just over the 60 below which `stratum_of` calls a transcript YouTube. Timestamps,
+when Castro has them, add about 8 characters a line, so `stratum_of` files such an episode under
+`audio_transcript`; one without them can land in either stratum, by its line width. Each line opens with that
 timestamp and a speaker label (`[00:16] Speaker: …`), which neither other transcript shape
 has, if a rebuild needs to tell them apart.
 
