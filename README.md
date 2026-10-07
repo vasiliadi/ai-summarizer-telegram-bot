@@ -212,7 +212,9 @@ The setup script only provisions the VM. Project setup runs from the repo's Sess
 
 To run [Codex cloud tasks](https://learn.chatgpt.com/docs/environments/cloud-environments) on this repo, turn on
 internet access in the environment and use this install script. It is the counterpart of the Claude setup above;
-see *Codex Cloud* in [docs/context/uv-guide.md](docs/context/uv-guide.md) for why each line is there.
+see *Codex Cloud* in [docs/context/uv-guide.md](docs/context/uv-guide.md) for why each line is there. To change it
+later, run the new script in the environment's **Edit** conversation, then **Save draft → Republish**; republishing
+alone does not rerun it.
 
 ```bash
 #!/bin/bash
@@ -244,11 +246,17 @@ f = next(f for f in release["files"] if (f["os"], f["arch"], f["kind"]) == ("lin
 print(f["filename"], f["sha256"])')
 curl -fsSL "https://go.dev/dl/${GO_FILE}" -o /workspace/go.tar.gz
 echo "${GO_SHA256}  /workspace/go.tar.gz" | sha256sum -c -
-rm -rf /workspace/go && tar -xzf /workspace/go.tar.gz -C /workspace
+rm -rf /workspace/go && tar -xzf /workspace/go.tar.gz -C /workspace && rm /workspace/go.tar.gz
+
 uv tool install pre-commit
 pre-commit install --hook-type pre-commit --hook-type post-merge \
   --hook-type post-checkout --hook-type post-rewrite
 pre-commit install-hooks
+
+# tasks have no network: cache the tools the hooks run with uvx, then keep uv offline
+uvx ruff@latest --version
+uvx ty@latest --version
+echo 'export UV_OFFLINE=1' >> /workspace/env.sh
 ```
 
 And this start skill:
@@ -260,9 +268,10 @@ In every new shell, before anything else:
     source /workspace/env.sh
     uv sync --frozen
 
-Follow AGENTS.md. Tests need no live services. The bot itself cannot run here: PostgreSQL and
-Redis are not reachable from the sandbox, so do not start `src/main.py`, and do not run
-migrations or Modal deploys.
+Follow AGENTS.md. This task has no network: uv works offline from the cache the install
+script filled, so do not add or upgrade dependencies here. Tests need no live services. The
+bot itself cannot run here, so do not start `src/main.py`, and do not run migrations or Modal
+deploys.
 ```
 
 #### Remote functions
