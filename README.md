@@ -227,6 +227,7 @@ export XDG_DATA_HOME=/workspace/.local/share
 export XDG_BIN_HOME=/workspace/.local/bin
 export PATH="/workspace/.local/bin:/workspace/go/bin:$PATH"
 EOF
+unset UV_OFFLINE  # a shell that sourced the previous env.sh would keep every download below offline
 source /workspace/env.sh
 
 # the image's uv can be too old to know the Python in .python-version; this one lands in XDG_BIN_HOME
@@ -237,14 +238,17 @@ uv sync --frozen
 
 # gitleaks' pre-commit hook builds with Go, and the image's /usr/bin/go is not Go.
 # Install the latest stable Go, checked against the SHA-256 that go.dev publishes for it.
-read -r GO_FILE GO_SHA256 < <(curl -fsSL 'https://go.dev/dl/?mode=json' | uv run --frozen python -c '
+GO_INFO=$(curl -fsSL 'https://go.dev/dl/?mode=json' | uv run --frozen python -c '
 import json, sys
 release = json.load(sys.stdin)[0]
 f = next(f for f in release["files"] if (f["os"], f["arch"], f["kind"]) == ("linux", "amd64", "archive"))
 print(f["filename"], f["sha256"])')
+read -r GO_FILE GO_SHA256 <<<"$GO_INFO"
 curl -fsSL "https://go.dev/dl/${GO_FILE}" -o /workspace/go.tar.gz
 echo "${GO_SHA256}  /workspace/go.tar.gz" | sha256sum -c -
-rm -rf /workspace/go && tar -xzf /workspace/go.tar.gz -C /workspace && rm /workspace/go.tar.gz
+rm -rf /workspace/go
+tar -xzf /workspace/go.tar.gz -C /workspace
+rm /workspace/go.tar.gz
 
 uv tool install pre-commit
 pre-commit install

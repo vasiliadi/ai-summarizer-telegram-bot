@@ -138,13 +138,16 @@ script: it captures whatever filesystem was last prepared, so tasks keep startin
 
 Facts behind the script (Codex image, observed 2026-10):
 
-- **Tasks have no network.** Every outbound connection fails with `Operation not permitted`; only
-  the install script has internet. So the bot cannot run live (no Telegram, PostgreSQL or Redis),
+- **Task commands have no network.** In a task, every outbound connection from the agent's
+  command sandbox fails with `Operation not permitted`, even with the environment's internet access
+  on and all domains allowed; only the install script reaches the internet. So the bot cannot run live (no Telegram, PostgreSQL or Redis),
   and the test suite is the only useful check. The script fills uv's cache with ruff and ty, which
   the pre-commit hooks call as `uvx …@latest`, and then sets `UV_OFFLINE=1` in `env.sh`. Offline,
   `uvx …@latest` resolves from the cache and `uv run` and `uv sync` keep working. Two consequences:
-  ruff and ty stay at the versions the install script cached, and a change to `.python-version`
-  or `uv.lock` that needs new downloads requires rerunning the install script.
+  ruff and ty stay at the versions the install script cached, and rerunning the install script is
+  required after any change that needs new downloads: `.python-version`, new packages in
+  `uv.lock`, or a bumped `rev` in `.pre-commit-config.yaml`, whose hook environment pre-commit
+  must clone (and, for gitleaks, build) before the next commit.
 - `$HOME` is read-only. `/workspace/env.sh` points `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`,
   `XDG_DATA_HOME` and `XDG_BIN_HOME` at `/workspace`. uv's cache, Python and tools, pre-commit's
   cache and Go's build cache all follow those variables. Every new shell must `source` it, so the
@@ -156,7 +159,7 @@ Facts behind the script (Codex image, observed 2026-10):
   `https://go.dev/dl/?mode=json`, the same index pre-commit uses, so there is no version to bump.
 - ffmpeg ships with the image, and so does uv, but that uv can lag behind `.python-version`: uv
   knows only the Python releases it was built with, and `uv sync` fails with `No interpreter found
-  for Python …` (the image had 0.12.19, too old for 3.14.8). The script installs the current uv
+  for Python …` (the image's uv was too old for the Python in `.python-version`). The script installs the current uv
   with the `astral.sh` installer into `XDG_BIN_HOME`, ahead of the image's copy on `PATH`;
   `UV_NO_MODIFY_PATH=1` because the shell profiles in `$HOME` are read-only, and
   `XDG_CONFIG_HOME` because the installer writes its receipt there and fails if it cannot.
