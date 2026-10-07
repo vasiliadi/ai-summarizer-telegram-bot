@@ -5,7 +5,10 @@ web_search = "live"
 # session picks: Codex clamps the window to that model's max_context_window and the
 # compaction limit to 90% of the resulting window. Don't pin `model` here: a project
 # `model` becomes every new session's default and overrides the one picked last time.
+
+# Can go up to 872,000
 model_context_window = 828000
+# Codex compacts at 90% of the window
 model_auto_compact_token_limit = 700000
 
 # Mirrors the PreToolUse hook in .claude/settings.json: block edits to tracked repo
