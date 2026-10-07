@@ -176,13 +176,11 @@ fine. Upgrade it later with `uv tool upgrade pre-commit`, or `uv tool upgrade --
 uv tool install pre-commit
 ```
 
-Install pre-commit hooks.
+Install pre-commit hooks. `default_install_hook_types` in `.pre-commit-config.yaml` makes this one command install
+all four hook types: `pre-commit`, plus `post-merge`, `post-checkout` and `post-rewrite`, which run `uv sync`.
 
 ```bash
 pre-commit install
-pre-commit install --hook-type post-merge
-pre-commit install --hook-type post-checkout
-pre-commit install --hook-type post-rewrite
 ```
 
 #### Claude Cloud Sessions
@@ -249,8 +247,7 @@ echo "${GO_SHA256}  /workspace/go.tar.gz" | sha256sum -c -
 rm -rf /workspace/go && tar -xzf /workspace/go.tar.gz -C /workspace && rm /workspace/go.tar.gz
 
 uv tool install pre-commit
-pre-commit install --hook-type pre-commit --hook-type post-merge \
-  --hook-type post-checkout --hook-type post-rewrite
+pre-commit install
 pre-commit install-hooks
 
 # tasks have no network: cache the tools the hooks run with uvx, then keep uv offline

@@ -1,3 +1,5 @@
+default_install_hook_types: [pre-commit, post-merge, post-checkout, post-rewrite]
+
 repos:
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
