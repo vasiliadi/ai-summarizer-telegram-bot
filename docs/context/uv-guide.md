@@ -141,7 +141,11 @@ SessionStart hook. Facts behind it (Codex image, observed 2026-10):
   hook, and only downloads its own Go when there is none, so the script installs the latest stable
   Go into `/workspace/go`, ahead of it on `PATH`. It reads the archive name and SHA-256 from
   `https://go.dev/dl/?mode=json`, the same index pre-commit uses, so there is no version to bump.
-- uv and ffmpeg ship with the image; uv downloads the Python pinned in `.python-version`.
+- ffmpeg ships with the image, and so does uv, but that uv can lag behind `.python-version`: uv
+  knows only the Python releases it was built with, and `uv sync` fails with `No interpreter found
+  for Python …` (the image had 0.12.19, too old for 3.14.8). The script installs the current uv
+  with the `astral.sh` installer into `XDG_BIN_HOME`, ahead of the image's copy on `PATH`;
+  `--no-modify-path` because the shell profiles in `$HOME` are read-only.
 - PostgreSQL and Redis refuse TCP connections from the sandbox, while HTTPS APIs work, so the bot
   cannot run live and only the test suite is useful there.
 

@@ -228,6 +228,10 @@ export PATH="/workspace/.local/bin:/workspace/go/bin:$PATH"
 EOF
 source /workspace/env.sh
 
+# the image's uv can be too old to know the Python in .python-version; this one lands in XDG_BIN_HOME
+curl -LsSf https://astral.sh/uv/install.sh | sh -s -- --no-modify-path
+uv --version
+
 uv sync --frozen
 
 # gitleaks' pre-commit hook builds with Go, and the image's /usr/bin/go is not Go.
