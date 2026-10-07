@@ -222,6 +222,7 @@ cd /workspace/ai-summarizer-telegram-bot
 # $HOME is read-only: keep caches, uv's Python and tools, and Go under /workspace
 cat > /workspace/env.sh <<'EOF'
 export XDG_CACHE_HOME=/workspace/.cache
+export XDG_CONFIG_HOME=/workspace/.config
 export XDG_DATA_HOME=/workspace/.local/share
 export XDG_BIN_HOME=/workspace/.local/bin
 export PATH="/workspace/.local/bin:/workspace/go/bin:$PATH"
@@ -229,7 +230,7 @@ EOF
 source /workspace/env.sh
 
 # the image's uv can be too old to know the Python in .python-version; this one lands in XDG_BIN_HOME
-curl -LsSf https://astral.sh/uv/install.sh | sh -s -- --no-modify-path
+curl -LsSf https://astral.sh/uv/install.sh | UV_NO_MODIFY_PATH=1 sh
 uv --version
 
 uv sync --frozen

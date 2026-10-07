@@ -132,8 +132,8 @@ start of a task. Both live in the Codex environment settings, and the reference 
 repo, so it does project setup (`uv sync --frozen`, `pre-commit install`) itself and needs no
 SessionStart hook. Facts behind it (Codex image, observed 2026-10):
 
-- `$HOME` is read-only. `/workspace/env.sh` points `XDG_CACHE_HOME`, `XDG_DATA_HOME` and
-  `XDG_BIN_HOME` at `/workspace`. uv's cache, Python and tools, pre-commit's cache and Go's
+- `$HOME` is read-only. `/workspace/env.sh` points `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`,
+  `XDG_DATA_HOME` and `XDG_BIN_HOME` at `/workspace`. uv's cache, Python and tools, pre-commit's cache and Go's
   build cache all follow those variables. Every new shell must `source` it, so the
   start skill says so.
 - `/usr/bin/go` is not the Go toolchain: it belongs to no package, and `go version` fails with
@@ -145,7 +145,8 @@ SessionStart hook. Facts behind it (Codex image, observed 2026-10):
   knows only the Python releases it was built with, and `uv sync` fails with `No interpreter found
   for Python …` (the image had 0.12.19, too old for 3.14.8). The script installs the current uv
   with the `astral.sh` installer into `XDG_BIN_HOME`, ahead of the image's copy on `PATH`;
-  `--no-modify-path` because the shell profiles in `$HOME` are read-only.
+  `UV_NO_MODIFY_PATH=1` because the shell profiles in `$HOME` are read-only, and
+  `XDG_CONFIG_HOME` because the installer writes its receipt there and fails if it cannot.
 - PostgreSQL and Redis refuse TCP connections from the sandbox, while HTTPS APIs work, so the bot
   cannot run live and only the test suite is useful there.
 
