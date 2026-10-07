@@ -6,11 +6,7 @@ name = "ai-summarizer-telegram-bot"
 script = '''
 uv sync
 uv tool install pre-commit
-pre-commit install
-pre-commit install --hook-type post-merge
-pre-commit install --hook-type post-checkout
-pre-commit install --hook-type post-rewrite
-'''
+pre-commit install'''
 
 [[actions]]
 name = "Run bot"
@@ -34,5 +30,4 @@ command = "uvx ty@latest check ."
 
 [[actions]]
 name = "Migrate DB"
-icon = "database"
 command = "uv run alembic upgrade head"
