@@ -10,7 +10,6 @@ cd "$CLAUDE_PROJECT_DIR"
 exec >>"$HOME/session-start.log" 2>&1
 
 # git hooks first: a failed uv sync must not leave commits unchecked
-pre-commit install --hook-type pre-commit --hook-type post-merge \
-  --hook-type post-checkout --hook-type post-rewrite
+pre-commit install
 pre-commit install-hooks || true
 uv sync --frozen

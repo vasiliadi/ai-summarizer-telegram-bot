@@ -176,13 +176,11 @@ fine. Upgrade it later with `uv tool upgrade pre-commit`, or `uv tool upgrade --
 uv tool install pre-commit
 ```
 
-Install pre-commit hooks.
+Install pre-commit hooks. `default_install_hook_types` in `.pre-commit-config.yaml` makes this one command install
+all four hook types: `pre-commit`, plus `post-merge`, `post-checkout` and `post-rewrite`, which run `uv sync`.
 
 ```bash
 pre-commit install
-pre-commit install --hook-type post-merge
-pre-commit install --hook-type post-checkout
-pre-commit install --hook-type post-rewrite
 ```
 
 #### Claude Cloud Sessions
@@ -207,6 +205,75 @@ and downloads that exact patch on first use.
 
 The setup script only provisions the VM. Project setup runs from the repo's SessionStart hook,
 `scripts/cloud_session_start.sh`, which installs the git hooks above and runs `uv sync --frozen` in every cloud session.
+
+#### Codex Cloud
+
+To run [Codex cloud tasks](https://learn.chatgpt.com/docs/environments/cloud-environments) on this repo, turn on
+internet access in the environment and use this install script. It is the counterpart of the Claude setup above;
+see *Codex Cloud* in [docs/context/uv-guide.md](docs/context/uv-guide.md) for why each line is there. To change it
+later, run the new script in the environment's **Edit** conversation, then **Save draft → Republish**; republishing
+alone does not rerun it.
+
+```bash
+#!/bin/bash
+set -euo pipefail
+cd /workspace/ai-summarizer-telegram-bot
+
+# $HOME is read-only: keep caches, uv's Python and tools, and Go under /workspace
+cat > /workspace/env.sh <<'EOF'
+export XDG_CACHE_HOME=/workspace/.cache
+export XDG_CONFIG_HOME=/workspace/.config
+export XDG_DATA_HOME=/workspace/.local/share
+export XDG_BIN_HOME=/workspace/.local/bin
+export PATH="/workspace/.local/bin:/workspace/go/bin:$PATH"
+EOF
+unset UV_OFFLINE  # a shell that sourced the previous env.sh would keep every download below offline
+source /workspace/env.sh
+
+# the image's uv can be too old to know the Python in .python-version; this one lands in XDG_BIN_HOME
+curl -LsSf https://astral.sh/uv/install.sh | UV_NO_MODIFY_PATH=1 sh
+uv --version
+
+uv sync --frozen
+
+# gitleaks' pre-commit hook builds with Go, and the image's /usr/bin/go is not Go.
+# Install the latest stable Go, checked against the SHA-256 that go.dev publishes for it.
+GO_INFO=$(curl -fsSL 'https://go.dev/dl/?mode=json' | uv run --frozen python -c '
+import json, sys
+release = json.load(sys.stdin)[0]
+f = next(f for f in release["files"] if (f["os"], f["arch"], f["kind"]) == ("linux", "amd64", "archive"))
+print(f["filename"], f["sha256"])')
+read -r GO_FILE GO_SHA256 <<<"$GO_INFO"
+curl -fsSL "https://go.dev/dl/${GO_FILE}" -o /workspace/go.tar.gz
+echo "${GO_SHA256}  /workspace/go.tar.gz" | sha256sum -c -
+rm -rf /workspace/go
+tar -xzf /workspace/go.tar.gz -C /workspace
+rm /workspace/go.tar.gz
+
+uv tool install pre-commit
+pre-commit install
+pre-commit install-hooks
+
+# tasks have no network: cache the tools the hooks run with uvx, then keep uv offline
+uvx ruff@latest --version
+uvx ty@latest --version
+echo 'export UV_OFFLINE=1' >> /workspace/env.sh
+```
+
+And this start skill:
+
+```markdown
+In every new shell, before anything else:
+
+    cd /workspace/ai-summarizer-telegram-bot
+    source /workspace/env.sh
+    uv sync --frozen
+
+Follow AGENTS.md. This task has no network: uv works offline from the cache the install
+script filled, so do not add or upgrade dependencies here. Tests need no live services. The
+bot itself cannot run here, so do not start `src/main.py`, and do not run migrations or Modal
+deploys.
+```
 
 #### Remote functions
 
