@@ -208,6 +208,54 @@ and downloads that exact patch on first use.
 The setup script only provisions the VM. Project setup runs from the repo's SessionStart hook,
 `scripts/cloud_session_start.sh`, which installs the git hooks above and runs `uv sync --frozen` in every cloud session.
 
+#### Codex Cloud
+
+To run [Codex cloud tasks](https://learn.chatgpt.com/docs/environments/cloud-environments) on this repo, turn on
+internet access in the environment and use this install script. It is the counterpart of the Claude setup above;
+see *Codex Cloud* in [docs/context/uv-guide.md](docs/context/uv-guide.md) for why each line is there.
+
+```bash
+#!/bin/bash
+set -euo pipefail
+cd /workspace/ai-summarizer-telegram-bot
+
+# $HOME is read-only: keep caches, uv's Python and tools, and Go under /workspace
+cat > /workspace/env.sh <<'EOF'
+export XDG_CACHE_HOME=/workspace/.cache
+export XDG_DATA_HOME=/workspace/.local/share
+export XDG_BIN_HOME=/workspace/.local/bin
+export PATH="/workspace/.local/bin:/workspace/go/bin:$PATH"
+EOF
+source /workspace/env.sh
+
+# gitleaks' pre-commit hook builds with Go, and the image's /usr/bin/go is not Go
+GO_VERSION=1.27.1
+GO_SHA256=63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445
+curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /workspace/go.tar.gz
+echo "${GO_SHA256}  /workspace/go.tar.gz" | sha256sum -c -
+rm -rf /workspace/go && tar -xzf /workspace/go.tar.gz -C /workspace
+
+uv sync --frozen
+uv tool install pre-commit
+pre-commit install --hook-type pre-commit --hook-type post-merge \
+  --hook-type post-checkout --hook-type post-rewrite
+pre-commit install-hooks
+```
+
+And this start skill:
+
+```markdown
+In every new shell, before anything else:
+
+    cd /workspace/ai-summarizer-telegram-bot
+    source /workspace/env.sh
+    uv sync --frozen
+
+Follow AGENTS.md. Tests need no live services. The bot itself cannot run here: PostgreSQL and
+Redis are not reachable from the sandbox, so do not start `src/main.py`, and do not run
+migrations or Modal deploys.
+```
+
 #### Remote functions
 
 To avoid multiple docker images, I use a [Modal](https://modal.com/) for cron jobs to reset the bot's own daily request counters. [Modal Secrets](https://modal.com/docs/guide/secrets) should include `REDIS_URL`.
