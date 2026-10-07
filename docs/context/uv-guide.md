@@ -136,9 +136,11 @@ SessionStart hook. Facts behind it (Codex image, observed 2026-10):
   `XDG_BIN_HOME` at `/workspace`. uv's cache, Python and tools, pre-commit's cache and Go's
   build cache all follow those variables. Every new shell must `source` it, so the
   start skill says so.
-- `/usr/bin/go` exists but is not Go. pre-commit sees a `go` on `PATH` and uses it to build the
-  gitleaks hook, so the script installs a checksum-verified Go into `/workspace/go`, ahead of it on
-  `PATH`. To bump Go, change `GO_VERSION` and `GO_SHA256` together.
+- `/usr/bin/go` is not the Go toolchain: it belongs to no package, and `go version` fails with
+  `Go: Unknown option: version`. pre-commit uses any `go` on `PATH` to build the gitleaks
+  hook, and only downloads its own Go when there is none, so the script installs the latest stable
+  Go into `/workspace/go`, ahead of it on `PATH`. It reads the archive name and SHA-256 from
+  `https://go.dev/dl/?mode=json`, the same index pre-commit uses, so there is no version to bump.
 - uv and ffmpeg ship with the image; uv downloads the Python pinned in `.python-version`.
 - PostgreSQL and Redis refuse TCP connections from the sandbox, while HTTPS APIs work, so the bot
   cannot run live and only the test suite is useful there.

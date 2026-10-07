@@ -228,14 +228,18 @@ export PATH="/workspace/.local/bin:/workspace/go/bin:$PATH"
 EOF
 source /workspace/env.sh
 
-# gitleaks' pre-commit hook builds with Go, and the image's /usr/bin/go is not Go
-GO_VERSION=1.27.1
-GO_SHA256=63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445
-curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /workspace/go.tar.gz
+uv sync --frozen
+
+# gitleaks' pre-commit hook builds with Go, and the image's /usr/bin/go is not Go.
+# Install the latest stable Go, checked against the SHA-256 that go.dev publishes for it.
+read -r GO_FILE GO_SHA256 < <(curl -fsSL 'https://go.dev/dl/?mode=json' | uv run --frozen python -c '
+import json, sys
+release = json.load(sys.stdin)[0]
+f = next(f for f in release["files"] if (f["os"], f["arch"], f["kind"]) == ("linux", "amd64", "archive"))
+print(f["filename"], f["sha256"])')
+curl -fsSL "https://go.dev/dl/${GO_FILE}" -o /workspace/go.tar.gz
 echo "${GO_SHA256}  /workspace/go.tar.gz" | sha256sum -c -
 rm -rf /workspace/go && tar -xzf /workspace/go.tar.gz -C /workspace
-
-uv sync --frozen
 uv tool install pre-commit
 pre-commit install --hook-type pre-commit --hook-type post-merge \
   --hook-type post-checkout --hook-type post-rewrite
