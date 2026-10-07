@@ -469,9 +469,12 @@ warns, per candidate, once more than one appears; a score with no version is sho
 wording, `JEV_FLAG_BELOW` — was measured on 1.13 and would need re-checking on a new snapshot.
 
 The judges run locally rather than as Langfuse-managed evaluators **by choice, not constraint**.
-A managed evaluator returns one numeric score plus reasoning, so it could not carry Opus's
-`findings[]` or JEV's per-bullet probabilities, and it would replace the pin by hash with
-Langfuse's own versioning. Revisit the trade; do not assume it was forced.
+An LLM-as-a-judge evaluator returns one numeric score plus reasoning, so it could not carry Opus's
+`findings[]`. A decision-model evaluator can call Jev, but its questions are fixed when it is
+saved, one score each (Langfuse docs, 2026-10-07): it cannot ask one question per bullet of a
+summary whose length varies, the weakest-bullet score would still need our code, and TypeSafe's
+32k-token input cap applies there too. Either kind would replace the pin by hash with Langfuse's
+own versioning. Revisit the trade; do not assume it was forced.
 
 ### JEV: the cheap screen on every candidate
 
