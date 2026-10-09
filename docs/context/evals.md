@@ -148,27 +148,44 @@ live sweep is stuck: `sudo "$(which uvx)" py-spy dump --pid <pid>` (macOS needs 
 
 **Wait a minute after a run before reading its report.** Langfuse ingests experiment items and
 scores asynchronously, taking tens of seconds, so a report read straight after a run shows fewer
-items or scores than were written — which looks exactly like a judge that silently failed. Check
-that `n` equals the dataset size before trusting a row.
+items or scores than were written — which looks exactly like a judge that silently failed.
+`report` flags missing items itself (below); for scores, check the `JEV scored N of 50` and
+`Opus scored N of 50` footnotes before trusting a row.
+
+### A run can lose items on the way to Langfuse
+
+A compare item reaches Langfuse as OpenTelemetry spans, exported in batches. A batch that
+fails to export is dropped, logged once (`Failed to export spans batch`), and the run carries
+on: the lost items simply never exist. At the SDK's default 5 s timeout one sweep lost three
+`anthropic/claude-haiku-5.5` items this way, and nothing but a judge scoring 47 of 50 showed it.
+`config` therefore gives the client 30 s (`LANGFUSE_TIMEOUT` overrides it), which the SDK
+passes on to the span exporter. The harness inherits it: the SDK keeps one resource manager
+per public key, so the `Langfuse()` in `judge.run` reuses the one `config` built.
+
+`report` compares each run's item count with the dataset size and marks a short run
+`INCOMPLETE`, footnoted `N of 50 dataset items missing from the run`, so it can win no column.
+Re-sweep the candidate: the missing items were generated and paid for, but cannot be recovered.
+Straight after a run the same note can mean ingestion has not caught up; wait a minute and
+read again before re-sweeping.
 
 Anything that only reads is free. Re-scoring Tier 1 never costs anything — the summaries already
 exist as trace outputs, so a broken scorer is repaired by reinstalling it and recomputing, not by
 re-generating. Only Tier 2 spends money on a re-score.
 
-### Harness runs report to Sentry as `production`, and that is left alone deliberately
+### Harness runs report to Sentry as `eval`
 
-Every script here imports `config` from `src/`, whose `sentry_sdk.init` sets no `environment` —
-so the SDK defaults to `production` — and enables `LoggingIntegration(capture_sentry_logs=True)`,
-which forwards stdlib `ERROR` records. Langfuse logs a failed evaluator at `ERROR`, so **a sweep
-run from a laptop raises Sentry issues in the bot's production stream**, tagged
-`environment: production` with `server_name` set to the developer's machine.
+Every script here imports `config` from `src/`, which initialises Sentry from the bot's `.env`
+and enables `LoggingIntegration(capture_sentry_logs=True)`. So a sweep reports to the bot's
+Sentry project: the OpenAI integration captures a candidate's `RateLimitError`, and Langfuse's
+`Item N failed` log line arrives at `ERROR`. One rate-limited candidate (a provider's shared
+pool returning 429) raised about a hundred events in a single sweep.
 
-Do not diagnose these as bot defects. Tell them apart by `sys.argv` in the event's extra data:
-a harness event carries `scripts/eval/...`, and `Users Impacted` is 0.
-
-Threading a `SENTRY_ENVIRONMENT` through `config.py` was **declined**: a production-code change
-for a developer-only annoyance. These issues recur on every sweep and are closed as noise;
-revisit only if harness noise starts masking a real production alert.
+`_bootstrap.load()` sets `SENTRY_ENVIRONMENT=eval`, overriding `.env`, before anything imports
+`config`. The SDK reads that variable at `init`, so harness events are filed under `eval` and an
+alert rule can leave them out. Sentry stays on because a harness crash is still worth recording;
+the per-item failures are already in the report as `N of 50 items failed to generate`.
+Without the tag, tell harness events apart by `sys.argv` in the event's extra data: they carry
+`scripts/eval/...`, and `Users Impacted` is 0.
 
 ## Where state lives
 

@@ -190,16 +190,21 @@ def _sign_test(wins, losses):
     return min(1.0, 2 * sum(math.comb(n, i) for i in range(tail + 1)) / 2**n)
 
 
-def _summary(rows, cost):
-    """One candidate's report row: raw values, `None` where nothing was scored."""
+def _summary(rows, cost, expected):
+    """One candidate's report row: raw values, `None` where nothing was scored.
+
+    `expected` is the dataset size: a run with fewer items lost some on the way to
+    Langfuse, and is incomplete however well the rest scored.
+    """
     scores = [s for s, _, _ in rows.values()]
     latencies = [t for _, t, _ in rows.values() if t is not None]
     passes = [s["t1_pass"] for s in scores if "t1_pass" in s]
     comp = [s["t1_compression"] for s in scores if "t1_compression" in s]
     jev = [s[JEV] for s in scores if s.get(JEV) is not None]
     fabricated = [s[FABRICATED] for s in scores if s.get(FABRICATED) is not None]
-    incomplete = not rows or len(passes) != len(rows)
-    t1_pass = sum(passes) / len(passes) if not incomplete else None
+    t1_incomplete = not rows or len(passes) != len(rows)
+    t1_pass = sum(passes) / len(passes) if not t1_incomplete else None
+    missing = max(expected - len(rows), 0)
     dollars, priced = cost
     return {
         "t1_pass": t1_pass,
@@ -213,9 +218,12 @@ def _summary(rows, cost):
         "latency": statistics.median(latencies) if latencies else None,
         "cost": dollars,
         "drop": t1_pass is not None and t1_pass < PASS_THRESHOLD,
-        "incomplete": incomplete,
+        "incomplete": t1_incomplete or bool(missing),
+        "t1_incomplete": t1_incomplete,
         "t1_scored": len(passes),
         "n": len(rows),
+        "missing": missing,
+        "expected": expected,
         "errored": sum(e for _, _, e in rows.values()),
         "unpriced": dollars is not None and priced < len(rows),
         "scored": {"JEV": len(jev), "Opus": len(fabricated)},
@@ -238,7 +246,11 @@ COLUMNS = {
 def _notes(row):
     """Why a row's numbers cover fewer items than the run, if they do."""
     notes = []
-    if row["incomplete"]:
+    if row["missing"]:
+        notes.append(
+            f"{row['missing']} of {row['expected']} dataset items missing from the run",
+        )
+    if row["t1_incomplete"]:
         notes.append(f"Tier 1 scored {row['t1_scored']} of {row['n']} items")
     if row["errored"]:
         notes.append(f"{row['errored']} of {row['n']} items failed to generate")
@@ -363,9 +375,11 @@ def report(dataset_name=COMPARE, *, all_pairs=False):
     }
     _jev_snapshot_notes(items, jev_versions)
     print()
+    expected = API.dataset_size(dataset_name)
     rows_by_candidate = {c: _item_rows(i, tier2) for c, i in items.items()}
     summaries = {
-        c: _summary(rows, _run_cost(items[c])) for c, rows in rows_by_candidate.items()
+        c: _summary(rows, _run_cost(items[c]), expected)
+        for c, rows in rows_by_candidate.items()
     }
     _table(summaries)
     if all_pairs:

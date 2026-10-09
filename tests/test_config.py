@@ -102,6 +102,22 @@ def test_langfuse_disabled_when_keys_blank(monkeypatch):
         assert config.langfuse_client is None, (public, secret)
 
 
+def test_langfuse_timeout_defaults_to_30_seconds(monkeypatch, mocker):
+    """Test the client gets 30 s unless LANGFUSE_TIMEOUT says otherwise.
+
+    The SDK's 5 s default also bounds a span-batch export, and a batch that
+    misses it is dropped. Blank, not delenv: see the blank-key test above.
+    """
+    client = mocker.patch("langfuse.Langfuse")
+    for value, expected in [("", 30), ("60", 60)]:
+        monkeypatch.setenv("LANGFUSE_TIMEOUT", value)
+        importlib.reload(config)
+        assert expected == config.LANGFUSE_TIMEOUT
+        assert client.call_args.kwargs["timeout"] == expected
+    mocker.stopall()
+    importlib.reload(config)
+
+
 def test_model_registry_labels_are_unique():
     """Test no two models share a label.
 

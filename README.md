@@ -68,6 +68,7 @@ model as a file reference, which Langfuse would record as token usage with no
 readable content. `LANGFUSE_BASE_URL`
 defaults to Langfuse Cloud (EU); use
 `https://us.cloud.langfuse.com` for the US region or your self-hosted URL.
+`LANGFUSE_TIMEOUT` (seconds) defaults to 30.
 
 Tracing is off unless both keys are set. When it is on, each traced message sends the prompt, the
 extracted webpage text or transcript, the generated summary, and the Telegram user ID to your

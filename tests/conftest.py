@@ -34,6 +34,13 @@ import sentry_sdk
 sentry_sdk.init = lambda *args, **kwargs: None
 
 
+@pytest.fixture(autouse=True)
+def _harness_env(monkeypatch):
+    """Undo what `scripts/eval/_bootstrap.load()` writes, whichever test loads it."""
+    monkeypatch.setenv("SENTRY_ENVIRONMENT", "")  # records the original, if any
+    monkeypatch.delenv("SENTRY_ENVIRONMENT")
+
+
 @pytest.fixture
 def message_factory():
     """Fixture to generate a mock telebot Message with variable content."""

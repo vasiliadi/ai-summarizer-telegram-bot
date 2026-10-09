@@ -11,10 +11,16 @@ SRC = REPO / "src"
 
 
 def load() -> Path:
-    """Load `.env`, put `src/` on the import path, and return the repo root."""
+    """Load `.env`, put `src/` on the import path, and return the repo root.
+
+    Also tags Sentry events `eval`; see evals.md → *Harness runs report to Sentry as
+    `eval`*.
+    """
     from dotenv import load_dotenv
 
     load_dotenv(REPO / ".env")
+    # Overrides `.env`, and must run before anything imports `config`.
+    os.environ["SENTRY_ENVIRONMENT"] = "eval"
     if str(SRC) not in sys.path:
         sys.path.insert(0, str(SRC))
     return REPO

@@ -72,4 +72,5 @@ Wait about a minute after a run before reading the report, because Langfuse inge
 asynchronously. Include the model you use now in the sweep, so candidates are compared against
 it. On 50 items a gap between two averages can be noise: `--all-pairs` adds a per-item sign
 test for every pair of models, which shows whether one really beats another. Harness runs
-import the bot's config, so if Sentry is set up, their errors appear in your production stream.
+import the bot's config, so if Sentry is set up, their errors reach the bot's Sentry project
+under the `eval` environment; leave it out of your alert rules.

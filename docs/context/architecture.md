@@ -324,6 +324,10 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   integration: it patches `chat.completions.create` **process-wide**, for every client, and
   records one generation per call (pinned by `test_langfuse_patches_the_openai_sdk_when_enabled`).
   Independent of Sentry; `langfuse_client.shutdown()` flushes on exit.
+  - **The client timeout is 30 s, not the SDK's 5 s.** The same value bounds each span-batch
+    export, and a batch that misses it is dropped with one log line: an eval sweep lost three
+    items that way (evals.md → *A run can lose items on the way to Langfuse*), and the bot's
+    long transcripts are the same kind of payload. `LANGFUSE_TIMEOUT` overrides it.
   - **File runs are never traced.** The patch cannot be switched off per client, so
     `LLMClient.run` sends a request carrying a file part through the client's generic `post`,
     which the drop-in does not wrap. A traced file run would hold token usage and an
