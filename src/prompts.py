@@ -9,15 +9,7 @@ PROMPTS = {
         Here is the provided content:
         """,
     "key_points_for_transcript": """
-        Summarize the content below as a bulleted list of key points.
-
-        Guidelines:
-        - Produce at least 5 bullets. For content that is broad or detailed, use as many bullets as needed to cover it faithfully. Do not pad with filler to reach 5.
-        - Each bullet must capture a distinct, significant idea — no overlap, no filler.
-        - Briefly explain a specialized term, benchmark or abbreviation in parentheses where it first appears, using what the content says about it.
-        - When a point lists several parallel items, put them in a nested sub-list.
-        - Retell what the content says, not what the page or document is: no "the article discusses", and nothing about navigation, ads, related links or placeholder text.
-        - Output a markdown bulleted list, one key point per bullet, nothing else. In each bullet, bold the few words that carry its point. Use emphasis sparingly, so that it stands out.
+        Summarize the content below as a bulleted list of its key points.
 
         Here is the provided content:
         """,
