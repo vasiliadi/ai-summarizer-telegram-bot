@@ -155,20 +155,20 @@ Anything that only reads is free. Re-scoring Tier 1 never costs anything — the
 exist as trace outputs, so a broken scorer is repaired by reinstalling it and recomputing, not by
 re-generating. Only Tier 2 spends money on a re-score.
 
-### Harness runs report to Sentry as `production`, and that is left alone deliberately
+### Harness runs report to Sentry as `eval`
 
-Every script here imports `config` from `src/`, whose `sentry_sdk.init` sets no `environment` —
-so the SDK defaults to `production` — and enables `LoggingIntegration(capture_sentry_logs=True)`,
-which forwards stdlib `ERROR` records. Langfuse logs a failed evaluator at `ERROR`, so **a sweep
-run from a laptop raises Sentry issues in the bot's production stream**, tagged
-`environment: production` with `server_name` set to the developer's machine.
+Every script here imports `config` from `src/`, which initialises Sentry from the bot's `.env`
+and enables `LoggingIntegration(capture_sentry_logs=True)`. So a sweep reports to the bot's
+Sentry project: the OpenAI integration captures a candidate's `RateLimitError`, and Langfuse's
+`Item N failed` log line arrives at `ERROR`. One rate-limited candidate (a provider's shared
+pool returning 429) raised about a hundred events in a single sweep.
 
-Do not diagnose these as bot defects. Tell them apart by `sys.argv` in the event's extra data:
-a harness event carries `scripts/eval/...`, and `Users Impacted` is 0.
-
-Threading a `SENTRY_ENVIRONMENT` through `config.py` was **declined**: a production-code change
-for a developer-only annoyance. These issues recur on every sweep and are closed as noise;
-revisit only if harness noise starts masking a real production alert.
+`_bootstrap.load()` sets `SENTRY_ENVIRONMENT=eval`, overriding `.env`, before anything imports
+`config`. The SDK reads that variable at `init`, so harness events are filed under `eval` and an
+alert rule can leave them out. Sentry stays on because a harness crash is still worth recording;
+the per-item failures are already in the report as `N of 50 items failed to generate`.
+Without the tag, tell harness events apart by `sys.argv` in the event's extra data: they carry
+`scripts/eval/...`, and `Users Impacted` is 0.
 
 ## Where state lives
 
