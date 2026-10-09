@@ -143,12 +143,16 @@ ALLOWED_THINKING_LEVELS = list(THINKING_LEVEL_LABELS.keys())
 LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_PUBLIC_KEY")
 LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY")
 LANGFUSE_BASE_URL = os.environ.get("LANGFUSE_BASE_URL")
+# Also bounds a span-batch export: at the SDK's 5 s default, a batch that misses
+# it is dropped. See architecture.md → *Tracing (optional), text input only*.
+LANGFUSE_TIMEOUT = int(os.environ.get("LANGFUSE_TIMEOUT") or 30)
 langfuse_client: Langfuse | None = None
 if LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY:
     langfuse_client = Langfuse(
         public_key=LANGFUSE_PUBLIC_KEY,
         secret_key=LANGFUSE_SECRET_KEY,
         base_url=LANGFUSE_BASE_URL,
+        timeout=LANGFUSE_TIMEOUT,
     )
     # Importing the drop-in is what patches the `openai` SDK, process-wide.
     import_module("langfuse.openai")

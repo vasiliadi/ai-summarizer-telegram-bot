@@ -13,19 +13,14 @@ SRC = REPO / "src"
 def load() -> Path:
     """Load `.env`, put `src/` on the import path, and return the repo root.
 
-    Also tags Sentry events `eval` and lengthens the Langfuse timeout; see evals.md →
-    *Harness runs report to Sentry as `eval`* and *A run can lose items on the way to
-    Langfuse*.
+    Also tags Sentry events `eval`; see evals.md → *Harness runs report to Sentry as
+    `eval`*.
     """
     from dotenv import load_dotenv
 
     load_dotenv(REPO / ".env")
     # Overrides `.env`, and must run before anything imports `config`.
     os.environ["SENTRY_ENVIRONMENT"] = "eval"
-    # Also the span exporter's budget: at the SDK's 5 s a sweep dropped a span batch.
-    # A larger value from `.env` or the shell is kept.
-    timeout = max(30, int(os.environ.get("LANGFUSE_TIMEOUT") or 0))
-    os.environ["LANGFUSE_TIMEOUT"] = str(timeout)
     if str(SRC) not in sys.path:
         sys.path.insert(0, str(SRC))
     return REPO

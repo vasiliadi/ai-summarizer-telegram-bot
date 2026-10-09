@@ -13,23 +13,3 @@ def test_load_tags_sentry_events_as_eval(monkeypatch):
     bootstrap.load()
 
     assert os.environ["SENTRY_ENVIRONMENT"] == "eval"
-
-
-def test_load_gives_langfuse_a_longer_timeout(monkeypatch):
-    """The span exporter gets 30 s, not the SDK's 5 s."""
-    monkeypatch.setenv("LANGFUSE_TIMEOUT", "5")
-    bootstrap = load_eval_script(monkeypatch, "_bootstrap")
-
-    bootstrap.load()
-
-    assert os.environ["LANGFUSE_TIMEOUT"] == "30"
-
-
-def test_load_keeps_a_larger_langfuse_timeout(monkeypatch):
-    """An operator's longer timeout is never cut back to 30 s."""
-    monkeypatch.setenv("LANGFUSE_TIMEOUT", "60")
-    bootstrap = load_eval_script(monkeypatch, "_bootstrap")
-
-    bootstrap.load()
-
-    assert os.environ["LANGFUSE_TIMEOUT"] == "60"

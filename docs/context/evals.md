@@ -158,8 +158,9 @@ A compare item reaches Langfuse as OpenTelemetry spans, exported in batches. A b
 fails to export is dropped, logged once (`Failed to export spans batch`), and the run carries
 on: the lost items simply never exist. At the SDK's default 5 s timeout one sweep lost three
 `anthropic/claude-haiku-5.5` items this way, and nothing but a judge scoring 47 of 50 showed it.
-`_bootstrap.load()` therefore sets `LANGFUSE_TIMEOUT=30`, which the SDK passes on to the
-span exporter.
+`config` therefore gives the client 30 s (`LANGFUSE_TIMEOUT` overrides it), which the SDK
+passes on to the span exporter. The harness inherits it: the SDK keeps one resource manager
+per public key, so the `Langfuse()` in `judge.run` reuses the one `config` built.
 
 `report` compares each run's item count with the dataset size and marks a short run
 `INCOMPLETE`, footnoted `N of 50 dataset items missing from the run`, so it can win no column.

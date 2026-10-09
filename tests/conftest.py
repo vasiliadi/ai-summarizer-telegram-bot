@@ -37,9 +37,8 @@ sentry_sdk.init = lambda *args, **kwargs: None
 @pytest.fixture(autouse=True)
 def _harness_env(monkeypatch):
     """Undo what `scripts/eval/_bootstrap.load()` writes, whichever test loads it."""
-    for name in ("SENTRY_ENVIRONMENT", "LANGFUSE_TIMEOUT"):
-        monkeypatch.setenv(name, "")  # records the original, present or absent
-        monkeypatch.delenv(name)
+    monkeypatch.setenv("SENTRY_ENVIRONMENT", "")  # records the original, if any
+    monkeypatch.delenv("SENTRY_ENVIRONMENT")
 
 
 @pytest.fixture
