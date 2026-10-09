@@ -23,3 +23,13 @@ def test_load_gives_langfuse_a_longer_timeout(monkeypatch):
     bootstrap.load()
 
     assert os.environ["LANGFUSE_TIMEOUT"] == "30"
+
+
+def test_load_keeps_a_larger_langfuse_timeout(monkeypatch):
+    """An operator's longer timeout is never cut back to 30 s."""
+    monkeypatch.setenv("LANGFUSE_TIMEOUT", "60")
+    bootstrap = load_eval_script(monkeypatch, "_bootstrap")
+
+    bootstrap.load()
+
+    assert os.environ["LANGFUSE_TIMEOUT"] == "60"

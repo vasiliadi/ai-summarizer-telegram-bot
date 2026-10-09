@@ -39,7 +39,7 @@ def stage2(monkeypatch):
 def test_report_marks_missing_tier1_scores_incomplete(stage2, capsys, scored):
     """Missing scores cannot produce a passing percentage or best-value marks."""
     rows = {str(i): ({"t1_pass": 1} if i < scored else {}, 1, False) for i in range(50)}
-    summary = stage2._summary(rows, (1, 50))
+    summary = stage2._summary(rows, (1, 50), 50)
     assert summary["t1_pass"] is None
     assert summary["incomplete"]
     stage2._table({"vendor/model / key_points_for_transcript": summary})
@@ -63,9 +63,33 @@ def test_report_marks_a_run_short_of_the_dataset_incomplete(stage2, capsys):
     assert "**" not in output
 
 
+def test_report_checks_runs_against_the_dataset_size(stage2, mocker, capsys):
+    """`report` hands the dataset size to every row, so a short run is flagged."""
+    for name in ("THINKING_LEVEL", "JEV_MODEL"):
+        mocker.patch.object(stage2.judge, name, "x", create=True)
+    mocker.patch.object(stage2, "discover_runs", return_value={"a / s": {"id": "r"}})
+    mocker.patch.object(stage2, "_tier2_scores", return_value=({}, {}))
+    mocker.patch.object(stage2, "_run_cost", return_value=(1, 1))
+    mocker.patch.object(
+        stage2.API,
+        "experiment_items",
+        return_value=[
+            {
+                "id": "o1",
+                "experimentItemId": "i1",
+                "scores": [{"name": "t1_pass", "value": 1}],
+            },
+        ],
+    )
+    size = mocker.patch.object(stage2.API, "dataset_size", return_value=50)
+    stage2.report("dataset")
+    size.assert_called_once_with("dataset")
+    assert "49 of 50 dataset items missing from the run" in capsys.readouterr().out
+
+
 def test_report_marks_empty_run_incomplete(stage2):
     """A run with no returned items is not a qualified candidate."""
-    summary = stage2._summary({}, (None, 0))
+    summary = stage2._summary({}, (None, 0), 50)
     assert summary["incomplete"]
     assert summary["t1_pass"] is None
 
@@ -74,7 +98,7 @@ def test_report_marks_empty_run_incomplete(stage2):
 def test_report_applies_threshold_to_complete_runs(stage2, failures, dropped):
     """Complete runs retain the 95 percent acceptance boundary."""
     rows = {str(i): ({"t1_pass": i >= failures}, 1, False) for i in range(50)}
-    summary = stage2._summary(rows, (1, 50))
+    summary = stage2._summary(rows, (1, 50), 50)
     assert not summary["incomplete"]
     assert summary["drop"] is dropped
     assert summary["t1_pass"] == (50 - failures) / 50
@@ -82,8 +106,8 @@ def test_report_applies_threshold_to_complete_runs(stage2, failures, dropped):
 
 def test_incomplete_candidate_does_not_hide_best_complete_candidate(stage2, capsys):
     """Better partial results cannot displace a fully evaluated candidate."""
-    complete = stage2._summary({"1": ({"t1_pass": 1}, 2, False)}, (2, 1))
-    incomplete = stage2._summary({"1": ({}, 1, False)}, (1, 1))
+    complete = stage2._summary({"1": ({"t1_pass": 1}, 2, False)}, (2, 1), 1)
+    incomplete = stage2._summary({"1": ({}, 1, False)}, (1, 1), 1)
     stage2._table({"complete": complete, "incomplete": incomplete})
     output = capsys.readouterr().out
     assert output.index("`complete`") < output.index("`incomplete`")

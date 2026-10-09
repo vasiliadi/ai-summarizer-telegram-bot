@@ -23,7 +23,9 @@ def load() -> Path:
     # Overrides `.env`, and must run before anything imports `config`.
     os.environ["SENTRY_ENVIRONMENT"] = "eval"
     # Also the span exporter's budget: at the SDK's 5 s a sweep dropped a span batch.
-    os.environ["LANGFUSE_TIMEOUT"] = "30"
+    # A larger value from `.env` or the shell is kept.
+    timeout = max(30, int(os.environ.get("LANGFUSE_TIMEOUT") or 0))
+    os.environ["LANGFUSE_TIMEOUT"] = str(timeout)
     if str(SRC) not in sys.path:
         sys.path.insert(0, str(SRC))
     return REPO

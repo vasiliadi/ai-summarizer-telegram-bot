@@ -190,7 +190,7 @@ def _sign_test(wins, losses):
     return min(1.0, 2 * sum(math.comb(n, i) for i in range(tail + 1)) / 2**n)
 
 
-def _summary(rows, cost, expected=0):
+def _summary(rows, cost, expected):
     """One candidate's report row: raw values, `None` where nothing was scored.
 
     `expected` is the dataset size: a run with fewer items lost some on the way to
@@ -219,6 +219,7 @@ def _summary(rows, cost, expected=0):
         "cost": dollars,
         "drop": t1_pass is not None and t1_pass < PASS_THRESHOLD,
         "incomplete": t1_incomplete or bool(missing),
+        "t1_incomplete": t1_incomplete,
         "t1_scored": len(passes),
         "n": len(rows),
         "missing": missing,
@@ -249,7 +250,7 @@ def _notes(row):
         notes.append(
             f"{row['missing']} of {row['expected']} dataset items missing from the run",
         )
-    if not row["n"] or row["t1_scored"] != row["n"]:
+    if row["t1_incomplete"]:
         notes.append(f"Tier 1 scored {row['t1_scored']} of {row['n']} items")
     if row["errored"]:
         notes.append(f"{row['errored']} of {row['n']} items failed to generate")

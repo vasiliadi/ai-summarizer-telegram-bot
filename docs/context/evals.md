@@ -149,6 +149,8 @@ live sweep is stuck: `sudo "$(which uvx)" py-spy dump --pid <pid>` (macOS needs 
 **Wait a minute after a run before reading its report.** Langfuse ingests experiment items and
 scores asynchronously, taking tens of seconds, so a report read straight after a run shows fewer
 items or scores than were written — which looks exactly like a judge that silently failed.
+`report` flags missing items itself (below); for scores, check the `JEV scored N of 50` and
+`Opus scored N of 50` footnotes before trusting a row.
 
 ### A run can lose items on the way to Langfuse
 
