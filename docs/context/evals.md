@@ -148,8 +148,22 @@ live sweep is stuck: `sudo "$(which uvx)" py-spy dump --pid <pid>` (macOS needs 
 
 **Wait a minute after a run before reading its report.** Langfuse ingests experiment items and
 scores asynchronously, taking tens of seconds, so a report read straight after a run shows fewer
-items or scores than were written — which looks exactly like a judge that silently failed. Check
-that `n` equals the dataset size before trusting a row.
+items or scores than were written — which looks exactly like a judge that silently failed.
+
+### A run can lose items on the way to Langfuse
+
+A compare item reaches Langfuse as OpenTelemetry spans, exported in batches. A batch that
+fails to export is dropped, logged once (`Failed to export spans batch`), and the run carries
+on: the lost items simply never exist. At the SDK's default 5 s timeout one sweep lost three
+`anthropic/claude-haiku-5.5` items this way, and nothing but a judge scoring 47 of 50 showed it.
+`_bootstrap.load()` therefore sets `LANGFUSE_TIMEOUT=30`, which the SDK passes on to the
+span exporter.
+
+`report` compares each run's item count with the dataset size and marks a short run
+`INCOMPLETE`, footnoted `N of 50 dataset items missing from the run`, so it can win no column.
+Re-sweep the candidate: the missing items were generated and paid for, but cannot be recovered.
+Straight after a run the same note can mean ingestion has not caught up; wait a minute and
+read again before re-sweeping.
 
 Anything that only reads is free. Re-scoring Tier 1 never costs anything — the summaries already
 exist as trace outputs, so a broken scorer is repaired by reinstalling it and recomputing, not by

@@ -132,6 +132,20 @@ def test_dataset_id_quotes_the_name(api, mocker):
     assert get.call_args.args == ("v2/datasets/a%2Fb%20c",)
 
 
+def test_dataset_size_reads_the_total_not_the_page(api, mocker):
+    """One item is fetched; the count comes from the page metadata."""
+    get = mocker.patch.object(
+        api,
+        "get",
+        return_value={"data": [{}], "meta": {"totalItems": 50}},
+    )
+    assert api.dataset_size("compare") == 50
+    assert get.call_args.args == (
+        "dataset-items",
+        {"datasetName": "compare", "limit": 1},
+    )
+
+
 def test_experiments_filters_by_prefix_newest_first(api, api_module, mocker):
     """Only prefixed runs are kept, newest first."""
     paginate = mocker.patch.object(

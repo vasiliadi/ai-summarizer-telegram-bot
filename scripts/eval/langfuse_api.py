@@ -80,6 +80,11 @@ class LangfuseAPI:
         body = self.get(f"v2/datasets/{quote(dataset_name, safe='')}")
         return body["id"]
 
+    def dataset_size(self, dataset_name: str) -> int:
+        """How many items a dataset holds, which a complete run must match."""
+        body = self.get("dataset-items", {"datasetName": dataset_name, "limit": 1})
+        return body["meta"]["totalItems"]
+
     def experiments(self, dataset_id: str, name_prefix: str = "") -> list[dict]:
         """List a dataset's experiments, newest first, optionally by name prefix."""
         rows = self.paginate(

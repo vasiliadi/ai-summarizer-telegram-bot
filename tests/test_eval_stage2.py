@@ -49,6 +49,20 @@ def test_report_marks_missing_tier1_scores_incomplete(stage2, capsys, scored):
     assert "**" not in output
 
 
+def test_report_marks_a_run_short_of_the_dataset_incomplete(stage2, capsys):
+    """Items lost on the way to Langfuse keep a run out of the best-value marks."""
+    rows = {str(i): ({"t1_pass": 1}, 1, False) for i in range(47)}
+    summary = stage2._summary(rows, (1, 47), expected=50)
+    assert summary["t1_pass"] == 1
+    assert summary["incomplete"]
+    stage2._table({"vendor/model / key_points_for_transcript": summary})
+    output = capsys.readouterr().out
+    assert "INCOMPLETE" in output
+    assert "3 of 50 dataset items missing from the run" in output
+    assert "Tier 1 scored" not in output
+    assert "**" not in output
+
+
 def test_report_marks_empty_run_incomplete(stage2):
     """A run with no returned items is not a qualified candidate."""
     summary = stage2._summary({}, (None, 0))
