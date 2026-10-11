@@ -24,7 +24,7 @@ dependencies = [
     "sqlalchemy==2.1.4",
     "tavily-python==0.8.5",
     "telegramify-markdown==1.4.0",
-    "tenacity==9.1.4",
+    "tenacity==9.2.1",
     "youtube-transcript-api==1.2.4",
     "yt-dlp[default]==2026.8.19",
 ]
