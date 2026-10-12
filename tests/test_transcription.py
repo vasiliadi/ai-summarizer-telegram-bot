@@ -822,6 +822,33 @@ def test_transcribe_returns_empty_text_as_is(tmp_path):
     assert transcriber.transcribe(_audio_fixture(tmp_path)) == ""
 
 
+def test_transcribe_200_without_text_raises_transcription_error(tmp_path):
+    """Test a 200 whose body is an error, not a transcript, fails loudly.
+
+    OpenRouter sends the 200 before the model finishes, so a late failure
+    arrives in the body; the SDK would hand it back as `text=None`.
+    """
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(
+            200,
+            headers={
+                "content-type": "application/json",
+                "x-generation-id": "gen-stt-mock",
+            },
+            content=b'   {"error": {"code": 502, "message": "Provider returned error"}}',
+        )
+
+    with pytest.raises(TranscriptionError) as exc_info:
+        _make_audio_transcriber(handler).transcribe(_audio_fixture(tmp_path))
+
+    assert "gen-stt-mock" in str(exc_info.value)
+    assert "Provider returned error" in str(exc_info.value)
+    assert len(requests) == 1
+
+
 def test_transcribe_refuses_a_file_over_the_upload_cap(mocker, tmp_path):
     """Test a file over OpenRouter's 25 MB cap fails before any request."""
     mocker.patch.object(AudioTranscriber, "_MAX_BYTES", 4)

@@ -299,11 +299,17 @@ where the content came from (`format_prefixed_summary`). Only a document summari
 - **Transcription on OpenRouter.** `AudioTranscriber` sends the compressed Opus file to
   `microsoft/mai-transcribe-2` with `audio.transcriptions.create` on `config.openrouter_client`
   (multipart `POST /api/v1/audio/transcriptions`) and returns the response's `text` as is. One
-  synchronous request: no upload, no polling, language auto-detected. Provider limits (OpenRouter
-  docs, 2026-10): a multipart upload is capped at 25 MB, about 3.5 hours at `compress_audio`'s
-  16 kbps (a larger file is refused before upload), and upstream providers time out after **60 s per request**. A 40-minute file took
-  19.5 s (2026-10-01); recordings much past ~2 hours may hit the timeout, and would then need
-  splitting with ffmpeg.
+  synchronous request: no upload, no polling, language auto-detected. A multipart upload is
+  capped at 25 MB (OpenRouter docs), about 3.5 hours at `compress_audio`'s 16 kbps; a larger
+  file is refused before upload. The docs' 60 s upstream timeout does not hold here: a
+  2 h 25 min Russian episode took 134–136 s and came back whole (2026-10-12).
+  **OpenRouter answers 200 at once and keeps the connection open with whitespace** while the
+  model runs (observed 2026-10-12), so a failure after that arrives as a 200 whose body has no
+  `text` — the SDK raises nothing and parses it to `text=None`. `transcribe` turns that into a
+  `TranscriptionError` carrying the body's `error` and the `X-Generation-Id` header; production
+  hit it twice in a row on that episode. It is not retried: a rerun repeats the whole billed
+  recording. **Splitting audio into chunks is rejected** by the project owner — a transcript
+  comes from one request.
   Retries are the SDK's own (408/409/429/5xx and network errors, with backoff and Retry-After);
   `transcribe` adds none. Whatever `APIError` outlasts them is re-raised as `TranscriptionError`.
   **Do not let a raw `APIError` leave `transcribe`**: `Summarizer.summarize_with_document`
