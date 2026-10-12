@@ -5,7 +5,7 @@ import pytest
 from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
 from curl_cffi.requests.exceptions import HTTPError as CurlHTTPError
 from defusedxml.ElementTree import ParseError
-from openai import APIStatusError, OpenAI
+from openai import APIError, APIStatusError, OpenAI
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import RetryError
 from youtube_transcript_api._errors import (
@@ -847,6 +847,39 @@ def test_transcribe_200_without_text_raises_transcription_error(tmp_path):
     assert "gen-stt-mock" in str(exc_info.value)
     assert "Provider returned error" in str(exc_info.value)
     assert len(requests) == 1
+
+
+@pytest.mark.parametrize(
+    "body",
+    [b"      ", b'   {"text": "abc', b'{"text": null}'],
+    ids=["padding-only", "truncated-json", "null-text"],
+)
+def test_transcribe_malformed_200_raises_transcription_error(tmp_path, body):
+    """Test a 200 with no parsable transcript is a TranscriptionError, not a crash."""
+    transcriber = _make_audio_transcriber(
+        lambda _: httpx2.Response(
+            200,
+            headers={"content-type": "application/json"},
+            content=body,
+        ),
+    )
+
+    with pytest.raises(TranscriptionError, match="HTTP 200"):
+        transcriber.transcribe(_audio_fixture(tmp_path))
+
+
+def test_transcribe_wraps_an_api_error_from_parsing(mocker, tmp_path):
+    """Test an `APIError` raised while parsing never leaves `transcribe` raw."""
+    mocker.patch(
+        "openai._legacy_response.LegacyAPIResponse.parse",
+        side_effect=APIError("invalid", httpx2.Request("POST", "https://x"), body=None),
+    )
+    transcriber = _make_audio_transcriber(
+        lambda _: httpx2.Response(200, json={"text": "Hello"}),
+    )
+
+    with pytest.raises(TranscriptionError):
+        transcriber.transcribe(_audio_fixture(tmp_path))
 
 
 def test_transcribe_refuses_a_file_over_the_upload_cap(mocker, tmp_path):

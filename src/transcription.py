@@ -59,8 +59,8 @@ class AudioTranscriber:
     """Transcribes audio files with MAI-Transcribe-2 on OpenRouter."""
 
     _MODEL: ClassVar[str] = "microsoft/mai-transcribe-2"
-    # OpenRouter's cap on a multipart upload.
-    _MAX_BYTES: ClassVar[int] = 25 * 1024 * 1024
+    # OpenRouter's cap on a multipart upload: 25 MB, as OpenAI's.
+    _MAX_BYTES: ClassVar[int] = 25_000_000
 
     def __init__(self, client: OpenAI) -> None:
         """Store the injected `openai` client, pointed at OpenRouter."""
@@ -89,15 +89,18 @@ class AudioTranscriber:
         except APIError as e:
             msg = "OpenRouter transcription failed"
             raise TranscriptionError(msg) from e
-        result = raw.parse(to=Transcription)
-        if not isinstance(result.text, str):
-            extra = result.model_extra or {}
+        try:
+            text = raw.parse(to=Transcription).text
+        except APIError, ValueError:
+            text = None
+        if not isinstance(text, str):
             msg = (
                 f"OpenRouter transcription {raw.headers.get('x-generation-id')} "
-                f"returned no text: {extra.get('error', extra)}"
+                f"(HTTP {raw.status_code}) returned no text: "
+                f"{raw.http_response.text[:500]!r}"
             )
             raise TranscriptionError(msg)
-        return result.text
+        return text
 
 
 class TranscriptBackend(ABC):
