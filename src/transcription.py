@@ -1,25 +1,23 @@
 from __future__ import annotations
 
 import logging
-import mimetypes
 import re
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 from urllib.parse import parse_qs, urlsplit
 
 from bs4 import BeautifulSoup
-from curl_cffi import CurlMime
 from curl_cffi import requests as curl_requests
 from curl_cffi.requests.exceptions import RequestException
 from curl_cffi.requests.utils import requote_uri
 from defusedxml.ElementTree import ParseError
+from openai import APIError
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
     before_sleep_log,
     retry,
-    retry_if_exception,
     retry_if_exception_type,
     stop_after_attempt,
     wait_fixed,
@@ -39,7 +37,6 @@ from config import YT_HOSTS
 from domain import PrefixedText
 from exceptions import (
     FetchTranscriptError,
-    ReplicateError,
     TranscriptDownloadError,
     TranscriptionError,
 )
@@ -50,6 +47,7 @@ from utils import (
 )
 
 if TYPE_CHECKING:
+    from openai import OpenAI
     from tenacity import _utils as tenacity_utils
 
 logger = logging.getLogger(__name__)
@@ -57,141 +55,40 @@ tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
 
 
 class AudioTranscriber:
-    """Transcribes audio files via the Replicate WhisperX model."""
+    """Transcribes audio files with MAI-Transcribe-2 on OpenRouter."""
 
-    _API_URL: ClassVar[str] = "https://api.replicate.com/v1"
-    _MODEL: ClassVar[str] = "victor-upmeet/whisperx"
-    _TIMEOUT: ClassVar[int] = 30
-    _UPLOAD_TIMEOUT: ClassVar[int] = 300
-    # How long to wait between polls of the prediction's status.
-    _POLL_SECONDS: ClassVar[int] = 10
-    _TRANSIENT_STATUSES: ClassVar[frozenset[int]] = frozenset({429, 500, 502, 503, 504})
+    _MODEL: ClassVar[str] = "microsoft/mai-transcribe-2"
 
-    def __init__(self, api_token: str) -> None:
-        """Store the injected Replicate API token."""
-        self._headers = {"Authorization": f"Bearer {api_token}"}
-
-    def _request(
-        self,
-        method: Literal["GET", "POST"],
-        path: str,
-        json: dict[str, Any] | None = None,
-        multipart: CurlMime | None = None,
-        timeout: int = _TIMEOUT,
-    ) -> dict[str, Any]:
-        """Call the Replicate API and return the decoded JSON body.
-
-        Raises:
-            ReplicateError: If the API answers with an HTTP 4xx/5xx.
-
-        """
-        response = curl_requests.request(
-            method,
-            f"{self._API_URL}{path}",
-            headers=self._headers,
-            json=json,
-            multipart=multipart,
-            timeout=timeout,
-        )
-        if not response.ok:
-            msg = (
-                f"Replicate {method} {path} returned HTTP {response.status_code}: "
-                f"{response.text[:200]}"
-            )
-            raise ReplicateError(response.status_code, msg)
-        return response.json()
-
-    def _upload(self, file: str) -> str:
-        """Upload an audio file to Replicate, returning the URL a model reads."""
-        mime = CurlMime()
-        try:
-            mime.addpart(
-                name="content",
-                filename=Path(file).name,
-                content_type=mimetypes.guess_type(file)[0]
-                or "application/octet-stream",
-                local_path=file,
-            )
-            uploaded = self._request(
-                "POST",
-                "/files",
-                multipart=mime,
-                timeout=self._UPLOAD_TIMEOUT,
-            )
-        finally:
-            mime.close()
-        return uploaded["urls"]["get"]
-
-    @staticmethod
-    def _is_transient(error: BaseException) -> bool:
-        """Tell a status-poll failure worth repeating from a permanent one."""
-        if isinstance(error, ReplicateError):
-            return error.status in AudioTranscriber._TRANSIENT_STATUSES
-        return isinstance(error, RequestException)
-
-    # See architecture.md → *Replicate over plain HTTP*.
-    @retry(
-        stop=stop_after_attempt(5),
-        wait=wait_fixed(10),
-        retry=retry_if_exception(_is_transient),
-        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
-        reraise=True,
-    )
-    def _poll(self, prediction_id: str) -> dict[str, Any]:
-        """Fetch a prediction's current state, retrying transient failures."""
-        return self._request("GET", f"/predictions/{prediction_id}")
+    def __init__(self, client: OpenAI) -> None:
+        """Store the injected `openai` client, pointed at OpenRouter."""
+        # See architecture.md → *Transcription on OpenRouter*.
+        self._client = client.with_options(max_retries=0)
 
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_fixed(10),
-        retry=retry_if_exception_type(ReplicateError),
+        retry=retry_if_exception_type(APIError),
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
     def transcribe(self, file: str) -> str:
-        """Transcribe an audio file with the WhisperX model on Replicate.
+        """Transcribe an audio file with MAI-Transcribe-2 on OpenRouter.
 
         Raises:
-            TranscriptionError: If the transcription fails, is canceled or
-                aborted, its output is invalid, or the network fails.
-            RetryError: If Replicate errors persist after all retry attempts.
+            TranscriptionError: If the response carries no text.
+            RetryError: If OpenRouter errors persist after all retry attempts.
 
         """
-        # See architecture.md → *Replicate over plain HTTP*.
-        try:
-            model = self._request("GET", f"/models/{self._MODEL}")
-            prediction = self._request(
-                "POST",
-                "/predictions",
-                json={
-                    "version": model["latest_version"]["id"],
-                    "input": {"audio_file": self._upload(file)},
-                },
+        with Path(file).open("rb") as audio:
+            result = self._client.audio.transcriptions.create(
+                model=self._MODEL,
+                file=audio,
             )
-            while prediction["status"] != "succeeded":
-                if prediction["status"] in ("failed", "canceled", "aborted"):
-                    msg = (
-                        f"Replicate prediction {prediction['status']}: "
-                        f"{prediction.get('error')}"
-                    )
-                    raise TranscriptionError(msg)
-                time.sleep(self._POLL_SECONDS)
-                prediction = self._poll(prediction["id"])
-        except RequestException as e:
-            msg = "Replicate request failed"
-            raise TranscriptionError(msg) from e
-        output = prediction.get("output")
-        segments = output.get("segments") if isinstance(output, dict) else None
-        if not isinstance(segments, list):
-            msg = "Replicate prediction returned no segments"
+        text = getattr(result, "text", None)
+        if not isinstance(text, str):
+            msg = "OpenRouter transcription returned no text"
             raise TranscriptionError(msg)
-        return "".join(
-            [
-                segment.get("text", "")
-                for segment in segments
-                if isinstance(segment, dict)
-            ],
-        )
+        return text
 
 
 class TranscriptBackend(ABC):

@@ -42,8 +42,8 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 - **One model provider: OpenRouter** — every summarizing model is an OpenRouter id, and the
   direct Google provider, `google-genai` and the Gemini Files API are gone. Accepted
   consequences: an OpenRouter outage stops all summarization, and Gemini's native audio and
-  video understanding is lost. Replicate (WhisperX) is a transcription service, never a
-  swappable summarization model.
+  video understanding is lost. Transcription runs on OpenRouter too (MAI-Transcribe-2), and is
+  never a swappable summarization model.
 - **The `openai` SDK, pointed at OpenRouter** — `config.openrouter_client` is one
   `openai.OpenAI` on `https://openrouter.ai/api/v1`, and every model call goes through
   `llm.py` on it. With a single provider there is no seam left for a framework to own;
@@ -126,14 +126,14 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummarySettings` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
 | `llm.py` | `LLMClient` — the one place a model is called. `run` turns the instructions, the user's thinking level and the content parts into a single chat-completions request on the injected `openai` client; `build_file_part` references an uploaded document by id. A text run goes through `chat.completions.create`, a run carrying a file through the client's generic `post` (see Tracing below). It never consults `MODEL_SPECS`, so the eval harness runs unregistered ids on it as is. |
-| `transcription.py` | `AudioTranscriber` (Replicate WhisperX, over plain HTTP) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`; an empty or whitespace-only transcript counts as a backend failure, so it falls through too) + `CastroTranscriber` (scrapes the transcript off a Castro episode page). |
+| `transcription.py` | `AudioTranscriber` (MAI-Transcribe-2 on OpenRouter) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`; an empty or whitespace-only transcript counts as a backend failure, so it falls through too) + `CastroTranscriber` (scrapes the transcript off a Castro episode page). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3, the fallback for an episode without a transcript), Telegram file fetch. |
 | `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback; each backend's output is block-page checked by JEV. |
 | `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `OpenRouterFiles` (document upload/delete on OpenRouter's Files API), `Tracer` (names, tags and adds settings metadata to the Langfuse trace for a message, if one is opened). |
 | `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator to `config`'s clients. `Container` carries only the five roots `BotApp` holds (`bot`, `quota_manager`, `tracer`, `user_repo`, `handlers`); the rest of the graph is reached through `handlers`. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
 | `models.py` | `UsersOrm` — the single `users` table (id, approval, per-user settings, `daily_limit`). |
-| `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`, `ReplicateError`, `TranscriptionError`. |
+| `exceptions.py` | Domain exceptions: `LimitExceededError`, `WebParseError`, `TranscriptDownloadError`, `FetchTranscriptError`, `TranscriptionError`. |
 | `config.py` | All third-party clients (by design — see Cross-cutting patterns) + the `MODEL_SPECS` registry, labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION` + `prompt_version` (short hash over both, for trace metadata). |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. `SummarySettings` — the per-request settings every `Summarizer` entry point takes. |
@@ -174,11 +174,11 @@ skips the download and reaches `compress_audio` with the URL string as its file 
   audio, then the file path below.
 - **Telegram File** → `Downloader.download_tg(.ogg)` → file path.
 - **File path** → `_summarize_via_transcription`: `compress_audio` →
-  `AudioTranscriber.transcribe` (Replicate) → `summarize_text` with the user's model.
+  `AudioTranscriber.transcribe` (OpenRouter) → `summarize_text` with the user's model.
 
 Spoken content therefore has one route — a transcript — and one fallback: the source's
-own transcript first (YouTube, Castro), Replicate when there is none. Every other audio
-and video message lands on Replicate, so its cost and latency apply to it.
+own transcript first (YouTube, Castro), MAI-Transcribe-2 when there is none. Every other
+audio and video message is transcribed, so its cost and latency apply to it.
 
 ### Modality routing
 
@@ -210,7 +210,7 @@ where the content came from (`format_prefixed_summary`). Only a document summari
 | 📺 | YouTube transcript via `youtube_transcript_api` (primary) |
 | 📹 | YouTube transcript via yt-dlp (fallback) |
 | 🎙️ | Castro's own transcript, scraped from the episode page |
-| 📝 | Audio transcription via Replicate — audio, voice, video, video notes, and Castro or YouTube without a transcript |
+| 📝 | Audio transcription via MAI-Transcribe-2 on OpenRouter — audio, voice, video, video notes, and Castro or YouTube without a transcript |
 | 🌐 | Webpage via Exa |
 | 🕸️ | Webpage via Tavily (fallback) |
 
@@ -296,23 +296,19 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   page. Settled: **fail open** (a detector error logs a warning and keeps the text), **no retry on
   a block page** (outside the backends' `@retry`), **not metered** by `QuotaManager`. A bare
   marketing shell with no block wording is not a block page and is not caught.
-- **Replicate over plain HTTP.** `AudioTranscriber` calls `https://api.replicate.com/v1` with
-  `curl-cffi`, not the `replicate` SDK, which was dropped as unmaintained: no stable release
-  since 2025-05-27 (observed 2026-10). One `transcribe` is four requests — `GET /models/{owner}/{name}`
-  for `latest_version.id` (a community model takes a version id, and it is resolved on every
-  call rather than pinned), a multipart `POST /files` whose part is named `content`,
-  `POST /predictions` with the upload's `urls.get` as `audio_file`, then `GET /predictions/{id}`
-  every 10 s. Two retries, nested on purpose: `_poll` repeats its own GET on
-  429/500/502/503/504 and on a network error, because the outer `@retry` reruns the whole
-  `transcribe` — a second upload and a second billed prediction — so it must not be what
-  absorbs a blip on a status check. The outer one covers `ReplicateError` (any HTTP 4xx/5xx)
-  only. A network error anywhere else, or one that outlasts the poll retry, is re-raised as
-  `TranscriptionError` and is **not** retried. **Do not let a raw `curl-cffi` exception leave
-  `transcribe`**: `Summarizer.summarize_with_document` retries on `CurlConnectionError` and
-  `CurlSSLError` for its own download, and would rerun the transcription too.
-  `TranscriptionError` (also status `failed`, `canceled` or `aborted`, or output without a
-  `segments` list) reaches `handle_message` as `Unexpected: ...`. The loop has no overall deadline: a
-  prediction stuck in `starting` is polled until Replicate ends it.
+- **Transcription on OpenRouter.** `AudioTranscriber` sends the compressed Opus file to
+  `microsoft/mai-transcribe-2` with `audio.transcriptions.create` on `config.openrouter_client`
+  (multipart `POST /api/v1/audio/transcriptions`) and returns the response's `text` as is. One
+  synchronous request: no upload, no polling, language auto-detected. Provider limits (OpenRouter
+  docs, 2026-10): a multipart upload is capped at 25 MB, about 3.5 hours at `compress_audio`'s
+  16 kbps, and upstream providers time out after **60 s per request**. A 40-minute file took
+  19.5 s (2026-10-01); recordings much past ~2 hours may hit the timeout, and would then need
+  splitting with ffmpeg. $0.10 per audio hour is a promotional price through 2026-12-31.
+  One retry layer: the SDK's own retries are off (`with_options(max_retries=0)`) and `transcribe`'s
+  `@retry` repeats any `openai.APIError` — HTTP 4xx/5xx, timeout or network error — three times,
+  10 s apart, ending in `RetryError`. **Do not let a raw `APIError` leave `transcribe`**:
+  `Summarizer.summarize_with_document` retries on `APIError` and would rerun the download and the
+  transcription. A response without a string `text` is a `TranscriptionError`, not retried.
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
 - **One `openai` client for every thread.** `config.openrouter_client` is the synchronous

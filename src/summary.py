@@ -121,8 +121,8 @@ class Summarizer:
 
         """
         prompt = dedent(PROMPTS[settings.prompt_key]).strip()
-        # Silent or music-only audio gives WhisperX no segments, so a transcript
-        # can be "", and an empty text part is not worth sending.
+        # Silent or music-only audio can transcribe to "", and an empty text
+        # part is not worth sending.
         content = [prompt, text] if text.strip() else [prompt]
         self._quota_manager.check_quota(
             user_id=settings.user_id,
@@ -153,7 +153,7 @@ class Summarizer:
     ) -> str:
         """Summarize document content by uploading it to OpenRouter's Files API.
 
-        Audio documents take the Replicate transcription path instead, and so
+        Audio documents take the transcription path instead, and so
         carry the 📝 prefix. Any other document sent to a model that takes no
         file is summarized by `DEFAULT_MODEL_ID_FOR_SUMMARY`.
 
@@ -203,7 +203,7 @@ class Summarizer:
 
         Returns:
             str: The summary, prefixed with the source-provenance emoji of the
-                transcript or the Replicate transcription it was made from.
+                transcript or the audio transcription it was made from.
 
         Raises:
             RetryError: If all summarization attempts fail after retries.
@@ -258,7 +258,7 @@ class Summarizer:
         data: str,
         settings: SummarySettings,
     ) -> str:
-        """Transcribe an audio file with Replicate, then summarize the transcript.
+        """Transcribe an audio file on OpenRouter, then summarize the transcript.
 
         The only route for spoken content. The caller owns `data`; only the
         compressed copy made here is cleaned up.

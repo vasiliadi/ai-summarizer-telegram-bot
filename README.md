@@ -18,7 +18,7 @@ A bot designed to summarize webpages, YouTube videos and Castro.fm podcasts (via
 
 ### General settings
 
-1. Get API keys: [@BotFather](https://t.me/BotFather), [OpenRouter](https://openrouter.ai/), [Replicate](https://replicate.com/account/api-tokens), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/), [Exa](https://dashboard.exa.ai/)
+1. Get API keys: [@BotFather](https://t.me/BotFather), [OpenRouter](https://openrouter.ai/), [Sentry](https://sentry.io/signup/), [Modal](https://modal.com/), [Tavily](https://app.tavily.com/), [Exa](https://dashboard.exa.ai/)
 2. Set up PostgreSQL and Valkey (or Redis). For example [Supabase x Postgres](https://supabase.com/database) and [Aiven for Valkey](https://aiven.io/free-redis-database)
 3. Edit `.env`
 4. Set up the [Modal Secrets](https://modal.com/secrets) with name `resetlimit-secrets`. Only `REDIS_URL` from `.env` needed.
@@ -44,7 +44,6 @@ Example of `.env` file:
 ```env
 TG_API_TOKEN="your_api_key"
 OPENROUTER_API_KEY="your_api_key"
-REPLICATE_API_TOKEN="your_api_key"
 TAVILY_API_KEY="your_api_key"
 EXA_API_KEY="your_api_key"
 DSN="postgresql+driver://user:password@host:port/database"
@@ -289,7 +288,7 @@ through [OpenRouter](https://openrouter.ai/), so `OPENROUTER_API_KEY` is the onl
 bot needs. What reaches the model depends on the content:
 
 - **Audio, voice, video, video notes, and podcast/YouTube audio** are transcribed by
-  Replicate first, then summarized by the model you chose (the 📝 prefix marks this).
+  [MAI-Transcribe-2](https://openrouter.ai/microsoft/mai-transcribe-2) on OpenRouter first, then summarized by the model you chose (the 📝 prefix marks this).
 - **Documents** — PDF, RTF, CSV, plain text — are uploaded to OpenRouter's Files API, handed
   to the model you chose, and deleted afterwards. A model registered as unable to read files
   is replaced by the default model for that one message. Your saved model is not changed, and
@@ -302,7 +301,7 @@ bot needs. What reaches the model depends on the content:
 Retention and training are each provider's policy, not this project's. OpenRouter's
 [privacy setting](https://openrouter.ai/docs/features/privacy-and-logging) only filters out upstream
 providers that train, so check the endpoint behind any model you register in `MODEL_SPECS`. The rest
-of the pipeline sees content too: Replicate receives the audio it transcribes, OpenRouter's Files API
+of the pipeline sees content too: the transcription model receives the audio, OpenRouter's Files API
 holds a document until the bot deletes it, Exa and Tavily only the URL. If you run this bot for
 anyone other than yourself, that content is theirs.
 
@@ -326,7 +325,7 @@ in [Langfuse](https://langfuse.com). Setup and usage are in [scripts/eval/README
 [OpenAI Python SDK](https://github.com/openai/openai-python) \
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) \
 [beautifulsoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) \
-[Replicate HTTP API](https://replicate.com/docs/reference/http) \
+[OpenRouter speech-to-text](https://openrouter.ai/docs/guides/overview/multimodal/stt) \
 [telegramify_markdown](https://github.com/sudoskys/telegramify-markdown) \
 [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) \
 [Tenacity](https://tenacity.readthedocs.io/en/latest/) \

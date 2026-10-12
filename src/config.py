@@ -171,10 +171,6 @@ PROMPT_STRATEGY_LABELS_REVERSE: dict[str, str] = {
 ALLOWED_PROMPT_KEYS = list(PROMPT_STRATEGY_LABELS.keys())
 
 
-# Replicate.com config
-REPLICATE_API_TOKEN = os.environ["REPLICATE_API_TOKEN"]
-
-
 # Tavily config
 TAVILY_API_KEY = os.environ["TAVILY_API_KEY"]
 tavily_client = TavilyClient(api_key=TAVILY_API_KEY)

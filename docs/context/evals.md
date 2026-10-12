@@ -331,12 +331,12 @@ only.
 
 The trap when harvesting: a trace's tag is the **Telegram** `content_type`, which is `text` for
 a URL as much as for a pasted paragraph. A YouTube transcript, a web article and a
-Replicate audio transcript are therefore all tagged `text`, and no field distinguishes
+audio transcript are therefore all tagged `text`, and no field distinguishes
 them — the stratum has to be inferred from the content, by **two** tests, not one. A YouTube
 transcript arrives in subtitle format, hard-wrapped to ~34-character lines. The other two are
 both single blobs, so line width cannot separate them; what does is that `parsing.py` returns
-markup (Exa HTML, Tavily markdown) while WhisperX returns its segments joined into plain prose
-with a leading space. Testing only for wrapping silently files every audio transcript under
+markup (Exa HTML, Tavily markdown) while the audio transcriber returns plain prose (WhisperX,
+the transcriber in older traces, joined its segments with a leading space). Testing only for wrapping silently files every audio transcript under
 `web_article`, which is a stratum label that looks plausible in the UI and is wrong.
 
 A Castro transcript is a fourth source with **no stratum of its own**: it is one line per
@@ -365,7 +365,8 @@ the switch; a row in neither shape is skipped without a word, like any unparsabl
 `parts` branch is dead once no pydantic-ai trace is left inside the window.
 
 Two screening filters earn their keep on real traffic: content under ~1500 characters, and
-degenerate output from `AudioTranscriber.transcribe` when WhisperX mis-decodes audio — a
+degenerate output from `AudioTranscriber.transcribe` when the transcriber mis-decodes audio
+(seen with WhisperX, the transcriber in older traces) — a
 distinct failure from the documented empty-transcript case, and one that reaches the model as
 content rather than being dropped. Detect it by **compression ratio**, not by any single
 character's share: the failures repeat a multi-character sequence, so no one character

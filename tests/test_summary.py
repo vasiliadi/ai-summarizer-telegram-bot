@@ -107,8 +107,8 @@ def test_summarize_text_from_webpage(mocker):
 def test_summarize_text_drops_the_content_part_when_text_is_blank(mocker, blank):
     """Test summarize_text sends the prompt alone rather than an empty part.
 
-    The Replicate transcription yields "" for audio WhisperX finds no segments
-    in — silence or music — and an empty text part is not worth sending.
+    Audio with no speech in it — silence or music — can transcribe to "", and
+    an empty text part is not worth sending.
     """
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.return_value = True
@@ -289,7 +289,7 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(
 
 
 def test_summarize_transcribes_audio_and_summarizes_with_the_users_model(mocker):
-    """Test summarize() sends audio through Replicate, then to the chosen model.
+    """Test summarize() sends audio through transcription, then to the chosen model.
 
     Transcription is the only route for spoken content, so every such summary
     carries the 📝 prefix.

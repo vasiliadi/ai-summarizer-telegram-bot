@@ -65,7 +65,7 @@ def stratum_of(text):
         return "yt_transcript"  # subtitle format: hard-wrapped ~34-char lines
     if text.lstrip().startswith("<") or "](http" in text[:4000]:
         return "web_article"  # Exa returns HTML, Tavily markdown
-    return "audio_transcript"  # WhisperX: segments joined into one blob
+    return "audio_transcript"  # transcription: one blob of plain prose
 
 
 def is_degenerate(text):
