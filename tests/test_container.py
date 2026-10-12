@@ -18,6 +18,7 @@ def test_build_container_wires_one_shared_graph():
     assert summarizer._quota_manager is container.quota_manager
     assert summarizer._downloader is handlers._downloader
 
+    assert summarizer._audio_transcriber._client is config.openrouter_client
     assert handlers._web_parser._primary._client is config.exa_client
     assert handlers._web_parser._fallback._client is config.tavily_client
     assert isinstance(summarizer._yt_transcriber._primary, ApiBackend)

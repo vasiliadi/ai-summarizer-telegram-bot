@@ -17,7 +17,6 @@ os.environ["DSN"] = "sqlite:///:memory:"
 os.environ["REDIS_URL"] = "redis://localhost:6379"
 os.environ["TG_API_TOKEN"] = "12345:mock_token"
 os.environ["OPENROUTER_API_KEY"] = "mock_openrouter_key"
-os.environ["REPLICATE_API_TOKEN"] = "mock_replicate_token"
 os.environ["TAVILY_API_KEY"] = "mock_tavily_key"
 os.environ["EXA_API_KEY"] = "mock_exa_key"
 # Dummy Langfuse keys keep tracing hermetic: config's enabled branch runs (so it
