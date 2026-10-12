@@ -303,7 +303,7 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   docs, 2026-10): a multipart upload is capped at 25 MB, about 3.5 hours at `compress_audio`'s
   16 kbps, and upstream providers time out after **60 s per request**. A 40-minute file took
   19.5 s (2026-10-01); recordings much past ~2 hours may hit the timeout, and would then need
-  splitting with ffmpeg. $0.10 per audio hour is a promotional price through 2026-12-31.
+  splitting with ffmpeg.
   One retry layer: the SDK's own retries are off (`with_options(max_retries=0)`) and `transcribe`'s
   `@retry` repeats any `openai.APIError` — HTTP 4xx/5xx, timeout or network error — three times,
   10 s apart, ending in `RetryError`. **Do not let a raw `APIError` leave `transcribe`**:
