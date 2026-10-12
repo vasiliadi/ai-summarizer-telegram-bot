@@ -774,11 +774,7 @@ def test_ytdlp_fetch_pins_proxy_across_probe_and_download(
 
 
 def _make_audio_transcriber(handler):
-    """Return an AudioTranscriber on a real `openai` client answered by `handler`.
-
-    The client keeps the SDK's default retries, so a test sees whether
-    `AudioTranscriber` turns them off.
-    """
+    """Return an AudioTranscriber on a real `openai` client answered by `handler`."""
     client = OpenAI(
         api_key="mock_openrouter_key",
         base_url="https://openrouter.ai/api/v1",
@@ -826,50 +822,46 @@ def test_transcribe_returns_empty_text_as_is(tmp_path):
     assert transcriber.transcribe(_audio_fixture(tmp_path)) == ""
 
 
-def test_transcribe_without_text_raises_transcription_error(tmp_path):
-    """Test a response with no string `text` is a TranscriptionError, not retried."""
+def test_transcribe_refuses_a_file_over_the_upload_cap(mocker, tmp_path):
+    """Test a file over OpenRouter's 25 MB cap fails before any request."""
+    mocker.patch.object(AudioTranscriber, "_MAX_BYTES", 4)
+    handler = mocker.MagicMock()
+
+    with pytest.raises(TranscriptionError, match="upload cap"):
+        _make_audio_transcriber(handler).transcribe(_audio_fixture(tmp_path))
+
+    handler.assert_not_called()
+
+
+def test_transcribe_permanent_error_raises_transcription_error(tmp_path):
+    """Test a 4xx is sent once and surfaces as TranscriptionError, not APIError.
+
+    A raw `APIError` would make the summarizer rerun the whole transcription.
+    """
     requests = []
 
     def handler(request):
         requests.append(request)
-        return httpx.Response(200, json={"text": None})
+        return httpx.Response(402, json={"error": {"message": "no credits"}})
 
-    with pytest.raises(TranscriptionError):
+    with pytest.raises(TranscriptionError) as exc_info:
         _make_audio_transcriber(handler).transcribe(_audio_fixture(tmp_path))
 
     assert len(requests) == 1
+    assert isinstance(exc_info.value.__cause__, APIStatusError)
+    assert exc_info.value.__cause__.status_code == 402
 
 
-def test_transcribe_retries_api_errors_then_raises_retry_error(mocker, tmp_path):
-    """Test an HTTP error is repeated by `transcribe` alone and ends in RetryError.
-
-    The SDK's own retries are off, so three attempts mean three requests; a raw
-    `APIError` must not escape, or the summarizer would rerun the transcription.
-    """
-    mocker.patch("tenacity.nap.time.sleep")
-    requests = []
-
-    def handler(request):
-        requests.append(request)
-        return httpx.Response(503, json={"error": {"message": "unavailable"}})
-
-    with pytest.raises(RetryError) as exc_info:
-        _make_audio_transcriber(handler).transcribe(_audio_fixture(tmp_path))
-
-    assert len(requests) == 3
-    error = exc_info.value.last_attempt.exception()
-    assert isinstance(error, APIStatusError)
-    assert error.status_code == 503
-
-
-def test_transcribe_survives_a_network_error(mocker, tmp_path):
-    """Test a network error is retried, then the transcription goes through."""
-    mocker.patch("tenacity.nap.time.sleep")
+def test_transcribe_survives_transient_errors_on_the_sdks_retries(mocker, tmp_path):
+    """Test a 503 and a network error are repeated by the SDK itself."""
+    mocker.patch("openai._base_client.time.sleep")
     requests = []
 
     def handler(request):
         requests.append(request)
         if len(requests) == 1:
+            return httpx.Response(503, json={"error": {"message": "unavailable"}})
+        if len(requests) == 2:
             msg = "connection reset"
             raise httpx.ConnectError(msg, request=request)
         return httpx.Response(200, json={"text": "Hello"})
@@ -877,7 +869,7 @@ def test_transcribe_survives_a_network_error(mocker, tmp_path):
     result = _make_audio_transcriber(handler).transcribe(_audio_fixture(tmp_path))
 
     assert result == "Hello"
-    assert len(requests) == 2
+    assert len(requests) == 3
 
 
 def test_extract_video_id_uppercase_host():

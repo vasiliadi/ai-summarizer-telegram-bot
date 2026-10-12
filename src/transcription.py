@@ -58,37 +58,36 @@ class AudioTranscriber:
     """Transcribes audio files with MAI-Transcribe-2 on OpenRouter."""
 
     _MODEL: ClassVar[str] = "microsoft/mai-transcribe-2"
+    # OpenRouter's cap on a multipart upload.
+    _MAX_BYTES: ClassVar[int] = 25 * 1024 * 1024
 
     def __init__(self, client: OpenAI) -> None:
         """Store the injected `openai` client, pointed at OpenRouter."""
-        # See architecture.md → *Transcription on OpenRouter*.
-        self._client = client.with_options(max_retries=0)
+        self._client = client
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_fixed(10),
-        retry=retry_if_exception_type(APIError),
-        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
-        reraise=False,
-    )
     def transcribe(self, file: str) -> str:
         """Transcribe an audio file with MAI-Transcribe-2 on OpenRouter.
 
         Raises:
-            TranscriptionError: If the response carries no text.
-            RetryError: If OpenRouter errors persist after all retry attempts.
+            TranscriptionError: If the file is over the upload cap, or the
+                request fails after the SDK's own retries.
 
         """
-        with Path(file).open("rb") as audio:
-            result = self._client.audio.transcriptions.create(
-                model=self._MODEL,
-                file=audio,
-            )
-        text = getattr(result, "text", None)
-        if not isinstance(text, str):
-            msg = "OpenRouter transcription returned no text"
+        # See architecture.md → *Transcription on OpenRouter*.
+        path = Path(file)
+        if path.stat().st_size > self._MAX_BYTES:
+            msg = f"Audio is over OpenRouter's {self._MAX_BYTES} byte upload cap"
             raise TranscriptionError(msg)
-        return text
+        try:
+            with path.open("rb") as audio:
+                result = self._client.audio.transcriptions.create(
+                    model=self._MODEL,
+                    file=audio,
+                )
+        except APIError as e:
+            msg = "OpenRouter transcription failed"
+            raise TranscriptionError(msg) from e
+        return result.text
 
 
 class TranscriptBackend(ABC):

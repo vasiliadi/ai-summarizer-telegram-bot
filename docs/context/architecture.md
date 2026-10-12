@@ -45,8 +45,8 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   video understanding is lost. Transcription runs on OpenRouter too (MAI-Transcribe-2), and is
   never a swappable summarization model.
 - **The `openai` SDK, pointed at OpenRouter** — `config.openrouter_client` is one
-  `openai.OpenAI` on `https://openrouter.ai/api/v1`, and every model call goes through
-  `llm.py` on it. With a single provider there is no seam left for a framework to own;
+  `openai.OpenAI` on `https://openrouter.ai/api/v1`, and every summarizing call goes through
+  `llm.py` on it; `AudioTranscriber` calls the same client directly for transcription. With a single provider there is no seam left for a framework to own;
   pydantic-ai was dropped, and it also refused OpenRouter file ids. OpenRouter's own Python SDK
   was **rejected** (checked 2026-10-01): it caps `pydantic` below 2.13 and has no Langfuse
   integration. Revisit only if the cap is lifted and a Langfuse integration exists. The SDK
@@ -301,14 +301,13 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   (multipart `POST /api/v1/audio/transcriptions`) and returns the response's `text` as is. One
   synchronous request: no upload, no polling, language auto-detected. Provider limits (OpenRouter
   docs, 2026-10): a multipart upload is capped at 25 MB, about 3.5 hours at `compress_audio`'s
-  16 kbps, and upstream providers time out after **60 s per request**. A 40-minute file took
+  16 kbps (a larger file is refused before upload), and upstream providers time out after **60 s per request**. A 40-minute file took
   19.5 s (2026-10-01); recordings much past ~2 hours may hit the timeout, and would then need
   splitting with ffmpeg.
-  One retry layer: the SDK's own retries are off (`with_options(max_retries=0)`) and `transcribe`'s
-  `@retry` repeats any `openai.APIError` — HTTP 4xx/5xx, timeout or network error — three times,
-  10 s apart, ending in `RetryError`. **Do not let a raw `APIError` leave `transcribe`**:
-  `Summarizer.summarize_with_document` retries on `APIError` and would rerun the download and the
-  transcription. A response without a string `text` is a `TranscriptionError`, not retried.
+  Retries are the SDK's own (408/409/429/5xx and network errors, with backoff and Retry-After);
+  `transcribe` adds none. Whatever `APIError` outlasts them is re-raised as `TranscriptionError`.
+  **Do not let a raw `APIError` leave `transcribe`**: `Summarizer.summarize_with_document`
+  retries on `APIError` and would rerun the download and the transcription.
 - **Settings commands** use a one-time reply keyboard + `register_next_step_handler`
   (`_prompt_choice` → `proceed_*`) and validate against the allow-lists in `config.py`.
 - **One `openai` client for every thread.** `config.openrouter_client` is the synchronous
