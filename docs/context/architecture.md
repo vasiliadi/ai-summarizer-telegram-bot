@@ -302,7 +302,7 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   synchronous request: no upload, no polling, language auto-detected. A multipart upload is
   capped at 25 MB (OpenRouter docs), about 3.5 hours at `compress_audio`'s 16 kbps; a larger
   file is refused before upload. The docs' 60 s upstream timeout does not hold here: a
-  2 h 25 min Russian episode took 134–136 s and came back whole (2026-10-12).
+  2 h 25 min episode took 134–136 s and came back whole (2026-10-12).
   **OpenRouter answers 200 at once and keeps the connection open with whitespace** while the
   model runs (observed 2026-10-12), so a failure after that arrives as a 200 whose body has no
   `text` — the SDK raises nothing and parses it to `text=None`. `transcribe` turns that into a
