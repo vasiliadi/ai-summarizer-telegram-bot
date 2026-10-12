@@ -850,16 +850,25 @@ def test_transcribe_200_without_text_raises_transcription_error(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "body",
-    [b"      ", b'   {"text": "abc', b'{"text": null}'],
-    ids=["padding-only", "truncated-json", "null-text"],
+    ("content_type", "body"),
+    [
+        ("application/json", b"      "),
+        ("application/json", b'   {"text": "abc'),
+        ("application/json", b'{"text": null}'),
+        ("text/plain", b"upstream error"),
+    ],
+    ids=["padding-only", "truncated-json", "null-text", "non-json"],
 )
-def test_transcribe_malformed_200_raises_transcription_error(tmp_path, body):
+def test_transcribe_malformed_200_raises_transcription_error(
+    tmp_path,
+    content_type,
+    body,
+):
     """Test a 200 with no parsable transcript is a TranscriptionError, not a crash."""
     transcriber = _make_audio_transcriber(
         lambda _: httpx2.Response(
             200,
-            headers={"content-type": "application/json"},
+            headers={"content-type": content_type},
             content=body,
         ),
     )

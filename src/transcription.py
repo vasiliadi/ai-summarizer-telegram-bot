@@ -90,9 +90,11 @@ class AudioTranscriber:
             msg = "OpenRouter transcription failed"
             raise TranscriptionError(msg) from e
         try:
-            text = raw.parse(to=Transcription).text
+            parsed = raw.parse(to=Transcription)
         except APIError, ValueError:
-            text = None
+            parsed = None
+        # The SDK hands back a non-JSON body as a plain string.
+        text = parsed.text if isinstance(parsed, Transcription) else None
         if not isinstance(text, str):
             msg = (
                 f"OpenRouter transcription {raw.headers.get('x-generation-id')} "
