@@ -216,7 +216,7 @@ def test_summarize_youtube_transcript_carries_the_backend_prefix(mocker, prefix)
     )
 
     assert result == f"{prefix}\n\n- first point\n- second point"
-    fakes.yt_transcriber.get_transcript.assert_called_once_with(url)
+    fakes.yt_transcriber.get_transcript.assert_called_once_with(url, mocker.ANY)
     mock_sum_transcript.assert_called_once_with(
         text="YT Transcript content",
         settings=SETTINGS,
@@ -276,7 +276,9 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(
     )
 
     assert result == "Audio summary"
-    fakes.downloader.download_yt.assert_called_once_with(url)
+    # The download continues the rotation the transcript backends drew from.
+    proxies = fakes.yt_transcriber.get_transcript.call_args.args[1]
+    fakes.downloader.download_yt.assert_called_once_with(url, proxies)
     mock_via_transcription.assert_called_once_with(
         data="downloaded.ogg",
         settings=SETTINGS,
@@ -566,7 +568,7 @@ def test_summarize_youtube_uppercase_host_uses_transcript(mocker):
     )
 
     assert result == "📺\n\nYT summary"
-    fakes.yt_transcriber.get_transcript.assert_called_once_with(url)
+    fakes.yt_transcriber.get_transcript.assert_called_once_with(url, mocker.ANY)
     fakes.downloader.download_yt.assert_not_called()
 
 

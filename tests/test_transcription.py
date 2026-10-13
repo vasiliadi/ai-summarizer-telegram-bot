@@ -104,8 +104,31 @@ def test_get_yt_transcript_uses_api_primary(mocker):
     result = transcriber.get_transcript(url)
 
     assert result == PrefixedText(text="from api", prefix="📺")
-    mock_api.assert_called_once_with(url, "dQw4w9WgXcQ")
+    mock_api.assert_called_once_with(url, "dQw4w9WgXcQ", mocker.ANY)
     mock_ytdlp.assert_not_called()
+
+
+def test_get_yt_transcript_fallback_starts_on_the_next_proxy(mocker):
+    """Test the fallback backend continues the primary's rotation instead of restarting it."""
+    mocker.patch("utils.PROXIES", ["http://a:1", "http://b:2"])
+    transcriber, primary, fallback = _make_transcriber()
+    used = []
+
+    def draw(result):
+        def fetch(url, video_id, proxies):  # noqa: ARG001
+            used.append(next(proxies))
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        return fetch
+
+    mocker.patch.object(primary, "fetch", side_effect=draw(ConnectionError("down")))
+    mocker.patch.object(fallback, "fetch", side_effect=draw("from fallback"))
+
+    transcriber.get_transcript("https://youtu.be/dQw4w9WgXcQ")
+
+    assert sorted(used) == ["http://a:1", "http://b:2"]
 
 
 @pytest.mark.parametrize(
@@ -137,7 +160,7 @@ def test_get_yt_transcript_falls_back_to_ytdlp(mocker, url):
     result = transcriber.get_transcript(url)
 
     assert result == PrefixedText(text="from fallback", prefix="📹")
-    mock_ytdlp.assert_called_once_with(url, "dQw4w9WgXcQ")
+    mock_ytdlp.assert_called_once_with(url, "dQw4w9WgXcQ", mocker.ANY)
 
 
 def test_get_yt_transcript_falls_back_on_unexpected_primary_error(mocker):
@@ -162,7 +185,7 @@ def test_get_yt_transcript_falls_back_on_unexpected_primary_error(mocker):
     result = transcriber.get_transcript(url)
 
     assert result == PrefixedText(text="from fallback", prefix="📹")
-    mock_ytdlp.assert_called_once_with(url, "dQw4w9WgXcQ")
+    mock_ytdlp.assert_called_once_with(url, "dQw4w9WgXcQ", mocker.ANY)
 
 
 def test_get_yt_transcript_falls_back_on_empty_primary(mocker):
@@ -183,7 +206,7 @@ def test_get_yt_transcript_falls_back_on_empty_primary(mocker):
     result = transcriber.get_transcript(url)
 
     assert result == PrefixedText(text="from fallback", prefix="📹")
-    mock_ytdlp.assert_called_once_with(url, "dQw4w9WgXcQ")
+    mock_ytdlp.assert_called_once_with(url, "dQw4w9WgXcQ", mocker.ANY)
 
 
 def test_get_yt_transcript_both_backends_fail_raises_error(mocker):

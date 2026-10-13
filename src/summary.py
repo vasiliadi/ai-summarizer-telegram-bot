@@ -21,7 +21,13 @@ from config import DEFAULT_MODEL_ID_FOR_SUMMARY, MODEL_SPECS
 from domain import format_prefixed_summary
 from exceptions import FetchTranscriptError
 from prompts import PROMPTS
-from utils import classify_url, clean_up, compress_audio, generate_temporary_name
+from utils import (
+    classify_url,
+    clean_up,
+    compress_audio,
+    generate_temporary_name,
+    proxy_rotation,
+)
 
 if TYPE_CHECKING:
     from tenacity import _utils as tenacity_utils
@@ -217,13 +223,14 @@ class Summarizer:
         if isinstance(data, str):
             kind = classify_url(data)
             if kind in ("youtube", "castro"):
-                transcriber = (
-                    self._yt_transcriber
-                    if kind == "youtube"
-                    else self._castro_transcriber
-                )
+                # One rotation for the whole chain, so no step reuses the last proxy.
+                proxies = proxy_rotation()
                 try:
-                    transcript_result = transcriber.get_transcript(data)
+                    transcript_result = (
+                        self._yt_transcriber.get_transcript(data, proxies)
+                        if kind == "youtube"
+                        else self._castro_transcriber.get_transcript(data)
+                    )
                 except (FetchTranscriptError, ValueError) as e:
                     logger.warning(
                         "get_transcript failed, falling back to download: %s",
@@ -238,7 +245,7 @@ class Summarizer:
                         ),
                     )
                 data = (
-                    self._downloader.download_yt(data)
+                    self._downloader.download_yt(data, proxies)
                     if kind == "youtube"
                     else self._downloader.download_castro(data)
                 )

@@ -101,14 +101,14 @@ class Downloader:
         finally:
             r.close()
 
-    def download_yt(self, url: str) -> str:
+    def download_yt(self, url: str, proxies: Iterator[str] | None = None) -> str:
         """Download a YouTube video's audio as MP3, returning the temp file path.
 
         Raises:
             RetryError: If the download fails after 2 retry attempts.
 
         """
-        return self._download_yt(url, proxy_rotation())
+        return self._download_yt(url, proxies or proxy_rotation())
 
     @retry(
         stop=stop_after_attempt(2),

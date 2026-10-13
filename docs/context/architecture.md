@@ -237,12 +237,14 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   surfaces as `RetryError`, which `handle_message` maps to a user-facing
   "try again later" message. Other mapped errors: `LimitExceededError`,
   `WebParseError`. All exceptions are sent to Sentry via `capture_exception`.
-- **A retry moves to the next proxy.** `download_yt` and both YouTube transcript backends
-  build one `proxy_rotation()` per call and hand it to their `@retry`-wrapped body, which draws
-  `next()` on each attempt, so a retry never reuses the proxy that just failed (when more than
-  one is configured). Picking a proxy with `random.choice` inside the retried body is
-  **rejected**: an independent random pick repeats the failed proxy. The rotation is per call, not
-  module-global, because telebot workers run concurrently.
+- **A retry moves to the next proxy.** `Summarizer.summarize` builds one `proxy_rotation()` per
+  YouTube request and passes it down the whole chain — `ApiBackend`, then `YtDlpBackend`, then
+  `download_yt` — whose `@retry`-wrapped bodies draw `next()` on each attempt. Every attempt, across
+  steps too, uses a different proxy from the last (when more than one is configured), and the pool is
+  exhausted before any proxy repeats. Each step builds its own rotation only when called without one.
+  Picking a proxy with `random.choice` inside a retried body is **rejected**: an independent random
+  pick repeats the failed proxy. The rotation is per request, not module-global, because telebot
+  workers run concurrently.
 - **Sentry log collection is an explicit opt-in.** `config.py` passes
   `LoggingIntegration(capture_sentry_logs=True)` to `sentry_sdk.init`; without it stdlib `logging`
   records stop reaching Sentry Logs while error capture keeps working (pinned by

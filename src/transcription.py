@@ -114,8 +114,16 @@ class TranscriptBackend(ABC):
     prefix: str
 
     @abstractmethod
-    def fetch(self, url: str, video_id: str) -> str:
-        """Fetch transcript text; backends use the argument(s) they need."""
+    def fetch(
+        self,
+        url: str,
+        video_id: str,
+        proxies: Iterator[str] | None = None,
+    ) -> str:
+        """Fetch transcript text; backends use the argument(s) they need.
+
+        Each attempt draws the next proxy from `proxies`; a fresh rotation if omitted.
+        """
 
 
 class ApiBackend(TranscriptBackend):
@@ -124,7 +132,12 @@ class ApiBackend(TranscriptBackend):
     name = "youtube_transcript_api"
     prefix = "📺"
 
-    def fetch(self, url: str, video_id: str) -> str:  # noqa: ARG002
+    def fetch(
+        self,
+        url: str,  # noqa: ARG002
+        video_id: str,
+        proxies: Iterator[str] | None = None,
+    ) -> str:
         """Retrieve and format a YouTube transcript via youtube_transcript_api.
 
         Raises:
@@ -133,7 +146,7 @@ class ApiBackend(TranscriptBackend):
             RetryError: If transient errors persist after retries.
 
         """
-        return self._fetch(video_id, proxy_rotation())
+        return self._fetch(video_id, proxies or proxy_rotation())
 
     @retry(
         stop=stop_after_attempt(2),
@@ -214,7 +227,12 @@ class YtDlpBackend(TranscriptBackend):
                 prev = clean
         return "\n".join(out)
 
-    def fetch(self, url: str, video_id: str) -> str:  # noqa: ARG002
+    def fetch(
+        self,
+        url: str,
+        video_id: str,  # noqa: ARG002
+        proxies: Iterator[str] | None = None,
+    ) -> str:
         """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
         Prefers manual subtitles (English first), else original-language auto captions.
@@ -225,7 +243,7 @@ class YtDlpBackend(TranscriptBackend):
             RetryError: If TranscriptDownloadError persists after all retries.
 
         """
-        return self._fetch(url, proxy_rotation())
+        return self._fetch(url, proxies or proxy_rotation())
 
     @retry(
         stop=stop_after_attempt(2),
@@ -398,6 +416,7 @@ class YouTubeTranscriber:
         backend: TranscriptBackend,
         url: str,
         video_id: str,
+        proxies: Iterator[str],
     ) -> str:
         """Fetch from a backend; an empty transcript raises, so the caller falls back.
 
@@ -405,14 +424,20 @@ class YouTubeTranscriber:
             FetchTranscriptError: If the backend returns empty content.
 
         """
-        text = backend.fetch(url, video_id)
+        text = backend.fetch(url, video_id, proxies)
         if not text.strip():
             msg = f"{backend.name} returned an empty transcript"
             raise FetchTranscriptError(msg)
         return text
 
-    def get_transcript(self, url: str) -> PrefixedText:
+    def get_transcript(
+        self,
+        url: str,
+        proxies: Iterator[str] | None = None,
+    ) -> PrefixedText:
         """Retrieve a YouTube video's transcript, falling back on any primary failure.
+
+        Both backends share one proxy rotation; the fallback starts on the next proxy.
 
         Returns:
             PrefixedText: The transcript and the prefix of the backend that served it.
@@ -427,8 +452,9 @@ class YouTubeTranscriber:
             msg = "Unknown URL"
             raise ValueError(msg)
 
+        proxies = proxies or proxy_rotation()
         try:
-            text = self._fetch_validated(self._primary, url, video_id)
+            text = self._fetch_validated(self._primary, url, video_id, proxies)
         except Exception as primary_error:
             # Any primary failure — expected or not — should try the fallback;
             # crashing here would skip the second engine entirely.
@@ -439,7 +465,7 @@ class YouTubeTranscriber:
                 primary_error,
             )
             try:
-                text = self._fetch_validated(self._fallback, url, video_id)
+                text = self._fetch_validated(self._fallback, url, video_id, proxies)
             except Exception as fallback_error:
                 logger.warning(
                     "%s fallback backend also failed: %s",
