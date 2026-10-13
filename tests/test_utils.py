@@ -1,3 +1,5 @@
+import logging
+
 import utils
 from utils import classify_url, clean_up, compress_audio, generate_temporary_name
 
@@ -137,6 +139,15 @@ def test_proxy_rotation_never_repeats_consecutively(mocker):
     drawn = [next(rotation) for _ in range(6)]
     assert sorted(drawn[:3]) == sorted(pool)
     assert drawn[3:] == drawn[:3]
+
+
+def test_proxy_rotation_logs_host_without_credentials(mocker, caplog):
+    """Test proxy_rotation logs each drawn proxy as host:port, never its credentials."""
+    mocker.patch.object(utils, "PROXIES", ["https://user:secret@proxy.com:1234"])
+    with caplog.at_level(logging.INFO, logger="utils"):
+        next(utils.proxy_rotation())
+    assert "Using proxy proxy.com:1234" in caplog.text
+    assert "secret" not in caplog.text
 
 
 def test_clean_up_removes_an_unprotected_file(tmp_path, mocker):

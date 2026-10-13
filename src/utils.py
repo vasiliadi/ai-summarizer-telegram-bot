@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import logging
 import random
 import subprocess
 from pathlib import Path
@@ -12,6 +13,8 @@ from config import CASTRO_HOST, PROTECTED_FILES, PROXIES, YT_HOSTS
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+logger = logging.getLogger(__name__)
 
 
 def get_proxy() -> str:
@@ -26,7 +29,14 @@ def proxy_rotation() -> Iterator[str]:
     """
     if not PROXIES:
         return itertools.repeat("")
-    return itertools.cycle(random.sample(PROXIES, len(PROXIES)))
+    return _logged_cycle(random.sample(PROXIES, len(PROXIES)))
+
+
+def _logged_cycle(proxies: list[str]) -> Iterator[str]:
+    for proxy in itertools.cycle(proxies):
+        # host:port only; the URL's userinfo carries the credentials.
+        logger.info("Using proxy %s", urlsplit(proxy).netloc.rpartition("@")[2])
+        yield proxy
 
 
 def classify_url(url: str) -> str | None:

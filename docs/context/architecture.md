@@ -137,7 +137,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `config.py` | All third-party clients (by design — see Cross-cutting patterns) + the `MODEL_SPECS` registry, labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION` + `prompt_version` (short hash over both, for trace metadata). |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. `SummarySettings` — the per-request settings every `Summarizer` entry point takes. |
-| `utils.py` | Proxy pick and per-call proxy rotation, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
+| `utils.py` | Proxy pick and per-call proxy rotation (logs each drawn proxy as `host:port`), temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
 | `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight UTC, resetting every user's daily budget. |
 | `scripts/db.py` | Standalone bootstrap script — creates the `users` table via its own `Base`/engine (separate from `src/models.py`); runs `create_all` at import. |
 | `scripts/cloud_session_start.sh` | Claude Code SessionStart hook — in cloud sessions only, runs `uv sync --frozen` and installs pre-commit hooks; see *Cloud Sessions* in `uv-guide.md`. |
