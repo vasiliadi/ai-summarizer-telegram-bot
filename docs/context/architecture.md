@@ -242,7 +242,8 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   `download_yt` — whose `@retry`-wrapped bodies draw `next()` on each attempt. Every attempt, across
   steps too, uses a different proxy from the last (when more than one is configured), and the pool is
   exhausted before any proxy repeats. `proxies` is a required argument on every step, so no step can
-  silently fall back to a fresh rotation.
+  silently fall back to a fresh rotation. `config.py` drops duplicate `PROXY` entries: a proxy listed
+  twice could otherwise come up twice in a row.
   Picking a proxy with `random.choice` inside a retried body is **rejected**: an independent random
   pick repeats the failed proxy. The rotation is per request, not module-global, because telebot
   workers run concurrently.

@@ -50,7 +50,7 @@ REDIS_URL = os.environ["REDIS_URL"]
 RATE_LIMITER_URL = f"{REDIS_URL}/0"
 
 
-# Proxy; deduplicated so a rotation never yields one proxy twice in a row.
+# Deduplicated; see architecture.md → *A retry moves to the next proxy*.
 PROXIES: list[str] = list(
     dict.fromkeys(
         p.strip() for p in os.environ.get("PROXY", "").split(",") if p.strip()
