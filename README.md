@@ -79,7 +79,7 @@ Pass in an empty string to `PROXY` for direct connection. \
 Or use `schema`://`username`:`password`@`proxy_address`:`port` \
 For example `https://user:password@proxy.com:1234`
 
-Multiple proxies can be supplied as a comma-separated list to mitigate IP blocking. A request starts on a random proxy, and each retry of a YouTube download or transcript fetch moves to a different one. Whitespace around entries is trimmed.
+Multiple proxies can be supplied as a comma-separated list to mitigate IP blocking. A request starts on a random proxy, and each retry of a YouTube download or transcript fetch moves to a different one. Whitespace around entries is trimmed and duplicate entries are dropped.
 
 Only HTTP/HTTPS proxies are supported. The last version with SOCKS proxy support is [0.13.0](https://github.com/vasiliadi/ai-summarizer-telegram-bot/releases/tag/0.13.0).
 
