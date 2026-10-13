@@ -101,27 +101,11 @@ def test_compress_audio_calls_ffmpeg(mocker):
     )
 
 
-def test_get_proxy_returns_empty_when_no_proxies(mocker):
-    """Test get_proxy returns an empty string when no proxies are configured."""
-    mocker.patch.object(utils, "PROXIES", [])
-    assert utils.get_proxy() == ""
-
-
-def test_get_proxy_returns_single_value(mocker):
-    """Test get_proxy always returns the sole configured proxy."""
+def test_proxy_rotation_repeats_a_sole_proxy(mocker):
+    """Test proxy_rotation keeps yielding the only configured proxy."""
     mocker.patch.object(utils, "PROXIES", ["http://only:1"])
-    for _ in range(5):
-        assert utils.get_proxy() == "http://only:1"
-
-
-def test_get_proxy_picks_from_list(mocker):
-    """Test get_proxy selects a proxy from the configured pool at random."""
-    pool = ["http://a:1", "http://b:2", "http://c:3"]
-    mocker.patch.object(utils, "PROXIES", pool)
-    mocker.patch("utils.random.choice", side_effect=pool)
-    assert utils.get_proxy() == "http://a:1"
-    assert utils.get_proxy() == "http://b:2"
-    assert utils.get_proxy() == "http://c:3"
+    rotation = utils.proxy_rotation()
+    assert [next(rotation) for _ in range(3)] == ["http://only:1"] * 3
 
 
 def test_proxy_rotation_yields_empty_when_no_proxies(mocker):

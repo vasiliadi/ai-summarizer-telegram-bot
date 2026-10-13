@@ -17,11 +17,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def get_proxy() -> str:
-    """Return a random proxy URL from PROXIES, or '' if none configured."""
-    return random.choice(PROXIES) if PROXIES else ""  # noqa: S311
-
-
 def proxy_rotation() -> Iterator[str]:
     """Cycle PROXIES in a random order, or yield '' forever if none configured.
 
