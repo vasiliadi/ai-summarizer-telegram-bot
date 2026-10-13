@@ -404,6 +404,23 @@ def test_api_fetch_uses_proxy_when_configured(mocker):
     mock_ytt.assert_called_once_with(proxy_config=mock_proxy_cfg.return_value)
 
 
+def test_api_fetch_connects_directly_when_no_proxy(mocker):
+    """Test ApiBackend.fetch builds YouTubeTranscriptApi without a proxy config."""
+    mocker.patch("utils.PROXIES", [])
+    mock_proxy_cfg = mocker.patch("transcription.GenericProxyConfig")
+    mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
+    mocker.patch(
+        "transcription.TextFormatter",
+    ).return_value.format_transcript.return_value = "Hello"
+    mock_ytt.return_value.fetch.return_value = []
+
+    result = ApiBackend().fetch(URL, "vid")
+
+    assert result == "Hello"
+    mock_proxy_cfg.assert_not_called()
+    mock_ytt.assert_called_once_with()
+
+
 def test_ytdlp_fetch_download_error_logged_and_retried(mocker, tmp_path):
     """Test YtDlpBackend.fetch retries DownloadError from yt-dlp twice then raises RetryError."""
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
