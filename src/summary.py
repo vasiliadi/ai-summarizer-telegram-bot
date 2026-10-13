@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
+from functools import partial
 from textwrap import dedent
 from typing import TYPE_CHECKING, cast
 
@@ -223,14 +224,19 @@ class Summarizer:
         if isinstance(data, str):
             kind = classify_url(data)
             if kind in ("youtube", "castro"):
-                # One rotation for the whole chain, so no step reuses the last proxy.
-                proxies = proxy_rotation()
-                try:
-                    transcript_result = (
-                        self._yt_transcriber.get_transcript(data, proxies)
-                        if kind == "youtube"
-                        else self._castro_transcriber.get_transcript(data)
+                if kind == "youtube":
+                    # One rotation for the whole chain: no step reuses the last proxy.
+                    proxies = proxy_rotation()
+                    get_transcript = partial(
+                        self._yt_transcriber.get_transcript,
+                        proxies=proxies,
                     )
+                    download = partial(self._downloader.download_yt, proxies=proxies)
+                else:
+                    get_transcript = self._castro_transcriber.get_transcript
+                    download = self._downloader.download_castro
+                try:
+                    transcript_result = get_transcript(data)
                 except (FetchTranscriptError, ValueError) as e:
                     logger.warning(
                         "get_transcript failed, falling back to download: %s",
@@ -244,11 +250,7 @@ class Summarizer:
                             settings=settings,
                         ),
                     )
-                data = (
-                    self._downloader.download_yt(data, proxies)
-                    if kind == "youtube"
-                    else self._downloader.download_castro(data)
-                )
+                data = download(data)
         if isinstance(data, File):
             data = self._downloader.download_tg(data, ext=".ogg")
 

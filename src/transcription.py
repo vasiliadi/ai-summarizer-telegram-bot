@@ -41,11 +41,7 @@ from exceptions import (
     TranscriptDownloadError,
     TranscriptionError,
 )
-from utils import (
-    clean_up,
-    generate_temporary_name,
-    proxy_rotation,
-)
+from utils import clean_up, generate_temporary_name
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -118,11 +114,11 @@ class TranscriptBackend(ABC):
         self,
         url: str,
         video_id: str,
-        proxies: Iterator[str] | None = None,
+        proxies: Iterator[str],
     ) -> str:
         """Fetch transcript text; backends use the argument(s) they need.
 
-        Each attempt draws the next proxy from `proxies`; a fresh rotation if omitted.
+        Each retry attempt draws the next proxy from `proxies`.
         """
 
 
@@ -131,22 +127,6 @@ class ApiBackend(TranscriptBackend):
 
     name = "youtube_transcript_api"
     prefix = "📺"
-
-    def fetch(
-        self,
-        url: str,  # noqa: ARG002
-        video_id: str,
-        proxies: Iterator[str] | None = None,
-    ) -> str:
-        """Retrieve and format a YouTube transcript via youtube_transcript_api.
-
-        Raises:
-            NoTranscriptFound: If no transcript is found in any language.
-            CouldNotRetrieveTranscript: Subclasses propagate to the caller.
-            RetryError: If transient errors persist after retries.
-
-        """
-        return self._fetch(video_id, proxies or proxy_rotation())
 
     @retry(
         stop=stop_after_attempt(2),
@@ -164,7 +144,20 @@ class ApiBackend(TranscriptBackend):
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
-    def _fetch(self, video_id: str, proxies: Iterator[str]) -> str:
+    def fetch(
+        self,
+        url: str,  # noqa: ARG002
+        video_id: str,
+        proxies: Iterator[str],
+    ) -> str:
+        """Retrieve and format a YouTube transcript via youtube_transcript_api.
+
+        Raises:
+            NoTranscriptFound: If no transcript is found in any language.
+            CouldNotRetrieveTranscript: Subclasses propagate to the caller.
+            RetryError: If transient errors persist after retries.
+
+        """
         proxy = next(proxies)
         if proxy:
             ytt_api = YouTubeTranscriptApi(
@@ -227,11 +220,18 @@ class YtDlpBackend(TranscriptBackend):
                 prev = clean
         return "\n".join(out)
 
-    def fetch(
+    @retry(
+        stop=stop_after_attempt(2),
+        wait=wait_fixed(10),
+        retry=retry_if_exception_type(TranscriptDownloadError),
+        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+        reraise=False,
+    )
+    def fetch(  # noqa: C901, PLR0912, PLR0915
         self,
         url: str,
         video_id: str,  # noqa: ARG002
-        proxies: Iterator[str] | None = None,
+        proxies: Iterator[str],
     ) -> str:
         """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
@@ -243,20 +243,6 @@ class YtDlpBackend(TranscriptBackend):
             RetryError: If TranscriptDownloadError persists after all retries.
 
         """
-        return self._fetch(url, proxies or proxy_rotation())
-
-    @retry(
-        stop=stop_after_attempt(2),
-        wait=wait_fixed(10),
-        retry=retry_if_exception_type(TranscriptDownloadError),
-        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
-        reraise=False,
-    )
-    def _fetch(  # noqa: C901, PLR0912, PLR0915
-        self,
-        url: str,
-        proxies: Iterator[str],
-    ) -> str:
         temp_basename = generate_temporary_name()
         proxy = next(proxies)
         probe_opts: dict[str, Any] = {
@@ -433,7 +419,7 @@ class YouTubeTranscriber:
     def get_transcript(
         self,
         url: str,
-        proxies: Iterator[str] | None = None,
+        proxies: Iterator[str],
     ) -> PrefixedText:
         """Retrieve a YouTube video's transcript, falling back on any primary failure.
 
@@ -452,7 +438,6 @@ class YouTubeTranscriber:
             msg = "Unknown URL"
             raise ValueError(msg)
 
-        proxies = proxies or proxy_rotation()
         try:
             text = self._fetch_validated(self._primary, url, video_id, proxies)
         except Exception as primary_error:

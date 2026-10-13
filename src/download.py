@@ -21,7 +21,7 @@ from tenacity import (
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from utils import generate_temporary_name, proxy_rotation
+from utils import generate_temporary_name
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -101,15 +101,6 @@ class Downloader:
         finally:
             r.close()
 
-    def download_yt(self, url: str, proxies: Iterator[str] | None = None) -> str:
-        """Download a YouTube video's audio as MP3, returning the temp file path.
-
-        Raises:
-            RetryError: If the download fails after 2 retry attempts.
-
-        """
-        return self._download_yt(url, proxies or proxy_rotation())
-
     @retry(
         stop=stop_after_attempt(2),
         wait=wait_fixed(10),
@@ -117,7 +108,13 @@ class Downloader:
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
-    def _download_yt(self, url: str, proxies: Iterator[str]) -> str:
+    def download_yt(self, url: str, proxies: Iterator[str]) -> str:
+        """Download a YouTube video's audio as MP3, returning the temp file path.
+
+        Raises:
+            RetryError: If the download fails after 2 retry attempts.
+
+        """
         temporary_file_name = generate_temporary_name(ext=".mp3")
         output_stem = temporary_file_name.split(".", maxsplit=1)[0]
         proxy = next(proxies)

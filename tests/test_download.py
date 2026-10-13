@@ -6,6 +6,7 @@ from tenacity import RetryError
 from yt_dlp.utils import DownloadError
 
 from download import Downloader
+from utils import proxy_rotation
 
 
 def _audio_only_info():
@@ -159,7 +160,7 @@ def test_download_yt_happy_path(mocker, downloader):
         mocker.MagicMock(__enter__=mocker.MagicMock(return_value=download_ydl)),
     ]
 
-    result = downloader.download_yt("https://youtube.com/watch?v=123")
+    result = downloader.download_yt("https://youtube.com/watch?v=123", proxy_rotation())
 
     assert result.endswith(".mp3")
     output_stem = result.split(".", maxsplit=1)[0]
@@ -195,7 +196,7 @@ def test_download_yt_extract_info_returns_none(mocker, downloader):
     mock_ydl.return_value.__enter__.return_value = info_ydl
 
     with pytest.raises(RetryError):
-        downloader.download_yt("https://youtube.com/watch?v=123")
+        downloader.download_yt("https://youtube.com/watch?v=123", proxy_rotation())
 
 
 def test_download_yt_removes_partials_on_download_error(mocker, downloader):
@@ -203,7 +204,7 @@ def test_download_yt_removes_partials_on_download_error(mocker, downloader):
     mock_cwd, partial = _arrange_failing_yt_download(mocker)
 
     with pytest.raises(RetryError):
-        downloader.download_yt("https://youtube.com/watch?v=123")
+        downloader.download_yt("https://youtube.com/watch?v=123", proxy_rotation())
 
     mock_cwd.return_value.glob.assert_called_with("temp_yt*")
     partial.unlink.assert_called_with(missing_ok=True)
@@ -215,7 +216,7 @@ def test_download_yt_unlink_oserror_does_not_hide_download_error(mocker, downloa
 
     # PermissionError from unlink must not surface; RetryError wraps DownloadError.
     with pytest.raises(RetryError):
-        downloader.download_yt("https://youtube.com/watch?v=123")
+        downloader.download_yt("https://youtube.com/watch?v=123", proxy_rotation())
 
 
 def test_download_yt_keeps_file_on_success(mocker, downloader):
@@ -231,7 +232,7 @@ def test_download_yt_keeps_file_on_success(mocker, downloader):
     ]
     mock_cwd = mocker.patch("download.Path.cwd")
 
-    result = downloader.download_yt("https://youtube.com/watch?v=123")
+    result = downloader.download_yt("https://youtube.com/watch?v=123", proxy_rotation())
 
     assert result.endswith(".mp3")
     mock_cwd.return_value.glob.assert_not_called()
@@ -456,7 +457,7 @@ def test_download_yt_switches_proxy_on_retry(mocker, downloader):
     mock_ydl.return_value.__enter__.return_value.extract_info.return_value = None
 
     with pytest.raises(RetryError):
-        downloader.download_yt("https://youtube.com/watch?v=123")
+        downloader.download_yt("https://youtube.com/watch?v=123", proxy_rotation())
 
     used = [call.args[0]["proxy"] for call in mock_ydl.call_args_list]
     assert sorted(used) == ["http://a:1", "http://b:2"]

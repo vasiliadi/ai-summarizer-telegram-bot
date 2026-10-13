@@ -1,3 +1,4 @@
+import itertools
 import logging
 
 import utils
@@ -120,9 +121,9 @@ def test_proxy_rotation_never_repeats_consecutively(mocker):
     pool = ["http://a:1", "http://b:2", "http://c:3"]
     mocker.patch.object(utils, "PROXIES", pool)
     rotation = utils.proxy_rotation()
-    drawn = [next(rotation) for _ in range(6)]
+    drawn = [next(rotation) for _ in range(7)]
     assert sorted(drawn[:3]) == sorted(pool)
-    assert drawn[3:] == drawn[:3]
+    assert all(a != b for a, b in itertools.pairwise(drawn))
 
 
 def test_proxy_rotation_logs_host_without_credentials(mocker, caplog):
