@@ -21,9 +21,10 @@ from tenacity import (
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from utils import generate_temporary_name, get_proxy
+from utils import generate_temporary_name, proxy_rotation
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from typing import Any
 
     from telebot.types import File
@@ -100,13 +101,6 @@ class Downloader:
         finally:
             r.close()
 
-    @retry(
-        stop=stop_after_attempt(2),
-        wait=wait_fixed(10),
-        retry=retry_if_exception_type(DownloadError),
-        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
-        reraise=False,
-    )
     def download_yt(self, url: str) -> str:
         """Download a YouTube video's audio as MP3, returning the temp file path.
 
@@ -114,9 +108,19 @@ class Downloader:
             RetryError: If the download fails after 2 retry attempts.
 
         """
+        return self._download_yt(url, proxy_rotation())
+
+    @retry(
+        stop=stop_after_attempt(2),
+        wait=wait_fixed(10),
+        retry=retry_if_exception_type(DownloadError),
+        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+        reraise=False,
+    )
+    def _download_yt(self, url: str, proxies: Iterator[str]) -> str:
         temporary_file_name = generate_temporary_name(ext=".mp3")
         output_stem = temporary_file_name.split(".", maxsplit=1)[0]
-        proxy = get_proxy()
+        proxy = next(proxies)
         with YoutubeDL({"proxy": proxy, "nocheckcertificate": False}) as ydl:
             info = ydl.extract_info(url, download=False)
         if info is None:

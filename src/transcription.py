@@ -44,10 +44,12 @@ from exceptions import (
 from utils import (
     clean_up,
     generate_temporary_name,
-    get_proxy,
+    proxy_rotation,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from openai import OpenAI
     from tenacity import _utils as tenacity_utils
 
@@ -122,6 +124,17 @@ class ApiBackend(TranscriptBackend):
     name = "youtube_transcript_api"
     prefix = "📺"
 
+    def fetch(self, url: str, video_id: str) -> str:  # noqa: ARG002
+        """Retrieve and format a YouTube transcript via youtube_transcript_api.
+
+        Raises:
+            NoTranscriptFound: If no transcript is found in any language.
+            CouldNotRetrieveTranscript: Subclasses propagate to the caller.
+            RetryError: If transient errors persist after retries.
+
+        """
+        return self._fetch(video_id, proxy_rotation())
+
     @retry(
         stop=stop_after_attempt(2),
         wait=wait_fixed(10),
@@ -138,16 +151,8 @@ class ApiBackend(TranscriptBackend):
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
-    def fetch(self, url: str, video_id: str) -> str:  # noqa: ARG002
-        """Retrieve and format a YouTube transcript via youtube_transcript_api.
-
-        Raises:
-            NoTranscriptFound: If no transcript is found in any language.
-            CouldNotRetrieveTranscript: Subclasses propagate to the caller.
-            RetryError: If transient errors persist after retries.
-
-        """
-        proxy = get_proxy()
+    def _fetch(self, video_id: str, proxies: Iterator[str]) -> str:
+        proxy = next(proxies)
         if proxy:
             ytt_api = YouTubeTranscriptApi(
                 proxy_config=GenericProxyConfig(https_url=proxy),
@@ -209,18 +214,7 @@ class YtDlpBackend(TranscriptBackend):
                 prev = clean
         return "\n".join(out)
 
-    @retry(
-        stop=stop_after_attempt(2),
-        wait=wait_fixed(10),
-        retry=retry_if_exception_type(TranscriptDownloadError),
-        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
-        reraise=False,
-    )
-    def fetch(  # noqa: C901, PLR0912, PLR0915
-        self,
-        url: str,
-        video_id: str,  # noqa: ARG002
-    ) -> str:
+    def fetch(self, url: str, video_id: str) -> str:  # noqa: ARG002
         """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
         Prefers manual subtitles (English first), else original-language auto captions.
@@ -231,8 +225,22 @@ class YtDlpBackend(TranscriptBackend):
             RetryError: If TranscriptDownloadError persists after all retries.
 
         """
+        return self._fetch(url, proxy_rotation())
+
+    @retry(
+        stop=stop_after_attempt(2),
+        wait=wait_fixed(10),
+        retry=retry_if_exception_type(TranscriptDownloadError),
+        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+        reraise=False,
+    )
+    def _fetch(  # noqa: C901, PLR0912, PLR0915
+        self,
+        url: str,
+        proxies: Iterator[str],
+    ) -> str:
         temp_basename = generate_temporary_name()
-        proxy = get_proxy()
+        proxy = next(proxies)
         probe_opts: dict[str, Any] = {
             "proxy": proxy,
             "noplaylist": True,

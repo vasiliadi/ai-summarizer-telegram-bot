@@ -446,3 +446,17 @@ def test_stream_to_file_unlink_oserror_does_not_hide_write_error(mocker, downloa
     # PermissionError from unlink must not surface; original OSError propagates.
     with pytest.raises(OSError, match="connection reset"):
         downloader.download_tg(mock_file, ext=".ext")
+
+
+def test_download_yt_switches_proxy_on_retry(mocker, downloader):
+    """Test download_yt uses a different proxy on the retry attempt."""
+    mocker.patch("time.sleep")  # suppress tenacity wait between retries
+    mocker.patch("utils.PROXIES", ["http://a:1", "http://b:2"])
+    mock_ydl = mocker.patch("download.YoutubeDL")
+    mock_ydl.return_value.__enter__.return_value.extract_info.return_value = None
+
+    with pytest.raises(RetryError):
+        downloader.download_yt("https://youtube.com/watch?v=123")
+
+    used = [call.args[0]["proxy"] for call in mock_ydl.call_args_list]
+    assert sorted(used) == ["http://a:1", "http://b:2"]

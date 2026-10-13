@@ -137,7 +137,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `config.py` | All third-party clients (by design — see Cross-cutting patterns) + the `MODEL_SPECS` registry, labels, defaults, limits, constants. Side-effectful import (Sentry, logging, env). |
 | `prompts.py` | `PROMPTS` (strategy templates) + `SYSTEM_INSTRUCTION` + `prompt_version` (short hash over both, for trace metadata). |
 | `domain.py` | `PrefixedText` + `format_prefixed_summary` — source-provenance prefixing. `SummarySettings` — the per-request settings every `Summarizer` entry point takes. |
-| `utils.py` | Proxy pick, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
+| `utils.py` | Proxy pick and per-call proxy rotation, temp-name gen, `classify_url` (shared URL routing), `compress_audio` (ffmpeg Opus 16k mono), `clean_up`. |
 | `scripts/cron.py` | Modal serverless cron — clears the bot's per-user daily request-limit counters (`RPD`) in Valkey at midnight UTC, resetting every user's daily budget. |
 | `scripts/db.py` | Standalone bootstrap script — creates the `users` table via its own `Base`/engine (separate from `src/models.py`); runs `create_all` at import. |
 | `scripts/cloud_session_start.sh` | Claude Code SessionStart hook — in cloud sessions only, runs `uv sync --frozen` and installs pre-commit hooks; see *Cloud Sessions* in `uv-guide.md`. |
@@ -237,6 +237,12 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   surfaces as `RetryError`, which `handle_message` maps to a user-facing
   "try again later" message. Other mapped errors: `LimitExceededError`,
   `WebParseError`. All exceptions are sent to Sentry via `capture_exception`.
+- **A retry moves to the next proxy.** `download_yt` and both YouTube transcript backends
+  build one `proxy_rotation()` per call and hand it to their `@retry`-wrapped body, which draws
+  `next()` on each attempt, so a retry never reuses the proxy that just failed (when more than
+  one is configured). Calling `get_proxy()` inside the retried body is **rejected**: an
+  independent random pick repeats the failed proxy. The rotation is per call, not
+  module-global, because telebot workers run concurrently.
 - **Sentry log collection is an explicit opt-in.** `config.py` passes
   `LoggingIntegration(capture_sentry_logs=True)` to `sentry_sdk.init`; without it stdlib `logging`
   records stop reaching Sentry Logs while error capture keeps working (pinned by

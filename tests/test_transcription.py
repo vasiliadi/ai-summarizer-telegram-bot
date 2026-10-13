@@ -363,10 +363,10 @@ def test_vtt_to_text_keeps_nonconsecutive_duplicates(tmp_path):
 
 def test_api_fetch_uses_proxy_when_configured(mocker):
     """Test ApiBackend.fetch passes GenericProxyConfig when PROXY is set."""
-    # get_proxy() reads config.PROXIES, which python-dotenv backfills from the
+    # proxy_rotation() reads config.PROXIES, which python-dotenv backfills from the
     # developer's real .env (conftest.py never sets PROXY) — patch it so the
     # test result does not depend on what happens to be in that file.
-    mocker.patch("transcription.get_proxy", return_value="http://proxy:8080")
+    mocker.patch("utils.PROXIES", ["http://proxy:8080"])
     mock_proxy_cfg = mocker.patch("transcription.GenericProxyConfig")
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
     mocker.patch(
@@ -528,7 +528,7 @@ def test_ytdlp_fetch_succeeds_on_second_attempt(mocker, tmp_path):
 
 def test_api_fetch_propagates_non_retryable_error(mocker):
     """Test ApiBackend.fetch propagates CouldNotRetrieveTranscript subclasses."""
-    mocker.patch("transcription.get_proxy", return_value="")
+    mocker.patch("utils.PROXIES", [])
     mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
     mock_ytt.return_value.fetch.side_effect = TranscriptsDisabled("vid")
 
@@ -557,6 +557,21 @@ def test_api_fetch_retries_on_retryable_exception(mocker, exc):
         ApiBackend().fetch(URL, "vid")
 
     assert mock_ytt.return_value.fetch.call_count == 2
+
+
+def test_api_fetch_switches_proxy_on_retry(mocker):
+    """Test ApiBackend.fetch uses a different proxy on the retry attempt."""
+    mocker.patch("time.sleep")
+    mocker.patch("utils.PROXIES", ["http://a:1", "http://b:2"])
+    mock_proxy_cfg = mocker.patch("transcription.GenericProxyConfig")
+    mock_ytt = mocker.patch("transcription.YouTubeTranscriptApi")
+    mock_ytt.return_value.fetch.side_effect = RequestBlocked("vid")
+
+    with pytest.raises(RetryError):
+        ApiBackend().fetch(URL, "vid")
+
+    used = [call.kwargs["https_url"] for call in mock_proxy_cfg.call_args_list]
+    assert sorted(used) == ["http://a:1", "http://b:2"]
 
 
 # Track selection, in the order YtDlpBackend.fetch applies it: genuine manual
@@ -740,7 +755,7 @@ def test_ytdlp_fetch_pins_proxy_across_probe_and_download(
     """Test YtDlpBackend.fetch resolves the proxy once and reuses it for both YoutubeDL instances."""
     mocker.patch("transcription.generate_temporary_name", return_value="fake-uuid")
     mocker.patch("transcription.Path.cwd", return_value=tmp_path)
-    mocker.patch("transcription.get_proxy", return_value="http://proxy.example:8080")
+    mocker.patch("utils.PROXIES", ["http://proxy.example:8080"])
 
     vtt_path = tmp_path / "fake-uuid.en.vtt"
     vtt_path.write_text(
@@ -1067,3 +1082,18 @@ def test_castro_transcript_connection_error_raises_fetch_error(mocker):
 
     with pytest.raises(FetchTranscriptError, match="Failed to fetch"):
         CastroTranscriber().get_transcript(CASTRO_URL)
+
+
+def test_ytdlp_fetch_switches_proxy_on_retry(mocker):
+    """Test YtDlpBackend.fetch uses a different proxy on the retry attempt."""
+    mocker.patch("time.sleep")
+    mocker.patch("utils.PROXIES", ["http://a:1", "http://b:2"])
+    mock_ydl_cls = mocker.patch("transcription.YoutubeDL")
+    ctx = mock_ydl_cls.return_value.__enter__.return_value
+    ctx.extract_info.side_effect = DownloadError("blocked")
+
+    with pytest.raises(RetryError):
+        YtDlpBackend().fetch(URL, "test")
+
+    used = [call.args[0]["proxy"] for call in mock_ydl_cls.call_args_list]
+    assert sorted(used) == ["http://a:1", "http://b:2"]

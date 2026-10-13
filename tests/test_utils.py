@@ -122,6 +122,23 @@ def test_get_proxy_picks_from_list(mocker):
     assert utils.get_proxy() == "http://c:3"
 
 
+def test_proxy_rotation_yields_empty_when_no_proxies(mocker):
+    """Test proxy_rotation yields '' indefinitely when no proxies are configured."""
+    mocker.patch.object(utils, "PROXIES", [])
+    rotation = utils.proxy_rotation()
+    assert [next(rotation) for _ in range(3)] == ["", "", ""]
+
+
+def test_proxy_rotation_never_repeats_consecutively(mocker):
+    """Test proxy_rotation visits every proxy before reusing one, never back to back."""
+    pool = ["http://a:1", "http://b:2", "http://c:3"]
+    mocker.patch.object(utils, "PROXIES", pool)
+    rotation = utils.proxy_rotation()
+    drawn = [next(rotation) for _ in range(6)]
+    assert sorted(drawn[:3]) == sorted(pool)
+    assert drawn[3:] == drawn[:3]
+
+
 def test_clean_up_removes_an_unprotected_file(tmp_path, mocker):
     """Test that clean_up removes a single unprotected file."""
     file = tmp_path / "temp.mp3"
