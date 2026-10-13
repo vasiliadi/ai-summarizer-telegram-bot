@@ -3,7 +3,7 @@ from dataclasses import replace
 from textwrap import dedent
 from types import SimpleNamespace
 
-import httpx
+import httpx2
 import pytest
 from openai import APIStatusError
 from telebot.types import File
@@ -54,10 +54,10 @@ def _make_summarizer(mocker):
 
 def _api_error(status_code=400):
     """An `openai` SDK error as OpenRouter's HTTP failures surface."""
-    request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+    request = httpx2.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
     return APIStatusError(
         "Model unavailable",
-        response=httpx.Response(status_code, request=request),
+        response=httpx2.Response(status_code, request=request),
         body=None,
     )
 

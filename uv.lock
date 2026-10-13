@@ -51,6 +51,7 @@ modal = [
 test = [
     { name = "coverage" },
     { name = "fakeredis" },
+    { name = "httpx2" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
@@ -95,6 +96,7 @@ modal = [{ name = "redis", specifier = "==8.1.0" }]
 test = [
     { name = "coverage", specifier = "==7.16.2" },
     { name = "fakeredis", specifier = "==2.39.0" },
+    { name = "httpx2", specifier = "==2.13.1" },
     { name = "pytest", specifier = "==9.1.1" },
     { name = "pytest-cov", specifier = "==7.1.0" },
     { name = "pytest-mock", specifier = "==3.16.0" },

@@ -1,6 +1,6 @@
 import json
 
-import httpx
+import httpx2
 import langfuse.openai
 import pytest
 from openai import OpenAI
@@ -40,12 +40,12 @@ def _make_client(reply):
 
     def handler(request):
         requests.append(request)
-        return httpx.Response(200, json=reply)
+        return httpx2.Response(200, json=reply)
 
     client = OpenAI(
         api_key="mock_openrouter_key",
         base_url="https://openrouter.ai/api/v1",
-        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        http_client=httpx2.Client(transport=httpx2.MockTransport(handler)),
     )
     return LLMClient(client), requests
 

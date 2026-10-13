@@ -14,6 +14,7 @@ from curl_cffi.requests.exceptions import RequestException
 from curl_cffi.requests.utils import requote_uri
 from defusedxml.ElementTree import ParseError
 from openai import APIError
+from openai.types.audio import Transcription
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import (
     before_sleep_log,
@@ -58,8 +59,8 @@ class AudioTranscriber:
     """Transcribes audio files with MAI-Transcribe-2 on OpenRouter."""
 
     _MODEL: ClassVar[str] = "microsoft/mai-transcribe-2"
-    # OpenRouter's cap on a multipart upload.
-    _MAX_BYTES: ClassVar[int] = 25 * 1024 * 1024
+    # OpenRouter's cap on a multipart upload: 25 MB, as OpenAI's.
+    _MAX_BYTES: ClassVar[int] = 25_000_000
 
     def __init__(self, client: OpenAI) -> None:
         """Store the injected `openai` client, pointed at OpenRouter."""
@@ -69,8 +70,9 @@ class AudioTranscriber:
         """Transcribe an audio file with MAI-Transcribe-2 on OpenRouter.
 
         Raises:
-            TranscriptionError: If the file is over the upload cap, or the
-                request fails after the SDK's own retries.
+            TranscriptionError: If the file is over the upload cap, the
+                request fails after the SDK's own retries, or a 200 response
+                carries no text.
 
         """
         # See architecture.md → *Transcription on OpenRouter*.
@@ -80,14 +82,27 @@ class AudioTranscriber:
             raise TranscriptionError(msg)
         try:
             with path.open("rb") as audio:
-                result = self._client.audio.transcriptions.create(
+                raw = self._client.audio.transcriptions.with_raw_response.create(
                     model=self._MODEL,
                     file=audio,
                 )
         except APIError as e:
             msg = "OpenRouter transcription failed"
             raise TranscriptionError(msg) from e
-        return result.text
+        try:
+            parsed = raw.parse(to=Transcription)
+        except APIError, ValueError:
+            parsed = None
+        # The SDK hands back a non-JSON body as a plain string.
+        text = parsed.text if isinstance(parsed, Transcription) else None
+        if not isinstance(text, str):
+            msg = (
+                f"OpenRouter transcription {raw.headers.get('x-generation-id')} "
+                f"(HTTP {raw.status_code}) returned no text: "
+                f"{raw.http_response.text[:500]!r}"
+            )
+            raise TranscriptionError(msg)
+        return text
 
 
 class TranscriptBackend(ABC):

@@ -1,11 +1,11 @@
 import textwrap
 
-import httpx
+import httpx2
 import pytest
 from curl_cffi.requests.exceptions import ConnectionError as CurlConnectionError
 from curl_cffi.requests.exceptions import HTTPError as CurlHTTPError
 from defusedxml.ElementTree import ParseError
-from openai import APIStatusError, OpenAI
+from openai import APIError, APIStatusError, OpenAI
 from requests.exceptions import ChunkedEncodingError, ProxyError, SSLError
 from tenacity import RetryError
 from youtube_transcript_api._errors import (
@@ -778,7 +778,7 @@ def _make_audio_transcriber(handler):
     client = OpenAI(
         api_key="mock_openrouter_key",
         base_url="https://openrouter.ai/api/v1",
-        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        http_client=httpx2.Client(transport=httpx2.MockTransport(handler)),
     )
     return AudioTranscriber(client)
 
@@ -795,7 +795,7 @@ def test_transcribe_happy_path(tmp_path):
 
     def handler(request):
         requests.append((request, request.read()))
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={"text": "Hello world!", "usage": {"seconds": 2, "cost": 0.0001}},
         )
@@ -816,10 +816,79 @@ def test_transcribe_happy_path(tmp_path):
 def test_transcribe_returns_empty_text_as_is(tmp_path):
     """Test audio with no speech yields "" rather than an error."""
     transcriber = _make_audio_transcriber(
-        lambda _: httpx.Response(200, json={"text": ""}),
+        lambda _: httpx2.Response(200, json={"text": ""}),
     )
 
     assert transcriber.transcribe(_audio_fixture(tmp_path)) == ""
+
+
+def test_transcribe_200_without_text_raises_transcription_error(tmp_path):
+    """Test a 200 whose body is an error, not a transcript, fails loudly.
+
+    OpenRouter sends the 200 before the model finishes, so a late failure
+    arrives in the body; the SDK would hand it back as `text=None`.
+    """
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx2.Response(
+            200,
+            headers={
+                "content-type": "application/json",
+                "x-generation-id": "gen-stt-mock",
+            },
+            content=b'   {"error": {"code": 502, "message": "Provider returned error"}}',
+        )
+
+    with pytest.raises(TranscriptionError) as exc_info:
+        _make_audio_transcriber(handler).transcribe(_audio_fixture(tmp_path))
+
+    assert "gen-stt-mock" in str(exc_info.value)
+    assert "Provider returned error" in str(exc_info.value)
+    assert len(requests) == 1
+
+
+@pytest.mark.parametrize(
+    ("content_type", "body"),
+    [
+        ("application/json", b"      "),
+        ("application/json", b'   {"text": "abc'),
+        ("application/json", b'{"text": null}'),
+        ("text/plain", b"upstream error"),
+    ],
+    ids=["padding-only", "truncated-json", "null-text", "non-json"],
+)
+def test_transcribe_malformed_200_raises_transcription_error(
+    tmp_path,
+    content_type,
+    body,
+):
+    """Test a 200 with no parsable transcript is a TranscriptionError, not a crash."""
+    transcriber = _make_audio_transcriber(
+        lambda _: httpx2.Response(
+            200,
+            headers={"content-type": content_type},
+            content=body,
+        ),
+    )
+
+    with pytest.raises(TranscriptionError, match="HTTP 200"):
+        transcriber.transcribe(_audio_fixture(tmp_path))
+
+
+def test_transcribe_wraps_an_api_error_from_parsing(mocker, tmp_path):
+    """Test an `APIError` raised while parsing never leaves `transcribe` raw."""
+    mocker.patch(
+        "openai._legacy_response.LegacyAPIResponse.parse",
+        side_effect=APIError("invalid", httpx2.Request("POST", "https://x"), body=None),
+    )
+    transcriber = _make_audio_transcriber(
+        lambda _: httpx2.Response(200, json={"text": "Hello"}),
+    )
+
+    with pytest.raises(TranscriptionError):
+        transcriber.transcribe(_audio_fixture(tmp_path))
 
 
 def test_transcribe_refuses_a_file_over_the_upload_cap(mocker, tmp_path):
@@ -842,7 +911,7 @@ def test_transcribe_permanent_error_raises_transcription_error(tmp_path):
 
     def handler(request):
         requests.append(request)
-        return httpx.Response(402, json={"error": {"message": "no credits"}})
+        return httpx2.Response(402, json={"error": {"message": "no credits"}})
 
     with pytest.raises(TranscriptionError) as exc_info:
         _make_audio_transcriber(handler).transcribe(_audio_fixture(tmp_path))
@@ -860,11 +929,11 @@ def test_transcribe_survives_transient_errors_on_the_sdks_retries(mocker, tmp_pa
     def handler(request):
         requests.append(request)
         if len(requests) == 1:
-            return httpx.Response(503, json={"error": {"message": "unavailable"}})
+            return httpx2.Response(503, json={"error": {"message": "unavailable"}})
         if len(requests) == 2:
             msg = "connection reset"
-            raise httpx.ConnectError(msg, request=request)
-        return httpx.Response(200, json={"text": "Hello"})
+            raise httpx2.ConnectError(msg, request=request)
+        return httpx2.Response(200, json={"text": "Hello"})
 
     result = _make_audio_transcriber(handler).transcribe(_audio_fixture(tmp_path))
 

@@ -1,4 +1,4 @@
-import httpx
+import httpx2
 import pytest
 from limits import parse as parse_rate_limit
 from limits.storage import MemoryStorage
@@ -18,7 +18,7 @@ def _make_openrouter_files(handler, max_retries=0):
         api_key="mock_openrouter_key",
         base_url="https://openrouter.ai/api/v1",
         max_retries=max_retries,
-        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        http_client=httpx2.Client(transport=httpx2.MockTransport(handler)),
     )
     return OpenRouterFiles(client)
 
@@ -90,7 +90,7 @@ def test_upload_posts_the_file_and_returns_its_id(tmp_path):
 
     def handler(request):
         requests.append((request, request.read()))
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={
                 "id": "or_file_mock123",
@@ -124,7 +124,7 @@ def test_upload_raises_the_sdk_error_on_a_refused_file(tmp_path):
     document = tmp_path / "report"
     document.write_bytes(b"mock")
 
-    refused = httpx.Response(413, json={"error": {"message": "File too large"}})
+    refused = httpx2.Response(413, json={"error": {"message": "File too large"}})
 
     with pytest.raises(APIStatusError):
         _make_openrouter_files(lambda _: refused).upload(
@@ -139,7 +139,7 @@ def test_delete_removes_the_file_by_id():
 
     def handler(request):
         requests.append(request)
-        return httpx.Response(
+        return httpx2.Response(
             200,
             json={"id": "or_file_mock123", "object": "file", "deleted": True},
         )
@@ -163,7 +163,7 @@ def test_delete_survives_a_transient_failure_on_the_clients_own_retries():
 
     def handler(request):
         requests.append(request)
-        return httpx.Response(
+        return httpx2.Response(
             statuses[len(requests) - 1],
             headers={"retry-after-ms": "1"},
             json={"id": "or_file_mock123", "object": "file", "deleted": True},
