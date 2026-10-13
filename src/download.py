@@ -21,9 +21,10 @@ from tenacity import (
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from utils import generate_temporary_name, get_proxy
+from utils import generate_temporary_name
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from typing import Any
 
     from telebot.types import File
@@ -107,7 +108,7 @@ class Downloader:
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
-    def download_yt(self, url: str) -> str:
+    def download_yt(self, url: str, proxies: Iterator[str]) -> str:
         """Download a YouTube video's audio as MP3, returning the temp file path.
 
         Raises:
@@ -116,7 +117,7 @@ class Downloader:
         """
         temporary_file_name = generate_temporary_name(ext=".mp3")
         output_stem = temporary_file_name.split(".", maxsplit=1)[0]
-        proxy = get_proxy()
+        proxy = next(proxies)
         with YoutubeDL({"proxy": proxy, "nocheckcertificate": False}) as ydl:
             info = ydl.extract_info(url, download=False)
         if info is None:

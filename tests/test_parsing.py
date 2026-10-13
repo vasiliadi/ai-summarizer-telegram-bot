@@ -349,10 +349,10 @@ def test_resolve_returns_final_url_after_redirect(mocker):
     """Test resolve returns the redirected URL and closes the response."""
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
-    # get_proxy() reads config.PROXIES, which python-dotenv backfills from the
+    # proxy_rotation() reads config.PROXIES, which python-dotenv backfills from the
     # developer's real .env (conftest.py never sets PROXY) — patch it so the
     # test result does not depend on what happens to be in that file.
-    mocker.patch("parsing.get_proxy", return_value="")
+    mocker.patch("utils.PROXIES", [])
     mock_resp = mocker.Mock(url="https://example.com/final")
     mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
 
@@ -369,7 +369,7 @@ def test_resolve_returns_original_when_no_redirect(mocker):
     """Test resolve returns the input unchanged when there is no redirect."""
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
-    mocker.patch("parsing.get_proxy", return_value="")
+    mocker.patch("utils.PROXIES", [])
     mock_resp = mocker.Mock(url="https://example.com/article")
     mocker.patch("parsing.requests.get", return_value=mock_resp)
 
@@ -383,7 +383,7 @@ def test_resolve_falls_back_to_original_on_error(mocker, caplog):
     """Test resolve returns the original URL when the request raises."""
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
-    mocker.patch("parsing.get_proxy", return_value="")
+    mocker.patch("utils.PROXIES", [])
     mocker.patch("parsing.requests.get", side_effect=RuntimeError("boom"))
 
     with caplog.at_level(logging.WARNING, logger="parsing"):
@@ -397,7 +397,7 @@ def test_resolve_passes_proxy_when_configured(mocker):
     """Test resolve forwards a configured proxy to requests.get."""
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
-    mocker.patch("parsing.get_proxy", return_value="https://user:pass@proxy.com:1234")
+    mocker.patch("utils.PROXIES", ["https://user:pass@proxy.com:1234"])
     mock_resp = mocker.Mock(url="https://example.com/article")
     mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
 
@@ -410,7 +410,7 @@ def test_resolve_omits_proxy_when_none_configured(mocker):
     """Test resolve passes proxy=None when no proxy is set."""
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
-    mocker.patch("parsing.get_proxy", return_value="")
+    mocker.patch("utils.PROXIES", [])
     mock_resp = mocker.Mock(url="https://example.com/article")
     mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
 
@@ -423,7 +423,7 @@ def test_resolve_passes_its_timeout(mocker):
     """Test resolve bounds the request with a timeout."""
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
-    mocker.patch("parsing.get_proxy", return_value="")
+    mocker.patch("utils.PROXIES", [])
     mock_resp = mocker.Mock(url="https://example.com/article")
     mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
 
@@ -458,7 +458,7 @@ def test_resolve_blocks_redirect_to_private_host(mocker, caplog):
         "_is_public",
         side_effect=[True, False],  # public initial URL, private redirect
     )
-    mocker.patch("parsing.get_proxy", return_value="")
+    mocker.patch("utils.PROXIES", [])
     mock_resp = mocker.Mock(url="http://169.254.169.254/latest/meta-data/")
     mocker.patch("parsing.requests.get", return_value=mock_resp)
 

@@ -1,15 +1,36 @@
+from __future__ import annotations
+
+import itertools
+import logging
 import random
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 from uuid import uuid4
 
 from config import CASTRO_HOST, PROTECTED_FILES, PROXIES, YT_HOSTS
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
-def get_proxy() -> str:
-    """Return a random proxy URL from PROXIES, or '' if none configured."""
-    return random.choice(PROXIES) if PROXIES else ""  # noqa: S311
+logger = logging.getLogger(__name__)
+
+
+def proxy_rotation() -> Iterator[str]:
+    """Cycle PROXIES in a random order, or yield '' forever if none configured.
+
+    Each retry attempt draws the next value, so it never reuses the previous proxy.
+    """
+    if not PROXIES:
+        return itertools.repeat("")
+    return map(_log_proxy, itertools.cycle(random.sample(PROXIES, len(PROXIES))))
+
+
+def _log_proxy(proxy: str) -> str:
+    # host:port only; the URL's userinfo carries the credentials.
+    logger.info("Using proxy %s", urlsplit(proxy).netloc.rpartition("@")[2])
+    return proxy
 
 
 def classify_url(url: str) -> str | None:

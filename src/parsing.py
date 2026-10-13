@@ -26,7 +26,7 @@ from config import (
 )
 from domain import PrefixedText
 from exceptions import WebParseError
-from utils import get_proxy
+from utils import proxy_rotation
 
 if TYPE_CHECKING:
     from exa_py import Exa
@@ -233,7 +233,7 @@ class UrlResolver:
                 impersonate="chrome",
                 verify=True,
                 timeout=self._TIMEOUT,
-                proxy=get_proxy() or None,
+                proxy=next(proxy_rotation()) or None,
             )
             try:
                 resolved = response.url or url

@@ -13,6 +13,13 @@ def test_proxy_env_parsing_trims_and_drops_empty(monkeypatch):
     assert config.PROXIES == ["http://a:1", "http://b:2"]
 
 
+def test_proxy_env_parsing_drops_duplicates_keeping_order(monkeypatch):
+    """Test PROXY env parsing drops repeated entries and keeps first-seen order."""
+    monkeypatch.setenv("PROXY", "http://a:1,http://b:2, http://a:1,http://b:2")
+    importlib.reload(config)
+    assert config.PROXIES == ["http://a:1", "http://b:2"]
+
+
 def test_proxy_env_parsing_empty_string(monkeypatch):
     """Test PROXY env parsing yields an empty list when the variable is unset."""
     monkeypatch.delenv("PROXY", raising=False)

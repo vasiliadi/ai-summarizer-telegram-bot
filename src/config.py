@@ -50,10 +50,12 @@ REDIS_URL = os.environ["REDIS_URL"]
 RATE_LIMITER_URL = f"{REDIS_URL}/0"
 
 
-# Proxy
-PROXIES: list[str] = [
-    p.strip() for p in os.environ.get("PROXY", "").split(",") if p.strip()
-]
+# Deduplicated; see architecture.md → *A retry moves to the next proxy*.
+PROXIES: list[str] = list(
+    dict.fromkeys(
+        p.strip() for p in os.environ.get("PROXY", "").split(",") if p.strip()
+    ),
+)
 
 
 # Telegram bot config

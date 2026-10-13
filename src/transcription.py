@@ -41,13 +41,11 @@ from exceptions import (
     TranscriptDownloadError,
     TranscriptionError,
 )
-from utils import (
-    clean_up,
-    generate_temporary_name,
-    get_proxy,
-)
+from utils import clean_up, generate_temporary_name
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from openai import OpenAI
     from tenacity import _utils as tenacity_utils
 
@@ -112,8 +110,16 @@ class TranscriptBackend(ABC):
     prefix: str
 
     @abstractmethod
-    def fetch(self, url: str, video_id: str) -> str:
-        """Fetch transcript text; backends use the argument(s) they need."""
+    def fetch(
+        self,
+        url: str,
+        video_id: str,
+        proxies: Iterator[str],
+    ) -> str:
+        """Fetch transcript text; backends use the argument(s) they need.
+
+        Each retry attempt draws the next proxy from `proxies`.
+        """
 
 
 class ApiBackend(TranscriptBackend):
@@ -138,7 +144,12 @@ class ApiBackend(TranscriptBackend):
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
-    def fetch(self, url: str, video_id: str) -> str:  # noqa: ARG002
+    def fetch(
+        self,
+        url: str,  # noqa: ARG002
+        video_id: str,
+        proxies: Iterator[str],
+    ) -> str:
         """Retrieve and format a YouTube transcript via youtube_transcript_api.
 
         Raises:
@@ -147,7 +158,7 @@ class ApiBackend(TranscriptBackend):
             RetryError: If transient errors persist after retries.
 
         """
-        proxy = get_proxy()
+        proxy = next(proxies)
         if proxy:
             ytt_api = YouTubeTranscriptApi(
                 proxy_config=GenericProxyConfig(https_url=proxy),
@@ -220,6 +231,7 @@ class YtDlpBackend(TranscriptBackend):
         self,
         url: str,
         video_id: str,  # noqa: ARG002
+        proxies: Iterator[str],
     ) -> str:
         """Retrieve a YouTube transcript by downloading subtitles via yt-dlp.
 
@@ -232,7 +244,7 @@ class YtDlpBackend(TranscriptBackend):
 
         """
         temp_basename = generate_temporary_name()
-        proxy = get_proxy()
+        proxy = next(proxies)
         probe_opts: dict[str, Any] = {
             "proxy": proxy,
             "noplaylist": True,
@@ -390,6 +402,7 @@ class YouTubeTranscriber:
         backend: TranscriptBackend,
         url: str,
         video_id: str,
+        proxies: Iterator[str],
     ) -> str:
         """Fetch from a backend; an empty transcript raises, so the caller falls back.
 
@@ -397,14 +410,20 @@ class YouTubeTranscriber:
             FetchTranscriptError: If the backend returns empty content.
 
         """
-        text = backend.fetch(url, video_id)
+        text = backend.fetch(url, video_id, proxies)
         if not text.strip():
             msg = f"{backend.name} returned an empty transcript"
             raise FetchTranscriptError(msg)
         return text
 
-    def get_transcript(self, url: str) -> PrefixedText:
+    def get_transcript(
+        self,
+        url: str,
+        proxies: Iterator[str],
+    ) -> PrefixedText:
         """Retrieve a YouTube video's transcript, falling back on any primary failure.
+
+        Both backends share one proxy rotation; the fallback starts on the next proxy.
 
         Returns:
             PrefixedText: The transcript and the prefix of the backend that served it.
@@ -420,7 +439,7 @@ class YouTubeTranscriber:
             raise ValueError(msg)
 
         try:
-            text = self._fetch_validated(self._primary, url, video_id)
+            text = self._fetch_validated(self._primary, url, video_id, proxies)
         except Exception as primary_error:
             # Any primary failure — expected or not — should try the fallback;
             # crashing here would skip the second engine entirely.
@@ -431,7 +450,7 @@ class YouTubeTranscriber:
                 primary_error,
             )
             try:
-                text = self._fetch_validated(self._fallback, url, video_id)
+                text = self._fetch_validated(self._fallback, url, video_id, proxies)
             except Exception as fallback_error:
                 logger.warning(
                     "%s fallback backend also failed: %s",
