@@ -24,14 +24,13 @@ def proxy_rotation() -> Iterator[str]:
     """
     if not PROXIES:
         return itertools.repeat("")
-    return _logged_cycle(random.sample(PROXIES, len(PROXIES)))
+    return map(_log_proxy, itertools.cycle(random.sample(PROXIES, len(PROXIES))))
 
 
-def _logged_cycle(proxies: list[str]) -> Iterator[str]:
-    for proxy in itertools.cycle(proxies):
-        # host:port only; the URL's userinfo carries the credentials.
-        logger.info("Using proxy %s", urlsplit(proxy).netloc.rpartition("@")[2])
-        yield proxy
+def _log_proxy(proxy: str) -> str:
+    # host:port only; the URL's userinfo carries the credentials.
+    logger.info("Using proxy %s", urlsplit(proxy).netloc.rpartition("@")[2])
+    return proxy
 
 
 def classify_url(url: str) -> str | None:
