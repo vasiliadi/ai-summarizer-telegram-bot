@@ -11,7 +11,7 @@ from tenacity import RetryError
 
 from config import DEFAULT_MODEL_ID_FOR_SUMMARY
 from domain import PrefixedText, SummarySettings
-from exceptions import FetchTranscriptError, LimitExceededError
+from exceptions import FetchTranscriptError, LimitExceededError, TranscriptionError
 from prompts import PROMPTS
 from summary import Summarizer
 
@@ -85,7 +85,6 @@ def test_summarize_text_from_webpage(mocker):
     covers them too — only the caller differs.
     """
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     fakes.llm_client.run.return_value = "Webpage summary."
 
     result = summarizer.summarize_text(
@@ -111,7 +110,6 @@ def test_summarize_text_drops_the_content_part_when_text_is_blank(mocker, blank)
     an empty text part is not worth sending.
     """
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     fakes.llm_client.run.return_value = "Empty summary."
 
     summarizer.summarize_text(
@@ -128,7 +126,6 @@ def test_summarize_model_api_exception(mocker):
     """Test summarize_text raises RetryError when the provider returns an error."""
     summarizer, fakes = _make_summarizer(mocker)
     mocker.patch("tenacity.nap.time.sleep")
-    fakes.quota_manager.check_quota.return_value = True
     fakes.llm_client.run.side_effect = _api_error()
 
     with pytest.raises(RetryError):
@@ -141,7 +138,6 @@ def test_summarize_model_api_exception(mocker):
 def test_summarize_with_document_uploads_summarizes_and_deletes(mocker):
     """Test a document reaches the user's model by file id and is deleted afterward."""
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     fakes.downloader.download_tg.return_value = "temp_doc"
     fakes.openrouter_files.upload.return_value = "or_file_doc123"
     fakes.llm_client.build_file_part.return_value = "file-part-sentinel"
@@ -177,7 +173,6 @@ def test_summarize_with_document_cleans_up_on_unretried_upload_failure(mocker):
     """Test summarize_with_document cleans up the downloaded file on failure."""
     summarizer, fakes = _make_summarizer(mocker)
     mocker.patch("tenacity.nap.time.sleep")
-    fakes.quota_manager.check_quota.return_value = True
     fakes.downloader.download_tg.return_value = "temp_doc.pdf"
     mock_clean_up = mocker.patch("summary.clean_up")
     fakes.openrouter_files.upload.side_effect = KeyError("id")
@@ -199,7 +194,6 @@ def test_summarize_youtube_transcript_carries_the_backend_prefix(mocker, prefix)
     """Test summarize() always tries the transcript and keeps its source prefix."""
     summarizer, fakes = _make_summarizer(mocker)
     url = "https://youtube.com/watch?v=123"
-    fakes.quota_manager.check_quota.return_value = True
     fakes.yt_transcriber.get_transcript.return_value = SimpleNamespace(
         text="YT Transcript content",
         prefix=prefix,
@@ -228,7 +222,6 @@ def test_summarize_youtube_transcript_summary_retry_does_not_fall_back(mocker):
     summarizer, fakes = _make_summarizer(mocker)
     url = "https://youtube.com/watch?v=123"
     retry_error = RetryError(mocker.MagicMock())
-    fakes.quota_manager.check_quota.return_value = True
     fakes.yt_transcriber.get_transcript.return_value = SimpleNamespace(
         text="YT Transcript content",
         prefix="📹",
@@ -259,7 +252,6 @@ def test_summarize_youtube_transcript_failure_falls_back_to_download(
     """Test summarize() falls back to downloading YouTube audio when transcript fetch fails."""
     summarizer, fakes = _make_summarizer(mocker)
     url = "https://youtube.com/watch?v=123"
-    fakes.quota_manager.check_quota.return_value = True
     fakes.yt_transcriber.get_transcript.side_effect = transcript_error
     fakes.downloader.download_yt.return_value = "downloaded.ogg"
     mock_via_transcription = mocker.patch.object(
@@ -297,7 +289,6 @@ def test_summarize_transcribes_audio_and_summarizes_with_the_users_model(mocker)
     carries the 📝 prefix.
     """
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
     mock_compress = mocker.patch("summary.compress_audio")
     fakes.audio_transcriber.transcribe.return_value = "Transcription text"
@@ -342,7 +333,6 @@ def test_summarize_with_document_routes_audio_document_to_transcription(mocker):
     user's own model on the summary.
     """
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     fakes.downloader.download_tg.return_value = "voice.ogg"
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
     mocker.patch("summary.compress_audio")
@@ -384,7 +374,6 @@ def test_summarize_with_document_falls_back_when_model_takes_no_file(mocker, cap
     this request alone.
     """
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     fakes.downloader.download_tg.return_value = "temp_doc"
     fakes.openrouter_files.upload.return_value = "or_file_doc123"
     fakes.llm_client.run.return_value = "Document summary"
@@ -414,7 +403,6 @@ def test_summarize_with_document_falls_back_when_model_takes_no_file(mocker, cap
 def test_summarize_with_document_keeps_a_model_that_takes_files(mocker, mime_type):
     """Test every document type stays on a file-capable model the user chose."""
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     fakes.downloader.download_tg.return_value = "temp_doc"
     fakes.openrouter_files.upload.return_value = "or_file_doc123"
     fakes.llm_client.run.return_value = "Document summary"
@@ -438,8 +426,7 @@ def test_summarize_with_document_keeps_a_model_that_takes_files(mocker, mime_typ
 
 def test_summarize_cleans_up_temp_file_when_compress_fails(mocker):
     """Test summarize() cleans up the temp file even if compress_audio raises."""
-    summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
+    summarizer, _ = _make_summarizer(mocker)
     mocker.patch("summary.generate_temporary_name", return_value="temp.ogg")
     mocker.patch("summary.compress_audio", side_effect=RuntimeError("ffmpeg failed"))
     mock_clean_up = mocker.patch("summary.clean_up")
@@ -457,7 +444,6 @@ def test_summarize_castro_transcript_skips_the_audio_download(mocker):
     """Test summarize() summarizes Castro's own transcript when the page has one."""
     summarizer, fakes = _make_summarizer(mocker)
     url = "https://castro.fm/episode/123"
-    fakes.quota_manager.check_quota.return_value = True
     fakes.castro_transcriber.get_transcript.return_value = PrefixedText(
         text="Castro transcript content",
         prefix="🎙️",
@@ -488,7 +474,6 @@ def test_summarize_castro_without_transcript_falls_back_to_download(mocker):
     """Test summarize() downloads the Castro audio when the page has no transcript."""
     summarizer, fakes = _make_summarizer(mocker)
     url = "https://castro.fm/episode/123"
-    fakes.quota_manager.check_quota.return_value = True
     fakes.castro_transcriber.get_transcript.side_effect = FetchTranscriptError(
         "no transcript",
     )
@@ -523,7 +508,6 @@ def test_summarize_castro_www_host(mocker):
     download_castro and was passed on as a file path.
     """
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     fakes.castro_transcriber.get_transcript.side_effect = FetchTranscriptError(
         "no transcript",
     )
@@ -555,7 +539,6 @@ def test_summarize_youtube_uppercase_host_uses_transcript(mocker):
     """
     summarizer, fakes = _make_summarizer(mocker)
     url = "https://YouTube.com/watch?v=dQw4w9WgXcQ"
-    fakes.quota_manager.check_quota.return_value = True
     fakes.yt_transcriber.get_transcript.return_value = PrefixedText(
         text="transcript text",
         prefix="📺",
@@ -572,14 +555,21 @@ def test_summarize_youtube_uppercase_host_uses_transcript(mocker):
     fakes.downloader.download_yt.assert_not_called()
 
 
-def test_summarize_preflight_blocks_before_download(mocker):
+@pytest.mark.parametrize(
+    "data",
+    [
+        "https://castro.fm/episode/123",
+        File("video-id", "video-uid", file_path="videos/file.mp4"),
+    ],
+)
+def test_summarize_preflight_blocks_before_download(mocker, data):
     """Test summarize() blocks zero-quota users before any network IO."""
     summarizer, fakes = _make_summarizer(mocker)
     fakes.quota_manager.check_quota.side_effect = LimitExceededError
 
     with pytest.raises(LimitExceededError):
         summarizer.summarize(
-            data="https://castro.fm/episode/123",
+            data=data,
             settings=replace(SETTINGS, user_id=1, daily_limit=0),
         )
 
@@ -590,6 +580,7 @@ def test_summarize_preflight_blocks_before_download(mocker):
     )
     fakes.castro_transcriber.get_transcript.assert_not_called()
     fakes.downloader.download_castro.assert_not_called()
+    fakes.downloader.download_tg.assert_not_called()
 
 
 def test_summarize_with_document_deletes_the_upload_when_quota_check_fails(mocker):
@@ -598,7 +589,7 @@ def test_summarize_with_document_deletes_the_upload_when_quota_check_fails(mocke
     fakes.downloader.download_tg.return_value = "temp_doc"
     fakes.openrouter_files.upload.return_value = "or_file_doc123"
     mocker.patch("summary.clean_up")
-    fakes.quota_manager.check_quota.side_effect = [True, LimitExceededError]
+    fakes.quota_manager.check_quota.side_effect = [None, LimitExceededError]
 
     with pytest.raises(LimitExceededError):
         summarizer.summarize_with_document(
@@ -639,7 +630,6 @@ def test_summarize_text_raises_on_empty_response(mocker):
     """Test summarize_text raises RetryError on repeated empty model responses."""
     summarizer, fakes = _make_summarizer(mocker)
     mocker.patch("tenacity.nap.time.sleep")
-    fakes.quota_manager.check_quota.return_value = True
     fakes.llm_client.run.side_effect = AttributeError
 
     with pytest.raises(RetryError):
@@ -652,7 +642,6 @@ def test_summarize_text_raises_on_empty_response(mocker):
 def test_summarize_with_document_retries_a_failing_upload(mocker):
     """Test a refused upload is retried once, then wrapped, with nothing to delete."""
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     fakes.downloader.download_tg.return_value = "temp_doc"
     mocker.patch("summary.clean_up")
     mocker.patch("tenacity.nap.time.sleep")
@@ -673,7 +662,6 @@ def test_summarize_with_document_retries_a_failing_upload(mocker):
 def test_summarize_with_document_raises_on_empty_response(mocker):
     """Test an empty model response is retried, and each attempt's upload deleted."""
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     fakes.downloader.download_tg.return_value = "temp_doc"
     mocker.patch("summary.clean_up")
     mocker.patch("tenacity.nap.time.sleep")
@@ -696,7 +684,6 @@ def test_summarize_with_document_raises_on_empty_response(mocker):
 def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
     """Test a failed delete is logged at WARNING and the summary still returned."""
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     fakes.downloader.download_tg.return_value = "temp_doc"
     mocker.patch("summary.clean_up")
     fakes.openrouter_files.upload.return_value = "or_file_doc123"
@@ -715,18 +702,21 @@ def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
     mock_logger.warning.assert_called_once()
 
 
-def test_summarize_with_telegram_file(mocker):
+@pytest.mark.parametrize(
+    "file_path",
+    ["voice/file.oga", "audio/file.mp3", "videos/file.mp4"],
+)
+def test_summarize_with_telegram_file(mocker, file_path):
     """Test summarize() downloads a Telegram File object before summarizing."""
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.quota_manager.check_quota.return_value = True
     fakes.downloader.download_tg.return_value = "downloaded.ogg"
-    mocker.patch.object(
+    transcribe = mocker.patch.object(
         summarizer,
         "_summarize_via_transcription",
         return_value="Telegram file summary",
     )
-    mocker.patch("summary.clean_up")
-    mock_tg_file = mocker.MagicMock(spec=File)
+    cleanup = mocker.patch("summary.clean_up")
+    mock_tg_file = File("media-id", "media-uid", file_path=file_path)
 
     result = summarizer.summarize(
         data=mock_tg_file,
@@ -734,4 +724,29 @@ def test_summarize_with_telegram_file(mocker):
     )
 
     assert result == "Telegram file summary"
-    fakes.downloader.download_tg.assert_called_once_with(mock_tg_file, ext=".ogg")
+    fakes.downloader.download_tg.assert_called_once_with(mock_tg_file)
+    transcribe.assert_called_once_with(data="downloaded.ogg", settings=SETTINGS)
+    cleanup.assert_called_once_with(file="downloaded.ogg")
+
+
+def test_summarize_cleans_up_telegram_video_when_transcription_fails(mocker, tmp_path):
+    """The summarizer owns both the video download and its compressed copy."""
+    summarizer, fakes = _make_summarizer(mocker)
+    downloaded = tmp_path / "downloaded"
+    compressed = tmp_path / "compressed.ogg"
+    downloaded.write_bytes(b"video")
+    compressed.write_bytes(b"audio")
+    fakes.downloader.download_tg.return_value = str(downloaded)
+    mocker.patch("summary.generate_temporary_name", return_value=str(compressed))
+    mocker.patch("summary.compress_audio")
+    fakes.audio_transcriber.transcribe.side_effect = TranscriptionError("failed")
+
+    with pytest.raises(TranscriptionError, match="failed"):
+        summarizer.summarize(
+            File("video-id", "video-uid", file_path="videos/file.mp4"),
+            SETTINGS,
+        )
+
+    assert not downloaded.exists()
+    assert not compressed.exists()
+    fakes.llm_client.run.assert_not_called()

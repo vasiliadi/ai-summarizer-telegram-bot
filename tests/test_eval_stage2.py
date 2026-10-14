@@ -1,18 +1,16 @@
 """Regression tests for evaluation reporting and paid backfill selection."""
 
-import importlib.util
 import sys
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+
+from helpers import load_eval_script
 
 
 @pytest.fixture
 def stage2(monkeypatch):
     """Load the CLI with a judge stub so tests cannot initialize model clients."""
-    directory = Path(__file__).resolve().parents[1] / "scripts" / "eval"
-    monkeypatch.syspath_prepend(str(directory))
     monkeypatch.setitem(
         sys.modules,
         "judge",
@@ -26,13 +24,7 @@ def stage2(monkeypatch):
             generation_failed=lambda output: not output,
         ),
     )
-    spec = importlib.util.spec_from_file_location(
-        "eval_stage2_test",
-        directory / "stage2.py",
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return load_eval_script(monkeypatch, "stage2")
 
 
 @pytest.mark.parametrize("scored", [0, 1, 49])

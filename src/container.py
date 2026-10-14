@@ -83,6 +83,5 @@ def build_container() -> Container:
             summarizer,
             web_parser,
             quota_manager,
-            downloader,
         ),
     )

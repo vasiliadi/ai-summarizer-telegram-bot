@@ -22,7 +22,6 @@ def _make_handlers(mocker):
         summarizer=mocker.MagicMock(),
         web_parser=mocker.MagicMock(),
         quota_manager=mocker.MagicMock(),
-        downloader=mocker.MagicMock(),
     )
     handlers = MessageHandlers(
         fakes.bot,
@@ -30,7 +29,6 @@ def _make_handlers(mocker):
         fakes.summarizer,
         fakes.web_parser,
         fakes.quota_manager,
-        fakes.downloader,
     )
     return handlers, fakes
 
@@ -92,7 +90,12 @@ def test_handle_media_rejects_file_over_the_telegram_cap(
 
 @pytest.mark.parametrize(
     ("content_type", "handler_name"),
-    [("audio", "handle_audio"), ("voice", "handle_voice")],
+    [
+        ("audio", "handle_audio"),
+        ("voice", "handle_voice"),
+        ("video", "handle_video"),
+        ("video_note", "handle_video_note"),
+    ],
 )
 def test_handle_media_summarizes_the_fetched_file(
     message_factory,
@@ -100,7 +103,7 @@ def test_handle_media_summarizes_the_fetched_file(
     content_type,
     handler_name,
 ):
-    """Test audio and voice hand the fetched Telegram file straight to summarize."""
+    """Test every spoken-media handler hands its Telegram file to summarize."""
     msg = message_factory(content_type=content_type)
     handlers, fakes = _make_handlers(mocker)
     user = mocker.MagicMock(
@@ -111,10 +114,12 @@ def test_handle_media_summarizes_the_fetched_file(
     )
     mock_file = mocker.MagicMock(spec=types.File)
     fakes.messenger.get_file_with_retry.return_value = mock_file
+    fakes.summarizer.summarize.return_value = "summary"
 
     getattr(handlers, handler_name)(msg, user)
 
     assert fakes.summarizer.summarize.call_args.kwargs["data"] == mock_file
+    fakes.messenger.send_answer.assert_called_once_with(msg, "summary")
 
 
 def test_handle_document_missing_file_size(message_factory, mocker):
@@ -172,7 +177,6 @@ def test_handle_url_other_http_pattern(message_factory, mocker):
     msg = message_factory(content_type="text", text=url)
     handlers, fakes = _make_handlers(mocker)
     user = mocker.MagicMock()
-    fakes.quota_manager.check_quota.return_value = True
     fakes.web_parser.parse.return_value = PrefixedText(
         text="Parsed page content.",
         prefix="🌐",
@@ -212,7 +216,6 @@ def test_handle_url_web_parse_error_skips_summarize(message_factory, mocker):
     msg = message_factory(content_type="text", text=url)
     handlers, fakes = _make_handlers(mocker)
     user = mocker.MagicMock()
-    fakes.quota_manager.check_quota.return_value = True
     fakes.web_parser.parse.side_effect = WebParseError("boom")
 
     with pytest.raises(WebParseError):
@@ -232,72 +235,6 @@ def test_handle_voice_missing_info(message_factory, mocker):
     handlers.handle_voice(msg, user)
 
     fakes.bot.reply_to.assert_called_once_with(msg, "No voice message found.")
-
-
-@pytest.mark.parametrize(
-    ("content_type", "handler_name"),
-    [("video", "handle_video"), ("video_note", "handle_video_note")],
-)
-def test_handle_video_like_summarizes_the_download_and_cleans_it_up(
-    message_factory,
-    mocker,
-    content_type,
-    handler_name,
-):
-    """Test video and video note hand the raw download to summarize(), uncompressed.
-
-    summarize() compresses what it is given, so compressing here as well would
-    encode the audio twice.
-    """
-    msg = message_factory(content_type=content_type)
-    handlers, fakes = _make_handlers(mocker)
-    user = mocker.MagicMock(
-        approved=True,
-        summarizing_model="openai/gpt-6-luna",
-        prompt_key_for_summary="prompt",
-        target_language="English",
-    )
-    mock_file = mocker.MagicMock(spec=types.File)
-    fakes.messenger.get_file_with_retry.return_value = mock_file
-    fakes.downloader.download_tg.return_value = "downloaded.mp4"
-    fakes.summarizer.summarize.return_value = "summary"
-    mock_clean_up = mocker.patch("handlers.clean_up")
-
-    getattr(handlers, handler_name)(msg, user)
-
-    fakes.downloader.download_tg.assert_called_once_with(mock_file, ext=".mp4")
-    assert fakes.summarizer.summarize.call_args.kwargs["data"] == "downloaded.mp4"
-    fakes.messenger.send_answer.assert_called_once_with(msg, "summary")
-    mock_clean_up.assert_called_once_with(file="downloaded.mp4")
-
-
-def test_handle_video_cleans_up_the_download_when_summarize_raises(
-    message_factory,
-    mocker,
-):
-    """Test the downloaded file is removed even if summarize() raises early.
-
-    summarize()'s preflight quota check can raise LimitExceededError before its
-    own cleanup runs, so _handle_video_like must clean up the file it created.
-    """
-    msg = message_factory(content_type="video")
-    handlers, fakes = _make_handlers(mocker)
-    user = mocker.MagicMock(
-        approved=True,
-        summarizing_model="openai/gpt-6-luna",
-        prompt_key_for_summary="prompt",
-        target_language="English",
-    )
-    mock_file = mocker.MagicMock(spec=types.File)
-    fakes.messenger.get_file_with_retry.return_value = mock_file
-    fakes.downloader.download_tg.return_value = "downloaded.mp4"
-    fakes.summarizer.summarize.side_effect = LimitExceededError("blocked")
-    mock_clean_up = mocker.patch("handlers.clean_up")
-
-    with pytest.raises(LimitExceededError):
-        handlers.handle_video(msg, user)
-
-    mock_clean_up.assert_called_once_with(file="downloaded.mp4")
 
 
 def test_settings_replace_a_model_that_left_the_registry(mocker, caplog):

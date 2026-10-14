@@ -1,27 +1,19 @@
 """Regression tests for the destructive dataset wipe."""
 
 import hashlib
-import importlib.util
 import json
 import random
 import string
-from pathlib import Path
 
 import pytest
+
+from helpers import load_eval_script
 
 
 @pytest.fixture
 def rebuild(monkeypatch):
     """Load the script as a module without running its CLI."""
-    directory = Path(__file__).resolve().parents[1] / "scripts" / "eval"
-    monkeypatch.syspath_prepend(str(directory))
-    spec = importlib.util.spec_from_file_location(
-        "eval_rebuild_datasets_test",
-        directory / "rebuild_datasets.py",
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return load_eval_script(monkeypatch, "rebuild_datasets")
 
 
 def _pages(mocker, *pages):

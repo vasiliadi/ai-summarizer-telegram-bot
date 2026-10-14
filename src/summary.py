@@ -252,7 +252,7 @@ class Summarizer:
                     )
                 data = download(data)
         if isinstance(data, File):
-            data = self._downloader.download_tg(data, ext=".ogg")
+            data = self._downloader.download_tg(data)
 
         try:
             return self._summarize_via_transcription(
