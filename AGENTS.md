@@ -37,7 +37,7 @@ Before the first tracked-file edit, branch from `main` with `git checkout -b <sc
   - `style-guide.md` — coding conventions Ruff does not enforce, including comments and docstrings
   - `git-guide.md` — commit format, pre-commit hooks, coverage, CI workflows
   - `uv-guide.md` — running the project and managing dependencies
-- `AGENTS.md` — session process. Claude Code loads it through `pluginConfigs` in `.claude/settings.json`: the default `agents-md` mode skips `AGENTS.md` in any project with a `CLAUDE.local.md`.
+- `AGENTS.md` — session process. Claude Code's default `agents-md` mode skips it in any checkout with a `CLAUDE.local.md`; set `instructionFiles` to `claude-md-and-agents-md` in user settings (`~/.claude/settings.json`) — the plugin ignores options in `.claude/settings.json`.
 - `docs/summaries/` — handoffs written by `/handoff` (`handoff-*.md`). **(gitignored)**
 - `docs/archive/` — superseded handoffs, kept flat. Read only when explicitly told. **(gitignored)**
 - `.claude/commands/handoff.md` — the `/handoff` routine and its template; agents without slash commands follow its steps directly.
