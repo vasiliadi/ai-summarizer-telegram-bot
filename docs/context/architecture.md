@@ -299,12 +299,14 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   `<source>`: sharing one fetch between `CastroTranscriber` and `Downloader` was not worth the
   coupling for a page of a few kilobytes.
 - **Redirects are resolved before parsing, behind an SSRF guard.** `UrlResolver.resolve` sends
-  one streamed, browser-impersonated GET through a proxy (body never read) and hands the parsers
-  the final URL. A host must resolve only to globally routable addresses: a non-public original
-  is never requested, and a redirect that lands on a non-public host is discarded in favour of
-  the original URL. The redirect chain is followed by curl before that second check, so the
-  guard keeps a private URL away from the parsers, not every hop away from the network. It is
-  best-effort: any failure logs a warning and passes the original URL on, with no retry.
+  streamed, browser-impersonated GETs through one proxy (bodies never read) and hands the parsers
+  the final URL. It follows the chain itself (`allow_redirects=False`), checking that each host
+  resolves only to globally routable addresses **before** requesting it: a non-public original
+  or hop is never requested, and the original URL is passed on instead. Letting curl follow the
+  chain is **rejected**: it requests every hop before the final URL can be checked. The check
+  resolves DNS locally while the request goes through the proxy, so it does not cover DNS
+  rebinding or the proxy's own network. It is best-effort: any failure, or more than
+  `_MAX_REQUESTS` requests, logs a warning and passes the original URL on, with no retry.
 - **Every extraction is screened for block pages by JEV.** A refused parser (region block, bot
   check, login or paywall) still returns non-empty text. `WebParser` passes each backend's output to
   `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over the first 20k characters
