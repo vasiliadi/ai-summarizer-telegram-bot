@@ -49,7 +49,8 @@ scope. Half the filters live in `.pre-commit-config.yaml`, half in the upstream
 
 `default_install_hook_types` also installs `post-merge`, `post-checkout` and `post-rewrite` hooks,
 where `uv-sync` runs `uv sync` unconditionally, so switching branches, pulling or rebasing
-re-syncs `.venv` (and prints the pre-commit hook list, all skipped, on `git checkout`).
+re-syncs `.venv`. On `git checkout` it also prints the pre-commit hooks, all skipped except
+`uv-sync`.
 
 Two consequences worth holding onto. A test-only change is never type-checked at commit time, so run
 `uvx ty@latest check .` yourself when it could affect types — `@latest` per *Always `@latest`*

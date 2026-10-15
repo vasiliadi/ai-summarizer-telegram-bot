@@ -362,8 +362,8 @@ reply as one `{"role": "assistant", "content": …}` object, with no thinking in
 2026-10-02). pydantic-ai recorded `parts` with a `content` key on both sides, thinking parts
 included. `content_of` and `summary_of` read both, because a harvest's 30-day window can span
 the switch; a row in neither shape is skipped without a word, like any unparsable row. The
-bot stopped writing pydantic-ai traces on 2026-10-02, so the `parts` branch is dead after
-2026-11-01: delete it then.
+bot stopped writing pydantic-ai traces on 2026-10-02, so a harvest made after 2026-11-01 holds
+none and the `parts` branch reads nothing.
 
 Two screening filters earn their keep on real traffic: content under ~1500 characters, and
 degenerate output from `AudioTranscriber.transcribe` when the transcriber mis-decodes audio
