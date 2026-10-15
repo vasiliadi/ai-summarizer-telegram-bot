@@ -124,7 +124,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 |--------|------|
 | `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; the `__main__` block just calls `build_app`, `run`, `shutdown`. |
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummarySettings` from the user record, picks the summarize path. |
-| `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching, assembles the message content, and calls the injected `LLMClient.run`. |
+| `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching and media download/cleanup lifecycle, assembles the message content, and calls the injected `LLMClient.run`. |
 | `llm.py` | `LLMClient` — the one place a model is called. `run` turns the instructions, the user's thinking level and the content parts into a single chat-completions request on the injected `openai` client; `build_file_part` references an uploaded document by id. A text run goes through `chat.completions.create`, a run carrying a file through the client's generic `post` (see Tracing below). It never consults `MODEL_SPECS`, so the eval harness runs unregistered ids on it as is. |
 | `transcription.py` | `AudioTranscriber` (MAI-Transcribe-2 on OpenRouter) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`; an empty or whitespace-only transcript counts as a backend failure, so it falls through too) + `CastroTranscriber` (scrapes the transcript off a Castro episode page). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3, the fallback for an episode without a transcript), Telegram file fetch. |
@@ -151,8 +151,7 @@ Telegram update
        └─ process_message_content  ── routes by content_type ──┐
                                                                │
   handlers.py:                                                 ▼
-    audio / voice ───────────────► summarize(File)
-    video / video_note ──────────► download_tg(.mp4) → summarize(path)
+    audio / voice / video / video_note ► summarize(File)
     document ────────────────────► summarize_with_document(File, mime)
     text (treated as URL) ── classify_url ──┬─ "youtube" / "castro" ► summarize(url)
                                             └─ "web"  ► WebParser.parse → summarize_text
@@ -172,7 +171,10 @@ skips the download and reaches `compress_audio` with the URL string as its file 
 - **Castro URL** → try transcript (`CastroTranscriber.get_transcript`); on
   success summarize the transcript. On failure → `Downloader.download_castro`
   audio, then the file path below.
-- **Telegram File** → `Downloader.download_tg(.ogg)` → file path.
+- **Telegram File** → quota pre-check → `Downloader.download_tg` → file path.
+  Audio, voice, video and video notes share this path. Downloads have no extension;
+  ffmpeg detects the input container from the bytes. `Summarizer` owns cleanup of
+  both the download and the compressed audio; handlers never download media themselves.
 - **File path** → `_summarize_via_transcription`: `compress_audio` →
   `AudioTranscriber.transcribe` (OpenRouter) → `summarize_text` with the user's model.
 
@@ -335,6 +337,9 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   integration: it patches `chat.completions.create` **process-wide**, for every client, and
   records one generation per call (pinned by `test_langfuse_patches_the_openai_sdk_when_enabled`).
   Independent of Sentry; `langfuse_client.shutdown()` flushes on exit.
+  - **Test activation in a fresh process through `config` alone.** Other tests import
+    the drop-in themselves and mask a missing activation import. `__wrapped__` is not
+    evidence of tracing: OpenAI's own argument-validation decorator sets it too.
   - **The client timeout is 30 s, not the SDK's 5 s.** The same value bounds each span-batch
     export, and a batch that misses it is dropped with one log line: an eval sweep lost three
     items that way (evals.md → *A run can lose items on the way to Langfuse*), and the bot's

@@ -5,13 +5,12 @@ from typing import TYPE_CHECKING
 
 from config import DEFAULT_MODEL_ID_FOR_SUMMARY, MODEL_SPECS, TG_MAX_FILE_SIZE
 from domain import SummarySettings, format_prefixed_summary
-from utils import classify_url, clean_up
+from utils import classify_url
 
 if TYPE_CHECKING:
     import telebot
     from telebot.types import Audio, Document, File, Message, Video, VideoNote, Voice
 
-    from download import Downloader
     from models import UsersOrm
     from parsing import WebParser
     from services import Messenger, QuotaManager
@@ -32,7 +31,6 @@ class MessageHandlers:
         summarizer: Summarizer,
         web_parser: WebParser,
         quota_manager: QuotaManager,
-        downloader: Downloader,
     ) -> None:
         """Store the injected collaborators used to handle Telegram messages."""
         self._bot = bot
@@ -40,7 +38,6 @@ class MessageHandlers:
         self._summarizer = summarizer
         self._web_parser = web_parser
         self._quota_manager = quota_manager
-        self._downloader = downloader
 
     @staticmethod
     def _settings(user: UsersOrm) -> SummarySettings:
@@ -84,9 +81,15 @@ class MessageHandlers:
             return None
         return self._messenger.get_file_with_retry(media.file_id)
 
-    def handle_audio(self, message: Message, user: UsersOrm) -> None:
-        """Handle audio file processing."""
-        data = self._fetch_media(message, message.audio, "No audio file found.")
+    def _summarize_media(
+        self,
+        message: Message,
+        user: UsersOrm,
+        media: _SizedMedia | None,
+        missing_msg: str,
+    ) -> None:
+        """Summarize a spoken-media message and send the answer."""
+        data = self._fetch_media(message, media, missing_msg)
         if data is None:
             return
         answer = self._summarizer.summarize(
@@ -94,43 +97,27 @@ class MessageHandlers:
             settings=self._settings(user),
         )
         self._messenger.send_answer(message, answer)
+
+    def handle_audio(self, message: Message, user: UsersOrm) -> None:
+        """Handle audio file processing."""
+        self._summarize_media(message, user, message.audio, "No audio file found.")
 
     def handle_voice(self, message: Message, user: UsersOrm) -> None:
         """Handle voice file processing."""
-        data = self._fetch_media(message, message.voice, "No voice message found.")
-        if data is None:
-            return
-        answer = self._summarizer.summarize(
-            data=data,
-            settings=self._settings(user),
-        )
-        self._messenger.send_answer(message, answer)
-
-    def _handle_video_like(self, message: Message, user: UsersOrm, data: File) -> None:
-        """Shared video / video-note pipeline: download, then summarize."""
-        downloaded_file = self._downloader.download_tg(data, ext=".mp4")
-        try:
-            answer = self._summarizer.summarize(
-                data=downloaded_file,
-                settings=self._settings(user),
-            )
-            self._messenger.send_answer(message, answer)
-        finally:
-            clean_up(file=downloaded_file)
+        self._summarize_media(message, user, message.voice, "No voice message found.")
 
     def handle_video_note(self, message: Message, user: UsersOrm) -> None:
         """Handle video note file processing."""
-        data = self._fetch_media(message, message.video_note, "No video note found.")
-        if data is None:
-            return
-        self._handle_video_like(message, user, data)
+        self._summarize_media(
+            message,
+            user,
+            message.video_note,
+            "No video note found.",
+        )
 
     def handle_video(self, message: Message, user: UsersOrm) -> None:
         """Handle video file processing."""
-        data = self._fetch_media(message, message.video, "No video file found.")
-        if data is None:
-            return
-        self._handle_video_like(message, user, data)
+        self._summarize_media(message, user, message.video, "No video file found.")
 
     def handle_document(self, message: Message, user: UsersOrm) -> None:
         """Handle document file processing."""

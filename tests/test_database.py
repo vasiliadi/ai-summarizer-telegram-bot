@@ -28,16 +28,6 @@ def user_repo(sqlite_session_factory):
     return UserRepository(sqlite_session_factory)
 
 
-def test_register_user_success(user_repo, sqlite_session_factory):
-    """Test registering a new user successfully."""
-    result = user_repo.register_user(123, "First", "Last", "user")
-
-    assert result is True
-    with sqlite_session_factory() as session:
-        user = session.get(UsersOrm, 123)
-        assert user is not None
-
-
 def test_register_user_stores_defaults(user_repo, sqlite_session_factory):
     """Test register_user stores the configured defaults when nothing is overridden."""
     assert user_repo.register_user(123, "First", "Last", "user") is True

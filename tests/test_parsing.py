@@ -86,6 +86,7 @@ def test_parse_url_falls_back_to_tavily_when_exa_has_no_results(mocker, caplog):
 
     assert result.text == "From Tavily."
     assert result.prefix == "🕸️"
+    assert mock_exa.get_contents.call_count == 2
     mock_tavily.extract.assert_called_once_with(
         urls=["https://example.com"],
         format="markdown",
@@ -109,24 +110,6 @@ def test_parse_url_falls_back_to_tavily_on_exa_empty_content(mocker):
 
     assert result.text == "From Tavily."
     assert result.prefix == "🕸️"
-
-
-def test_parse_url_falls_back_to_tavily_when_exa_retries_exhausted(mocker):
-    """Test parse falls back to Tavily after Exa exhausts its retries."""
-    mocker.patch("time.sleep")
-    parser, mock_exa, mock_tavily = _make_parser(mocker)
-    mock_exa.get_contents.return_value = mocker.Mock(results=[])
-    mock_tavily.extract.return_value = {
-        "results": [{"url": "https://example.com", "raw_content": "From Tavily."}],
-        "failed_results": [],
-    }
-
-    result = parser.parse("https://example.com")
-
-    assert result.text == "From Tavily."
-    assert result.prefix == "🕸️"
-    assert mock_exa.get_contents.call_count == 2
-    mock_tavily.extract.assert_called_once()
 
 
 def test_parse_url_retries_exa_empty_then_succeeds(mocker):

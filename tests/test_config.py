@@ -1,7 +1,10 @@
 import importlib
 import logging
-
-from openai.resources.chat.completions import Completions
+import os
+import subprocess
+import sys
+from pathlib import Path
+from textwrap import dedent
 
 import config
 
@@ -178,13 +181,46 @@ def test_openrouter_client_uses_the_global_endpoint():
 
 
 def test_langfuse_patches_the_openai_sdk_when_enabled():
-    """Test enabling Langfuse wraps chat completions, the only source of traces.
+    """Config alone must activate tracing in a fresh process."""
+    # Other tests import the drop-in themselves; isolate its process-wide patch.
+    script = dedent("""
+        import sys
+        from unittest.mock import Mock, patch
 
-    Nothing else instruments a model call, so dropping the drop-in's import
-    breaks nothing loudly — the traces just stop arriving.
+        import httpx2
 
-    Reloads first: the blank-key test above leaves `config` with tracing off.
-    """
-    importlib.reload(config)
-    assert config.langfuse_client is not None
-    assert hasattr(Completions.create, "__wrapped__")
+        with patch("sentry_sdk.init"):
+            import config
+        from llm import LLMClient
+
+        assert config.langfuse_client is not None
+        drop_in = sys.modules["langfuse.openai"]
+        response = {
+            "id": "gen-test", "object": "chat.completion", "created": 1,
+            "model": "test/model",
+            "choices": [{"index": 0, "finish_reason": "stop",
+                         "message": {"role": "assistant", "content": "Summary."}}],
+        }
+        transport = httpx2.MockTransport(lambda _: httpx2.Response(200, json=response))
+        with httpx2.Client(transport=transport) as http:
+            client = config.openrouter_client.with_options(http_client=http)
+            tracer = Mock()
+            with patch.object(drop_in, "get_client", return_value=tracer):
+                result = LLMClient(client).run(
+                    content=["Summarize.", "Source."], model_id="test/model",
+                    target_language="English", thinking_level="medium",
+                )
+            assert result == "Summary."
+            tracer.start_observation.assert_called_once()
+            observation = tracer.start_observation.return_value
+            assert observation.update.call_args.kwargs["output"]["content"] == result
+    """)
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        env={**os.environ, "PYTHONPATH": str(Path(config.__file__).parent)},
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
