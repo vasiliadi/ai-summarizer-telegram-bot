@@ -299,14 +299,16 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   `<source>`: sharing one fetch between `CastroTranscriber` and `Downloader` was not worth the
   coupling for a page of a few kilobytes.
 - **Redirects are resolved before parsing, behind an SSRF guard.** `UrlResolver.resolve` sends
-  streamed, browser-impersonated GETs through one proxy (bodies never read) and hands the parsers
-  the final URL. It follows the chain itself (`allow_redirects=False`), checking that each host
-  resolves only to globally routable addresses **before** requesting it: a non-public original
-  or hop is never requested, and the original URL is passed on instead. Letting curl follow the
+  streamed, browser-impersonated GETs on one session through one proxy (bodies never read) and
+  hands the parsers the final URL. It follows the chain itself (`allow_redirects=False`),
+  checking **before** each request that the URL is http(s) and its host resolves only to
+  globally routable addresses: a URL that fails is never requested, and the original URL is
+  passed on instead. Letting curl follow the
   chain is **rejected**: it requests every hop before the final URL can be checked. The check
   resolves DNS locally while the request goes through the proxy, so it does not cover DNS
-  rebinding or the proxy's own network. It is best-effort: any failure, or more than
-  `_MAX_REQUESTS` requests, logs a warning and passes the original URL on, with no retry.
+  rebinding or the proxy's own network. It is best-effort, with no retry: a request that fails
+  logs a warning and passes on the last hop that passed the check, and a chain longer than
+  `_MAX_REQUESTS` requests passes on the original URL.
 - **Every extraction is screened for block pages by JEV.** A refused parser (region block, bot
   check, login or paywall) still returns non-empty text. `WebParser` passes each backend's output to
   `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over the first 20k characters

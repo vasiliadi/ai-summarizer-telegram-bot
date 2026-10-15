@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 from urllib.parse import urljoin, urlsplit
 
 from curl_cffi import requests
+from curl_cffi.requests.utils import requote_uri
 from tavily.errors import TimeoutError as TavilyTimeoutError
 from tenacity import (
     RetryError,
@@ -227,31 +228,36 @@ class UrlResolver:
         proxy = next(proxy_rotation()) or None
         resolved = url
         try:
-            for _ in range(self._MAX_REQUESTS):
-                target = self._redirect_target(resolved, proxy)
-                if target is None:
-                    break
-                if not self._is_public(target):
-                    logger.warning(
-                        "Blocked redirect to non-public host: %s -> %s",
-                        url,
-                        target,
-                    )
+            with requests.Session() as session:
+                for _ in range(self._MAX_REQUESTS):
+                    target = self._redirect_target(session, resolved, proxy)
+                    if target is None:
+                        break
+                    if not self._is_public(target):
+                        logger.warning(
+                            "Blocked redirect to non-public host: %s -> %s",
+                            url,
+                            target,
+                        )
+                        return url
+                    resolved = target
+                else:
+                    logger.warning("Too many redirects for %s", url)
                     return url
-                resolved = target
-            else:
-                logger.warning("Too many redirects for %s", url)
-                return url
-        except Exception:  # best-effort: never let resolution break parsing
+        except Exception:  # best-effort: keep the last hop that passed the guard
             logger.warning("Could not resolve redirects for %s", url, exc_info=True)
-            return url
         if resolved != url:
             logger.info("Resolved %s -> %s", url, resolved)
         return resolved
 
-    def _redirect_target(self, url: str, proxy: str | None) -> str | None:
+    def _redirect_target(
+        self,
+        session: requests.Session,
+        url: str,
+        proxy: str | None,
+    ) -> str | None:
         """Request `url` without following redirects; return the absolute target."""
-        response = requests.get(
+        response = session.get(
             url,
             stream=True,
             allow_redirects=False,
@@ -266,17 +272,18 @@ class UrlResolver:
             location = response.headers.get("location")
         finally:
             response.close()
-        return urljoin(url, location) if location else None
+        return requote_uri(urljoin(url, location)) if location else None
 
     @staticmethod
     def _is_public(url: str) -> bool:
-        """Return True only if every resolved IP for the hostname is globally routable.
+        """Return True only for http(s) whose host resolves only to global IPs.
 
         Rejects localhost, private RFC1918 ranges, link-local (169.254.x.x / ::1),
         and any other non-global address to block SSRF.
         """
-        hostname = (urlsplit(url).hostname or "").rstrip(".")
-        if not hostname:
+        parts = urlsplit(url)
+        hostname = (parts.hostname or "").rstrip(".")
+        if parts.scheme not in ("http", "https") or not hostname:
             return False
         try:
             results = socket.getaddrinfo(hostname, None)
