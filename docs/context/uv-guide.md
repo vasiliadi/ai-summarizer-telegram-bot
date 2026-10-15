@@ -35,7 +35,7 @@ Use `uv add` rather than hand-editing `pyproject.toml`. Keep production dependen
 | Group | Purpose | When active |
 |-------|---------|-------------|
 | `dev` | Local development (alembic, modal, python-dotenv, yt-dlp[deno]) | Default — included by `uv sync` |
-| `test` | Local testing (pytest, coverage, fakeredis, pytest-mock, pytest-cov) | Default — included by `uv sync` |
+| `test` | Local testing (pytest, coverage, fakeredis, pytest-mock, pytest-cov, httpx2) | Default — included by `uv sync` |
 | `build` | CI build/deploy (alembic, modal, psycopg2-binary, sqlalchemy) | CI only — explicit `uv sync --group build` |
 | `modal` | Modal cron image (redis) | CI only — explicit `uv sync --group modal` |
 
@@ -44,16 +44,18 @@ Use `uv add` rather than hand-editing `pyproject.toml`. Keep production dependen
 non-production group explicitly (`--no-group dev/test/modal/build`) rather than relying on the
 defaults, so adding a group means adding a `--no-group` line there too.
 
-**`scripts/eval/` gets no dependency group of its own, and one was tried and removed.** The
+**`scripts/eval/` gets no dependency group of its own.** The
 harness imports `config`, `llm` and `prompts` from `src/`, so running it needs the bot's entire
 runtime set — a group could never be synced on its own, which is the only thing such a group
-would have been for. Everything it needs is already a project or `dev` dependency, so a group
-would have held `python-dotenv` and nothing else. Install the harness with a plain `uv sync`.
+would be for. Everything it needs is already a project or `dev` dependency, so a group would
+hold `python-dotenv` and nothing else. Install the harness with a plain `uv sync`.
 
 **`requests` is a production dependency**, not a transitive one to rely on. `src/transcription.py`
-and `src/services.py` both catch `requests.exceptions`; it reached them through
-`exa-py`/`tavily-python` for a long time before being declared. Anything `src/`
-imports belongs in `[project.dependencies]`, however reliably some other package drags it in.
+and `src/services.py` both catch `requests.exceptions`, which also arrives transitively through
+`exa-py`/`tavily-python`. Anything `src/` imports belongs in `[project.dependencies]`, however
+reliably some other package drags it in. The same holds for tests: they build the `openai` client
+on an `httpx2.MockTransport`, so `httpx2` is declared in the `test` group although `openai` pulls
+it in.
 
 **Do not swap `requests.exceptions` for `curl_cffi.requests.exceptions`.** The names all exist on
 both sides — `SSLError`, `ProxyError`, `ChunkedEncodingError`, `ReadTimeout` — which makes the swap
@@ -114,10 +116,9 @@ Network constraints behind those choices (sandbox egress proxy, observed 2026-09
 
 - `astral.sh` is not on the **Trusted** allowlist; the uv install script 403s there.
 - The Claude Code docs say the GitHub proxy serves release assets only for repos attached to the
-  session, at any access level. In practice, on **Full**, both first-choice downloads work
-  (observed 2026-09): the astral.sh installer put uv 0.12.20 in `/root/.local/bin`, replacing
-  the image's 0.8.17, and `uv python install 3.14` installed a uv-managed CPython 3.14.7 that
-  `.venv` uses.
+  session, at any access level. In practice, on **Full**, both first-choice downloads work: the
+  astral.sh installer replaces the image's uv in `/root/.local/bin`, and uv's own Python download
+  installs the interpreter `.venv` uses.
 - The image's `apt` sources include PPAs on `ppa.launchpadcontent.net`, which **Trusted** blocks
   (`x-deny-reason: host_not_allowed`), so any `apt-get update` fails there. A **Custom** entry for
   that host did not take effect. The environment uses **Full** network access; whether

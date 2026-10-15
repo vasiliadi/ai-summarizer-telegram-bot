@@ -229,7 +229,7 @@ What belongs here is only what the skill cannot know:
 - **Langfuse switches the deprecated routes off on 2026-11-16, and the SDK still calls one of
   them.** The REST calls in `scripts/eval/` are already on the replacements (`v2/observations`,
   `v3/scores`, `experiments` + `experiment-items`, `v2/datasets`, `v2/evaluators`). But
-  `Langfuse.run_experiment` — in 4.14.4 and 4.15.6 — links every item to its run through
+  `Langfuse.run_experiment` — still in the SDK `uv.lock` pins, checked 2026-10-15 — links every item to its run through
   `POST /dataset-run-items`, which is on the list. It catches the failure and only logs *"Failed
   to create dataset run item"*, so after the cutoff a sweep would complete, write its traces and
   scores, and **never appear as an experiment**: `stage2.py report` would say no runs exist.
@@ -362,7 +362,8 @@ reply as one `{"role": "assistant", "content": …}` object, with no thinking in
 2026-10-02). pydantic-ai recorded `parts` with a `content` key on both sides, thinking parts
 included. `content_of` and `summary_of` read both, because a harvest's 30-day window can span
 the switch; a row in neither shape is skipped without a word, like any unparsable row. The
-`parts` branch is dead once no pydantic-ai trace is left inside the window.
+bot stopped writing pydantic-ai traces on 2026-10-02, so a harvest made after 2026-11-01 holds
+none and the `parts` branch reads nothing.
 
 Two screening filters earn their keep on real traffic: content under ~1500 characters, and
 degenerate output from `AudioTranscriber.transcribe` when the transcriber mis-decodes audio

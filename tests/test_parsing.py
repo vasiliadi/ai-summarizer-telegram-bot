@@ -260,6 +260,19 @@ def test_is_public_returns_false_for_missing_hostname():
     assert UrlResolver._is_public("https:///path") is False
 
 
+@pytest.mark.parametrize(
+    "url",
+    ["gopher://example.com:25/_HELO", "ftp://example.com/", "file:///etc/passwd"],
+)
+def test_is_public_rejects_non_http_schemes(mocker, url):
+    """_is_public returns False for any scheme other than http(s)."""
+    mocker.patch(
+        "parsing.socket.getaddrinfo",
+        return_value=[(None, None, None, None, ("93.184.216.34", 0))],
+    )
+    assert UrlResolver._is_public(url) is False
+
+
 def test_is_public_returns_true_for_public_ip(mocker):
     """_is_public returns True when the hostname resolves to a public IP."""
     mocker.patch(
@@ -328,24 +341,46 @@ def test_is_public_returns_false_when_any_addr_is_private(mocker):
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_returns_final_url_after_redirect(mocker):
-    """Test resolve returns the redirected URL and closes the response."""
+def _patch_get(mocker, **kwargs):
+    session = mocker.patch(
+        "parsing.requests.Session",
+    ).return_value.__enter__.return_value
+    session.get = mocker.Mock(**kwargs)
+    return session.get
+
+
+def _response(mocker, status_code=200, location=None):
+    headers = {"location": location} if location else {}
+    return mocker.Mock(status_code=status_code, headers=headers)
+
+
+def test_resolve_follows_redirects_hop_by_hop(mocker):
+    """Test resolve follows each hop itself, resolving relative locations."""
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
     # proxy_rotation() reads config.PROXIES, which python-dotenv backfills from the
     # developer's real .env (conftest.py never sets PROXY) — patch it so the
     # test result does not depend on what happens to be in that file.
     mocker.patch("utils.PROXIES", [])
-    mock_resp = mocker.Mock(url="https://example.com/final")
-    mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
+    responses = [
+        _response(mocker, 301, "https://t.example.com/x"),
+        _response(mocker, 302, "/final"),
+        _response(mocker, 200),
+    ]
+    mock_get = _patch_get(mocker, side_effect=responses)
 
     result = resolver.resolve("https://example.com/start")
 
-    assert result == "https://example.com/final"
-    mock_resp.close.assert_called_once_with()
-    assert mock_get.call_args.args == ("https://example.com/start",)
-    assert mock_get.call_args.kwargs["allow_redirects"] is True
-    assert mock_get.call_args.kwargs["stream"] is True
+    assert result == "https://t.example.com/final"
+    assert [c.args[0] for c in mock_get.call_args_list] == [
+        "https://example.com/start",
+        "https://t.example.com/x",
+        "https://t.example.com/final",
+    ]
+    assert all(c.kwargs["allow_redirects"] is False for c in mock_get.call_args_list)
+    assert all(c.kwargs["stream"] is True for c in mock_get.call_args_list)
+    for response in responses:
+        response.close.assert_called_once_with()
 
 
 def test_resolve_returns_original_when_no_redirect(mocker):
@@ -353,13 +388,39 @@ def test_resolve_returns_original_when_no_redirect(mocker):
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
     mocker.patch("utils.PROXIES", [])
-    mock_resp = mocker.Mock(url="https://example.com/article")
-    mocker.patch("parsing.requests.get", return_value=mock_resp)
+    _patch_get(mocker, return_value=_response(mocker, 200))
 
-    result = resolver.resolve("https://example.com/article")
+    assert resolver.resolve("https://example.com/article") == (
+        "https://example.com/article"
+    )
 
-    assert result == "https://example.com/article"
-    mock_resp.close.assert_called_once_with()
+
+def test_resolve_stops_at_a_redirect_without_location(mocker):
+    """Test resolve treats a redirect status with no Location as the destination."""
+    resolver = UrlResolver()
+    mocker.patch.object(resolver, "_is_public", return_value=True)
+    mocker.patch("utils.PROXIES", [])
+    _patch_get(mocker, return_value=_response(mocker, 302))
+
+    assert resolver.resolve("https://example.com/a") == "https://example.com/a"
+
+
+def test_resolve_gives_up_on_a_redirect_loop(mocker, caplog):
+    """Test resolve returns the original URL once the request cap is reached."""
+    resolver = UrlResolver()
+    mocker.patch.object(resolver, "_is_public", return_value=True)
+    mocker.patch("utils.PROXIES", [])
+    mock_get = _patch_get(
+        mocker,
+        side_effect=lambda *_a, **_k: _response(mocker, 302, "https://example.com/b"),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="parsing"):
+        result = resolver.resolve("https://example.com/a")
+
+    assert result == "https://example.com/a"
+    assert mock_get.call_count == UrlResolver._MAX_REQUESTS
+    assert "Too many redirects" in caplog.text
 
 
 def test_resolve_falls_back_to_original_on_error(mocker, caplog):
@@ -367,7 +428,7 @@ def test_resolve_falls_back_to_original_on_error(mocker, caplog):
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
     mocker.patch("utils.PROXIES", [])
-    mocker.patch("parsing.requests.get", side_effect=RuntimeError("boom"))
+    _patch_get(mocker, side_effect=RuntimeError("boom"))
 
     with caplog.at_level(logging.WARNING, logger="parsing"):
         result = resolver.resolve("https://example.com/article")
@@ -381,8 +442,7 @@ def test_resolve_passes_proxy_when_configured(mocker):
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
     mocker.patch("utils.PROXIES", ["https://user:pass@proxy.com:1234"])
-    mock_resp = mocker.Mock(url="https://example.com/article")
-    mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
+    mock_get = _patch_get(mocker, return_value=_response(mocker))
 
     resolver.resolve("https://example.com/article")
 
@@ -394,8 +454,7 @@ def test_resolve_omits_proxy_when_none_configured(mocker):
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
     mocker.patch("utils.PROXIES", [])
-    mock_resp = mocker.Mock(url="https://example.com/article")
-    mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
+    mock_get = _patch_get(mocker, return_value=_response(mocker))
 
     resolver.resolve("https://example.com/article")
 
@@ -407,8 +466,7 @@ def test_resolve_passes_its_timeout(mocker):
     resolver = UrlResolver()
     mocker.patch.object(resolver, "_is_public", return_value=True)
     mocker.patch("utils.PROXIES", [])
-    mock_resp = mocker.Mock(url="https://example.com/article")
-    mock_get = mocker.patch("parsing.requests.get", return_value=mock_resp)
+    mock_get = _patch_get(mocker, return_value=_response(mocker))
 
     resolver.resolve("https://example.com/article")
 
@@ -423,7 +481,7 @@ def test_resolve_blocks_non_public_initial_url(mocker, caplog):
         "_is_public",
         side_effect=lambda u: u != "http://192.168.1.1/",
     )
-    mock_get = mocker.patch("parsing.requests.get")
+    mock_get = _patch_get(mocker)
 
     with caplog.at_level(logging.WARNING, logger="parsing"):
         result = resolver.resolve("http://192.168.1.1/")
@@ -433,23 +491,62 @@ def test_resolve_blocks_non_public_initial_url(mocker, caplog):
     assert "Blocked non-public URL" in caplog.text
 
 
-def test_resolve_blocks_redirect_to_private_host(mocker, caplog):
-    """Test resolve returns the original URL when a redirect lands on a private host."""
+def test_resolve_never_requests_a_private_redirect_hop(mocker, caplog):
+    """Test a redirect to a private host is refused before that host is requested."""
     resolver = UrlResolver()
-    mocker.patch.object(
-        resolver,
-        "_is_public",
-        side_effect=[True, False],  # public initial URL, private redirect
-    )
+    metadata = "http://169.254.169.254/latest/meta-data/"
+    mocker.patch.object(resolver, "_is_public", side_effect=lambda u: u != metadata)
     mocker.patch("utils.PROXIES", [])
-    mock_resp = mocker.Mock(url="http://169.254.169.254/latest/meta-data/")
-    mocker.patch("parsing.requests.get", return_value=mock_resp)
+    mock_get = _patch_get(
+        mocker,
+        return_value=_response(mocker, 302, metadata),
+    )
 
     with caplog.at_level(logging.WARNING, logger="parsing"):
         result = resolver.resolve("https://example.com/start")
 
     assert result == "https://example.com/start"
+    assert [c.args[0] for c in mock_get.call_args_list] == ["https://example.com/start"]
     assert "Blocked redirect to non-public host" in caplog.text
+
+
+def test_resolve_keeps_the_last_good_hop_when_a_later_one_fails(mocker, caplog):
+    """Test a failing hop returns the last target that passed the guard."""
+    resolver = UrlResolver()
+    mocker.patch.object(resolver, "_is_public", return_value=True)
+    mocker.patch("utils.PROXIES", [])
+    _patch_get(
+        mocker,
+        side_effect=[
+            _response(mocker, 301, "https://news.example.com/article"),
+            RuntimeError("timeout"),
+        ],
+    )
+
+    with caplog.at_level(logging.WARNING, logger="parsing"):
+        result = resolver.resolve("https://t.example.com/abc")
+
+    assert result == "https://news.example.com/article"
+    assert "Could not resolve redirects" in caplog.text
+
+
+def test_resolve_requotes_a_non_ascii_location(mocker):
+    """Test a Location with raw non-ASCII characters and spaces is percent-encoded."""
+    resolver = UrlResolver()
+    mocker.patch.object(resolver, "_is_public", return_value=True)
+    mocker.patch("utils.PROXIES", [])
+    mock_get = _patch_get(
+        mocker,
+        side_effect=[_response(mocker, 302, "/статья/my article"), _response(mocker)],
+    )
+
+    result = resolver.resolve("https://example.com/start")
+
+    assert (
+        result
+        == "https://example.com/%D1%81%D1%82%D0%B0%D1%82%D1%8C%D1%8F/my%20article"
+    )
+    assert mock_get.call_args.args == (result,)
 
 
 # ---------------------------------------------------------------------------

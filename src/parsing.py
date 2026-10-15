@@ -5,9 +5,10 @@ import logging
 import socket
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar, cast
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from curl_cffi import requests
+from curl_cffi.requests.utils import requote_uri
 from tavily.errors import TimeoutError as TavilyTimeoutError
 from tenacity import (
     RetryError,
@@ -211,57 +212,78 @@ class UrlResolver:
     """Resolves a URL to its final post-redirect destination, guarding against SSRF."""
 
     _TIMEOUT: ClassVar[int] = 10
+    _MAX_REQUESTS: ClassVar[int] = 10
+    _REDIRECT_CODES: ClassVar[frozenset[int]] = frozenset({301, 302, 303, 307, 308})
 
     def resolve(self, url: str) -> str:
         """Return the final URL after following redirects; the original on failure.
 
-        Best-effort pre-check: issues a streamed GET (browser-impersonated,
-        routed through the proxy pool, body never read) and follows 301/302
-        redirects so the parser receives the real destination. Any failure
-        (timeout, network error) is logged and the original URL is returned
-        unchanged. Non-public hosts (private, loopback, link-local) are
-        rejected before the request and after redirect to prevent SSRF.
+        Follows the chain one hop at a time and checks each target with
+        `_is_public` before requesting it. See architecture.md → *Redirects are
+        resolved before parsing, behind an SSRF guard*.
         """
         if not self._is_public(url):
             logger.warning("Blocked non-public URL: %s", url)
             return url
+        proxy = next(proxy_rotation()) or None
+        resolved = url
         try:
-            response = requests.get(
-                url,
-                stream=True,
-                allow_redirects=True,
-                impersonate="chrome",
-                verify=True,
-                timeout=self._TIMEOUT,
-                proxy=next(proxy_rotation()) or None,
-            )
-            try:
-                resolved = response.url or url
-            finally:
-                response.close()
-        except Exception:  # best-effort: never let resolution break parsing
+            with requests.Session() as session:
+                for _ in range(self._MAX_REQUESTS):
+                    target = self._redirect_target(session, resolved, proxy)
+                    if target is None:
+                        break
+                    if not self._is_public(target):
+                        logger.warning(
+                            "Blocked redirect to non-public host: %s -> %s",
+                            url,
+                            target,
+                        )
+                        return url
+                    resolved = target
+                else:
+                    logger.warning("Too many redirects for %s", url)
+                    return url
+        except Exception:  # best-effort: keep the last hop that passed the guard
             logger.warning("Could not resolve redirects for %s", url, exc_info=True)
-            return url
-        if not self._is_public(resolved):
-            logger.warning(
-                "Blocked redirect to non-public host: %s -> %s",
-                url,
-                resolved,
-            )
-            return url
         if resolved != url:
             logger.info("Resolved %s -> %s", url, resolved)
         return resolved
 
+    def _redirect_target(
+        self,
+        session: requests.Session,
+        url: str,
+        proxy: str | None,
+    ) -> str | None:
+        """Request `url` without following redirects; return the absolute target."""
+        response = session.get(
+            url,
+            stream=True,
+            allow_redirects=False,
+            impersonate="chrome",
+            verify=True,
+            timeout=self._TIMEOUT,
+            proxy=proxy,
+        )
+        try:
+            if response.status_code not in self._REDIRECT_CODES:
+                return None
+            location = response.headers.get("location")
+        finally:
+            response.close()
+        return requote_uri(urljoin(url, location)) if location else None
+
     @staticmethod
     def _is_public(url: str) -> bool:
-        """Return True only if every resolved IP for the hostname is globally routable.
+        """Return True only for http(s) whose host resolves only to global IPs.
 
         Rejects localhost, private RFC1918 ranges, link-local (169.254.x.x / ::1),
         and any other non-global address to block SSRF.
         """
-        hostname = (urlsplit(url).hostname or "").rstrip(".")
-        if not hostname:
+        parts = urlsplit(url)
+        hostname = (parts.hostname or "").rstrip(".")
+        if parts.scheme not in ("http", "https") or not hostname:
             return False
         try:
             results = socket.getaddrinfo(hostname, None)
