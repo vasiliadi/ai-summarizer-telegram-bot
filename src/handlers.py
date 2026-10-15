@@ -81,9 +81,15 @@ class MessageHandlers:
             return None
         return self._messenger.get_file_with_retry(media.file_id)
 
-    def handle_audio(self, message: Message, user: UsersOrm) -> None:
-        """Handle audio file processing."""
-        data = self._fetch_media(message, message.audio, "No audio file found.")
+    def _summarize_media(
+        self,
+        message: Message,
+        user: UsersOrm,
+        media: _SizedMedia | None,
+        missing_msg: str,
+    ) -> None:
+        """Summarize a spoken-media message and send the answer."""
+        data = self._fetch_media(message, media, missing_msg)
         if data is None:
             return
         answer = self._summarizer.summarize(
@@ -91,39 +97,27 @@ class MessageHandlers:
             settings=self._settings(user),
         )
         self._messenger.send_answer(message, answer)
+
+    def handle_audio(self, message: Message, user: UsersOrm) -> None:
+        """Handle audio file processing."""
+        self._summarize_media(message, user, message.audio, "No audio file found.")
 
     def handle_voice(self, message: Message, user: UsersOrm) -> None:
         """Handle voice file processing."""
-        data = self._fetch_media(message, message.voice, "No voice message found.")
-        if data is None:
-            return
-        answer = self._summarizer.summarize(
-            data=data,
-            settings=self._settings(user),
-        )
-        self._messenger.send_answer(message, answer)
+        self._summarize_media(message, user, message.voice, "No voice message found.")
 
     def handle_video_note(self, message: Message, user: UsersOrm) -> None:
         """Handle video note file processing."""
-        data = self._fetch_media(message, message.video_note, "No video note found.")
-        if data is None:
-            return
-        answer = self._summarizer.summarize(
-            data=data,
-            settings=self._settings(user),
+        self._summarize_media(
+            message,
+            user,
+            message.video_note,
+            "No video note found.",
         )
-        self._messenger.send_answer(message, answer)
 
     def handle_video(self, message: Message, user: UsersOrm) -> None:
         """Handle video file processing."""
-        data = self._fetch_media(message, message.video, "No video file found.")
-        if data is None:
-            return
-        answer = self._summarizer.summarize(
-            data=data,
-            settings=self._settings(user),
-        )
-        self._messenger.send_answer(message, answer)
+        self._summarize_media(message, user, message.video, "No video file found.")
 
     def handle_document(self, message: Message, user: UsersOrm) -> None:
         """Handle document file processing."""

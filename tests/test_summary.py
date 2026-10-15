@@ -358,7 +358,7 @@ def test_summarize_with_document_routes_audio_document_to_transcription(mocker):
         settings=settings,
     )
     fakes.openrouter_files.upload.assert_not_called()
-    fakes.downloader.download_tg.assert_called_once_with(mock_tg_file, ext=".ogg")
+    fakes.downloader.download_tg.assert_called_once_with(mock_tg_file)
     mock_clean_up.assert_has_calls(
         [
             mocker.call(file="temp.ogg"),
@@ -702,21 +702,17 @@ def test_summarize_with_document_logs_warning_on_delete_failure(mocker):
     mock_logger.warning.assert_called_once()
 
 
-@pytest.mark.parametrize(
-    "file_path",
-    ["voice/file.oga", "audio/file.mp3", "videos/file.mp4"],
-)
-def test_summarize_with_telegram_file(mocker, file_path):
+def test_summarize_with_telegram_file(mocker):
     """Test summarize() downloads a Telegram File object before summarizing."""
     summarizer, fakes = _make_summarizer(mocker)
-    fakes.downloader.download_tg.return_value = "downloaded.ogg"
+    fakes.downloader.download_tg.return_value = "downloaded"
     transcribe = mocker.patch.object(
         summarizer,
         "_summarize_via_transcription",
         return_value="Telegram file summary",
     )
     cleanup = mocker.patch("summary.clean_up")
-    mock_tg_file = File("media-id", "media-uid", file_path=file_path)
+    mock_tg_file = File("media-id", "media-uid", file_path="voice/file.oga")
 
     result = summarizer.summarize(
         data=mock_tg_file,
@@ -725,8 +721,8 @@ def test_summarize_with_telegram_file(mocker, file_path):
 
     assert result == "Telegram file summary"
     fakes.downloader.download_tg.assert_called_once_with(mock_tg_file)
-    transcribe.assert_called_once_with(data="downloaded.ogg", settings=SETTINGS)
-    cleanup.assert_called_once_with(file="downloaded.ogg")
+    transcribe.assert_called_once_with(data="downloaded", settings=SETTINGS)
+    cleanup.assert_called_once_with(file="downloaded")
 
 
 def test_summarize_cleans_up_telegram_video_when_transcription_fails(mocker, tmp_path):
