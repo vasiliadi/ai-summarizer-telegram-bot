@@ -32,22 +32,21 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   `README.md`); that is the whole reason. **Not** a settled constraint: the client
   speaks the Redis protocol, so either server works and swapping is fair game.
 - **`redis` is declared directly, never as the `limits[redis]` extra** — that extra caps the
-  client below 8.0.0, so it held the whole project a major version behind. Declaring `redis`
-  as a plain entry in `[project.dependencies]` is what freed it, and the extra carries nothing
-  else — `limits`' Redis storage backend ships in the core package. Re-adding `limits[redis]`
+  client below 8.0.0, and carries nothing else: `limits`' Redis storage backend ships in the
+  core package. Re-adding `limits[redis]`
   silently rolls the client back under the cap; check the extra's own requirement before
   assuming a newer `limits` has lifted it. `scripts/cron.py` builds its Modal image with
   `--only-group modal`, so the `modal` group declares `redis` a second time; the two must
   move together.
-- **One model provider: OpenRouter** — every summarizing model is an OpenRouter id, and the
-  direct Google provider, `google-genai` and the Gemini Files API are gone. Accepted
-  consequences: an OpenRouter outage stops all summarization, and Gemini's native audio and
+- **One model provider: OpenRouter** — every summarizing model is an OpenRouter id; there is no
+  direct Google provider, `google-genai` or Gemini Files API. Accepted consequences: an OpenRouter outage stops all summarization, and Gemini's native audio and
   video understanding is lost. Transcription runs on OpenRouter too (MAI-Transcribe-2), and is
   never a swappable summarization model.
 - **The `openai` SDK, pointed at OpenRouter** — `config.openrouter_client` is one
   `openai.OpenAI` on `https://openrouter.ai/api/v1`, and every summarizing call goes through
-  `llm.py` on it; `AudioTranscriber` calls the same client directly for transcription. With a single provider there is no seam left for a framework to own;
-  pydantic-ai was dropped, and it also refused OpenRouter file ids. OpenRouter's own Python SDK
+  `llm.py` on it; `AudioTranscriber` calls the same client directly for transcription. With a
+  single provider there is no seam for a framework to own, so an agent framework is **rejected**
+  (pydantic-ai also refused OpenRouter file ids). OpenRouter's own Python SDK
   was **rejected** (checked 2026-10-01): it caps `pydantic` below 2.13 and has no Langfuse
   integration. Revisit only if the cap is lifted and a Langfuse integration exists. The SDK
   retries on its own — twice by default, on
@@ -128,7 +127,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 | `llm.py` | `LLMClient` — the one place a model is called. `run` turns the instructions, the user's thinking level and the content parts into a single chat-completions request on the injected `openai` client; `build_file_part` references an uploaded document by id. A text run goes through `chat.completions.create`, a run carrying a file through the client's generic `post` (see Tracing below). It never consults `MODEL_SPECS`, so the eval harness runs unregistered ids on it as is. |
 | `transcription.py` | `AudioTranscriber` (MAI-Transcribe-2 on OpenRouter) + `YouTubeTranscriber` (orchestrator over `ApiBackend` primary → `YtDlpBackend` fallback, mirroring `parsing.py`'s `ParserBackend`; an empty or whitespace-only transcript counts as a backend failure, so it falls through too) + `CastroTranscriber` (scrapes the transcript off a Castro episode page). |
 | `download.py` | `Downloader` — YouTube audio (yt-dlp→mp3), Castro (scrape→mp3, the fallback for an episode without a transcript), Telegram file fetch. |
-| `parsing.py` | `WebParser` — webpage text extraction, Exa primary → Tavily fallback; each backend's output is block-page checked by JEV. |
+| `parsing.py` | `WebParser` — webpage text extraction: `UrlResolver` follows redirects first, then Exa primary → Tavily fallback; each backend's output is block-page checked by JEV (`BlockedPageDetector`). |
 | `services.py` | `Messenger` (Telegram send with retry + 4096-unit chunking), `QuotaManager` (rate limits), `OpenRouterFiles` (document upload/delete on OpenRouter's Files API), `Tracer` (names, tags and adds settings metadata to the Langfuse trace for a message, if one is opened). |
 | `container.py` | `Container` + `build_container()` — the composition root; wires every collaborator to `config`'s clients. `Container` carries only the five roots `BotApp` holds (`bot`, `quota_manager`, `tracer`, `user_repo`, `handlers`); the rest of the graph is reached through `handlers`. |
 | `database.py` | `UserRepository` — users table access (SQLAlchemy + Postgres). |
@@ -155,6 +154,7 @@ Telegram update
     document ────────────────────► summarize_with_document(File, mime)
     text (treated as URL) ── classify_url ──┬─ "youtube" / "castro" ► summarize(url)
                                             └─ "web"  ► WebParser.parse → summarize_text
+                                                        (UrlResolver → Exa → Tavily)
 ```
 
 ### Summarizer input branching (`summary.py:summarize`)
@@ -171,7 +171,10 @@ skips the download and reaches `compress_audio` with the URL string as its file 
 - **Castro URL** → try transcript (`CastroTranscriber.get_transcript`); on
   success summarize the transcript. On failure → `Downloader.download_castro`
   audio, then the file path below.
-- **Telegram File** → quota pre-check → `Downloader.download_tg` → file path.
+`summarize` runs the non-consuming quota pre-check before any of these, so an exhausted user
+triggers no transcript fetch or download.
+
+- **Telegram File** → `Downloader.download_tg` → file path.
   Audio, voice, video and video notes share this path. Downloads have no extension;
   ffmpeg detects the input container from the bytes. `Summarizer` owns cleanup of
   both the download and the compressed audio; handlers never download media themselves.
@@ -295,6 +298,13 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   download instead of an error. The fallback fetches the page a second time, for its
   `<source>`: sharing one fetch between `CastroTranscriber` and `Downloader` was not worth the
   coupling for a page of a few kilobytes.
+- **Redirects are resolved before parsing, behind an SSRF guard.** `UrlResolver.resolve` sends
+  one streamed, browser-impersonated GET through a proxy (body never read) and hands the parsers
+  the final URL. A host must resolve only to globally routable addresses: a non-public original
+  is never requested, and a redirect that lands on a non-public host is discarded in favour of
+  the original URL. The redirect chain is followed by curl before that second check, so the
+  guard keeps a private URL away from the parsers, not every hop away from the network. It is
+  best-effort: any failure logs a warning and passes the original URL on, with no retry.
 - **Every extraction is screened for block pages by JEV.** A refused parser (region block, bot
   check, login or paywall) still returns non-empty text. `WebParser` passes each backend's output to
   `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over the first 20k characters

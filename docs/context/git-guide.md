@@ -47,6 +47,10 @@ scope. Half the filters live in `.pre-commit-config.yaml`, half in the upstream
 | `pytest` | `src/`, `tests/`, `scripts/eval/`, `pyproject.toml`, `uv.lock` |
 | `ty` | `src/`, `pyproject.toml`, `uv.lock` — **not** `tests/` |
 
+`default_install_hook_types` also installs `post-merge`, `post-checkout` and `post-rewrite` hooks,
+where `uv-sync` runs `uv sync` unconditionally, so switching branches, pulling or rebasing
+re-syncs `.venv` (and prints the pre-commit hook list, all skipped, on `git checkout`).
+
 Two consequences worth holding onto. A test-only change is never type-checked at commit time, so run
 `uvx ty@latest check .` yourself when it could affect types — `@latest` per *Always `@latest`*
 below, which the hook honours too. And five hooks *rewrite* files instead of merely rejecting them —
@@ -67,6 +71,10 @@ expected; see `docs/context/uv-guide.md`.
 **Always `@latest`:** every uvx call site pins it — both ruff hooks, the `ty` hook, and `.github/workflows/typechecking.yml`. Bare `uvx <tool>` reuses a `uv tool install`ed copy that may lag behind CI.
 
 ## CI Workflows
+
+`linting.yml` runs `ruff check` and `ruff format --check` over the whole tree (ruff from `pip`,
+unpinned), `typechecking.yml` runs `ty` over `src/`, `codecov.yml` runs the tests with branch
+coverage, and `sentry_release.yml` creates a Sentry release on every push to `main`.
 
 `typechecking.yml` and `codecov.yml` pin `astral-sh/setup-uv` to `version: "latest-known"`,
 deliberately and unlike the uvx rule above. The project pins no uv version, so leaving `version`
