@@ -233,8 +233,13 @@ What belongs here is only what the skill cannot know:
   `POST /dataset-run-items`, which is on the list. It catches the failure and only logs *"Failed
   to create dataset run item"*, so after the cutoff a sweep would complete, write its traces and
   scores, and **never appear as an experiment**: `stage2.py report` would say no runs exist.
-  **Before sweeping after the cutoff**, check the SDK changelog for a release that moved off the
-  route, bump to it, and confirm a one-item run shows up in `GET /experiments`. `GET /traces` is
+  SDK v5 removes that call: it records experiments through OTel under a server-derived
+  experiment id, with no `dataset-run-items` request. **Before sweeping after the cutoff**,
+  bump `langfuse` to v5 or later and confirm a one-item run shows up in `GET /experiments`.
+  The repo needs no code change for v5: every SDK call in `src/` and `scripts/eval/` keeps its
+  signature, and v5 drops only APIs nothing here uses (`api.legacy`, `api.scores_v3`,
+  `set_current_trace_io`, the dataset-run helpers, `blocked_instrumentation_scopes`). A
+  self-hosted server must be Langfuse v4.59.0 or newer for SDK v5. `GET /traces` is
   deprecated too; read traces as `v2/observations` rows grouped by `traceId`.
 - **Read experiment results from the experiment endpoints, never by joining traces.** Evaluator
   scores attach to the **observation**, so filtering scores by experiment id returns nothing for
