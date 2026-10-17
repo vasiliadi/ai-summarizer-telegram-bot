@@ -307,6 +307,9 @@ anyone other than yourself, that content is theirs.
 
 ## Webpage parsing
 
+Have a topic but no URL yet? See [Find webpages to summarize](docs/context/source-discovery.md)
+for an optional Parallel Search MCP workflow in Codex, followed by a URL handoff to the bot.
+
 Webpage URLs are parsed into clean text before being passed to the model. This gives every model identical, well-structured input and removes the variability of a provider's server-side URL tools.
 
 Parsing runs a fixed two-stage flow: [Exa.ai](https://exa.ai) is tried first, and [Tavily](https://tavily.com) is used as an automatic fallback when Exa.ai returns no usable content or a detected block page; other Exa.ai errors are not retried on Tavily. Each result is checked by TypeSafe's JEV model (through OpenRouter) for block pages — bot checks, region blocks, logins, paywalls — so a blocked page falls through to the fallback, or ends in "page is not available", instead of being summarized. If that check itself fails, the text is kept.
