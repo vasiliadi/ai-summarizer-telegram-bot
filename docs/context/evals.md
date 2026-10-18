@@ -230,7 +230,7 @@ What belongs here is only what the skill cannot know:
   REST calls in `scripts/eval/` use the replacements (`v2/observations`, `v3/scores`,
   `experiments` + `experiment-items`, `v2/datasets`, `v2/evaluators`). From SDK v5,
   `Langfuse.run_experiment` records an experiment through OTel and calls none of the deprecated
-  routes (checked 2026-10-16). Its `run_name`, which defaults to `<name> - <ISO timestamp>`, becomes the experiment's
+  routes (confirmed by a live run on 2026-10-18). Its `run_name`, which defaults to `<name> - <ISO timestamp>`, becomes the experiment's
   `name` in `GET /experiments`, and that is the string `stage2.discover_runs` matches by
   `RUN_PREFIX` and splits on `" - "`. `GET /traces` is deprecated too; read traces as
   `v2/observations` rows grouped by `traceId`.
