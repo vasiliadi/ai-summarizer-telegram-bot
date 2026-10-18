@@ -110,12 +110,6 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         supports_audio=False,
         supports_files=True,
     ),
-    # Reference summaries only; kept out of evaluation. See evals.md.
-    "anthropic/claude-opus-5.5": ModelSpec(
-        label="Claude Opus 5.5",
-        supports_audio=False,
-        supports_files=True,
-    ),
 }
 MODEL_LABELS: dict[str, str] = {k: v.label for k, v in MODEL_SPECS.items()}
 MODEL_LABELS_REVERSE: dict[str, str] = {v: k for k, v in MODEL_LABELS.items()}
