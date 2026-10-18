@@ -20,7 +20,7 @@ dependencies = [
     # It arrived transitively through exa-py/tavily-python for a long
     # time; declared here so a provider dropping it cannot break the bot.
     "requests==2.34.2",
-    "sentry-sdk==2.71.0",
+    "sentry-sdk==2.72.0",
     "sqlalchemy==2.1.4",
     "tavily-python==0.8.5",
     "telegramify-markdown==1.4.0",
