@@ -383,8 +383,9 @@ where the content came from (`format_prefixed_summary`). Only a document summari
     `""` for silence or music) sends the prompt part alone, so do not assume a content part.
   - A trace spans the model call only, not the download, parse or upload around it; a retried
     `summarize_text` produces one trace per attempt.
-  - **Trace-level input/output is deprecated** in Langfuse v4 — tables, judges and exports read an
-    observation instead. **Never add `set_current_trace_io()` or an equivalent**, not even for a
-    legacy evaluator; migrate the evaluator to the root observation.
+  - **Trace-level input/output is deprecated** in Langfuse — tables, judges and exports read an
+    observation instead — and SDK v5 removed its setters (`set_current_trace_io()`,
+    `span.set_trace_io()`). **Never emulate them**, not even for a legacy evaluator; migrate the
+    evaluator to the root observation.
   - Everything built *on top* of these traces — datasets, scorers, judges, `scripts/eval/` — is
     owned by `evals.md`.
