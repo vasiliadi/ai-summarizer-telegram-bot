@@ -226,16 +226,19 @@ What belongs here is only what the skill cannot know:
   one evaluation rule targets `experiment`, and no blob-storage, PostHog or Mixpanel export is
   configured, so the export migration does not apply. Trace-level input/output is deprecated
   product-wide and nothing in `src/` sets it — see the **Tracing** bullet in `architecture.md`.
-- **Langfuse switches the deprecated routes off on 2026-11-16, and the SDK still calls one of
-  them.** The REST calls in `scripts/eval/` are already on the replacements (`v2/observations`,
-  `v3/scores`, `experiments` + `experiment-items`, `v2/datasets`, `v2/evaluators`). But
-  `Langfuse.run_experiment` — still in the SDK `uv.lock` pins, checked 2026-10-15 — links every item to its run through
-  `POST /dataset-run-items`, which is on the list. It catches the failure and only logs *"Failed
-  to create dataset run item"*, so after the cutoff a sweep would complete, write its traces and
-  scores, and **never appear as an experiment**: `stage2.py report` would say no runs exist.
-  SDK v5 drops that call, and the repo needs no code change for it, so **bump `langfuse` to v5
-  before the cutoff** and confirm a one-item run shows up in `GET /experiments`. `GET /traces` is
-  deprecated too; read traces as `v2/observations` rows grouped by `traceId`.
+- **Langfuse switches the deprecated routes off on 2026-11-16; keep every call off them.** The
+  REST calls in `scripts/eval/` use the replacements (`v2/observations`, `v3/scores`,
+  `experiments` + `experiment-items`, `v2/datasets`, `v2/evaluators`). From SDK v5,
+  `Langfuse.run_experiment` records an experiment through OTel and calls none of the deprecated
+  routes (checked 2026-10-16). Its `run_name`, which defaults to `<name> - <ISO timestamp>`, becomes the experiment's
+  `name` in `GET /experiments`, and that is the string `stage2.discover_runs` matches by
+  `RUN_PREFIX` and splits on `" - "`. `GET /traces` is deprecated too; read traces as
+  `v2/observations` rows grouped by `traceId`.
+- **Never run an experiment with `sample_rate` below 1.** Since SDK v5 an experiment is ordinary
+  OTel spans, so a sampled-out item and its scores are never stored and the experiment silently
+  comes up short. Nothing here passes `sample_rate`, but every `Langfuse()` client — the bot's and
+  the scripts' — reads `LANGFUSE_SAMPLE_RATE`, so do not set that variable to thin out bot
+  traces.
 - **Read experiment results from the experiment endpoints, never by joining traces.** Evaluator
   scores attach to the **observation**, so filtering scores by experiment id returns nothing for
   them and reads exactly like the evaluator never fired. Requesting the score and IO field groups

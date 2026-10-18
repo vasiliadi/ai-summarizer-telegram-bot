@@ -66,7 +66,9 @@ the transcript of an audio or video message) are traced: a document reaches the
 model as a file reference, which Langfuse would record as token usage with no
 readable content. `LANGFUSE_BASE_URL`
 defaults to Langfuse Cloud (EU); use
-`https://us.cloud.langfuse.com` for the US region or your self-hosted URL.
+`https://us.cloud.langfuse.com` for the US region or your self-hosted URL
+(a self-hosted server must run Langfuse v4.59.0 or newer, which the pinned
+Python SDK v5 requires).
 `LANGFUSE_TIMEOUT` (seconds) defaults to 30.
 
 Tracing is off unless both keys are set. When it is on, each traced message sends the prompt, the
