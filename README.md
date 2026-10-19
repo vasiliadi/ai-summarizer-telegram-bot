@@ -212,7 +212,7 @@ The setup script only provisions the VM. Project setup runs from the repo's Sess
 
 To run [Codex cloud tasks](https://learn.chatgpt.com/docs/environments/cloud-environments) on this repo, turn on
 internet access in the environment and use this install script. It is the counterpart of the Claude setup above;
-see *Codex Cloud* in [docs/context/uv-guide.md](docs/context/uv-guide.md) for why each line is there. To change it
+see *Codex Cloud* in [docs/uv-guide.md](docs/uv-guide.md) for why each line is there. To change it
 later, run the new script in the environment's **Edit** conversation, then **Save draft → Republish**; republishing
 alone does not rerun it.
 

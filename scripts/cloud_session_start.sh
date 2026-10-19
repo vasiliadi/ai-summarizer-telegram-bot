@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code SessionStart hook for cloud sessions; see "Cloud Sessions" in docs/context/uv-guide.md.
+# Claude Code SessionStart hook for cloud sessions; see "Cloud Sessions" in docs/uv-guide.md.
 set -euo pipefail
 
 [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] || exit 0

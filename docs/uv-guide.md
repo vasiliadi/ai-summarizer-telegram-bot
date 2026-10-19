@@ -20,7 +20,7 @@ uv lock --upgrade                    # update dependencies
 `uv run pytest --cov` needs no extra flags for the usual case — `[tool.coverage.run]` already pins
 `source` and `[tool.coverage.report]` already sets `show_missing`, so `--cov=src` and
 `--cov-report=term-missing` add nothing. It is also what the pre-commit hook runs (plus `-q`); see
-`docs/context/git-guide.md` for how that gate works.
+`docs/git-guide.md` for how that gate works.
 
 The one flag that is *not* redundant is `--cov-branch`. `[tool.coverage.run]` sets no `branch`, so
 the command above measures lines only, while CI runs `uv run pytest --cov --cov-branch
