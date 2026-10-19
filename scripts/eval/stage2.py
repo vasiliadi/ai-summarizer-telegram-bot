@@ -44,8 +44,8 @@ def discover_runs(dataset_name):
     # experiments() returns newest first, so the first hit per candidate wins.
     for row in API.experiments(API.dataset_id(dataset_name), name_prefix=RUN_PREFIX):
         candidate = _candidate(row["name"])
-        # Never a candidate. See evals.md → *`anthropic/claude-opus-5.5` in the
-        # registry is never evaluated*.
+        # Never a candidate. See evals.md → *`anthropic/claude-opus-5.5` is never
+        # evaluated*.
         if _split(candidate)[0] == judge.FABRICATED_MODEL:
             continue
         runs.setdefault(candidate, row)

@@ -91,7 +91,7 @@ def test_run_sends_the_expected_file_request():
 
     result = llm_client.run(
         content=["Summarize this.", FILE_PART],
-        model_id="anthropic/claude-opus-5.5",
+        model_id="openai/gpt-6-luna",
         target_language="English",
         thinking_level="high",
     )
@@ -102,7 +102,7 @@ def test_run_sends_the_expected_file_request():
     body = json.loads(request.content)
     system, user = body.pop("messages")
     assert body == {
-        "model": "anthropic/claude-opus-5.5",
+        "model": "openai/gpt-6-luna",
         "reasoning": {"effort": "high"},
     }
     assert system["role"] == "system"
