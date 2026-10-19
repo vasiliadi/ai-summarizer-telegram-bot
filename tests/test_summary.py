@@ -9,7 +9,7 @@ from openai import APIStatusError
 from telebot.types import File
 from tenacity import RetryError
 
-from config import DEFAULT_MODEL_ID_FOR_SUMMARY
+from config import DEFAULT_MODEL_ID_FOR_SUMMARY, ModelSpec
 from domain import PrefixedText, SummarySettings
 from exceptions import FetchTranscriptError, LimitExceededError, TranscriptionError
 from prompts import PROMPTS
@@ -407,18 +407,29 @@ def test_summarize_with_document_keeps_a_model_that_takes_files(mocker, mime_typ
     fakes.openrouter_files.upload.return_value = "or_file_doc123"
     fakes.llm_client.run.return_value = "Document summary"
     mocker.patch("summary.clean_up")
+    # A non-default model, so keeping it is told apart from the default failover.
+    mocker.patch.dict(
+        "summary.MODEL_SPECS",
+        {
+            "vendor/files": ModelSpec(
+                label="Files",
+                supports_audio=False,
+                supports_files=True,
+            ),
+        },
+    )
 
     summarizer.summarize_with_document(
         file=mocker.MagicMock(),
         mime_type=mime_type,
-        settings=SETTINGS,
+        settings=replace(SETTINGS, model="vendor/files"),
     )
 
     fakes.openrouter_files.upload.assert_called_once_with(
         file="temp_doc",
         mime_type=mime_type,
     )
-    assert fakes.llm_client.run.call_args.kwargs["model_id"] == "openai/gpt-6-luna"
+    assert fakes.llm_client.run.call_args.kwargs["model_id"] == "vendor/files"
     fakes.openrouter_files.delete.assert_called_once_with("or_file_doc123")
 
 
