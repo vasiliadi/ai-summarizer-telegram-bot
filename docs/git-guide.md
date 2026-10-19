@@ -61,7 +61,7 @@ already fixed itself and only needs re-staging.
 
 Do not pre-run the hook suite as a gate before committing — that is the hook's job, and it is
 already what runs. Running `uv run pytest --cov` while iterating on code is a different thing and is
-expected; see `docs/context/uv-guide.md`.
+expected; see `docs/uv-guide.md`.
 
 **Coverage:** `src/` is at 100% line coverage — keep it there by covering new or changed code in the same commit. There is no `--cov-fail-under` gate; review the report printed by the pytest hook and make sure your commit does not introduce new uncovered lines. CI separately uploads branch coverage to Codecov.
 

@@ -3,7 +3,7 @@
 Conventions that are **not** already enforced automatically. All formatting, naming, import
 sorting, and line-length rules are enforced by Ruff (configured in `pyproject.toml` under
 `[tool.ruff]`, `[tool.ruff.format]`, and `[tool.ruff.lint]`) — that file is the source of truth,
-not this one. See `docs/context/git-guide.md` for how it runs at commit time.
+not this one. See `docs/git-guide.md` for how it runs at commit time.
 
 ## Minimal Fixes
 
@@ -28,13 +28,13 @@ Use `# noqa` sparingly and always specify the exact rule code.
 
 ## Docstrings & Comments
 
-`docs/context/` is the single source of truth for design rationale, gotchas, and "do not" rules.
+`docs/` is the single source of truth for design rationale, gotchas, and "do not" rules.
 Comments and docstrings go stale unnoticed, so keep them short and let them point to the doc.
 This applies to `src/` and `scripts/` alike.
 
 - **Comments: at most two lines, and only *why*.** Never explain *what* the code does — naming does
   that. Anything longer (a provider's behaviour, a rejected alternative, a history of what broke)
-  goes in the owning `docs/context/` file, and the comment names the section:
+  goes in the owning `docs/` file, and the comment names the section:
   `# See architecture.md → *OpenRouter calls identify the app*`. Name the section, not a line
   number, so the pointer survives edits to the doc.
 - **Docstrings: a one-line summary**, Google style, for public functions, classes, and methods. A
@@ -47,7 +47,7 @@ This applies to `src/` and `scripts/` alike.
   module does): it goes stale the moment that component changes.
 - Guard an invariant that must not regress with a test, not a comment — a test fails loudly, a
   comment rots quietly (e.g. `test_sentry_opts_into_log_collection`).
-- A long existing comment is not deleted outright: move whatever it says that `docs/context/` does
+- A long existing comment is not deleted outright: move whatever it says that `docs/` does
   not already record, then shorten it.
 
 ## Error Handling & Logging
@@ -79,7 +79,7 @@ This applies to `src/` and `scripts/` alike.
 
 Collaborators arrive via `__init__` and are stored on private attributes (e.g. `self._client`);
 `container.py`'s composition root does the wiring, once, from `config`'s clients (see
-`docs/context/architecture.md`). No module-level service singletons or method aliases — a class
+`docs/architecture.md`). No module-level service singletons or method aliases — a class
 is the entire public surface.
 
 - `@staticmethod` is reserved for **private** helpers (`_name`) that need no instance state.
