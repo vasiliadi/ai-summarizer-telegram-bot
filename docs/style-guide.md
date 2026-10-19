@@ -28,13 +28,13 @@ Use `# noqa` sparingly and always specify the exact rule code.
 
 ## Docstrings & Comments
 
-`docs/*.md` is the single source of truth for design rationale, gotchas, and "do not" rules.
+The `docs/` guides are the single source of truth for design rationale, gotchas, and "do not" rules.
 Comments and docstrings go stale unnoticed, so keep them short and let them point to the doc.
 This applies to `src/` and `scripts/` alike.
 
 - **Comments: at most two lines, and only *why*.** Never explain *what* the code does — naming does
   that. Anything longer (a provider's behaviour, a rejected alternative, a history of what broke)
-  goes in the owning `docs/*.md` file, and the comment names the section:
+  goes in the owning `docs/` guide, and the comment names the section:
   `# See architecture.md → *OpenRouter calls identify the app*`. Name the section, not a line
   number, so the pointer survives edits to the doc.
 - **Docstrings: a one-line summary**, Google style, for public functions, classes, and methods. A
@@ -47,8 +47,8 @@ This applies to `src/` and `scripts/` alike.
   module does): it goes stale the moment that component changes.
 - Guard an invariant that must not regress with a test, not a comment — a test fails loudly, a
   comment rots quietly (e.g. `test_sentry_opts_into_log_collection`).
-- A long existing comment is not deleted outright: move whatever it says that `docs/*.md` does
-  not already record, then shorten it.
+- A long existing comment is not deleted outright: move whatever it says that the `docs/` guides
+  do not already record, then shorten it.
 
 ## Error Handling & Logging
 
