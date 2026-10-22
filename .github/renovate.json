@@ -26,11 +26,10 @@
       "automerge": false
     },
     {
-      "description": "Force Renovate to evaluate patches independently, but strictly IGNORE alphas/betas",
+      "description": "Force Renovate to evaluate patches independently; alphas/betas stay excluded by Renovate's default ignoreUnstable",
       "matchDepNames": ["python"],
       "separateMinorPatch": true,
-      "respectLatest": false,
-      "allowedVersions": "!/(a|b|rc)[0-9]+/"
+      "respectLatest": false
     },
     {
       "description": "Disable minor and major updates for Python (pep621/pyenv managers)",
