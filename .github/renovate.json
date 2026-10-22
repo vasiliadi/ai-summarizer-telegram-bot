@@ -33,9 +33,9 @@
       "ignoreUnstable": true
     },
     {
-      "description": "Disable minor, major, and prerelease updates for Python (pep621/pyenv managers)",
+      "description": "Disable minor and major updates for Python (pep621/pyenv managers); prereleases are already dropped by ignoreUnstable above",
       "matchPackageNames": ["python"],
-      "matchUpdateTypes": ["minor", "major", "prerelease"],
+      "matchUpdateTypes": ["minor", "major"],
       "enabled": false
     },
     {
