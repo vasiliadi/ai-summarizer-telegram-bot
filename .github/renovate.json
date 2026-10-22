@@ -30,10 +30,10 @@
       "matchDepNames": ["python"],
       "separateMinorPatch": true,
       "respectLatest": false,
-      "ignoreUnstable": true
+      "allowedVersions": "!/(a|b|rc)[0-9]+/"
     },
     {
-      "description": "Disable minor and major updates for Python (pep621/pyenv managers); prereleases are already dropped by ignoreUnstable above",
+      "description": "Disable minor and major updates for Python (pep621/pyenv managers)",
       "matchPackageNames": ["python"],
       "matchUpdateTypes": ["minor", "major"],
       "enabled": false
