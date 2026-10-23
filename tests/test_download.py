@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from curl_cffi.requests.exceptions import HTTPError
+from curl_cffi.requests.exceptions import HTTPError, Timeout
 from tenacity import RetryError
 from yt_dlp.utils import DownloadError
 
@@ -87,7 +87,7 @@ def test_download_tg_happy_path(mocker, downloader):
         stream=True,
         impersonate="chrome",
         verify=True,
-        timeout=120,
+        timeout=(30, 120),
     )
     mock_resp.iter_content.assert_called_once_with(chunk_size=8192)
     mock_resp.raise_for_status.assert_called_once()
@@ -392,6 +392,40 @@ def test_download_castro_page_http_error(mocker, downloader):
     # Only the page fetch happens; the audio download is never reached.
     mock_get.assert_called_once()
     mock_page_resp.close.assert_called_once()
+
+
+def test_download_castro_retries_on_timeout(mocker, downloader):
+    """Test download_castro retries an audio-stream timeout, then raises RetryError."""
+    mocker.patch("time.sleep")  # suppress tenacity wait between retries
+    mock_page_resp = mocker.MagicMock()
+    mock_page_resp.content = b'<html><source src="https://audio.link/file.mp3"></html>'
+    timeout = Timeout("curl: (28) Connection timed out")
+    mock_get = mocker.patch(
+        "download.requests.get",
+        side_effect=[mock_page_resp, timeout] * 3,
+    )
+    mocker.patch("download.requote_uri", side_effect=lambda x: x)
+
+    with pytest.raises(RetryError):
+        downloader.download_castro("https://castro.fm/episode/123")
+
+    assert mock_get.call_count == 6
+
+
+def test_download_tg_retries_on_timeout(mocker, downloader):
+    """Test download_tg retries a curl timeout, then raises RetryError."""
+    mocker.patch("time.sleep")  # suppress tenacity wait between retries
+    mock_file = mocker.MagicMock()
+    mock_file.file_path = "path/to/file"
+    mock_get = mocker.patch(
+        "download.requests.get",
+        side_effect=Timeout("curl: (28) Connection timed out"),
+    )
+
+    with pytest.raises(RetryError):
+        downloader.download_tg(mock_file, ext=".ext")
+
+    assert mock_get.call_count == 3
 
 
 def test_download_tg_http_error(mocker, downloader):

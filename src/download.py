@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, cast
 from bs4 import BeautifulSoup
 from curl_cffi import requests
 from curl_cffi.requests.exceptions import ConnectionError as RequestsConnectionError
-from curl_cffi.requests.exceptions import HTTPError, SSLError
+from curl_cffi.requests.exceptions import HTTPError, SSLError, Timeout
 from curl_cffi.requests.utils import requote_uri
 from tenacity import (
     before_sleep_log,
@@ -73,7 +73,7 @@ class Downloader:
     def _stream_to_file(
         url: str,
         dest: str,
-        timeout: int = 120,
+        timeout: tuple[float, float] = (30, 120),
     ) -> None:
         """GET `url` and stream the body to `dest` in 8 KB chunks."""
         r = requests.get(
@@ -152,7 +152,7 @@ class Downloader:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_fixed(10),
-        retry=retry_if_exception_type((SSLError, RequestsConnectionError)),
+        retry=retry_if_exception_type((SSLError, RequestsConnectionError, Timeout)),
         before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
         reraise=False,
     )
@@ -166,7 +166,7 @@ class Downloader:
             ValueError: If the audio source tag or URL is missing on the page.
             TypeError: If the page's source `src` is not a string.
             HTTPError: If the HTTP request fails.
-            RetryError: If SSL/connection failures persist after retries.
+            RetryError: If SSL/connection/timeout failures persist after retries.
 
         """
         temporary_file_name = generate_temporary_name(ext=".mp3")
@@ -198,11 +198,19 @@ class Downloader:
         logger.debug("File downloaded...")
         return temporary_file_name
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_fixed(10),
+        retry=retry_if_exception_type((SSLError, RequestsConnectionError, Timeout)),
+        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+        reraise=False,
+    )
     def download_tg(self, file_id: File, ext: str = "") -> str:
         """Fetch a Telegram file, returning the local temp path.
 
         Raises:
             ValueError: If the Telegram file path is missing.
+            RetryError: If SSL/connection/timeout failures persist after retries.
 
         """
         temporary_file_name = generate_temporary_name(ext=ext)
