@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from curl_cffi.requests.exceptions import HTTPError
+from curl_cffi.requests.exceptions import HTTPError, Timeout
 from tenacity import RetryError
 from yt_dlp.utils import DownloadError
 
@@ -392,6 +392,21 @@ def test_download_castro_page_http_error(mocker, downloader):
     # Only the page fetch happens; the audio download is never reached.
     mock_get.assert_called_once()
     mock_page_resp.close.assert_called_once()
+
+
+def test_download_castro_retries_on_timeout(mocker, downloader):
+    """Test download_castro retries a curl timeout, then raises RetryError."""
+    mocker.patch("time.sleep")  # suppress tenacity wait between retries
+    mock_get = mocker.patch(
+        "download.requests.get",
+        side_effect=Timeout("curl: (28) Connection timed out"),
+    )
+    mocker.patch("download.requote_uri", side_effect=lambda x: x)
+
+    with pytest.raises(RetryError):
+        downloader.download_castro("https://castro.fm/episode/123")
+
+    assert mock_get.call_count == 3
 
 
 def test_download_tg_http_error(mocker, downloader):
