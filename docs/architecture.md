@@ -240,6 +240,10 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   surfaces as `RetryError`, which `handle_message` maps to a user-facing
   "try again later" message. Other mapped errors: `LimitExceededError`,
   `WebParseError`. All exceptions are sent to Sentry via `capture_exception`.
+- **A streamed download's timeout is not a total.** With `stream=True`, curl_cffi's `(connect, read)`
+  tuple sets a connect limit plus a stall limit (no bytes for connect + read seconds), never a cap on
+  the whole transfer. So `Downloader` retries `Timeout` like a connection error: it means a stuck
+  host, not a large file. The 30 s connect limit keeps three attempts against a dead host short.
 - **A retry moves to the next proxy.** `Summarizer.summarize` builds one `proxy_rotation()` per
   YouTube request and passes it down the whole chain — `ApiBackend`, then `YtDlpBackend`, then
   `download_yt` — whose `@retry`-wrapped bodies draw `next()` on each attempt. Every attempt, across

@@ -73,7 +73,7 @@ class Downloader:
     def _stream_to_file(
         url: str,
         dest: str,
-        timeout: int = 120,
+        timeout: tuple[float, float] = (30, 120),
     ) -> None:
         """GET `url` and stream the body to `dest` in 8 KB chunks."""
         r = requests.get(
@@ -198,11 +198,19 @@ class Downloader:
         logger.debug("File downloaded...")
         return temporary_file_name
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_fixed(10),
+        retry=retry_if_exception_type((SSLError, RequestsConnectionError, Timeout)),
+        before_sleep=before_sleep_log(tenacity_logger, log_level=logging.WARNING),
+        reraise=False,
+    )
     def download_tg(self, file_id: File, ext: str = "") -> str:
         """Fetch a Telegram file, returning the local temp path.
 
         Raises:
             ValueError: If the Telegram file path is missing.
+            RetryError: If SSL/connection/timeout failures persist after retries.
 
         """
         temporary_file_name = generate_temporary_name(ext=ext)
