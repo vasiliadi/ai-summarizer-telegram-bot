@@ -12,7 +12,7 @@ dependencies = [
     "exa-py==2.25.0",
     "langfuse==5.0.1",
     "limits==5.8.0",
-    "openai==3.31.0",
+    "openai==3.35.1",
     "psycopg2-binary==2.9.13",
     "pytelegrambotapi==4.37.0",
     "redis==8.1.0",
