@@ -14,7 +14,7 @@ dependencies = [
     "limits==5.8.0",
     "openai==3.31.0",
     "psycopg2-binary==2.9.13",
-    "pytelegrambotapi==4.37.0",
+    "pytelegrambotapi==4.37.1",
     "redis==8.1.0",
     # `src/` catches requests.exceptions in transcription and services.
     # It arrived transitively through exa-py/tavily-python for a long
