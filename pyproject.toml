@@ -9,7 +9,7 @@ requires-python = ">=3.14"
 dependencies = [
     "beautifulsoup4==4.15.0",
     "curl-cffi==0.16.3",
-    "exa-py==2.25.0",
+    "exa-py==2.26.0",
     "langfuse==5.0.3",
     "limits==5.8.0",
     "openai==3.35.1",
