@@ -10,7 +10,7 @@ dependencies = [
     "beautifulsoup4==4.15.0",
     "curl-cffi==0.16.3",
     "exa-py==2.26.0",
-    "langfuse==5.0.3",
+    "langfuse==5.0.4",
     "limits==5.8.0",
     "openai==3.35.1",
     "psycopg2-binary==2.9.13",
