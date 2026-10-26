@@ -12,7 +12,7 @@ exclude-newer-span = "P3D"
 
 [[package]]
 name = "ai-summarizer-telegram-bot"
-version = "2.0.0"
+version = "3.0.2"
 source = { virtual = "." }
 default-groups = ["dev", "test"]
 dependencies = [
