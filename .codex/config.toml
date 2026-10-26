@@ -1,11 +1,5 @@
 web_search = "live"
 
-# Codex opens each model at its catalog context_window (272000 for the GPT models),
-# below the max_context_window it can raise to. These apply to whichever model the
-# session picks: Codex clamps the window to that model's max_context_window and the
-# compaction limit to 90% of the resulting window. Don't pin `model` here: a project
-# `model` becomes every new session's default and overrides the one picked last time.
-
 # Can go up to 872,000
 model_context_window = 828000
 # Codex compacts at 90% of the window
@@ -24,14 +18,3 @@ matcher = "^apply_patch$"
 [[hooks.PreToolUse.hooks]]
 type = "command"
 command = '''files=$(python3 -c "import json,sys;print('\n'.join(l.split(': ',1)[1].strip() for l in json.load(sys.stdin).get('tool_input',{}).get('command','').splitlines() if l.startswith(('*** Add File: ','*** Update File: ','*** Delete File: ','*** Move to: '))))" 2>/dev/null); [ -z "$files" ] && exit 0; [ "$(git branch --show-current 2>/dev/null)" = "main" ] || exit 0; [ "$(printf '%s\n' "$files" | wc -l)" = "$(printf '%s\n' "$files" | git check-ignore --stdin 2>/dev/null | wc -l)" ] && exit 0; echo 'Blocked: editing a repo file on the protected main branch. Create a feature branch first (git checkout -b <scope>-<short-desc>), then retry.' >&2; exit 2'''
-
-# Mirrors .mcp.json, which Codex does not read: keep the two server lists in sync.
-# OAuth is per machine: run `codex mcp login <name>` for any server `codex mcp list` shows as not logged in.
-[mcp_servers.linear]
-url = "https://mcp.linear.app/mcp"
-
-[mcp_servers.sentry]
-url = "https://mcp.sentry.dev/mcp"
-
-[mcp_servers.context7]
-url = "https://mcp.context7.com/mcp"
