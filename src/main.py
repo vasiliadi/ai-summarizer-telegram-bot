@@ -393,9 +393,14 @@ def build_app(container: Container) -> BotApp:
     return app
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Run the bot until polling stops, then shut it down."""
     app = build_app(build_container())
     try:
         app.run()
     finally:
         app.shutdown()
+
+
+if __name__ == "__main__":
+    main()

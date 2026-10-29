@@ -6,7 +6,7 @@ from tenacity import RetryError
 
 from exceptions import LimitExceededError, WebParseError
 from helpers import make_app
-from main import BotApp, build_app
+from main import BotApp, build_app, main
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -115,14 +115,27 @@ def test_run_starts_infinity_polling(mocker):
     fakes.bot.infinity_polling.assert_called_once_with(timeout=20)
 
 
-def test_run_turns_sigterm_into_keyboard_interrupt(mocker):
-    """run() maps SIGTERM to SIGINT's handler, so polling stops and shutdown runs."""
-    app, _ = make_app(mocker)
-    mock_signal = mocker.patch("main.signal.signal")
+def test_main_shuts_down_after_sigterm_stops_polling(mocker):
+    """SIGTERM during polling stops it like Ctrl+C, and main() then runs shutdown."""
+    app, fakes = make_app(mocker)
+    mocker.patch("main.build_container")
+    mocker.patch("main.build_app", return_value=app)
+    handlers = {}
+    mocker.patch("main.signal.signal", side_effect=handlers.__setitem__)
+    events = []
 
-    app.run()
+    def poll(**_kwargs):
+        try:
+            handlers[signal.SIGTERM](signal.SIGTERM, None)
+        except KeyboardInterrupt:  # telebot's polling stops on it and returns
+            events.append("polling stopped")
 
-    mock_signal.assert_called_once_with(signal.SIGTERM, signal.default_int_handler)
+    fakes.bot.infinity_polling.side_effect = poll
+    mocker.patch.object(app, "shutdown", side_effect=lambda: events.append("shutdown"))
+
+    main()
+
+    assert events == ["polling stopped", "shutdown"]
 
 
 def test_shutdown_cleans_up_and_flushes_the_tracer(mocker):

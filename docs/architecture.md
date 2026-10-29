@@ -119,7 +119,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 
 | Module | Role |
 |--------|------|
-| `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; the `__main__` block just calls `build_app`, `run`, `shutdown`. |
+| `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; `main()` (the `__main__` entry) just calls `build_app`, `run`, `shutdown`. |
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummarySettings` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching and media download/cleanup lifecycle, assembles the message content, and calls the injected `LLMClient.run`. |
 | `llm.py` | `LLMClient` — the one place a model is called. `run` turns the instructions, the user's thinking level and the content parts into a single chat-completions request on the injected `openai` client; `build_file_part` references an uploaded document by id. A text run goes through `chat.completions.create`, a run carrying a file through the client's generic `post` (see Tracing below). It never consults `MODEL_SPECS`, so the eval harness runs unregistered ids on it as is. |
