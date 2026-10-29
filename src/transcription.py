@@ -311,9 +311,7 @@ class YtDlpBackend(TranscriptBackend):
             raise DownloadError(msg)
 
         ydl_opts: _YoutubeDLOptions = {
-            "proxy": proxy,
-            "noplaylist": True,
-            "skip_download": True,  # ty: ignore[invalid-argument-type]  # pyrefly: ignore[bad-assignment]
+            **probe_opts,
             "writesubtitles": True,
             "writeautomaticsub": True,
             "subtitleslangs": chosen_langs,
@@ -326,8 +324,6 @@ class YtDlpBackend(TranscriptBackend):
                 },
             ],
             "outtmpl": temp_basename,
-            "quiet": True,
-            "nocheckcertificate": False,
         }
 
         # Phase 2: download and convert subtitles.

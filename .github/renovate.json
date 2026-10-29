@@ -75,8 +75,9 @@
       "automerge": true
     },
     {
-      "description": "CalVer packages (yt-dlp YYYY.M.D): use pep440 versioning for correct comparison; all updates require manual review (overrides pep621 patch automerge)",
-      "matchPackageNames": ["yt-dlp"],
+      "description": "CalVer packages (yt-dlp YYYY.M.D, and its stubs): use pep440 versioning for correct comparison; all updates require manual review (overrides pep621 patch automerge); one PR moves runtime and stubs together",
+      "matchPackageNames": ["yt-dlp", "types-yt-dlp"],
+      "groupName": "yt-dlp",
       "versioning": "pep440",
       "automerge": false,
       "addLabels": ["dep:calver"]

@@ -164,6 +164,9 @@ project-excludes = ["tests/**", "migrations/**", "scripts/eval/**"]
 [tool.ty.src]
 exclude = ["tests", "scripts/eval"]
 
+[tool.ty.rules]
+unused-ignore-comment = "error"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # "tests" makes the shared builders in tests/helpers.py importable by name.
