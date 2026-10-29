@@ -17,20 +17,14 @@ RUN python scripts/db.py \
     && alembic upgrade head \
     && modal deploy scripts/cron.py
 
-FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
-# uv installs the python-build-standalone interpreter named in .python-version
-# (faster than the Docker Hub build) into a directory the bot user can read.
-ENV ENV=PROD \
-    UV_PYTHON_INSTALL_DIR=/opt/python \
-    PYTHONUNBUFFERED=1 \
-    DENO_V8_FLAGS="--max-old-space-size=256" \
-    PATH="/app/.venv/bin:$PATH"
-ENV SENTRY_ENVIRONMENT=${ENV} \
-    LANGFUSE_TRACING_ENVIRONMENT=prod
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS base
+
+FROM base AS deps
+# uv's python-build-standalone interpreter is faster than the Docker Hub build.
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
-RUN apk add --no-cache ffmpeg deno
 COPY --from=ghcr.io/astral-sh/uv:latest@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc /uv /bin/
-COPY pyproject.toml uv.lock .python-version LICENSE NOTICE ./
+COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync \
     --frozen \
     --no-cache \
@@ -40,8 +34,22 @@ RUN uv sync \
     --no-group build \
     --compile-bytecode \
     --managed-python
-COPY --from=builder /app/src .
+
+FROM base
+ENV ENV=PROD \
+    PYTHONUNBUFFERED=1 \
+    DENO_V8_FLAGS="--max-old-space-size=256" \
+    PATH="/app/.venv/bin:$PATH"
+ENV SENTRY_ENVIRONMENT=${ENV} \
+    LANGFUSE_TRACING_ENVIRONMENT=prod
+WORKDIR /app
+RUN apk add --no-cache ffmpeg deno
+# The bot downloads into its CWD; everything it runs stays root-owned.
 RUN adduser -D -u 1000 -s /sbin/nologin bot \
-    && chown -R bot:bot /app
+    && chown bot:bot /app
+COPY --from=deps /opt/python /opt/python
+COPY --from=deps /app/.venv /app/.venv
+COPY LICENSE NOTICE ./
+COPY --from=builder /app/src .
 USER bot
 ENTRYPOINT ["python", "main.py"]

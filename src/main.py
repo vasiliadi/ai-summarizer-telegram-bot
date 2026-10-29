@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import signal
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -363,6 +364,8 @@ class BotApp:
 
     def run(self) -> None:
         """Start polling Telegram for updates."""
+        # See architecture.md → *Temp-file hygiene*: SIGTERM must reach `shutdown`.
+        signal.signal(signal.SIGTERM, signal.default_int_handler)
         self._bot.infinity_polling(timeout=20)
 
     def shutdown(self) -> None:
