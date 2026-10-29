@@ -281,7 +281,10 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest. Docker and Railway
   stop the container with SIGTERM, whose default action kills Python without running `finally`
   (and which PID 1 ignores outright), so `BotApp.run` maps it to SIGINT's `KeyboardInterrupt`;
-  telebot's polling catches that, returns, and `shutdown` runs.
+  telebot's polling catches that, returns, and `shutdown` runs; `main()` suppresses the
+  interrupt when it lands outside `polling()` (such as infinity_polling's retry sleep). `shutdown`
+  first closes telebot's `worker_pool`, which joins each worker after its current message,
+  because the workers are daemon threads and the sweep would otherwise delete their files.
 - **Fragmented downloads.** `download_yt` leaves yt-dlp's `skip_unavailable_fragments` at
   its default, so a download missing a few fragments still yields usable audio. Setting it
   to `False` is **rejected**: it would turn many tolerable downloads into hard failures,

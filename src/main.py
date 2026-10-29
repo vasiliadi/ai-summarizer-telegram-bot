@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import signal
+from contextlib import suppress
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
@@ -369,12 +370,13 @@ class BotApp:
         self._bot.infinity_polling(timeout=20)
 
     def shutdown(self) -> None:
-        """Remove temp download files and flush the tracer.
+        """Wait for in-flight handlers, remove temp download files and flush the tracer.
 
         The sweep unlinks files directly, so one `OSError` would otherwise cost
         every span still buffered in the tracer.
         """
         try:
+            self._bot.worker_pool.close()
             clean_up(all_downloads=True)
         finally:
             self._tracer.shutdown()
@@ -397,7 +399,9 @@ def main() -> None:
     """Run the bot until polling stops, then shut it down."""
     app = build_app(build_container())
     try:
-        app.run()
+        # A SIGTERM outside telebot's polling() escapes run() as KeyboardInterrupt.
+        with suppress(KeyboardInterrupt):
+            app.run()
     finally:
         app.shutdown()
 
