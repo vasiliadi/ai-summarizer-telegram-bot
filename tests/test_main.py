@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 from tenacity import RetryError
 
+import main as main_module
 from exceptions import LimitExceededError, WebParseError
 from helpers import make_app
 from main import BotApp, build_app
@@ -115,14 +116,57 @@ def test_run_starts_infinity_polling(mocker):
     fakes.bot.infinity_polling.assert_called_once_with(timeout=20)
 
 
-def test_run_turns_sigterm_into_keyboard_interrupt(mocker):
-    """run() maps SIGTERM to SIGINT's handler, so polling stops and shutdown runs."""
-    app, _ = make_app(mocker)
-    mock_signal = mocker.patch("main.signal.signal")
+def test_main_shuts_down_after_sigterm_stops_polling(mocker):
+    """SIGTERM during polling stops it like Ctrl+C, and main() then runs shutdown."""
+    app, fakes = make_app(mocker)
+    mock_build_container = mocker.patch("main.build_container")
+    mock_build_app = mocker.patch("main.build_app", return_value=app)
+    handlers = {}
+    mocker.patch("main.signal.signal", side_effect=handlers.__setitem__)
+    events = []
 
-    app.run()
+    def poll(**_kwargs):
+        try:
+            handlers[signal.SIGTERM](signal.SIGTERM, None)
+        except KeyboardInterrupt:  # telebot's polling stops on it and returns
+            events.append("polling stopped")
 
-    mock_signal.assert_called_once_with(signal.SIGTERM, signal.default_int_handler)
+    fakes.bot.infinity_polling.side_effect = poll
+    mocker.patch.object(app, "shutdown", side_effect=lambda: events.append("shutdown"))
+
+    main_module.main()
+
+    mock_build_app.assert_called_once_with(mock_build_container.return_value)
+    assert events == ["polling stopped", "shutdown"]
+
+
+def test_main_shuts_down_on_an_interrupt_outside_polling(mocker):
+    """A KeyboardInterrupt escaping run() still shuts down, and main() returns cleanly."""
+    app, fakes = make_app(mocker)
+    mocker.patch("main.build_container")
+    mocker.patch("main.build_app", return_value=app)
+    mocker.patch("main.signal.signal")
+    fakes.bot.infinity_polling.side_effect = KeyboardInterrupt
+    mock_shutdown = mocker.patch.object(app, "shutdown")
+
+    main_module.main()
+
+    mock_shutdown.assert_called_once_with()
+
+
+def test_main_shuts_down_when_run_raises(mocker):
+    """An error escaping run() still sweeps and flushes before it propagates."""
+    app, fakes = make_app(mocker)
+    mocker.patch("main.build_container")
+    mocker.patch("main.build_app", return_value=app)
+    mocker.patch("main.signal.signal")
+    fakes.bot.infinity_polling.side_effect = RuntimeError("polling died")
+    mock_shutdown = mocker.patch.object(app, "shutdown")
+
+    with pytest.raises(RuntimeError, match="polling died"):
+        main_module.main()
+
+    mock_shutdown.assert_called_once_with()
 
 
 def test_shutdown_cleans_up_and_flushes_the_tracer(mocker):
@@ -132,7 +176,13 @@ def test_shutdown_cleans_up_and_flushes_the_tracer(mocker):
     by tests/test_services.py::test_tracer_shutdown_*.
     """
     app, fakes = make_app(mocker)
-    mock_clean_up = mocker.patch("main.clean_up")
+    # The sweep must wait for in-flight handlers, or it deletes the files they write.
+    mock_clean_up = mocker.patch(
+        "main.clean_up",
+        side_effect=lambda **_kwargs: (
+            fakes.bot.worker_pool.close.assert_called_once_with()
+        ),
+    )
 
     app.shutdown()
 

@@ -119,7 +119,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 
 | Module | Role |
 |--------|------|
-| `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; the `__main__` block just calls `build_app`, `run`, `shutdown`. |
+| `main.py` | `BotApp` — Telegram entry point. Command handlers + the unified `handle_message`; routes by `content_type`; top-level error → user-message mapping. `build_app(container)` wires it from the composition root and registers its handlers; `main()` (the `__main__` entry) just calls `build_app`, `run`, `shutdown`. |
 | `handlers.py` | `MessageHandlers` — per-content-type handlers. Media validation, builds `SummarySettings` from the user record, picks the summarize path. |
 | `summary.py` | `Summarizer` — the core summarization orchestrator. Owns the input-type branching and media download/cleanup lifecycle, assembles the message content, and calls the injected `LLMClient.run`. |
 | `llm.py` | `LLMClient` — the one place a model is called. `run` turns the instructions, the user's thinking level and the content parts into a single chat-completions request on the injected `openai` client; `build_file_part` references an uploaded document by id. A text run goes through `chat.completions.create`, a run carrying a file through the client's generic `post` (see Tracing below). It never consults `MODEL_SPECS`, so the eval harness runs unregistered ids on it as is. |
@@ -281,7 +281,10 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest. Docker and Railway
   stop the container with SIGTERM, whose default action kills Python without running `finally`
   (and which PID 1 ignores outright), so `BotApp.run` maps it to SIGINT's `KeyboardInterrupt`;
-  telebot's polling catches that, returns, and `shutdown` runs.
+  telebot's polling catches that, returns, and `shutdown` runs; `main()` suppresses the
+  interrupt when it lands outside `polling()` (such as infinity_polling's retry sleep). `shutdown`
+  first closes telebot's `worker_pool`, which joins each worker after its current message,
+  because the workers are daemon threads and the sweep would otherwise delete their files.
 - **Fragmented downloads.** `download_yt` leaves yt-dlp's `skip_unavailable_fragments` at
   its default, so a download missing a few fragments still yields usable audio. Setting it
   to `False` is **rejected**: it would turn many tolerable downloads into hard failures,
