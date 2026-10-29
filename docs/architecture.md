@@ -278,7 +278,10 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   `/opt/python`, and from the same `alpine` base, since its wheels are built for musl.
 - **Temp-file hygiene.** Downloads/compression write UUID-named temp files in the
   CWD; `clean_up` removes them, guarded by a `PROTECTED_FILES` snapshot taken at
-  startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest.
+  startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest. Docker and Railway
+  stop the container with SIGTERM, whose default action kills Python without running `finally`
+  (and which PID 1 ignores outright), so `BotApp.run` maps it to SIGINT's `KeyboardInterrupt`;
+  telebot's polling catches that, returns, and `shutdown` runs.
 - **Fragmented downloads.** `download_yt` leaves yt-dlp's `skip_unavailable_fragments` at
   its default, so a download missing a few fragments still yields usable audio. Setting it
   to `False` is **rejected**: it would turn many tolerable downloads into hard failures,

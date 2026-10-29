@@ -1,3 +1,4 @@
+import signal
 from types import SimpleNamespace
 
 import pytest
@@ -107,10 +108,21 @@ def test_authorized_reads_an_unregistered_sender_as_unauthorized(mocker):
 def test_run_starts_infinity_polling(mocker):
     """run() polls Telegram with the fixed 20s timeout."""
     app, fakes = make_app(mocker)
+    mocker.patch("main.signal.signal")
 
     app.run()
 
     fakes.bot.infinity_polling.assert_called_once_with(timeout=20)
+
+
+def test_run_turns_sigterm_into_keyboard_interrupt(mocker):
+    """run() maps SIGTERM to SIGINT's handler, so polling stops and shutdown runs."""
+    app, _ = make_app(mocker)
+    mock_signal = mocker.patch("main.signal.signal")
+
+    app.run()
+
+    mock_signal.assert_called_once_with(signal.SIGTERM, signal.default_int_handler)
 
 
 def test_shutdown_cleans_up_and_flushes_the_tracer(mocker):
