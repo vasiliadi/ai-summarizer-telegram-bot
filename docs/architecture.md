@@ -270,6 +270,12 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   already written. OpenRouter never expires a file, so each such failure stays in the
   workspace and counts toward its 10 GiB quota until removed by hand. An upload that fails
   returns no id, so there is nothing to delete.
+- **Railway builds the `Dockerfile` without bind mounts.** Railway's builder accepts only cache
+  mounts, with the service ID hard-coded in the mount `id` (as observed 2026-10). The uv Docker
+  guide's `RUN --mount=type=bind` / `--mount=from=ghcr.io/astral-sh/uv` pattern therefore fails
+  there, so `uv sync` runs in a separate `deps` stage and the final stage copies only `/opt/python`
+  and `/app/.venv` — at the same paths, since the venv holds absolute paths and a symlink into
+  `/opt/python`, and from the same `alpine` base, since its wheels are built for musl.
 - **Temp-file hygiene.** Downloads/compression write UUID-named temp files in the
   CWD; `clean_up` removes them, guarded by a `PROTECTED_FILES` snapshot taken at
   startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest.
