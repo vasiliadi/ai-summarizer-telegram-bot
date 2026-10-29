@@ -5,7 +5,7 @@ import re
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 from urllib.parse import parse_qs, urlsplit
 
 from bs4 import BeautifulSoup
@@ -48,6 +48,7 @@ if TYPE_CHECKING:
 
     from openai import OpenAI
     from tenacity import _utils as tenacity_utils
+    from yt_dlp import _YoutubeDLOptions
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
@@ -245,17 +246,17 @@ class YtDlpBackend(TranscriptBackend):
         """
         temp_basename = generate_temporary_name()
         proxy = next(proxies)
-        probe_opts: dict[str, Any] = {
+        probe_opts: _YoutubeDLOptions = {
             "proxy": proxy,
             "noplaylist": True,
-            "skip_download": True,
+            "skip_download": True,  # ty: ignore[invalid-argument-type]  # pyrefly: ignore[bad-assignment]
             "quiet": True,
             "nocheckcertificate": False,
         }
 
         # Phase 1: probe available subtitle tracks (no download, no temp files).
         try:
-            with YoutubeDL(probe_opts) as ydl:  # pyrefly: ignore[bad-argument-type]
+            with YoutubeDL(probe_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
         except DownloadError as e:
             logger.warning("yt-dlp probe failed: %s: %s", type(e).__name__, e)
@@ -280,6 +281,7 @@ class YtDlpBackend(TranscriptBackend):
         # a real subtitle track and cannot be converted to vtt, so drop it.
         manual_langs = [lang for lang in manual if lang != "live_chat"]
 
+        chosen_langs: list[str]
         if manual_langs:
             en_manual = next(
                 (lang for lang in manual_langs if lang.startswith("en")),
@@ -287,7 +289,11 @@ class YtDlpBackend(TranscriptBackend):
             )
             orig = info.get("language")
             chosen_langs = [
-                en_manual or (orig if orig in manual_langs else manual_langs[0]),
+                en_manual
+                or next(
+                    (lang for lang in manual_langs if lang == orig),
+                    manual_langs[0],
+                ),
             ]
         elif auto:
             orig = info.get("language")
@@ -304,10 +310,8 @@ class YtDlpBackend(TranscriptBackend):
             msg = "No subtitles available via yt-dlp"
             raise DownloadError(msg)
 
-        ydl_opts: dict[str, Any] = {
-            "proxy": proxy,
-            "noplaylist": True,
-            "skip_download": True,
+        ydl_opts: _YoutubeDLOptions = {
+            **probe_opts,
             "writesubtitles": True,
             "writeautomaticsub": True,
             "subtitleslangs": chosen_langs,
@@ -320,14 +324,12 @@ class YtDlpBackend(TranscriptBackend):
                 },
             ],
             "outtmpl": temp_basename,
-            "quiet": True,
-            "nocheckcertificate": False,
         }
 
         # Phase 2: download and convert subtitles.
         try:
             try:
-                with YoutubeDL(ydl_opts) as ydl:  # pyrefly: ignore[bad-argument-type]
+                with YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
             except DownloadError as e:
                 logger.warning(

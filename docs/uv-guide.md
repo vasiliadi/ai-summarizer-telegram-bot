@@ -34,7 +34,7 @@ Use `uv add` rather than hand-editing `pyproject.toml`. Keep production dependen
 
 | Group | Purpose | When active |
 |-------|---------|-------------|
-| `dev` | Local development (alembic, modal, python-dotenv, yt-dlp[deno]) | Default — included by `uv sync` |
+| `dev` | Local development (alembic, modal, python-dotenv, yt-dlp[deno], type stubs) | Default — included by `uv sync` |
 | `test` | Local testing (pytest, coverage, fakeredis, pytest-mock, pytest-cov, httpx2) | Default — included by `uv sync` |
 | `build` | CI build/deploy (alembic, modal, psycopg2-binary, sqlalchemy) | CI only — explicit `uv sync --group build` |
 | `modal` | Modal cron image (redis) | CI only — explicit `uv sync --group modal` |
