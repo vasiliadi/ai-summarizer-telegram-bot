@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
     from telebot.types import File
     from tenacity import _utils as tenacity_utils
+    from yt_dlp import _YoutubeDLOptions
 
 logger = logging.getLogger(__name__)
 tenacity_logger = cast("tenacity_utils.LoggerProtocol", logger)
@@ -124,7 +125,7 @@ class Downloader:
             msg = "Failed to extract info from YouTube URL."
             raise DownloadError(msg)
         audio_format = self._choose_yt_audio_format(cast("dict[str, Any]", info))
-        ydl_opts = {
+        ydl_opts: _YoutubeDLOptions = {
             "format": audio_format,
             "outtmpl": output_stem,
             "nocheckcertificate": False,

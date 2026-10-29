@@ -27,14 +27,15 @@ the command above measures lines only, while CI runs `uv run pytest --cov --cov-
 --cov-report=xml` and uploads branch coverage to Codecov. To reproduce anything Codecov flags, add
 `--cov-branch` locally or the numbers will not match.
 
-Use `uv add` rather than hand-editing `pyproject.toml`. Keep production dependencies in
+Use `uv add` rather than hand-editing `pyproject.toml`. Pins are exact (`==`) except for `black` and the
+`types-*` stubs in `dev`, which take `>=`: their exact version does not affect the bot. Keep production dependencies in
 `[project.dependencies]`; everything else goes in the appropriate group under `[dependency-groups]`.
 
 ## Dependency Groups
 
 | Group | Purpose | When active |
 |-------|---------|-------------|
-| `dev` | Local development (alembic, modal, python-dotenv, yt-dlp[deno]) | Default — included by `uv sync` |
+| `dev` | Local development (alembic, modal, python-dotenv, yt-dlp[deno], type stubs) | Default — included by `uv sync` |
 | `test` | Local testing (pytest, coverage, fakeredis, pytest-mock, pytest-cov, httpx2) | Default — included by `uv sync` |
 | `build` | CI build/deploy (alembic, modal, psycopg2-binary, sqlalchemy) | CI only — explicit `uv sync --group build` |
 | `modal` | Modal cron image (redis) | CI only — explicit `uv sync --group modal` |

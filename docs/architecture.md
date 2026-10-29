@@ -290,6 +290,11 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   to `False` is **rejected**: it would turn many tolerable downloads into hard failures,
   while the rare truncated file that crashes the ffmpeg fixup is retryable — `download_yt`
   makes at most two attempts on `DownloadError` (`stop_after_attempt(2)`).
+- **yt-dlp options are typed by `types-yt-dlp`.** Annotate every options dict passed to
+  `YoutubeDL` as `_YoutubeDLOptions`, imported under `TYPE_CHECKING` (the name exists only in
+  the stubs), so the checkers verify each key. The stubs declare `skip_download` as
+  `str | None`, but yt-dlp reads it as a boolean, so `True` carries per-tool ignores for
+  `ty` and pyrefly.
 - **YouTube transcript cooldown.** When `ApiBackend.fetch` finds no transcript in the
   default languages, it lists the video's languages and sleeps 60 s before fetching again:
   back-to-back requests get rate-limited or blocked by YouTube (youtube-transcript-api issue
