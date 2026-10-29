@@ -45,11 +45,13 @@ ENV SENTRY_ENVIRONMENT=${ENV} \
     LANGFUSE_TRACING_ENVIRONMENT=prod
 WORKDIR /app
 RUN apk add --no-cache ffmpeg deno
-COPY --from=deps /opt/python /opt/python
-COPY --from=deps /app/.venv /app/.venv
-COPY LICENSE NOTICE ./
-COPY --from=builder /app/src .
+# The bot downloads into its CWD, so /app must be writable. COPY --chown instead
+# of a recursive chown, which would duplicate .venv in a layer of its own.
 RUN adduser -D -u 1000 -s /sbin/nologin bot \
-    && chown -R bot:bot /app
+    && chown bot:bot /app
+COPY --from=deps /opt/python /opt/python
+COPY --from=deps --chown=bot:bot /app/.venv /app/.venv
+COPY --chown=bot:bot LICENSE NOTICE ./
+COPY --from=builder --chown=bot:bot /app/src .
 USER bot
 ENTRYPOINT ["python", "main.py"]
