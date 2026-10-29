@@ -18,10 +18,7 @@ RUN python scripts/db.py \
     && modal deploy scripts/cron.py
 
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS deps
-# uv installs the python-build-standalone interpreter named in .python-version
-# (faster than the Docker Hub build). The final stage copies the interpreter and
-# .venv to the same paths, since the venv holds absolute paths and a symlink into
-# /opt/python, and from the same alpine base, since its wheels are built for musl.
+# uv's python-build-standalone interpreter is faster than the Docker Hub build.
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc /uv /bin/
@@ -45,8 +42,7 @@ ENV SENTRY_ENVIRONMENT=${ENV} \
     LANGFUSE_TRACING_ENVIRONMENT=prod
 WORKDIR /app
 RUN apk add --no-cache ffmpeg deno
-# The bot downloads into its CWD, so /app must be writable. COPY --chown instead
-# of a recursive chown, which would duplicate .venv in a layer of its own.
+# The bot downloads into its CWD; chown -R would store .venv twice.
 RUN adduser -D -u 1000 -s /sbin/nologin bot \
     && chown bot:bot /app
 COPY --from=deps /opt/python /opt/python
