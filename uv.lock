@@ -93,11 +93,11 @@ build = [
 ]
 dev = [
     { name = "alembic", specifier = "==1.20.1" },
-    { name = "black", specifier = ">=26.10.1" },
+    { name = "black", specifier = "==26.10.1" },
     { name = "modal", specifier = "==1.6.2" },
     { name = "python-dotenv", specifier = "==1.2.4" },
-    { name = "types-defusedxml", specifier = ">=0.7.0.20260504" },
-    { name = "types-yt-dlp", specifier = ">=2026.8.19.20261008" },
+    { name = "types-defusedxml", specifier = "==0.7.0.20260504" },
+    { name = "types-yt-dlp", specifier = "==2026.8.19.20261008" },
     { name = "yt-dlp", extras = ["deno"], specifier = "==2026.10.21" },
 ]
 modal = [{ name = "redis", specifier = "==8.1.0" }]
