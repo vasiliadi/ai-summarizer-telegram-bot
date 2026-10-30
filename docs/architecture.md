@@ -291,7 +291,8 @@ where the content came from (`format_prefixed_summary`). Only a document summari
 - **Deploy steps run outside the image build.** A hosted Dockerfile builder may take build-time
   values only as `ARG`s (no `RUN --mount=type=secret`), which would store `DSN` and the Modal tokens
   as the platform's build variables. So `scripts/db.py`, `alembic upgrade head` and `modal deploy
-  scripts/cron.py` run in `.github/workflows/deploy.yml` on every push to `main`, from the `DSN`,
+  scripts/cron.py` run in `.github/workflows/deploy.yml` for each push to `main` still at its tip
+  when the job starts, from the `DSN`,
   `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` repository secrets, and only after the tests, linting
   and type checking (re-run as reusable workflows) pass. Schema-before-code holds only if the
   hosting platform waits for that run before deploying the bot; nothing in the repo enforces it, and

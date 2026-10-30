@@ -7,13 +7,6 @@ on:
 permissions:
   contents: read
 
-# Two migration runs must never overlap, so a running Deploy is never cancelled. GitHub keeps only
-# the newest queued run: a push that lands while another waits cancels the waiting one, and the
-# newest run still migrates to head.
-concurrency:
-  group: deploy
-  cancel-in-progress: false
-
 jobs:
   # Re-run the checks here: a job can only wait on jobs of its own workflow, and production must
   # not be migrated by a commit that fails them.
@@ -31,18 +24,37 @@ jobs:
   migrate-and-deploy-cron:
     name: Migrate database and deploy Modal cron
     needs: [tests, linting, typechecking]
+    # Two migrations must never overlap, so a running one is never cancelled. GitHub keeps only the
+    # newest waiting job: a push that lands while another waits cancels the waiting one. The group
+    # is on this job, not the workflow, so every commit's checks still run at once. That lets an
+    # older commit's checks finish last, so the first step skips a commit that is no longer the tip
+    # of main rather than redeploy it over a newer one.
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       ENV: BUILD
       MODAL_BUILD_VALIDATION: ignore
     steps:
+      - name: Check this commit is still the tip of main
+        id: head
+        run: |
+          tip=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$tip" = "$GITHUB_SHA" ]; then current=true; else current=false; fi
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Checkout
+        if: steps.head.outputs.current == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Install uv
+        if: steps.head.outputs.current == 'true'
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "latest-known"
@@ -50,19 +62,23 @@ jobs:
           cache-python: true
 
       - name: Install dependencies
+        if: steps.head.outputs.current == 'true'
         run: uv sync --frozen --only-group build
 
       - name: Create users table
+        if: steps.head.outputs.current == 'true'
         run: uv run --no-sync python scripts/db.py
         env:
           DSN: ${{ secrets.DSN }}
 
       - name: Apply migrations
+        if: steps.head.outputs.current == 'true'
         run: uv run --no-sync alembic upgrade head
         env:
           DSN: ${{ secrets.DSN }}
 
       - name: Deploy Modal cron
+        if: steps.head.outputs.current == 'true'
         run: uv run --no-sync modal deploy scripts/cron.py
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}

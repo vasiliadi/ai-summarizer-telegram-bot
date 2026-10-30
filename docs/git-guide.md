@@ -79,13 +79,16 @@ coverage, and `sentry_release.yml` creates a Sentry release on every push to `ma
 The three check workflows run standalone only off `main`: linting and type checking on
 `pull_request`, the tests on push to any other branch, which is how a PR gets all three required
 checks. On `main` they run once, inside `deploy.yml`, which calls them through `workflow_call` on
-every push to `main` (a job can only `need` jobs of its own workflow), so they show as `Deploy /
-linting / Linting` and so on, and the `main` Codecov upload comes from Deploy's `tests` job. Once
-all three pass, Deploy creates the `users` table, applies migrations and
+every push to `main` (a job's `needs` can only name jobs of its own workflow), so they show as
+`Deploy / linting / Linting` and so on, and the `main` Codecov upload comes from Deploy's `tests`
+job. Once all three pass, Deploy's migrate job creates the `users` table, applies migrations and
 deploys the Modal cron (see *Deploy steps run outside the image build* in `architecture.md`). It
 needs the repository secrets `DSN`, `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`, each passed only to
-the step that uses it, and its `concurrency` group never cancels a running migration; a newer push
-replaces an already queued run, which shows as cancelled.
+the step that uses it. Its `concurrency` group sits on that job, not the workflow, so every
+commit's checks run at once and are never cancelled. The group never cancels a running migration;
+a newer push replaces an already waiting migrate job, which shows as cancelled. Because checks can
+finish out of order, the job's first step skips the remaining steps for a commit that is no longer
+the tip of `main`, so an older commit never redeploys over a newer one.
 
 Every workflow that runs uv (all but `sentry_release.yml`) pins `astral-sh/setup-uv` to `version: "latest-known"`,
 deliberately and unlike the uvx rule above. The project pins no uv version, so leaving `version`
