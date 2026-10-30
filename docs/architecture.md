@@ -279,8 +279,11 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   `ghcr.io/astral-sh/uv` is a release that knows the `.python-version` patch; CI's `setup-uv`
   (`version: "latest-known"`) likewise installs only the uv its pinned release knows. A
   `python:*-slim` image is no alternative for `migrate`: Docker Hub publishes a patch after uv
-  can download it, so the two pins would race. `migrate` is therefore `debian:trixie-slim` plus
-  `ca-certificates`, which the managed interpreter's OpenSSL needs. `.github/renovate.json`
+  can download it, so the two pins would race. `migrate` is therefore a bare `debian:trixie-slim`:
+  it has no system CA store, so the stdlib's `ssl` defaults fail verification there, but uv ships
+  its own roots and `modal` (gRPC and HTTP) verifies against `certifi`. A deploy step that needs
+  the system store (stdlib `urllib`, a `DSN` with `sslrootcert=system`) must install
+  `ca-certificates` first. `.github/renovate.json`
   exempts the uv image and `setup-uv` from the release-age gate and does not auto-merge the
   `.python-version` PR: merge it with, or after, the uv pin. The uv image stays on `latest`.
 - **Deploy steps run outside the image build.** A hosted Dockerfile builder may take build-time

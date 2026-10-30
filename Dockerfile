@@ -6,10 +6,6 @@ ENV ENV=BUILD \
     PATH="/app/.venv/bin:$PATH" \
     MODAL_BUILD_VALIDATION=ignore
 WORKDIR /app
-# The managed interpreter's OpenSSL reads the system CA store, which slim images leave out.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:latest@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 /uv /bin/
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync \
