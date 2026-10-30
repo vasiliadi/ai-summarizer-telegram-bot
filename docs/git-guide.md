@@ -98,4 +98,5 @@ seconds. No `cache-dependency-glob` is needed — the default covers `uv.lock` a
 
 No workflow uses `actions/setup-python`: `uv sync` downloads the exact `.python-version` patch
 itself, as the Dockerfile does. `setup-python` reads a separate manifest that can lag behind a patch
-uv already installs, so a `.python-version` bump would break CI for a day.
+uv already installs, so a `.python-version` bump would break CI for a day. The jobs that run Python
+set `cache-python: true` so the interpreter comes from the Actions cache instead of a new download.

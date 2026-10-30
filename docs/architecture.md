@@ -280,13 +280,14 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   uv too, with no `actions/setup-python`, and its `setup-uv` (`version: "latest-known"`) installs
   only the uv its pinned release knows (see *CI Workflows* in `git-guide.md`). A
   `python:*-slim` image is no alternative for `migrate`: Docker Hub publishes a patch after uv
-  can download it, so the two pins would race. `migrate` is therefore a bare `debian:trixie-slim`:
-  it has no system CA store, so the stdlib's `ssl` defaults fail verification there, but uv ships
-  its own roots and `modal` (gRPC and HTTP) verifies against `certifi`. A deploy step that needs
-  the system store (stdlib `urllib`, a `DSN` with `sslrootcert=system`) must install
-  `ca-certificates` first. `.github/renovate.json`
-  exempts the uv image and `setup-uv` from the release-age gate and does not auto-merge the
-  `.python-version` PR: merge it with, or after, the uv pin. The uv image stays on `latest`.
+  can download it, so the two pins would race. `migrate` is therefore a bare Debian slim image: it
+  installs Python into `/opt/python` like the bot, so a non-root user can run it. It has no system
+  CA store, so the stdlib's `ssl` defaults fail verification there, but uv ships its own roots and
+  `modal` (gRPC and HTTP) verifies against `certifi`. A deploy step that needs the system store
+  (stdlib `urllib`, a `DSN` with `sslrootcert=system`) must install `ca-certificates` first.
+  `.github/renovate.json` exempts the uv image and `setup-uv` from the release-age gate and does
+  not auto-merge the `.python-version` PR: merge it with, or after, the uv pin. The uv image stays
+  on `latest`.
 - **Deploy steps run outside the image build.** A hosted Dockerfile builder may take build-time
   values only as `ARG`s (no `RUN --mount=type=secret`), which would store `DSN` and the Modal tokens
   as the platform's build variables. So `scripts/db.py`, `alembic upgrade head` and `modal deploy

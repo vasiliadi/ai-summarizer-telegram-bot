@@ -4,7 +4,8 @@
 FROM debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS migrate
 ENV ENV=BUILD \
     PATH="/app/.venv/bin:$PATH" \
-    MODAL_BUILD_VALIDATION=ignore
+    MODAL_BUILD_VALIDATION=ignore \
+    UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 /uv /bin/
 COPY pyproject.toml uv.lock .python-version ./
