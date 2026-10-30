@@ -274,6 +274,20 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   fail there. `uv sync` therefore runs in a separate `deps` stage and the final stage copies only
   `/opt/python` and `/app/.venv` — at the same paths, since the venv holds absolute paths and a
   symlink into `/opt/python`, and from the same `alpine` base, since its wheels are built for musl.
+- **Both Docker stages use uv-managed Python, so the pinned uv decides the patch.** `uv sync
+  --managed-python` fails with `No interpreter found for Python …` until the pinned
+  `ghcr.io/astral-sh/uv` is a release that knows the `.python-version` patch. CI gets Python from
+  uv too, with no `actions/setup-python`, and its `setup-uv` (`version: "latest-known"`) installs
+  only the uv its pinned release knows (see *CI Workflows* in `git-guide.md`). A
+  `python:*-slim` image is no alternative for `migrate`: Docker Hub publishes a patch after uv
+  can download it, so the two pins would race. `migrate` is therefore a bare Debian slim image: it
+  installs Python into `/opt/python` like the bot, so a non-root user can run it. It has no system
+  CA store, so the stdlib's `ssl` defaults fail verification there, but uv ships its own roots and
+  `modal` (gRPC and HTTP) verifies against `certifi`. A deploy step that needs the system store
+  (stdlib `urllib`, a `DSN` with `sslrootcert=system`) must install `ca-certificates` first.
+  `.github/renovate.json` exempts the uv image and `setup-uv` from the release-age gate and does
+  not auto-merge the `.python-version` PR: merge it with, or after, the uv pin. The uv image stays
+  on `latest`.
 - **Deploy steps run outside the image build.** A hosted Dockerfile builder may take build-time
   values only as `ARG`s (no `RUN --mount=type=secret`), which would store `DSN` and the Modal tokens
   as the platform's build variables. So `scripts/db.py`, `alembic upgrade head` and `modal deploy

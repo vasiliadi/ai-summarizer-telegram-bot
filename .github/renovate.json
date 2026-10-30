@@ -26,6 +26,12 @@
       "automerge": false
     },
     {
+      "description": "uv decides which .python-version patches can be installed: the uv image (its embedded download list) and setup-uv (its latest-known uv). No release-age gate, so they can land as fast as the pyenv bump above",
+      "matchManagers": ["dockerfile", "github-actions"],
+      "matchPackageNames": ["ghcr.io/astral-sh/uv", "astral-sh/setup-uv"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
       "description": "Force Renovate to evaluate patches independently; alphas/betas stay excluded by Renovate's default ignoreUnstable",
       "matchDepNames": ["python"],
       "separateMinorPatch": true,

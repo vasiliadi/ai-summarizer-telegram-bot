@@ -69,12 +69,12 @@ expected; see `docs/uv-guide.md`.
 
 **Ruff:** the hooks auto-fix and format, so no manual run is needed. They see only your staged files — a green commit is not a green tree, and only CI sweeps the rest.
 
-**Always `@latest`:** every uvx call site pins it — both ruff hooks, the `ty` hook, and `.github/workflows/typechecking.yml`. Bare `uvx <tool>` reuses a `uv tool install`ed copy that may lag behind CI.
+**Always `@latest`:** every uvx call site pins it — both ruff hooks, the `ty` hook, `.github/workflows/typechecking.yml` and `.github/workflows/linting.yml`. Bare `uvx <tool>` reuses a `uv tool install`ed copy that may lag behind CI.
 
 ## CI Workflows
 
-`linting.yml` runs `ruff check` and `ruff format --check` over the whole tree (ruff from `pip`,
-unpinned), `typechecking.yml` runs `ty` over `src/`, `codecov.yml` runs the tests with branch
+`linting.yml` runs `ruff check` and `ruff format --check` over the whole tree (`uvx
+ruff@latest`), `typechecking.yml` runs `ty` over `src/`, `codecov.yml` runs the tests with branch
 coverage, and `sentry_release.yml` creates a Sentry release on every push to `main`.
 `deploy.yml`, also on every push to `main`, re-runs the three check workflows through
 `workflow_call` (so on `main` they run twice) and, once all pass, creates the `users` table, applies migrations and
@@ -83,15 +83,20 @@ needs the repository secrets `DSN`, `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`, e
 the step that uses it, and its `concurrency` group never cancels a running migration; a newer push
 replaces an already queued run, which shows as cancelled.
 
-`typechecking.yml`, `codecov.yml` and `deploy.yml` pin `astral-sh/setup-uv` to `version: "latest-known"`,
+Every workflow that runs uv (all but `sentry_release.yml`) pins `astral-sh/setup-uv` to `version: "latest-known"`,
 deliberately and unlike the uvx rule above. The project pins no uv version, so leaving `version`
 unset means `latest`. The action verifies a download only against the checksum table baked into
 the action release you pinned, and **silently skips verification** for a uv newer than that table
 — which `latest` usually is. `latest-known` resolves to the newest uv *inside* the table, so the
 checksum is always checked. Do not "upgrade" it to `latest`.
 
-All three also spell out `enable-cache: "auto"` (the default, written so the choice survives a change of
+All of them also spell out `enable-cache: "auto"` (the default, written so the choice survives a change of
 default). `auto` skips the cache on `release`, tag-push, `pull_request_target`, and `workflow_run`
 events — a cache-poisoning guard, because a restored cache holds unpacked wheels that `uv sync` does
 not re-check against `uv.lock` hashes. **Do not set `enable-cache: true`**; it drops the guard to save
 seconds. No `cache-dependency-glob` is needed — the default covers `uv.lock` and `pyproject.toml`.
+
+No workflow uses `actions/setup-python`: `uv sync` downloads the exact `.python-version` patch
+itself, as the Dockerfile does. `setup-python` reads a separate manifest that can lag behind a patch
+uv already installs, so a `.python-version` bump would break CI for a day. The jobs that run Python
+set `cache-python: true` so the interpreter comes from the Actions cache instead of a new download.
