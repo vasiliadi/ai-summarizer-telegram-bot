@@ -26,6 +26,12 @@
       "automerge": false
     },
     {
+      "description": "What must provide the .python-version patch: the uv image (its embedded download list), setup-uv (its latest-known uv) and python:3.14-slim (the migrate stage's interpreter). No release-age gate, so they can land as fast as the pyenv bump above",
+      "matchManagers": ["dockerfile", "github-actions"],
+      "matchPackageNames": ["ghcr.io/astral-sh/uv", "astral-sh/setup-uv", "python"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
       "description": "Force Renovate to evaluate patches independently; alphas/betas stay excluded by Renovate's default ignoreUnstable",
       "matchDepNames": ["python"],
       "separateMinorPatch": true,

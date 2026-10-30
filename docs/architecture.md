@@ -277,8 +277,10 @@ where the content came from (`format_prefixed_summary`). Only a document summari
 - **`.python-version` pins the exact patch both Docker stages must provide.** The bot stage's
   `uv sync --managed-python` fails with `No interpreter found for Python …` until the pinned
   `ghcr.io/astral-sh/uv` is a release that knows the patch, and the `migrate` stage's
-  `--no-managed-python` sync fails until the pinned `python:3.14-slim` digest ships it. Renovate's
-  `.python-version` PR is not auto-merged for this reason: merge it with, or after, those two pins.
+  `--no-managed-python` sync fails until the pinned `python:3.14-slim` digest ships it; CI's
+  `setup-uv` (`version: "latest-known"`) likewise installs only the uv its pinned release knows.
+  `.github/renovate.json` exempts all three from the release-age gate and does not auto-merge the
+  `.python-version` PR: merge it with, or after, those pins. The uv image stays on `latest`.
 - **Deploy steps run outside the image build.** A hosted Dockerfile builder may take build-time
   values only as `ARG`s (no `RUN --mount=type=secret`), which would store `DSN` and the Modal tokens
   as the platform's build variables. So `scripts/db.py`, `alembic upgrade head` and `modal deploy
