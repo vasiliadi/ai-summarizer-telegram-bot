@@ -2,6 +2,7 @@ name: Run tests and upload coverage
 
 on:
   push:
+    branches-ignore: [main]
   workflow_call:
     secrets:
       CODECOV_TOKEN:
