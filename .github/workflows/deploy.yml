@@ -19,7 +19,8 @@ jobs:
   # not be migrated by a commit that fails them.
   tests:
     uses: ./.github/workflows/codecov.yml
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   linting:
     uses: ./.github/workflows/linting.yml

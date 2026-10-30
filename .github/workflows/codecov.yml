@@ -3,6 +3,9 @@ name: Run tests and upload coverage
 on:
   push:
   workflow_call:
+    secrets:
+      CODECOV_TOKEN:
+        required: false
 
 permissions:
   contents: read

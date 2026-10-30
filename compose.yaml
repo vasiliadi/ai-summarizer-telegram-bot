@@ -4,8 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
       target: migrate
-    # Only what the deploy steps need. Compose interpolates them from ./.env, but a variable
-    # exported in the shell wins over .env here (unlike env_file), so unset it or keep them equal.
+    # Only what the deploy steps need. Compose interpolates them from ./.env, and a variable
+    # exported in the shell wins over .env; the bot takes DSN the same way, so both hit one DB.
     environment:
       DSN: ${DSN:?DSN is not set in .env}
       MODAL_TOKEN_ID: ${MODAL_TOKEN_ID:?MODAL_TOKEN_ID is not set in .env}
@@ -19,6 +19,9 @@ services:
     env_file:
       - path: ./.env
         required: true
+    # Overrides env_file's DSN so the bot uses the database migrate just migrated.
+    environment:
+      DSN: ${DSN:?DSN is not set in .env}
     restart: always
     depends_on:
       migrate:
