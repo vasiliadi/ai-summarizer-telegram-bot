@@ -47,7 +47,6 @@ RUN adduser -D -u 1000 -s /sbin/nologin bot \
     && chown bot:bot /app
 COPY --from=deps /opt/python /opt/python
 COPY --from=deps /app/.venv /app/.venv
-COPY LICENSE NOTICE ./
-COPY src/ .
+COPY LICENSE NOTICE src/ ./
 USER bot
 ENTRYPOINT ["python", "main.py"]
