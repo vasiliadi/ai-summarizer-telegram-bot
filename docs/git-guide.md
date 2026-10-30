@@ -76,11 +76,12 @@ expected; see `docs/uv-guide.md`.
 `linting.yml` runs `ruff check` and `ruff format --check` over the whole tree (ruff from `pip`,
 unpinned), `typechecking.yml` runs `ty` over `src/`, `codecov.yml` runs the tests with branch
 coverage, and `sentry_release.yml` creates a Sentry release on every push to `main`.
-`deploy.yml`, also on every push to `main`, creates the `users` table, applies migrations and
+`deploy.yml`, also on every push to `main`, re-runs the three check workflows through
+`workflow_call` (so on `main` they run twice) and, once all pass, creates the `users` table, applies migrations and
 deploys the Modal cron (see *Deploy steps run outside the image build* in `architecture.md`). It
 needs the repository secrets `DSN`, `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`, each passed only to
-the step that uses it, and its `concurrency` group queues a second push rather than running two
-migrations at once.
+the step that uses it, and its `concurrency` group never cancels a running migration; a newer push
+replaces an already queued run, which shows as cancelled.
 
 `typechecking.yml`, `codecov.yml` and `deploy.yml` pin `astral-sh/setup-uv` to `version: "latest-known"`,
 deliberately and unlike the uvx rule above. The project pins no uv version, so leaving `version`

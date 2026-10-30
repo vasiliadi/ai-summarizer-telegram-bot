@@ -278,11 +278,13 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   values only as `ARG`s (no `RUN --mount=type=secret`), which would store `DSN` and the Modal tokens
   as the platform's build variables. So `scripts/db.py`, `alembic upgrade head` and `modal deploy
   scripts/cron.py` run in `.github/workflows/deploy.yml` on every push to `main`, from the `DSN`,
-  `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` repository secrets; the hosting platform should wait for
-  that run to pass before deploying the bot. For `compose.yaml` the same steps are the Dockerfile's
-  `migrate` stage, run as a one-shot container the bot `depends_on`. The bot must stay the **last**
-  stage: a platform builds it when no target is set, and BuildKit skips `migrate` because nothing
-  copies from it.
+  `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` repository secrets, and only after the tests, linting
+  and type checking (re-run as reusable workflows) pass. Schema-before-code holds only if the
+  hosting platform waits for that run before deploying the bot; nothing in the repo enforces it, and
+  without it a release that reads a new column fails until Deploy finishes. For `compose.yaml` the
+  same steps are the Dockerfile's `migrate` stage, run as a one-shot container the bot `depends_on`.
+  The bot must stay the **last** stage: a platform builds it when no target is set, and BuildKit
+  skips `migrate` because nothing copies from it.
 - **Temp-file hygiene.** Downloads/compression write UUID-named temp files in the CWD; `clean_up`
   removes them, guarded by a `PROTECTED_FILES` snapshot taken at startup. On shutdown
   `clean_up(all_downloads=True)` sweeps the rest. Docker and hosting platforms stop the container

@@ -4,9 +4,12 @@ services:
       context: .
       dockerfile: Dockerfile
       target: migrate
-    env_file:
-      - path: ./.env
-        required: true
+    # Only what the deploy steps need. Compose interpolates them from ./.env, but a variable
+    # exported in the shell wins over .env here (unlike env_file), so unset it or keep them equal.
+    environment:
+      DSN: ${DSN:?DSN is not set in .env}
+      MODAL_TOKEN_ID: ${MODAL_TOKEN_ID:?MODAL_TOKEN_ID is not set in .env}
+      MODAL_TOKEN_SECRET: ${MODAL_TOKEN_SECRET:?MODAL_TOKEN_SECRET is not set in .env}
 
   ai-summarizer-telegram-bot:
     build:
