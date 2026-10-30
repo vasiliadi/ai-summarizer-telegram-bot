@@ -274,6 +274,11 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   fail there. `uv sync` therefore runs in a separate `deps` stage and the final stage copies only
   `/opt/python` and `/app/.venv` — at the same paths, since the venv holds absolute paths and a
   symlink into `/opt/python`, and from the same `alpine` base, since its wheels are built for musl.
+- **`.python-version` pins the exact patch both Docker stages must provide.** The bot stage's
+  `uv sync --managed-python` fails with `No interpreter found for Python …` until the pinned
+  `ghcr.io/astral-sh/uv` is a release that knows the patch, and the `migrate` stage's
+  `--no-managed-python` sync fails until the pinned `python:3.14-slim` digest ships it. Renovate's
+  `.python-version` PR is not auto-merged for this reason: merge it with, or after, those two pins.
 - **Deploy steps run outside the image build.** A hosted Dockerfile builder may take build-time
   values only as `ARG`s (no `RUN --mount=type=secret`), which would store `DSN` and the Modal tokens
   as the platform's build variables. So `scripts/db.py`, `alembic upgrade head` and `modal deploy

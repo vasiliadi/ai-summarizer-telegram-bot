@@ -19,7 +19,7 @@
   "pre-commit": { "enabled": true },
   "packageRules": [
     {
-      "description": "Python pyenv (.python-version): don't gate on Docker Hub republish time; merge by hand once the pinned uv can download the new patch",
+      "description": "Python pyenv (.python-version): don't gate on Docker Hub republish time; merge by hand once the pinned uv can download the new patch and the pinned python:3.14-slim digest ships it",
       "matchManagers": ["pyenv"],
       "matchPackageNames": ["python"],
       "minimumReleaseAge": "0 days",

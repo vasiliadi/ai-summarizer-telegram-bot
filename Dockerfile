@@ -1,11 +1,11 @@
 # Deploy steps for compose.yaml, run as a container so secrets arrive at run time, never as build
 # ARGs. A build with no target skips this stage; .github/workflows/deploy.yml runs the same steps.
-FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS migrate
+FROM python:3.14-slim@sha256:cd89c30eda26ee911a4611b18680086e0ea42e6f5f8cbe653d07fa7958c9cec8 AS migrate
 ENV ENV=BUILD \
     PATH="/app/.venv/bin:$PATH" \
     MODAL_BUILD_VALIDATION=ignore
 WORKDIR /app
-COPY --from=ghcr.io/astral-sh/uv:latest@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 /uv /bin/
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync \
     --frozen \
@@ -21,7 +21,7 @@ FROM base AS deps
 # uv's python-build-standalone interpreter is faster than the Docker Hub build.
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
-COPY --from=ghcr.io/astral-sh/uv:latest@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 /uv /bin/
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync \
     --frozen \
