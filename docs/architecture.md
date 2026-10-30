@@ -55,7 +55,7 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
 - **Dropping or renaming a model id needs an Alembic data migration in the same PR** — the
   migration rewrites rows whose stored `summarizing_model` left the registry onto a surviving
   id, so `/myinfo` and the user's real model agree. It cannot be the only guard: the
-  `Dockerfile` runs `alembic upgrade head` at image build, while the previous container is
+  Deploy workflow runs `alembic upgrade head` on every push to `main`, while the previous container is
   still serving and still writes its own default into every new row, so a user registered in
   that window (or after a rollback) keeps the dropped id. `MessageHandlers._settings` therefore
   substitutes `DEFAULT_MODEL_ID_FOR_SUMMARY` for an id outside `MODEL_SPECS`, logged at
@@ -276,6 +276,15 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   there, so `uv sync` runs in a separate `deps` stage and the final stage copies only `/opt/python`
   and `/app/.venv` — at the same paths, since the venv holds absolute paths and a symlink into
   `/opt/python`, and from the same `alpine` base, since its wheels are built for musl.
+- **Deploy steps run outside the image build.** Railway's Dockerfile builder takes build-time
+  values only as `ARG`s (no `RUN --mount=type=secret`), which would store `DSN` and the Modal
+  tokens as build variables. So `scripts/db.py`, `alembic upgrade head` and
+  `modal deploy scripts/cron.py` run in `.github/workflows/deploy.yml` on every push to `main`,
+  from the `DSN`, `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` repository secrets; Railway's *Wait for
+  CI* holds the bot's deploy until that run passes. For `compose.yaml` the same steps are the
+  Dockerfile's `migrate` stage, run as a one-shot container the bot `depends_on`. The bot must stay
+  the **last** stage: Railway builds it when no target is set, and BuildKit skips `migrate` because
+  nothing copies from it.
 - **Temp-file hygiene.** Downloads/compression write UUID-named temp files in the
   CWD; `clean_up` removes them, guarded by a `PROTECTED_FILES` snapshot taken at
   startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest. Docker and Railway

@@ -1,14 +1,22 @@
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+    env_file:
+      - path: ./.env
+        required: true
+
   ai-summarizer-telegram-bot:
     build:
       context: .
-      args:
-        - DSN
-        - MODAL_TOKEN_ID
-        - MODAL_TOKEN_SECRET
       dockerfile: Dockerfile
     container_name: bot
     env_file:
       - path: ./.env
         required: true
     restart: always
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
