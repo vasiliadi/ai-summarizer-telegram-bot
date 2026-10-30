@@ -85,10 +85,13 @@ job. Once all three pass, Deploy's migrate job creates the `users` table, applie
 deploys the Modal cron (see *Deploy steps run outside the image build* in `architecture.md`). It
 needs the repository secrets `DSN`, `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`, each passed only to
 the step that uses it. Its `concurrency` group sits on that job, not the workflow, so every
-commit's checks run at once and are never cancelled. The group never cancels a running migration;
-a newer push replaces an already waiting migrate job, which shows as cancelled. Because checks can
-finish out of order, the job's first step skips the remaining steps for a commit that is no longer
-the tip of `main`, so an older commit never redeploys over a newer one.
+commit's checks run at once and are never cancelled. The group never cancels a running migration,
+and `queue: max` keeps every waiting migrate job: checks can finish out of order, and the default
+`queue: single` keeps only the last job to join, which can be an older commit's that then replaces
+the newest. Waiting jobs run in the order they joined, and the job's first step skips the remaining
+steps for a commit that is no longer the tip of `main`, so the newest commit always deploys and an
+older one never redeploys over it. actionlint 1.7.12 flags `queue` as an unknown key; GitHub
+documents it, so don't remove it to satisfy the linter.
 
 Every workflow that runs uv (all but `sentry_release.yml`) pins `astral-sh/setup-uv` to `version: "latest-known"`,
 deliberately and unlike the uvx rule above. The project pins no uv version, so leaving `version`

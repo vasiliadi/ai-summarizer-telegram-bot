@@ -24,14 +24,15 @@ jobs:
   migrate-and-deploy-cron:
     name: Migrate database and deploy Modal cron
     needs: [tests, linting, typechecking]
-    # Two migrations must never overlap, so a running one is never cancelled. GitHub keeps only the
-    # newest waiting job: a push that lands while another waits cancels the waiting one. The group
-    # is on this job, not the workflow, so every commit's checks still run at once. That lets an
-    # older commit's checks finish last, so the first step skips a commit that is no longer the tip
-    # of main rather than redeploy it over a newer one.
+    # Two migrations must never overlap, so a running one is never cancelled. The group is on this
+    # job, not the workflow, so every commit's checks still run at once. That lets an older commit's
+    # job join the group after a newer one's, so `queue: max` keeps every waiting job (the default
+    # keeps only the last to join, which could drop the newest commit), and the first step skips a
+    # commit that is no longer the tip of main rather than redeploy it over a newer one.
     concurrency:
       group: deploy
       cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
