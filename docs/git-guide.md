@@ -76,15 +76,21 @@ expected; see `docs/uv-guide.md`.
 `linting.yml` runs `ruff check` and `ruff format --check` over the whole tree (ruff from `pip`,
 unpinned), `typechecking.yml` runs `ty` over `src/`, `codecov.yml` runs the tests with branch
 coverage, and `sentry_release.yml` creates a Sentry release on every push to `main`.
+`deploy.yml`, also on every push to `main`, re-runs the three check workflows through
+`workflow_call` (so on `main` they run twice) and, once all pass, creates the `users` table, applies migrations and
+deploys the Modal cron (see *Deploy steps run outside the image build* in `architecture.md`). It
+needs the repository secrets `DSN`, `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`, each passed only to
+the step that uses it, and its `concurrency` group never cancels a running migration; a newer push
+replaces an already queued run, which shows as cancelled.
 
-`typechecking.yml` and `codecov.yml` pin `astral-sh/setup-uv` to `version: "latest-known"`,
+`typechecking.yml`, `codecov.yml` and `deploy.yml` pin `astral-sh/setup-uv` to `version: "latest-known"`,
 deliberately and unlike the uvx rule above. The project pins no uv version, so leaving `version`
 unset means `latest`. The action verifies a download only against the checksum table baked into
 the action release you pinned, and **silently skips verification** for a uv newer than that table
 — which `latest` usually is. `latest-known` resolves to the newest uv *inside* the table, so the
 checksum is always checked. Do not "upgrade" it to `latest`.
 
-Both also spell out `enable-cache: "auto"` (the default, written so the choice survives a change of
+All three also spell out `enable-cache: "auto"` (the default, written so the choice survives a change of
 default). `auto` skips the cache on `release`, tag-push, `pull_request_target`, and `workflow_run`
 events — a cache-poisoning guard, because a restored cache holds unpacked wheels that `uv sync` does
 not re-check against `uv.lock` hashes. **Do not set `enable-cache: true`**; it drops the guard to save

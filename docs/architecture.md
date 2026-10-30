@@ -54,15 +54,14 @@ otherwise; reverse one only as a deliberate decision, not incidental cleanup.
   consume no extra quota unit.
 - **Dropping or renaming a model id needs an Alembic data migration in the same PR** — the
   migration rewrites rows whose stored `summarizing_model` left the registry onto a surviving
-  id, so `/myinfo` and the user's real model agree. It cannot be the only guard: the
-  `Dockerfile` runs `alembic upgrade head` at image build, while the previous container is
+  id, so `/myinfo` and the user's real model agree. It cannot be the only guard: the Deploy
+  workflow runs `alembic upgrade head` on every push to `main`, while the previous container is
   still serving and still writes its own default into every new row, so a user registered in
   that window (or after a rollback) keeps the dropped id. `MessageHandlers._settings` therefore
-  substitutes `DEFAULT_MODEL_ID_FOR_SUMMARY` for an id outside `MODEL_SPECS`, logged at
-  WARNING; the stored row is left alone, and `/myinfo` shows its raw id. The migration's
-  rewrite alone changes no schema, so `uv-guide.md`'s schema-change rule is not what requires
-  it. *Adding* an id needs no
-  migration. Moving `DEFAULT_MODEL_ID_FOR_SUMMARY` also moves `models.UsersOrm`'s
+  substitutes `DEFAULT_MODEL_ID_FOR_SUMMARY` for an id outside `MODEL_SPECS`, logged at WARNING;
+  the stored row is left alone, and `/myinfo` shows its raw id. The migration's rewrite alone
+  changes no schema, so `uv-guide.md`'s schema-change rule is not what requires it. *Adding* an
+  id needs no migration. Moving `DEFAULT_MODEL_ID_FOR_SUMMARY` also moves `models.UsersOrm`'s
   `server_default` (pinned by `test_orm_server_defaults_match_config`) and the column's own
   default.
 - **Documents go to the model by `file_id`; audio never does** — a document is uploaded to
@@ -270,21 +269,31 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   already written. OpenRouter never expires a file, so each such failure stays in the
   workspace and counts toward its 10 GiB quota until removed by hand. An upload that fails
   returns no id, so there is nothing to delete.
-- **Railway builds the `Dockerfile` without bind mounts.** Railway's builder accepts only cache
-  mounts, with the service ID hard-coded in the mount `id` (as observed 2026-10). The uv Docker
-  guide's `RUN --mount=type=bind` / `--mount=from=ghcr.io/astral-sh/uv` pattern therefore fails
-  there, so `uv sync` runs in a separate `deps` stage and the final stage copies only `/opt/python`
-  and `/app/.venv` — at the same paths, since the venv holds absolute paths and a symlink into
-  `/opt/python`, and from the same `alpine` base, since its wheels are built for musl.
-- **Temp-file hygiene.** Downloads/compression write UUID-named temp files in the
-  CWD; `clean_up` removes them, guarded by a `PROTECTED_FILES` snapshot taken at
-  startup. On shutdown `clean_up(all_downloads=True)` sweeps the rest. Docker and Railway
-  stop the container with SIGTERM, whose default action kills Python without running `finally`
-  (and which PID 1 ignores outright), so `BotApp.run` maps it to SIGINT's `KeyboardInterrupt`;
-  telebot's polling catches that, returns, and `shutdown` runs; `main()` suppresses the
-  interrupt when it lands outside `polling()` (such as infinity_polling's retry sleep). `shutdown`
-  first closes telebot's `worker_pool`, which joins each worker after its current message,
-  because the workers are daemon threads and the sweep would otherwise delete their files.
+- **The `Dockerfile` uses no bind mounts.** Hosted Dockerfile builders may accept only cache mounts,
+  so the uv Docker guide's `RUN --mount=type=bind` / `--mount=from=ghcr.io/astral-sh/uv` pattern can
+  fail there. `uv sync` therefore runs in a separate `deps` stage and the final stage copies only
+  `/opt/python` and `/app/.venv` — at the same paths, since the venv holds absolute paths and a
+  symlink into `/opt/python`, and from the same `alpine` base, since its wheels are built for musl.
+- **Deploy steps run outside the image build.** A hosted Dockerfile builder may take build-time
+  values only as `ARG`s (no `RUN --mount=type=secret`), which would store `DSN` and the Modal tokens
+  as the platform's build variables. So `scripts/db.py`, `alembic upgrade head` and `modal deploy
+  scripts/cron.py` run in `.github/workflows/deploy.yml` on every push to `main`, from the `DSN`,
+  `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` repository secrets, and only after the tests, linting
+  and type checking (re-run as reusable workflows) pass. Schema-before-code holds only if the
+  hosting platform waits for that run before deploying the bot; nothing in the repo enforces it, and
+  without it a release that reads a new column fails until Deploy finishes. For `compose.yaml` the
+  same steps are the Dockerfile's `migrate` stage, run as a one-shot container the bot `depends_on`.
+  The bot must stay the **last** stage: a platform builds it when no target is set, and BuildKit
+  skips `migrate` because nothing copies from it.
+- **Temp-file hygiene.** Downloads/compression write UUID-named temp files in the CWD; `clean_up`
+  removes them, guarded by a `PROTECTED_FILES` snapshot taken at startup. On shutdown
+  `clean_up(all_downloads=True)` sweeps the rest. Docker and hosting platforms stop the container
+  with SIGTERM, whose default action kills Python without running `finally` (and which PID 1 ignores
+  outright), so `BotApp.run` maps it to SIGINT's `KeyboardInterrupt`; telebot's polling catches
+  that, returns, and `shutdown` runs; `main()` suppresses the interrupt when it lands outside
+  `polling()` (such as infinity_polling's retry sleep). `shutdown` first closes telebot's
+  `worker_pool`, which joins each worker after its current message, because the workers are daemon
+  threads and the sweep would otherwise delete their files.
 - **Fragmented downloads.** `download_yt` leaves yt-dlp's `skip_unavailable_fragments` at
   its default, so a download missing a few fragments still yields usable audio. Setting it
   to `False` is **rejected**: it would turn many tolerable downloads into hard failures,

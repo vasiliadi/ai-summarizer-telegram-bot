@@ -25,7 +25,9 @@ A bot designed to summarize webpages, YouTube videos and Castro.fm podcasts (via
 
 ### Dockerfile
 
-Run `Dockerfile` or `compose.yaml`
+Run `docker compose up`. The `migrate` service creates the `users` table, applies migrations and deploys the Modal cron, and the bot starts only if it succeeds. Both read `.env` at run time; `migrate` gets only `DSN`, `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`.
+
+Building `Dockerfile` without a target gives the bot alone; run the deploy steps first with `docker compose run --rm migrate`. Plain `docker run --env-file` keeps the quotes of a quoted `.env` value, which breaks `DSN`.
 
 ### Without docker
 
@@ -106,6 +108,7 @@ myinfo - Show my settings
 ## Deploy
 
 - Using `Dockerfile` on any cloud hosting
+- On a platform that builds the `Dockerfile` from this repository, the `Deploy` GitHub Actions workflow runs the deploy steps on every push to `main`, once tests, linting and type checking pass. Add the repository secrets `DSN`, `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`, keep them out of the platform's build variables, and have it wait for CI so the bot deploys only after migrations finish.
 - Using [Dokploy](https://dokploy.com/) or a similar tool and a cost-efficient cloud service like [Hetzner](https://www.hetzner.com/cloud/)
 
 ### For development
@@ -340,7 +343,6 @@ in [Langfuse](https://langfuse.com). Setup and usage are in [scripts/eval/README
 [OpenRouter API](https://openrouter.ai/docs/api-reference/overview)
 
 [Telegram Bot API](https://core.telegram.org/bots/api) \
-[Docker | Set build-time variables (--build-arg)](https://docs.docker.com/reference/cli/docker/buildx/build/#build-arg) \
 [Logging Levels](https://docs.python.org/3/library/logging.html#logging-levels), [LogRecord attributes](https://docs.python.org/3/library/logging.html#logrecord-attributes) \
 [Google Python Style Guide | Docstrings](https://google.github.io/styleguide/pyguide.html#s3.8.1-comments-in-doc-strings) \
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), [Conventional Commits cheatsheet](https://cheatsheets.zip/conventional-commits), [gitmoji](https://gitmoji.dev/), [Stop Using Conventional Commits](https://sumnerevans.com/posts/software-engineering/stop-using-conventional-commits/) \

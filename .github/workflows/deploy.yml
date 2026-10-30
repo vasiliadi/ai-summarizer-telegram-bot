@@ -1,0 +1,73 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Two migration runs must never overlap, so a running Deploy is never cancelled. GitHub keeps only
+# the newest queued run: a push that lands while another waits cancels the waiting one, and the
+# newest run still migrates to head.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  # Re-run the checks here: a job can only wait on jobs of its own workflow, and production must
+  # not be migrated by a commit that fails them.
+  tests:
+    uses: ./.github/workflows/codecov.yml
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  linting:
+    uses: ./.github/workflows/linting.yml
+
+  typechecking:
+    uses: ./.github/workflows/typechecking.yml
+
+  migrate-and-deploy-cron:
+    name: Migrate database and deploy Modal cron
+    needs: [tests, linting, typechecking]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ENV: BUILD
+      MODAL_BUILD_VALIDATION: ignore
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "latest-known"
+          enable-cache: "auto"
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install dependencies
+        run: uv sync --frozen --only-group build
+
+      - name: Create users table
+        run: uv run --no-sync python scripts/db.py
+        env:
+          DSN: ${{ secrets.DSN }}
+
+      - name: Apply migrations
+        run: uv run --no-sync alembic upgrade head
+        env:
+          DSN: ${{ secrets.DSN }}
+
+      - name: Deploy Modal cron
+        run: uv run --no-sync modal deploy scripts/cron.py
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}

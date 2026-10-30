@@ -13,6 +13,7 @@ temp/
 **/.gitpod.Dockerfile
 **/.gitpod.yml
 **/__pycache__/
+**/*.egg-info
 **/*.py[cod]
 .zed/**/*
 .zed/
