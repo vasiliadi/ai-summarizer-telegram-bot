@@ -1,17 +1,22 @@
 # Deploy steps for compose.yaml, run as a container so secrets arrive at run time, never as build
 # ARGs. A build with no target skips this stage; .github/workflows/deploy.yml runs the same steps.
-FROM python:3.14-slim@sha256:cd89c30eda26ee911a4611b18680086e0ea42e6f5f8cbe653d07fa7958c9cec8 AS migrate
+# Managed Python like the bot: a python:*-slim image ships a new patch later than uv can install it.
+FROM debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS migrate
 ENV ENV=BUILD \
     PATH="/app/.venv/bin:$PATH" \
     MODAL_BUILD_VALIDATION=ignore
 WORKDIR /app
+# The managed interpreter's OpenSSL reads the system CA store, which slim images leave out.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:latest@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 /uv /bin/
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync \
     --frozen \
     --only-group build \
     --no-cache \
-    --no-managed-python
+    --managed-python
 COPY . .
 CMD ["sh", "-c", "python scripts/db.py && alembic upgrade head && modal deploy scripts/cron.py"]
 

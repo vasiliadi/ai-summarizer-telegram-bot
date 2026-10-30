@@ -19,16 +19,16 @@
   "pre-commit": { "enabled": true },
   "packageRules": [
     {
-      "description": "Python pyenv (.python-version): don't gate on Docker Hub republish time; merge by hand once the pinned uv can download the new patch and the pinned python:3.14-slim digest ships it",
+      "description": "Python pyenv (.python-version): don't gate on Docker Hub republish time; merge by hand once the pinned uv can download the new patch",
       "matchManagers": ["pyenv"],
       "matchPackageNames": ["python"],
       "minimumReleaseAge": "0 days",
       "automerge": false
     },
     {
-      "description": "What must provide the .python-version patch: the uv image (its embedded download list), setup-uv (its latest-known uv) and python:3.14-slim (the migrate stage's interpreter). No release-age gate, so they can land as fast as the pyenv bump above",
+      "description": "uv decides which .python-version patches can be installed: the uv image (its embedded download list) and setup-uv (its latest-known uv). No release-age gate, so they can land as fast as the pyenv bump above",
       "matchManagers": ["dockerfile", "github-actions"],
-      "matchPackageNames": ["ghcr.io/astral-sh/uv", "astral-sh/setup-uv", "python"],
+      "matchPackageNames": ["ghcr.io/astral-sh/uv", "astral-sh/setup-uv"],
       "minimumReleaseAge": "0 days"
     },
     {

@@ -274,13 +274,15 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   fail there. `uv sync` therefore runs in a separate `deps` stage and the final stage copies only
   `/opt/python` and `/app/.venv` — at the same paths, since the venv holds absolute paths and a
   symlink into `/opt/python`, and from the same `alpine` base, since its wheels are built for musl.
-- **`.python-version` pins the exact patch both Docker stages must provide.** The bot stage's
-  `uv sync --managed-python` fails with `No interpreter found for Python …` until the pinned
-  `ghcr.io/astral-sh/uv` is a release that knows the patch, and the `migrate` stage's
-  `--no-managed-python` sync fails until the pinned `python:3.14-slim` digest ships it; CI's
-  `setup-uv` (`version: "latest-known"`) likewise installs only the uv its pinned release knows.
-  `.github/renovate.json` exempts all three from the release-age gate and does not auto-merge the
-  `.python-version` PR: merge it with, or after, those pins. The uv image stays on `latest`.
+- **Both Docker stages use uv-managed Python, so the pinned uv decides the patch.** `uv sync
+  --managed-python` fails with `No interpreter found for Python …` until the pinned
+  `ghcr.io/astral-sh/uv` is a release that knows the `.python-version` patch; CI's `setup-uv`
+  (`version: "latest-known"`) likewise installs only the uv its pinned release knows. A
+  `python:*-slim` image is no alternative for `migrate`: Docker Hub publishes a patch after uv
+  can download it, so the two pins would race. `migrate` is therefore `debian:trixie-slim` plus
+  `ca-certificates`, which the managed interpreter's OpenSSL needs. `.github/renovate.json`
+  exempts the uv image and `setup-uv` from the release-age gate and does not auto-merge the
+  `.python-version` PR: merge it with, or after, the uv pin. The uv image stays on `latest`.
 - **Deploy steps run outside the image build.** A hosted Dockerfile builder may take build-time
   values only as `ARG`s (no `RUN --mount=type=secret`), which would store `DSN` and the Modal tokens
   as the platform's build variables. So `scripts/db.py`, `alembic upgrade head` and `modal deploy
