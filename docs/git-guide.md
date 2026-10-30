@@ -89,8 +89,9 @@ commit's checks run at once and are never cancelled. The group never cancels a r
 and `queue: max` keeps every waiting migrate job: checks can finish out of order, and the default
 `queue: single` keeps only the last job to join, which can be an older commit's that then replaces
 the newest. Waiting jobs run in the order they joined, and the job's first step skips the remaining
-steps for a commit that is no longer the tip of `main`, so the newest commit always deploys and an
-older one never redeploys over it. actionlint 1.7.12 flags `queue` as an unknown key; GitHub
+steps for a commit that is no longer the tip of `main`, so an older commit never redeploys over a
+newer one. Only the newest commit deploys, and only if its checks and deploy steps pass; if they
+fail, the older commits it skipped stay undeployed until a fix lands. actionlint 1.7.12 flags `queue` as an unknown key; GitHub
 documents it, so don't remove it to satisfy the linter.
 
 Every workflow that runs uv (all but `sentry_release.yml`) pins `astral-sh/setup-uv` to `version: "latest-known"`,
