@@ -276,8 +276,9 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   symlink into `/opt/python`, and from the same `alpine` base, since its wheels are built for musl.
 - **Both Docker stages use uv-managed Python, so the pinned uv decides the patch.** `uv sync
   --managed-python` fails with `No interpreter found for Python …` until the pinned
-  `ghcr.io/astral-sh/uv` is a release that knows the `.python-version` patch; CI's `setup-uv`
-  (`version: "latest-known"`) likewise installs only the uv its pinned release knows. A
+  `ghcr.io/astral-sh/uv` is a release that knows the `.python-version` patch. CI gets Python from
+  uv too, with no `actions/setup-python`, and its `setup-uv` (`version: "latest-known"`) installs
+  only the uv its pinned release knows (see *CI Workflows* in `git-guide.md`). A
   `python:*-slim` image is no alternative for `migrate`: Docker Hub publishes a patch after uv
   can download it, so the two pins would race. `migrate` is therefore a bare `debian:trixie-slim`:
   it has no system CA store, so the stdlib's `ssl` defaults fail verification there, but uv ships
