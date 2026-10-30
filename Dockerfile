@@ -1,5 +1,5 @@
 # Deploy steps for compose.yaml, run as a container so secrets arrive at run time, never as build
-# ARGs. Railway never builds this stage; .github/workflows/deploy.yml runs the same steps there.
+# ARGs. A build with no target skips this stage; .github/workflows/deploy.yml runs the same steps.
 FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS migrate
 ENV ENV=BUILD \
     PATH="/app/.venv/bin:$PATH" \
@@ -32,7 +32,7 @@ RUN uv sync \
     --compile-bytecode \
     --managed-python
 
-# The bot: must stay the last stage, which Railway builds when no target is set.
+# The bot: must stay the last stage, which a build with no target produces.
 FROM base
 ENV ENV=PROD \
     PYTHONUNBUFFERED=1 \

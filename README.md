@@ -108,7 +108,7 @@ myinfo - Show my settings
 ## Deploy
 
 - Using `Dockerfile` on any cloud hosting
-- On [Railway](https://railway.com/), the `Deploy` GitHub Actions workflow runs the deploy steps on every push to `main`. Add the repository secrets `DSN`, `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`, keep them out of Railway's build variables, and turn on *Wait for CI* so the bot deploys only after migrations finish.
+- On a platform that builds the `Dockerfile` from this repository, the `Deploy` GitHub Actions workflow runs the deploy steps on every push to `main`. Add the repository secrets `DSN`, `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`, keep them out of the platform's build variables, and have it wait for CI so the bot deploys only after migrations finish.
 - Using [Dokploy](https://dokploy.com/) or a similar tool and a cost-efficient cloud service like [Hetzner](https://www.hetzner.com/cloud/)
 
 ### For development
