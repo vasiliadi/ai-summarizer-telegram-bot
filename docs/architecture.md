@@ -303,7 +303,9 @@ where the content came from (`format_prefixed_summary`). Only a document summari
 - **`.dockerignore` is an allowlist.** A local checkout holds large and private untracked paths
   (`.pixi/`, agent configs, `CLAUDE.local.md`), so the context is `*` plus a `!` line for each
   path a stage `COPY`s by name; both stages list their inputs explicitly. A new file a stage
-  copies or a deploy step reads needs both a `COPY` and a `!` line, or the build fails to find it.
+  copies from the build context needs both a `COPY` and a `!` line, or the build fails to find
+  it; that includes a file the `migrate` container's deploy steps read at run time, which
+  `deploy.yml` instead gets from its checkout.
 - **Temp-file hygiene.** Downloads/compression write UUID-named temp files in the CWD; `clean_up`
   removes them, guarded by a `PROTECTED_FILES` snapshot taken at startup. On shutdown
   `clean_up(all_downloads=True)` sweeps the rest. Docker and hosting platforms stop the container
