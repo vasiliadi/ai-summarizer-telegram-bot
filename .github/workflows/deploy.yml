@@ -38,12 +38,19 @@ jobs:
     env:
       ENV: BUILD
       MODAL_BUILD_VALIDATION: ignore
+    # Actions cannot end a job early as a success, so every step after this one must carry
+    # `if: steps.head.outputs.current == 'true'`; a step without it runs for a stale commit.
     steps:
       - name: Check this commit is still the tip of main
         id: head
         run: |
           tip=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
-          if [ "$tip" = "$GITHUB_SHA" ]; then current=true; else current=false; fi
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            current=true
+          else
+            current=false
+            echo "::notice title=Deploy skipped::$GITHUB_SHA is no longer the tip of main ($tip)"
+          fi
           echo "current=$current" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ github.token }}
