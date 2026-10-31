@@ -359,16 +359,25 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   rebinding or the proxy's own network. It is best-effort, with no retry: a request that fails
   logs a warning and passes on the last hop that passed the check, and a chain longer than
   `_MAX_REQUESTS` requests passes on the original URL.
+- **Exa returns the whole page as plain text.** `ExaBackend` requests
+  `text={"verbosity": "compact"}`: no `max_characters` cap and no `include_html_tags`, so the
+  summary sees the full article, as with Tavily. A cap cut long articles mid-sentence, and HTML
+  tags counted against it while adding nothing the Markdown text lacks. `compact` is Exa's
+  default, passed explicitly so a change of default cannot slip in; checked on three long
+  articles on 2026-10-31, `standard` and `full` returned the same text, with only extra
+  `![alt](url)` image lines. Nothing bounds the text against the summary model's context: a page
+  too long for it fails as an `APIError` and ends in the `RetryError` reply, accepted.
 - **Every extraction is screened for block pages by JEV.** A refused parser (region block, bot
   check, login or paywall) still returns non-empty text. `WebParser` passes each backend's output to
   `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over the first 20k characters
-  (block pages are short; an uncapped Tavily extraction can overflow JEV's input). At p ≥ 0.5 the
+  (block pages are short; an uncapped extraction can overflow JEV's input). At p ≥ 0.5 the
   output is a `WebParseError`: a blocked primary falls through to the fallback, a blocked fallback
   ends in "page is not available". The check lives in `WebParser`, not a backend, so it holds
   whichever backend is primary. JEV is a decisions model served only on OpenRouter's
   `POST /api/alpha/decisions`, so it is called with a direct HTTPS request, not through `LLMClient`.
   Calibrated on 2026-09-30 against `typesafe/jev-1.13-20260917`: block pages 0.83–0.99, real pages
-  (including an article *about* regional blocking) 0.01–0.03; ~0.4 s and ~$0.0002 per 20k-character
+  (including an article *about* regional blocking) 0.01–0.03; re-checked on 2026-10-31 after Exa
+  dropped HTML tags, plain and tagged text scored the same (blocks 0.98–0.99, articles 0.01); ~0.4 s and ~$0.0002 per 20k-character
   page. Settled: **fail open** (a detector error logs a warning and keeps the text), **no retry on
   a block page** (outside the backends' `@retry`), **not metered** by `QuotaManager`. A bare
   marketing shell with no block wording is not a block page and is not caught.

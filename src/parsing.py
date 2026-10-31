@@ -67,7 +67,7 @@ class BlockedPageDetector:
 
     _THRESHOLD: ClassVar[float] = 0.5
     _TIMEOUT: ClassVar[int] = 30
-    # Only the head goes to JEV: a block page is short, and an uncapped Tavily
+    # Only the head goes to JEV: a block page is short, and an uncapped
     # extraction can overflow JEV's input limit.
     _MAX_CHARS: ClassVar[int] = 20000
 
@@ -152,7 +152,7 @@ class ExaBackend(ParserBackend):
         """
         response = self._client.get_contents(
             urls=[url],
-            text={"max_characters": 20000, "include_html_tags": True},
+            text={"verbosity": "compact"},
             max_age_hours=0,
         )
         results = response.results or []

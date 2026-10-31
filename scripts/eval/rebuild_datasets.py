@@ -8,6 +8,7 @@ import argparse
 import collections
 import hashlib
 import json
+import re
 import statistics
 import sys
 import zlib
@@ -60,11 +61,17 @@ def summary_of(row):
 
 def stratum_of(text):
     """Three sources reach `summarize_text`, and no trace field distinguishes them."""
+    # Web first: Markdown's blank lines between paragraphs pull the mean line
+    # width under the subtitle threshold. Older Exa traces carry HTML.
+    if (
+        text.lstrip().startswith("<")
+        or "](http" in text[:4000]
+        or re.search(r"^#{1,6} ", text, re.MULTILINE)
+    ):
+        return "web_article"
     lines = text.split("\n")
     if len(lines) > 20 and statistics.mean(len(line) for line in lines) < 60:
         return "yt_transcript"  # subtitle format: hard-wrapped ~34-char lines
-    if text.lstrip().startswith("<") or "](http" in text[:4000]:
-        return "web_article"  # Exa returns HTML, Tavily markdown
     return "audio_transcript"  # transcription: one blob of plain prose
 
 

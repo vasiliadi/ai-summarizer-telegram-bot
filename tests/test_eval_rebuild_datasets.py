@@ -136,6 +136,7 @@ def test_legacy_traces_are_still_read(rebuild):
         ("\n".join(["a short subtitle line"] * 30), "yt_transcript"),
         ("<html><body>article</body></html>", "web_article"),
         ("See [the docs](https://example.test) for more.", "web_article"),
+        ("# Title\n\n" + "\n\n".join(["A short paragraph."] * 15), "web_article"),
         (_blob(1), "audio_transcript"),
     ],
 )
