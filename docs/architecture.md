@@ -359,10 +359,16 @@ where the content came from (`format_prefixed_summary`). Only a document summari
   rebinding or the proxy's own network. It is best-effort, with no retry: a request that fails
   logs a warning and passes on the last hop that passed the check, and a chain longer than
   `_MAX_REQUESTS` requests passes on the original URL.
+- **Exa returns the whole page as plain text.** `ExaBackend` requests `text=True`: no
+  `max_characters` cap and no `include_html_tags`, so the summary sees the full article, as with
+  Tavily. A cap cut long articles mid-sentence, and HTML tags counted against it while adding
+  nothing the Markdown text lacks. `verbosity` stays at Exa's default `compact`; checked on three
+  long articles on 2026-10-31, `standard` and `full` returned the same text, with only extra
+  `![alt](url)` image lines.
 - **Every extraction is screened for block pages by JEV.** A refused parser (region block, bot
   check, login or paywall) still returns non-empty text. `WebParser` passes each backend's output to
   `BlockedPageDetector`, which asks TypeSafe's JEV one `noul` question over the first 20k characters
-  (block pages are short; an uncapped Tavily extraction can overflow JEV's input). At p ≥ 0.5 the
+  (block pages are short; an uncapped extraction can overflow JEV's input). At p ≥ 0.5 the
   output is a `WebParseError`: a blocked primary falls through to the fallback, a blocked fallback
   ends in "page is not available". The check lives in `WebParser`, not a backend, so it holds
   whichever backend is primary. JEV is a decisions model served only on OpenRouter's
