@@ -333,11 +333,14 @@ The trap when harvesting: a trace's tag is the **Telegram** `content_type`, whic
 a URL as much as for a pasted paragraph. A YouTube transcript, a web article and a
 audio transcript are therefore all tagged `text`, and no field distinguishes
 them — the stratum has to be inferred from the content, by **two** tests, not one. A YouTube
-transcript arrives in subtitle format, hard-wrapped to ~34-character lines. The other two are
-both single blobs, so line width cannot separate them; what does is that `parsing.py` returns
-markup (Exa HTML, Tavily markdown) while the audio transcriber returns plain prose (WhisperX,
-the transcriber in older traces, joined its segments with a leading space). Testing only for wrapping silently files every audio transcript under
-`web_article`, which is a stratum label that looks plausible in the UI and is wrong.
+transcript arrives in subtitle format, hard-wrapped to ~34-character lines. Line width cannot
+separate the other two; what does is that `parsing.py` returns markup (Markdown headings or
+links from both Exa and Tavily; HTML in Exa traces from before 2026-10-31) while the audio
+transcriber returns plain prose (WhisperX, the transcriber in older traces, joined its segments
+with a leading space). Testing only for wrapping silently files every audio transcript under
+`web_article`, which is a stratum label that looks plausible in the UI and is wrong. The markup
+test runs first: the blank lines between Markdown paragraphs pull an article's mean line width
+under the subtitle threshold.
 
 A Castro transcript is a fourth source with **no stratum of its own**: it is one line per
 utterance, and the one episode measured (2026-10-02) averaged 64 characters a line without

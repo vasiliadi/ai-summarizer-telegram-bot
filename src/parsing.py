@@ -152,7 +152,7 @@ class ExaBackend(ParserBackend):
         """
         response = self._client.get_contents(
             urls=[url],
-            text=True,
+            text={"verbosity": "compact"},
             max_age_hours=0,
         )
         results = response.results or []

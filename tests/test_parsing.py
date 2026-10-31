@@ -65,7 +65,7 @@ def test_parse_url_returns_exa_content(mocker):
     assert result.prefix == "🌐"
     mock_exa.get_contents.assert_called_once_with(
         urls=["https://example.com"],
-        text=True,
+        text={"verbosity": "compact"},
         max_age_hours=0,
     )
     mock_tavily.extract.assert_not_called()
@@ -245,7 +245,7 @@ def test_parse_resolves_url_before_extracting(mocker):
     resolver.resolve.assert_called_once_with("https://example.com/start")
     mock_exa.get_contents.assert_called_once_with(
         urls=["https://example.com/final"],
-        text=True,
+        text={"verbosity": "compact"},
         max_age_hours=0,
     )
 
