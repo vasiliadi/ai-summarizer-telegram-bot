@@ -1,7 +1,7 @@
 # Allowlist: the build context is only what a Dockerfile stage COPYs. The bot stage takes
-# LICENSE, NOTICE and src/; migrate runs `COPY . .` and its deploy steps also need alembic.ini,
-# migrations/ (whose env.py imports src.models), scripts/ and the uv files, which modal's
-# uv_sync uploads. Anything else in a local checkout (.pixi/, agent configs) stays out.
+# LICENSE, NOTICE and src/; migrate takes the uv files (.python-version pins uv's Python),
+# alembic.ini, migrations/, src/ and the two deploy scripts. Anything else in a local checkout
+# (.pixi/, agent configs) stays out.
 *
 !LICENSE
 !NOTICE
@@ -11,9 +11,15 @@
 !.python-version
 !alembic.ini
 !migrations/
-!scripts/
+!scripts/__init__.py
+!scripts/db.py
+!scripts/cron.py
 
-# Local artifacts inside the allowed directories.
+# Local secrets and artifacts inside the allowed directories.
+**/.env*
+**/*.env
+**/.venv
+**/.*_cache
 **/__pycache__/
 **/*.py[cod]
 **/*.egg-info
