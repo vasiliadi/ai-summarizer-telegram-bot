@@ -1,33 +1,26 @@
-**/README.md
-**/.gitignore
-**/.git
-.git/**/*
-**/Dockerfile
-**/.dockerignore
+# Allowlist: the build context is only what a Dockerfile stage COPYs. The bot stage takes
+# LICENSE, NOTICE and src/; migrate takes the uv files (.python-version pins uv's Python),
+# alembic.ini, migrations/, src/ and the two deploy scripts. Anything else in a local checkout
+# (.pixi/, agent configs) stays out.
+*
+!LICENSE
+!NOTICE
+!src/
+!pyproject.toml
+!uv.lock
+!.python-version
+!alembic.ini
+!migrations/
+!scripts/db.py
+!scripts/cron.py
+
+# Local secrets and artifacts inside the allowed directories.
+**/.env*
 **/*.env
-.github/**/*
-.github/
-temp/**/*
-temp/
-**/.DS_Store
-**/.gitpod.Dockerfile
-**/.gitpod.yml
-**/__pycache__/
-**/*.egg-info
-**/*.py[cod]
-.zed/**/*
-.zed/
-.env*
-.flaskenv*
-!.env.project
-!.env.vault
-**/.mypy_cache
-.mypy_cache/**/*
-mypy.ini
-**/.ruff_cache
-.deepsource.toml
-poetry.toml
-**/.trunk
 **/.venv
-compose.yaml
-**/*.envrc
+**/.*_cache
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info
+**/.coverage
+**/.DS_Store

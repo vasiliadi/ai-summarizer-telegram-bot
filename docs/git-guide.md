@@ -78,7 +78,7 @@ ruff@latest`), `typechecking.yml` runs `ty` over `src/`, `codecov.yml` runs the 
 coverage, and `sentry_release.yml` creates a Sentry release on every push to `main`.
 The three check workflows run standalone only off `main`: linting and type checking on
 `pull_request`, the tests on push to any other branch, which is how a PR gets all three required
-checks. On `main` they run once, inside `deploy.yml`, which calls them through `workflow_call` on
+checks. A PR from a fork pushes to no branch here, so it gets no tests check. On `main` they run once, inside `deploy.yml`, which calls them through `workflow_call` on
 every push to `main` (a job's `needs` can only name jobs of its own workflow), so they show as
 `Deploy / linting / Linting` and so on, and the `main` Codecov upload comes from Deploy's `tests`
 job. Once all three pass, Deploy's migrate job creates the `users` table, applies migrations and

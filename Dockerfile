@@ -14,7 +14,11 @@ RUN uv sync \
     --only-group build \
     --no-cache \
     --managed-python
-COPY . .
+# migrations/env.py imports src.models; alembic.ini puts . and src on sys.path.
+COPY alembic.ini ./
+COPY migrations/ migrations/
+COPY src/ src/
+COPY scripts/db.py scripts/cron.py scripts/
 CMD ["sh", "-c", "python scripts/db.py && alembic upgrade head && modal deploy scripts/cron.py"]
 
 FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS base
