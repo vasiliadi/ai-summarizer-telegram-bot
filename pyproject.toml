@@ -26,7 +26,7 @@ dependencies = [
     "telegramify-markdown==1.4.1",
     "tenacity==9.2.1",
     "youtube-transcript-api==1.2.4",
-    "yt-dlp[default]==2026.10.21",
+    "yt-dlp[default]==2026.10.26",
 ]
 
 [dependency-groups]
@@ -43,7 +43,7 @@ dev = [
     "python-dotenv==1.2.4",
     "types-defusedxml==0.7.0.20260504",
     "types-yt-dlp==2026.8.19.20261008",
-    "yt-dlp[deno]==2026.10.21",
+    "yt-dlp[deno]==2026.10.26",
 ]
 modal = [
     "redis==8.1.0",
