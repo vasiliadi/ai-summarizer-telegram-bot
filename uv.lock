@@ -97,7 +97,7 @@ dev = [
     { name = "modal", specifier = "==1.6.3" },
     { name = "python-dotenv", specifier = "==1.2.4" },
     { name = "types-defusedxml", specifier = "==0.7.0.20260504" },
-    { name = "types-yt-dlp", specifier = "==2026.8.19.20261008" },
+    { name = "types-yt-dlp", specifier = "==2026.8.19.20261030" },
     { name = "yt-dlp", extras = ["deno"], specifier = "==2026.10.26" },
 ]
 modal = [{ name = "redis", specifier = "==8.1.0" }]
@@ -2264,11 +2264,11 @@ wheels = [
 
 [[package]]
 name = "types-yt-dlp"
-version = "2026.8.19.20261008"
+version = "2026.8.19.20261030"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/01/21/1d20665bc21051978d7d0e7c885c7273df5e4d96202b7b10899aa9684d53/types_yt_dlp-2026.8.19.20261008.tar.gz", hash = "sha256:f63bd6aaf9f05ec03ca908b3b14cbcc2c30d7d03bbce742c28d5ea6789c1b00d", size = 42388, upload-time = "2026-10-08T08:06:36.106Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/45/7c/8c4786a744bcedfc04feec2ea579dd3331278357026c2951e181a107ebff/types_yt_dlp-2026.8.19.20261030.tar.gz", hash = "sha256:a72d111f92a29571a3e5ff945a2950fd1976e57d594ed0bfba5a82963e7b00cf", size = 42578, upload-time = "2026-10-30T07:50:22.333Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/36/e6/703a5893845fb5514270e462ce39124ebc4029eecd2fac87d5627636ca30/types_yt_dlp-2026.8.19.20261008-py3-none-any.whl", hash = "sha256:0b34b248d02cdf5e5010dbb56688b1ea38ff17894dbb99a01601cfb82502cdd8", size = 55294, upload-time = "2026-10-08T08:06:34.263Z" },
+    { url = "https://files.pythonhosted.org/packages/83/7b/ee7b97b8bc5838c88087d296167e3b98b045044e28b7227ecc0a00ef32e2/types_yt_dlp-2026.8.19.20261030-py3-none-any.whl", hash = "sha256:180affb04363c34e8b1cdefac4e288d3360bfcb83b569cb914e488b5d163eca6", size = 55296, upload-time = "2026-10-30T07:50:21.224Z" },
 ]
 
 [[package]]
