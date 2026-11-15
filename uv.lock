@@ -67,7 +67,7 @@ test = [
 requires-dist = [
     { name = "beautifulsoup4", specifier = "==4.15.0" },
     { name = "curl-cffi", specifier = "==0.17.0" },
-    { name = "exa-py", specifier = "==2.27.0" },
+    { name = "exa-py", specifier = "==2.28.0" },
     { name = "langfuse", specifier = "==5.2.0" },
     { name = "limits", specifier = "==5.8.0" },
     { name = "openai", specifier = "==3.46.0" },
@@ -750,7 +750,7 @@ wheels = [
 
 [[package]]
 name = "exa-py"
-version = "2.27.0"
+version = "2.28.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpcore" },
@@ -761,9 +761,9 @@ dependencies = [
     { name = "requests" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/99/70/51a9f2192a3433459757a62f94c5123dd3df61a153c2fbe7b452a901e123/exa_py-2.27.0.tar.gz", hash = "sha256:629f835f2c06551e56d0f2020fb49dabcd6cbd0b10e513c4c33f50a6cc5948d9", size = 115489, upload-time = "2026-11-01T02:50:08.571Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/a2/715db84134b2bbd4da26fb13080914819e572bbb211063bf5ad5c9693a48/exa_py-2.28.0.tar.gz", hash = "sha256:e835facb38fda3875837ecc875cae1f69de27f5782fa7f6be1f4fcd0b2933214", size = 117524, upload-time = "2026-11-06T21:02:37.666Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f3/9c/ce69a23b27163447ca7a23ea248457be14d7fa28779d1312ef7778bc3ad8/exa_py-2.27.0-py3-none-any.whl", hash = "sha256:9aa8199fb1936831b425c9fdc2f07b5ae8f7f76472f0a299e3dd4789cfe3910f", size = 142108, upload-time = "2026-11-01T02:50:07.012Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/a9/6115797dbbdac131748dc057b806165ab9ac2658b0295de769c9b546a110/exa_py-2.28.0-py3-none-any.whl", hash = "sha256:ae4a4140e1721872d2915a5ba93f7ccea80961013e965eb6bf8ea1896eb8f471", size = 144953, upload-time = "2026-11-06T21:02:36.435Z" },
 ]
 
 [[package]]
