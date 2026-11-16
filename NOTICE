@@ -17,7 +17,19 @@ Key copyleft dependencies:
   - psycopg2-binary   — LGPL-3.0-or-later, with a special exception
                         permitting linking with OpenSSL
   - certifi           — MPL-2.0 (file-level copyleft)
-  - tqdm              — MPL-2.0 AND MIT (file-level copyleft on the MPL part)
+
+Non-software licenses in dependency source distributions
+---------------------------------------------------------
+Some dependencies ship test fixtures under non-software licenses inside their
+source distribution (sdist) only. uv installs the wheel, which leaves these
+files out, so they never reach an environment or an image. License scanners
+that read the sdist still report them.
+
+  - markdown-it-py — MIT (the code, in the wheel and the sdist). Its sdist
+                     also ships the CommonMark specification text as a test
+                     fixture (`tests/test_cmark_spec/spec.md` and a rendered
+                     copy), licensed CC-BY-SA-4.0. Dev and build groups only,
+                     via modal -> rich; not in the bot image.
 
 System packages in the Docker image
 ------------------------------------
@@ -36,7 +48,9 @@ The Dockerfile installs additional system packages into the image with
 
 The base image (alpine) also contains its own operating-system
 packages (e.g. BusyBox, GPL-2.0-only) under their respective licenses, as any
-Linux distribution image does.
+Linux distribution image does. The same holds for the Dockerfile's separate
+`migrate` stage, which is built on debian (slim) and installs no extra system
+packages; it is built only when targeted explicitly.
 
 Local development environment (pixi)
 -------------------------------------
