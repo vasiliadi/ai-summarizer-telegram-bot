@@ -17,7 +17,24 @@ Key copyleft dependencies:
   - psycopg2-binary   — LGPL-3.0-or-later, with a special exception
                         permitting linking with OpenSSL
   - certifi           — MPL-2.0 (file-level copyleft)
-  - tqdm              — MPL-2.0 AND MIT (file-level copyleft on the MPL part)
+  - pathspec          — MPL-2.0 (file-level copyleft; dev group only,
+                        transitive, via black)
+
+Non-software licenses in dependency source distributions
+---------------------------------------------------------
+Some dependencies ship test fixtures under non-software licenses inside their
+source distribution (sdist) only. When a compatible wheel exists, uv installs
+it instead, and the wheel leaves these files out, so they do not reach an
+environment or an image. A package built from its sdist (no wheel for the
+platform, or a `no-binary` setting) needs a fresh check. License
+scanners that read the sdist still report these files.
+
+  - markdown-it-py — MIT (the code, in the wheel and the sdist). Its sdist
+                     also ships the CommonMark specification text as a test
+                     fixture (`tests/test_cmark_spec/spec.md` and a rendered
+                     copy), licensed CC-BY-SA-4.0. The package ships a
+                     universal wheel. Dev and build groups only, transitive,
+                     via modal and rich; not in the bot image.
 
 System packages in the Docker image
 ------------------------------------
@@ -36,17 +53,25 @@ The Dockerfile installs additional system packages into the image with
 
 The base image (alpine) also contains its own operating-system
 packages (e.g. BusyBox, GPL-2.0-only) under their respective licenses, as any
-Linux distribution image does.
+Linux distribution image does. The same holds for the Dockerfile's separate
+`migrate` stage, which is built on debian (slim) and installs no extra system
+packages. compose.yaml builds that stage alongside the bot image (Compose
+reuses an existing image unless run with `--build`), and its image carries
+the whole `build` dependency group (including psycopg2-binary, LGPL), so the
+obligations above apply to it too if it is ever distributed.
 
 Local development environment (pixi)
 -------------------------------------
 The optional pixi environment (see the README) is for local development only
 and is never packaged or distributed. It fetches its own ffmpeg build from
-conda-forge (`ffmpeg-*-gpl_*`, GPL-2.0-or-later) — a different binary than the
-one Alpine installs into the Docker image above, but also GPL-licensed, so its
-obligations are equally dormant under the source-only distribution model
-below. The committed `pixi.lock` records only download URLs and hashes, not
-the binaries themselves, and so is not a redistribution of that code.
+conda-forge — a different binary than the one Alpine installs into the Docker
+image above. conda-forge publishes both `gpl_*` (GPL-2.0-or-later) and `lgpl_*`
+variants, and `pyproject.toml` pins no variant, so assume the GPL one; either
+way its obligations are dormant under the source-only distribution model
+below. The repository holds only the pixi configuration in `pyproject.toml`
+(`[tool.pixi.*]`), which names packages and version ranges, not the binaries
+themselves. `pixi.lock` is gitignored and generated locally, so nothing of that
+ffmpeg build is redistributed.
 
 Distribution model
 ------------------
