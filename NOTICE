@@ -26,7 +26,7 @@ Some dependencies ship test fixtures under non-software licenses inside their
 source distribution (sdist) only. When a compatible wheel exists, uv installs
 it instead, and the wheel leaves these files out, so they do not reach an
 environment or an image. A package built from its sdist (no wheel for the
-platform, or a `no-binary`/`no-build` setting) needs a fresh check. License
+platform, or a `no-binary` setting) needs a fresh check. License
 scanners that read the sdist still report these files.
 
   - markdown-it-py — MIT (the code, in the wheel and the sdist). Its sdist
@@ -55,7 +55,8 @@ The base image (alpine) also contains its own operating-system
 packages (e.g. BusyBox, GPL-2.0-only) under their respective licenses, as any
 Linux distribution image does. The same holds for the Dockerfile's separate
 `migrate` stage, which is built on debian (slim) and installs no extra system
-packages. compose.yaml builds that stage on every run, and its image carries
+packages. compose.yaml builds that stage alongside the bot image (Compose
+reuses an existing image unless run with `--build`), and its image carries
 the whole `build` dependency group (including psycopg2-binary, LGPL), so the
 obligations above apply to it too if it is ever distributed.
 
