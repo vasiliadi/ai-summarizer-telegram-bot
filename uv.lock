@@ -70,7 +70,7 @@ requires-dist = [
     { name = "exa-py", specifier = "==2.28.0" },
     { name = "langfuse", specifier = "==5.2.0" },
     { name = "limits", specifier = "==5.8.0" },
-    { name = "openai", specifier = "==3.55.1" },
+    { name = "openai", specifier = "==3.56.0" },
     { name = "psycopg2-binary", specifier = "==2.9.13" },
     { name = "pytelegrambotapi", specifier = "==4.37.1" },
     { name = "redis", specifier = "==8.1.0" },
@@ -1316,7 +1316,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "3.55.1"
+version = "3.56.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1326,9 +1326,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0c/9d/bbc069c02b07420e590e240673e40efbf423e6d7eb6c52493b7ab78f5d7d/openai-3.55.1.tar.gz", hash = "sha256:db5a9ae65d21e5a51ef7fa395e5418942b04120cc73f2ab25bd2fc22db101ecd", size = 2424302, upload-time = "2026-11-18T16:05:20.446Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/71/dd/e734e29239f14c81e0ee33259bae420822b4f673cd7068b7231a40ab8821/openai-3.56.0.tar.gz", hash = "sha256:c99192c0a08f572042e50a74c42e325f70a44308fbb0c0c8f3aeb1ba0d52a567", size = 2424433, upload-time = "2026-11-19T20:57:15.425Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b5/c3/e7572f192d705c89c3dd475693640c529df289a98c94306bd724b73ed6ca/openai-3.55.1-py3-none-any.whl", hash = "sha256:9136b1a760401aa150d084b0a673a4eca5b434917f3afe0378321cf544d5bdc2", size = 2451088, upload-time = "2026-11-18T16:05:17.896Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/fb/0fcc715f2c9a81a2665698ccfbbbe017fcbca850efa7ee8f43af0a301c24/openai-3.56.0-py3-none-any.whl", hash = "sha256:24043ea80048ed1cd6c263c4fc4192406d05c418e87e89310eecbf55a9021c32", size = 2451118, upload-time = "2026-11-19T20:57:13.245Z" },
 ]
 
 [[package]]
