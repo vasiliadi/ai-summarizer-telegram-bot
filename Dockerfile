@@ -7,7 +7,7 @@ ENV ENV=BUILD \
     MODAL_BUILD_VALIDATION=ignore \
     UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
-COPY --from=ghcr.io/astral-sh/uv:latest@sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85 /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d /uv /bin/
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync \
     --frozen \
@@ -27,7 +27,7 @@ FROM base AS deps
 # uv's python-build-standalone interpreter is faster than the Docker Hub build.
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
-COPY --from=ghcr.io/astral-sh/uv:latest@sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85 /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d /uv /bin/
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync \
     --frozen \
